@@ -138,12 +138,9 @@ export default function Connections() {
 
     // WHERE YOUR PEOPLE ARE GOING NEXT.
     //
-    // The one thing this page could tell you that the Creator Network cannot,
-    // and the reason to open it: the directory answers "who is out there", and
-    // it answers it about forty-five strangers. This answers "which of the
-    // people I already know is about to be somewhere", which is the question
-    // that turns a connection into a trip. Ethan: "I don't see why anyone would
-    // click on it over the Creator Network."
+    // The one thing this page could tell you that the Creator Network cannot, and the reason to open it: the directory
+    // answers "who is out there", and it answers it about forty-five strangers. This answers "which of the people I
+    // already know is about to be somewhere", which is the question that turns a connection into a trip.
     //
     // Same rows the collab board and the map use, so a trip somebody posts
     // shows up here without a second source of truth.
@@ -340,12 +337,6 @@ export default function Connections() {
       <PageHeader title={tr("Connections")} />
 
       {/* THREE NUMBERS, AND EACH ONE IS THE COLOUR OF WHAT IT MEANS.
-          (1 Sep 2026.)
-
-          Ethan: "for the 3 boxes at the top, connections, requests, and online
-          now I would improve the ui of them, for example online now should show
-          the number in green and maybe connections should show the colour in
-          tryp.com orange."
 
           They were three identical grey-bordered white cards with a black
           number in each, and only Requests changed - and only when it was
@@ -473,22 +464,14 @@ export default function Connections() {
       {tab === 'network' ? (
         <section>
           {/* ---- Your people, on the move ----
-              THIS USED TO BE SIX FULL-WIDTH ROWS ABOVE THE TABS, and it was the
-              first thing on the page after the counters. Ethan: "the bit that
-              shows your connections on the move takes up a lot of space, and I
-              can't actually see my network."
-              He is right about the cost and the section is still worth having:
-              the directory tells you who is out there, this tells you which of
-              the people you already know is about to be somewhere, which is the
-              one that turns a connection into a coffee. So it keeps its job and
-              gives back the page - a single scrolling rail of small cards
-              instead of a stack, inside YOUR NETWORK, because that is whose
-              trips these are. It is still near the top of its tab because it
-              EXPIRES: a trip you find out about after it has happened is not
-              information.
-              "See the trip" is on every card rather than at the end of the
-              section - Ethan liked that button, and a rail you have to scroll
-              to the end of to act on is a rail nobody acts on. */}
+              THIS USED TO BE SIX FULL-WIDTH ROWS ABOVE THE TABS, and it was the first thing on the page after the
+              counters. they are right about the cost and the section is still worth having: the directory tells you who
+              is out there, this tells you which of the people you already know is about to be somewhere, which is the
+              one that turns a connection into a coffee. So it keeps its job and gives back the page - a single scrolling
+              rail of small cards instead of a stack, inside YOUR NETWORK, because that is whose trips these are. It is
+              still near the top of its tab because it EXPIRES: a trip you find out about after it has happened is not
+              information. "See the trip" is on every card rather than at the end of the section - the team liked that
+              button, and a rail you have to scroll to the end of to act on is a rail nobody acts on. */}
           {d.travelling?.length > 0 && (
             <div className="mb-6">
               <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-smoke">
@@ -569,13 +552,11 @@ export default function Connections() {
                       mutuals={d.mutualsWith(c.id)}
                       subtitle={presenceLabel(c.last_seen_at) || c.bio || 'Creator'}
                       right={
-                        /* A LABELLED BUTTON, NOT A BARE ENVELOPE.
-                           The page exists to get people talking to each other,
-                           and a 36px icon with no word on it is the quietest
-                           possible invitation to do that - it reads as chrome
-                           on a card rather than as the thing to press. Ethan:
-                           "we want to actually create better connections,
-                           encourage people to reach out to each other." */
+                        /*
+                         * A LABELLED BUTTON, NOT A BARE ENVELOPE. The page exists to get people talking to each other,
+                         * and a 36px icon with no word on it is the quietest possible invitation to do that - it reads
+                         * as chrome on a card rather than as the thing to press.
+                         */
                         <Link
                           to={`/messages?to=${c.id}`}
                           aria-label={`Message ${c.name}`}

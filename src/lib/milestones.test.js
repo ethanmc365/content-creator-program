@@ -105,9 +105,8 @@ describe('reading a whole ladder', () => {
     expect(s.next.title).toBe('Two')
   })
 
-  // Ethan's case: past 100,000 views, has never referred anybody, so the stops
-  // beyond the referral gate are earned and unavailable. They have to be
-  // countable or the page cannot explain itself.
+  // The team's case: past 100,000 views, has never referred anybody, so the stops beyond the referral gate are earned
+  // and unavailable. They have to be countable or the page cannot explain itself.
   it('separates earned-but-gated from not-yet-done', () => {
     expect(routeState(ladder).blocked.map((b) => b.title)).toEqual(['Three', 'Four'])
   })

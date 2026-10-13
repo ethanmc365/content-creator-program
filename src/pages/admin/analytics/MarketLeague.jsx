@@ -6,12 +6,6 @@ import Icon from '../../../components/Icon'
 
 // THE MARKET LEAGUE.
 //
-// Ethan: "I think it's good for the community managers to have a bit of
-// competition too, this should be built into the analytics page somewhere, like
-// a market leaderboard, which shows all time and for current month and past
-// months, this is based on views, but should also show numbers of creators,
-// prize money paid etc, like a comparison as well as competition."
-//
 // TWO THINGS ON ONE SCREEN, AND THEY PULL AGAINST EACH OTHER.
 //
 // A LEAGUE wants one number, ranked, with a winner. A COMPARISON wants every
@@ -91,13 +85,12 @@ function Spark({ byMonth, months }) {
 
 
 /**
- * WHICH MONTH THE LEAGUE OPENS ON: ALL TIME (24 Sep 2026).
+ * WHICH MONTH THE LEAGUE OPENS ON: ALL TIME.
  *
- * It opened on the current month, and Ethan met it on a September with the
- * Global Challenge running and read "No market ran a challenge in September".
- * The fix for that half is in lib/marketStandings (a worldwide challenge now
- * counts for every entrant's market); this half is his other ask: "Maybe it
- * should start with all time, and then you can click to [a month]."
+ * It opened on the current month, and the team met it on a September with the Global Challenge running and read "No
+ * market ran a challenge in September". The fix for that half is in lib/marketStandings (a worldwide challenge now
+ * counts for every entrant's market); this half is their other ask: "Maybe it should start with all time, and then you
+ * can click to [a month]."
  *
  * `null` means nobody has chosen yet; any string - including the empty string
  * that means all time - is a real choice that sticks.
@@ -303,18 +296,12 @@ export default function MarketLeague({ raw, currency }) {
                 <span><b className="text-ink">{r.posts}</b> videos</span>
                 <span><b className="text-ink">{formatMoney(r.spend, currency)}</b> in prizes</span>
                 {r.cpm != null && <span><b className="text-ink">{formatMoney(r.cpm, currency)}</b> / 1k views</span>}
-                {/* The "views measured on 4 of 6" caveat used to sit here.
-                    Ethan: "I wouldn't show up where it says views measured on
-                    six of seven and the other places... just show what the
-                    current data is for that we have." It moved INTO the
-                    expanded panel below, which is the right home for it: it is
-                    the answer to "is this number complete", and that is a
-                    question you ask after you have decided to look closely. */}
+                {/* The "views measured on 4 of 6" caveat used to sit here. It moved INTO the expanded panel below, which
+                    is the right home for it: it is the answer to "is this number complete", and that is a question you
+                    ask after you have decided to look closely. */}
               </div>
 
-              {/* CLICKING A ROW OPENS IT. Ethan: "maybe clicking on it could
-                  give even more data because currently clicking on it does
-                  nothing."
+              {/* CLICKING A ROW OPENS IT.
 
                   A STRETCHED BUTTON UNDER THE CONTENT, not a wrapper around it
                   - the same construction the past-challenge cards use. A

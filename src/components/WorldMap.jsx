@@ -92,10 +92,7 @@ function WorldMap({ selected = [], onToggle, selectable = false, chips = false, 
     return () => { release(); document.removeEventListener('keydown', onKey) }
   }, [full])
 
-  // IT OPENS ON THE FRAME YOU WERE ALREADY LOOKING AT (fixed 1 Sep 2026).
-  //
-  // Ethan: "when you click the full screen mode on the map, it starts with the
-  // map zoomed in a bit, rather than just showing it normally first."
+  // IT OPENS ON THE FRAME YOU WERE ALREADY LOOKING AT (fixed).
   //
   // It used to force `zoom >= 2` AND drop `fitPos`/`focusPos` on the way in. So
   // pressing full screen did two things nobody asked for: it threw away the
@@ -234,10 +231,9 @@ function WorldMap({ selected = [], onToggle, selectable = false, chips = false, 
   // top of a "full screen" map. The community map learned this already; this is
   // the same lesson.
   //
-  // Not the Fullscreen API: on a phone that path also wants an orientation
-  // lock, which is the transition Ethan reports as laggy, and iOS Safari
-  // refuses it on an arbitrary element anyway. A portalled fixed layer is
-  // instant everywhere and has nothing to animate.
+  // Not the Fullscreen API: on a phone that path also wants an orientation lock, which is the transition the team
+  // reports as laggy, and iOS Safari refuses it on an arbitrary element anyway. A portalled fixed layer is instant
+  // everywhere and has nothing to animate.
   const mapBox = (
     // Full screen means the BOX fills the screen, not just the page behind it.
     // The map fits to width (880x440), so on a 375px phone it draws 187px tall
@@ -255,14 +251,14 @@ function WorldMap({ selected = [], onToggle, selectable = false, chips = false, 
         ? 'relative h-full w-full overflow-hidden rounded-card bg-cloud/60'
         : 'relative w-full overflow-hidden rounded-card bg-cloud/60'}
     >
-        {/* THE COUNTRY CARD (4 Oct 2026). Ethan: the name came up in a dark pill over the map and the pinned country in a flat
-            orange; he wanted it like the language buttons - a white card with the flag and the name. On a map you are pinning
-            it also says what a tap will do (or has just done), so a country is never added without it saying so. */}
+        {/* THE COUNTRY CARD. The team: the name came up in a dark pill over the map and the pinned country in a flat
+            orange; he wanted it like the language buttons - a white card with the flag and the name. On a map you are
+            pinning it also says what a tap will do (or has just done), so a country is never added without it saying so. */}
         {/* 12 Oct 2026: on the creator spotlight it covered the "11 countries" badge at the top, so a map with a header
             over it puts the card at the BOTTOM (`tooltipAt`). Every country now has its flag (lib/flags), and a travel
             map says whether this one was visited. Keyed by country, so it pops in fresh as you move across the map. */}
-        {/* CENTRED (13 Oct 2026). Ethan: the country card "is not centred". It was centred with -translate-x-1/2 on the
-            same element as animate-pop-in, and the pop-in's own transform (a scale) replaced the translate for the whole
+        {/* CENTRED. The team: the country card "is not centred". It was centred with -translate-x-1/2 on the same
+            element as animate-pop-in, and the pop-in's own transform (a scale) replaced the translate for the whole
             animation and after it, so the card sat half its width to the right. The row now centres it with flex and
             only the card itself pops. */}
         {tooltip && (
@@ -282,24 +278,13 @@ function WorldMap({ selected = [], onToggle, selectable = false, chips = false, 
           </div>
         )}
 
-        {/* ONE PILL, AND ON A PHONE ONE BUTTON (21 Sep 2026).
-            Ethan, of the creator spotlight on a phone: "these buttons are way
-            too big, and they don't look good... remove the plus and minus
-            buttons and the reset button, and only have the full screen button,
-            which should be where the minus button currently is, so you can
-            still see how many countries they have." Two fingers already pinch
-            this map, so on a phone the only thing a button adds is the way in to
-            full screen. From `sm` the pointer is a mouse and the zoom comes back,
-            as one grouped pill like the community map's rather than four loose
-            discs. `controlsBelowBadge` drops the pill one button-height so it
-            clears a badge in the map's top-right corner (the spotlight's
-            country count) instead of sitting on it.
-            AND ON A DESKTOP TOO, WHERE THE BADGE IS (21 Sep 2026, evening).
-            Ethan, having seen the phone version: "do the same and only have the
-            full screen icon just below where it says the number of countries.
-            I think this will look better for desktop too." So a map with a
-            badge over it carries the one button at every width; the zoom pill
-            comes back once it is full screen, where there is room for it. */}
+        {/* ONE PILL, AND ON A PHONE ONE BUTTON. Two fingers already pinch this map, so on a phone the only thing a
+            button adds is the way in to full screen. From `sm` the pointer is a mouse and the zoom comes back, as one
+            grouped pill like the community map's rather than four loose discs. `controlsBelowBadge` drops the pill one
+            button-height so it clears a badge in the map's top-right corner (the spotlight's country count) instead of
+            sitting on it.
+            AND ON A DESKTOP TOO, WHERE THE BADGE IS. So a map with a badge over it carries the one button at every
+            width; the zoom pill comes back once it is full screen, where there is room for it. */}
         <div
           className={cx(
             'absolute right-2 z-10 flex flex-col overflow-hidden rounded-full bg-white/95 shadow-card ring-1 ring-black/5 backdrop-blur',
@@ -314,10 +299,8 @@ function WorldMap({ selected = [], onToggle, selectable = false, chips = false, 
             className={cx('hidden h-9 w-9 items-center justify-center border-t border-gray-100 text-smoke transition-colors hover:bg-cloud', !onlyFullButton && 'sm:flex')}>
             <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9 9 0 0 0-6.7 3M3 4v4h4"/></svg>
           </button>
-          {/* OPEN IT BIG. The profile map had zoom buttons and no way to fill
-              the screen, which on a 180px-tall box means zooming into a
-              letterbox. Ethan: "creator maps on profiles need zoom and full
-              screen buttons." */}
+          {/* OPEN IT BIG. The profile map had zoom buttons and no way to fill the screen, which on a 180px-tall box
+              means zooming into a letterbox. */}
           <button
             type="button"
             onClick={() => setFull((v) => !v)}
@@ -340,15 +323,12 @@ function WorldMap({ selected = [], onToggle, selectable = false, chips = false, 
           height={440}
           projectionConfig={{ scale: 160, center: [12, 8] }}
           style={{ width: '100%', height: full || fill ? '100%' : 'auto', display: 'block' }}
-          // FILL THE SCREEN, DO NOT LETTERBOX IT. The default `meet` fits the
-          // whole 880x440 viewBox inside the box, so on a portrait phone full
-          // screen drew the same 187px strip it drew in the card and only the
-          // white around it changed. `slice` fills the box and crops the
-          // overflow instead, which is what makes the map actually bigger - and
-          // it is why the camera no longer has to be moved to fake it.
-          // `fill` (12 Oct 2026): a map inside a card that is taller than 2:1 -
-          // the desktop spotlight - fills its box the same way rather than
-          // drawing a letterboxed strip with white above and below.
+          // FILL THE SCREEN, DO NOT LETTERBOX IT. The default `meet` fits the whole 880x440 viewBox inside the box, so
+          // on a portrait phone full screen drew the same 187px strip it drew in the card and only the white around it
+          // changed. `slice` fills the box and crops the overflow instead, which is what makes the map actually bigger -
+          // and it is why the camera no longer has to be moved to fake it. `fill`: a map inside a card that is taller
+          // than 2:1 - the desktop spotlight - fills its box the same way rather than drawing a letterboxed strip with
+          // white above and below.
           preserveAspectRatio={full || fill ? 'xMidYMid slice' : 'xMidYMid meet'}
           aria-label={tr("World map of countries visited")}
           // Pressing the sea closes a country's card. The only rect in this svg is ZoomableGroup's own drag surface
@@ -366,11 +346,7 @@ function WorldMap({ selected = [], onToggle, selectable = false, chips = false, 
             // even when fully zoomed out. d3-zoom clamps panning to this extent.
             translateExtent={[[-60, -50], [940, 490]]}
             onMoveEnd={(pos) => { if (!focusCountry) setPosition(pos) }}
-            // A LIVE ZOOM FOR THE ONE THING THAT COUNTER-SCALES (2 Sep 2026).
-            //
-            // Ethan: "on the countries visited map, whenever you zoom in the
-            // profile picture is really big for a while and then corrects the
-            // size."
+            // A LIVE ZOOM FOR THE ONE THING THAT COUNTER-SCALES.
             //
             // `onMoveEnd` is the only thing that wrote `position`, so during a
             // pinch or a wheel the GROUP was already at the new scale while
@@ -449,10 +425,6 @@ function WorldMap({ selected = [], onToggle, selectable = false, chips = false, 
             </Geographies>
 
             {/* ---- WHERE THEY ARE RIGHT NOW ----
-                Ethan: "it should show where they are right now, maybe with a
-                pulsing profile icon on the map, and it should show if they're
-                in a country currently travelling or just in their home country
-                if that's where they currently are."
 
                 A FACE, NOT A PIN. The map already uses colour to mean "has been
                 here"; another orange shape on it would be read as another
@@ -503,20 +475,19 @@ function WorldMap({ selected = [], onToggle, selectable = false, chips = false, 
           </ZoomableGroup>
         </ComposableMap>
 
-        {/* The "Search above, or tap the map" caption that sat bottom-left is gone (4 Oct 2026): the search box is right above. */}
+        {/* The "Search above, or tap the map" caption that sat bottom-left is gone: the search box is right above. */}
 
-        {/* THE "TAP A COUNTRY" HINT IS GONE. A coloured country on a map you
-            can tap is already an affordance; a label explaining it sat over the
-            map on every profile in the product, permanently, to say something
-            most people find out by tapping once. Ethan asked for it off. */}
+        {/* THE "TAP A COUNTRY" HINT IS GONE. A coloured country on a map you can tap is already an affordance; a label
+            explaining it sat over the map on every profile in the product, permanently, to say something most people
+            find out by tapping once. The team asked for it off. */}
 
         {/* Desktop: over the map. Phones get it UNDER the map instead - see
             below - because the map box is only about 180px tall at 375px and an
             overlay there covers the thing it is describing. */}
-        {/* IN THE MIDDLE, AND DRAGGABLE IN FULL SCREEN (13 Oct 2026). Ethan: the pop-up "should also be centred", and in
-            full screen it should move like the one on the community map does. Same frame and DraggablePanel as
-            CreatorMap: centred over the map, a definite box (top-14 / bottom-3) so a tall card scrolls inside it, and
-            in full screen it is shown at every width and can be dragged out of the way. */}
+        {/* IN THE MIDDLE, AND DRAGGABLE IN FULL SCREEN. The team: the pop-up "should also be centred", and in full
+            screen it should move like the one on the community map does. Same frame and DraggablePanel as CreatorMap:
+            centred over the map, a definite box (top-14 / bottom-3) so a tall card scrolls inside it, and in full screen
+            it is shown at every width and can be dragged out of the way. */}
         {countryPanel && (
           <div className={cx('pointer-events-none absolute inset-x-3 bottom-3 top-14 z-20 flex-col items-center justify-center', full ? 'flex' : 'hidden sm:flex')}>
             <DraggablePanel enabled={full} resetKey={full} className={cx('pointer-events-auto flex min-h-0 w-full flex-col', full ? 'max-w-md [--map-panel-max-h:32rem]' : 'max-w-sm')}>
@@ -565,18 +536,12 @@ function WorldMap({ selected = [], onToggle, selectable = false, chips = false, 
             )}
           </div>
 
-          {/* THE CHIP LIST USED TO BE HERE TOO, and that is why the countries
-              appeared twice on Edit profile - once above the map and once
-              below. Ethan: "it's now showing up every country listed above the
-              map and below the map, remove the ones that appear above."
-              He is right about which one to keep: above the map they sat
-              between the search box and the map itself, pushing the map down
-              the screen by however many countries you had visited, so somebody
-              with forty had to scroll past their own list to reach the thing
-              they were selecting from. Below, the map is the control and the
-              list is the receipt.
-              `chips` lets a caller ask for them back if a surface ever wants
-              them here; nothing does today. */}
+          {/* THE CHIP LIST USED TO BE HERE TOO, and that is why the countries appeared twice on Edit profile - once
+              above the map and once below. they are right about which one to keep: above the map they sat between the
+              search box and the map itself, pushing the map down the screen by however many countries you had visited,
+              so somebody with forty had to scroll past their own list to reach the thing they were selecting from.
+              Below, the map is the control and the list is the receipt. `chips` lets a caller ask for them back if a
+              surface ever wants them here; nothing does today. */}
           {chips && selected.length > 0 && (
             <div className="mt-3 flex flex-wrap gap-2">
               {[...selected].sort((a, b) => a.localeCompare(b)).map((name) => (
@@ -613,7 +578,7 @@ function WorldMap({ selected = [], onToggle, selectable = false, chips = false, 
 // memo: the map only re-renders when the selection actually changes.
 const WorldMapMemo = memo(WorldMap)
 
-// Behind the slow-signal gate (components/SlowMapGate, 2 Oct 2026).
+// Behind the slow-signal gate (components/SlowMapGate).
 export default function WorldMapGated(props) {
   return <SlowMapGate className={props.slowGateClassName}><WorldMapMemo {...props} /></SlowMapGate>
 }

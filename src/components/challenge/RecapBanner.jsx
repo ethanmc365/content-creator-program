@@ -2,8 +2,7 @@ import { Link } from 'react-router-dom'
 import Icon from '../Icon'
 import { useT } from '../../lib/i18n'
 
-// "YOUR RECAP IS READY" (24 Sep 2026, its own component 26 Sep so the Testing
-// Centre draws the exact banner a creator sees).
+// "YOUR RECAP IS READY" (its own component 26 Sep so the Testing Centre draws the exact banner a creator sees).
 //
 // WHERE IT APPEARS: at the top of a challenge's page, under the header, once
 // the challenge has closed - for anybody who entered it. The "Results are in"

@@ -6,8 +6,7 @@ import PlatformBadges from '../../components/PlatformBadges'
 import { timeAgo } from '../../lib/utils'
 import { saveViewSyncSecret, viewSyncStatus } from '../../lib/viewSync'
 
-// What automatic view counts needs to read each platform - which, since 25 Aug
-// 2026, is one free API key and nothing else.
+// What automatic view counts needs to read each platform - which,, is one free API key and nothing else.
 //
 // Instagram used to want a session cookie from a Tryp-owned account. Instagram
 // then warned that account for suspected automated behaviour and threatened to

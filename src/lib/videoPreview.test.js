@@ -12,8 +12,7 @@ describe('playsInline', () => {
     expect(playsInline('https://youtu.be/dQw4w9WgXcQ')).toBe(true)
   })
 
-  // The bug Ethan reported: a carousel has a perfectly good embed URL and
-  // simply never plays.
+  // The bug the team reported: a carousel has a perfectly good embed URL and simply never plays.
   it('refuses an Instagram post, which is where carousels live', () => {
     expect(playsInline('https://www.instagram.com/p/Cabc123/')).toBe(false)
     expect(playsInline('https://instagram.com/someone/p/Cabc123/')).toBe(false)

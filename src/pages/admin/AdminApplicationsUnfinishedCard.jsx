@@ -90,11 +90,8 @@ export function UnfinishedCard({ app, email, phone, onFollowUp, onDecline, busy,
 
         <div className="grid grid-cols-2 gap-2 pt-1 sm:flex sm:flex-wrap sm:items-center sm:justify-end">
           <Link to={`/profile/${app.id}`} className="btn-secondary justify-center !py-2 text-xs">Full profile</Link>
-          {/* DELETE, NOT "REMOVE". Ethan: "rather than the Remove, it should be
-              a Delete button to actually delete the creator permanently."
-              It always did delete permanently - `admin_decline_application`
-              records the decision and then removes the account - so "Remove"
-              was the softer of two words for the same irreversible thing. */}
+          {/* DELETE, NOT "REMOVE". It always did delete permanently - `admin_decline_application` records the decision
+              and then removes the account - so "Remove" was the softer of two words for the same irreversible thing. */}
           <button onClick={onDecline} disabled={busy} className="btn-danger justify-center !py-2 text-xs">Delete</button>
           {/* A MARK, NOT A SEND. There is no email automation - all outbound
               mail is paused - so a "Send" button would either lie or queue

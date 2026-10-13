@@ -11,9 +11,6 @@ import { certificatesApi } from '../../../api/certificates'
 
 // THE GRAPHICS CREATORS REPOST.
 //
-// Ethan: "I want a place that myself and admins can upload the photos in
-// quality that the creators can save to camera roll/download and then use."
-//
 // IN QUALITY IS THE REQUIREMENT, and it is the one thing that could quietly be
 // got wrong here. Every other image upload on this platform goes through
 // `compressImage` - 1280px, WebP, q0.82 - because every other image is a
@@ -107,8 +104,8 @@ export default function KitLibrary() {
     moveTo(row, from + by)
   }
 
-  // EVERY REORDER - an arrow or a drag - lands here. ("Stories first" was
-  // removed 21 Sep 2026: Ethan drags them into the order he wants.)
+  // EVERY REORDER - an arrow or a drag - lands here. ("Stories first" was removed: the team drags them into the order
+  // they want.)
   function moveTo(row, to) {
     const list = [...rows]
     const from = list.findIndex((r) => r.id === row.id)
@@ -130,11 +127,7 @@ export default function KitLibrary() {
 
   return (
     <div className="space-y-6">
-      {/* A BUTTON, NOT A BANNER (21 Sep 2026). Ethan: "rather than having a
-          big card above it that says add the graphics the creators can share
-          in a big box to give them space, there should be just a simple
-          upload your graphics button at the top somewhere." The explanation
-          moved into the line beside it, and the grid gets the room. */}
+      {/* A BUTTON, NOT A BANNER. The explanation moved into the line beside it, and the grid gets the room. */}
       <div className="flex flex-wrap items-center gap-3">
         <div className="min-w-0 flex-1">
           <p className="text-sm font-semibold text-ink">
@@ -248,11 +241,8 @@ function KitCard({ row, first, last, onPatch, onDelete, onMove, position, draggi
           aria-label="Title"
         />
 
-        {/* MORE THAN ONE, IF IT IS MORE THAN ONE THING (21 Sep 2026). Ethan:
-            "I can only click Story or Post or LinkedIn, but I want to be able
-            to click Post and LinkedIn." A graphic can be posted on Instagram
-            AND on LinkedIn, so these are toggles, not a choice of one. The last
-            one cannot be switched off - a graphic is always for something.
+        {/* MORE THAN ONE, IF IT IS MORE THAN ONE THING. A graphic can be posted on Instagram AND on LinkedIn, so these
+            are toggles, not a choice of one. The last one cannot be switched off - a graphic is always for something.
             `kind` keeps the first, for everything that still reads one. */}
         <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="What it is for">
           {KINDS.map((k) => {

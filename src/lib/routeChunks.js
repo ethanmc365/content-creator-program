@@ -1,8 +1,6 @@
 // EVERY CODE-SPLIT ROUTE, IN ONE PLACE, SO SOMETHING CAN PREFETCH IT.
 //
-// THE REPORT, FOR THE THIRD TIME (4 Sep 2026). Ethan: "there is an issue on
-// mobile where clicking between pages briefly flashes up the loading screen
-// every time. I don't want this to happen, instead I want a skeleton loader."
+// THE REPORT, FOR THE THIRD TIME.
 //
 // Two fixes have already been tried and both were aimed at the FALLBACK - what
 // gets drawn while a chunk arrives. The first moved the Suspense boundary
@@ -12,12 +10,10 @@
 // between two pages however it is painted. **The only fix that removes it is
 // not suspending at all.**
 //
-// The third attempt prefetched three chunks on idle - Worldwide, Rooms and the
-// chat - because those were the tabs Ethan named. That is why the bottom tab
-// bar stopped flashing and everything else did not: THIRTY-ONE other routes are
-// code-split and none of them was prefetched, and Ethan is an admin who spends
-// his time in /admin, where every single page is a first-visit chunk. "Every
-// time" is exactly right, and it was never about the tabs.
+// The third attempt prefetched three chunks on idle - Worldwide, Rooms and the chat - because those were the tabs the
+// team named. That is why the bottom tab bar stopped flashing and everything else did not: THIRTY-ONE other routes are
+// code-split and none of them was prefetched, and the team is an admin who spends their time in /admin, where every
+// single page is a first-visit chunk. "Every time" is exactly right, and it was never about the tabs.
 //
 // So this file is the registry, and it buys two things that a scattered pile of
 // `lazy(() => import(...))` calls in App.jsx cannot:
@@ -42,11 +38,11 @@
 // `import()` per chunk - a computed specifier defeats the bundler - so these
 // are written out rather than generated.
 export const chunk = {
-  // THE BIG CREATOR PAGES, SPLIT OUT OF THE ENTRY (5 Oct 2026). Ethan: "it's taking a long time for all the pages to load on the platform, even
-  // with a decent Wi-Fi signal." The entry chunk was 1.35 MB (382 kB gzipped) because these nine pages - about twelve thousand lines, most of
-  // them pages a creator opens once a day or once ever (Onboarding, Settings, Edit profile) - were imported eagerly, so every cold start paid
-  // for all of them before a single pixel. They are fetched on intent (a finger or pointer touching a link) and on idle, exactly as the
-  // tabs are, so the cost moves out of the first paint rather than into a loading screen.
+  // THE BIG CREATOR PAGES, SPLIT OUT OF THE ENTRY. The entry chunk was 1.35 MB (382 kB gzipped) because these nine pages
+  // - about twelve thousand lines, most of them pages a creator opens once a day or once ever (Onboarding, Settings,
+  // Edit profile) - were imported eagerly, so every cold start paid for all of them before a single pixel. They are
+  // fetched on intent (a finger or pointer touching a link) and on idle, exactly as the tabs are, so the cost moves out
+  // of the first paint rather than into a loading screen.
   Onboarding: () => import('../pages/Onboarding'),
   EditProfile: () => import('../pages/EditProfile'),
   Directory: () => import('../pages/Directory'),

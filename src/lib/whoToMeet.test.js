@@ -98,8 +98,8 @@ describe('pickWhoToMeet', () => {
     expect(out[0].reason.kind).toBe('trip')
   })
 
-  // STABLE FOR A DAY, DIFFERENT TOMORROW. It used to hold for a whole week,
-  // which Ethan reported as "the same creators every single day".
+  // STABLE FOR A DAY, DIFFERENT TOMORROW. It used to hold for a whole week, which the team reported as "the same
+  // creators every single day".
   it('is stable within a day', () => {
     const morning = Date.UTC(2026, 7, 10, 9, 0)
     const night = Date.UTC(2026, 7, 10, 22, 0)

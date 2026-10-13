@@ -5,11 +5,7 @@ import { BRAND, PLANE_D, CAN_MOTION_PATH } from './CreatorMapParts'
 // so every plane on the map moves. `dur` (seconds) is set by the caller from
 // path length so all planes share one speed.
 //
-// IT IS A CSS MOTION PATH NOW, NOT SMIL (10 Sep 2026).
-//
-// Ethan, on the desktop landing page, after the arrival itself was fixed: "the
-// icons come in nicely, but the plane animation is frozen, and then suddenly it
-// jumps to where it should have been."
+// IT IS A CSS MOTION PATH NOW, NOT SMIL.
 //
 // That last clause is the whole diagnosis. A thing that is stopped and then
 // CONTINUES was paused; a thing that is stopped and then APPEARS WHERE IT WOULD

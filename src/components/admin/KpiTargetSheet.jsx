@@ -11,10 +11,9 @@ import { marketsApi } from '../../api/markets'
 
 // SETTING OR EDITING ONE KPI GOAL.
 //
-// EVERY GOAL IS MEASURED BY THE PLATFORM (1 Oct 2026). Ethan: "We have 'My own KPI', but we want
-// to remove this completely. Only the 'Measured for you'." So the sheet is three things, top to
-// bottom: WHEN (a quarter or a month, any of them), WHAT (one of the measured metrics, laid out as
-// tiles grouped by what they measure) and HOW MUCH (a goal, typed, no spinner arrows).
+// EVERY GOAL IS MEASURED BY THE PLATFORM. So the sheet is three things, top to bottom: WHEN (a quarter or a month, any
+// of them), WHAT (one of the measured metrics, laid out as tiles grouped by what they measure) and HOW MUCH (a goal,
+// typed, no spinner arrows).
 //
 // THE PERIOD IS ANY PERIOD, AND IT CAN CHANGE AFTER SAVING. The month choice used to be the three
 // months of the quarter on screen, and a saved goal was stuck in the period it was made in. Now
@@ -32,10 +31,9 @@ const cleanNumber = (v) => {
   return i === -1 ? s : s.slice(0, i + 1) + s.slice(i + 1).replace(/\./g, '')
 }
 
-// EDITING AN EXISTING GOAL FROM THE PICKER SWAPS THE BODY, NOT THE DIALOG (2 Oct 2026). Ethan: a
-// tile showing "3" opened with the goal at 0. The sheet kept the state of the NEW goal it had been
-// opened as; the body is now keyed on the row, so pressing a set goal loads its own number, notes
-// and period, and the dialog stays put instead of closing and reopening.
+// EDITING AN EXISTING GOAL FROM THE PICKER SWAPS THE BODY, NOT THE DIALOG. The team: a tile showing "3" opened with the
+// goal at 0. The sheet kept the state of the NEW goal it had been opened as; the body is now keyed on the row, so
+// pressing a set goal loads its own number, notes and period, and the dialog stays put instead of closing and reopening.
 export default function KpiTargetSheet(props) {
   const tr = useT()
   const isNew = !props.row?.id
@@ -59,9 +57,8 @@ function SheetBody({
   const [saving, setSaving] = useState(false)
   const [err, setErr] = useState('')
 
-  // WHICH MARKET, CHANGEABLE HERE (30 Sep 2026). Ethan: "whenever I'm setting a KPI from Germany ...
-  // Germany should then show me the option to change it to a different one." It starts on the market
-  // the page is on (or the goal's own) and lists every market this admin may set goals for.
+  // WHICH MARKET, CHANGEABLE HERE. It starts on the market the page is on (or the goal's own) and lists every market
+  // this admin may set goals for.
   const startKey = row?.id
     ? (scopes.find((x) => x.id === row.community_id && x.basis === row.basis)?.key || scopeKey)
     : scopeKey
@@ -174,9 +171,8 @@ function SheetBody({
       <div className="space-y-6 animate-page-in">
         {/* ---- WHEN ---- */}
         <section>
-          {/* WHO IT IS FOR, LEFT OF WHEN (2 Oct 2026). Ethan: showing the market "looks good ... but the
-              design and where you placed it isn't very good ... maybe show it to the left of quarter and
-              month. Add a nice card slot there." */}
+          {/* WHO IT IS FOR, LEFT OF WHEN. The team: showing the market "looks good... but the design and where you
+              placed it isn't very good... maybe show it to the left of quarter and month. Add a nice card slot there." */}
           <div className="mb-3 flex flex-wrap items-center gap-2">
             <ScopePicker scopes={scopes} value={sk} label={scopeLabel} onChange={setSk} />
             <Segmented
@@ -225,9 +221,11 @@ function SheetBody({
 
         {/* ---- WHAT ---- */}
         {pickingMetric ? (
-          /* ONE LIST, NOT FIVE (2 Oct 2026). Ethan: the groups "make it a long list, and there are a lot
-             of gaps ... everything can be together, just labelled clearly with the nice icons", and
-             "just the icon in the Trip.com orange", no tinted box round it. */
+          /*
+           * ONE LIST, NOT FIVE. The team: the groups "make it a long list, and there are a lot of gaps... everything can
+           * be together, just labelled clearly with the nice icons", and "just the icon in the Trip.com orange", no
+           * tinted box round it.
+           */
           <section>
             <p className="mb-2 text-sm font-medium text-ink">{tr('What to track')}</p>
             <div className="grid grid-cols-2 gap-1.5">
@@ -311,10 +309,8 @@ function SheetBody({
                 {split.map((v, i) => (
                   <div key={i} className="flex flex-col items-center gap-1.5">
                     <div className="flex h-12 w-full items-end rounded-lg bg-white">
-                      {/* SMALL DIFFERENCES MADE VISIBLE (30 Sep 2026). Ethan: "even though these
-                          differences are small, I still want you to visually show that there's a
-                          little bit of a difference." Heights run from a floor across the three
-                          months instead of from zero, so 7 / 8 / 9 are three clear steps. */}
+                      {/* SMALL DIFFERENCES MADE VISIBLE. Heights run from a floor across the three months instead of
+                          from zero, so 7 / 8 / 9 are three clear steps. */}
                       <div className="w-full rounded-lg bg-gradient-to-t from-brand to-brand-light transition-[height] duration-500 ease-out" style={{ height: `${Math.round(splitH[i] * 100)}%` }} />
                     </div>
                     <span className="text-sm font-bold tabular-nums text-ink">{formatKpiValue({ metric }, v, currency)}</span>
@@ -343,10 +339,10 @@ function SheetBody({
   )
 }
 
-// A MARKET IS ITS NAME, WITH A FLAG WHEN IT HAS ONE (2 Oct 2026). Ethan: the drop-down "still has
-// different colours and a worldwide icon for the countries, which we shouldn't have anymore. It should
-// just be the country names. You can show their flags as well, but obviously not all the flags."
-// So no colour chips and no globe on a country. Only the Global challenges row keeps a plain globe.
+// A MARKET IS ITS NAME, WITH A FLAG WHEN IT HAS ONE. The team: the drop-down "still has different colours and a
+// worldwide icon for the countries, which we shouldn't have anymore. It should just be the country names. You can show
+// their flags as well, but obviously not all the flags." So no colour chips and no globe on a country. Only the Global
+// challenges row keeps a plain globe.
 function ScopeMark({ scope }) {
   if (scope?.flag) return <span aria-hidden className="flex h-6 w-6 shrink-0 items-center justify-center text-[17px] leading-none">{scope.flag}</span>
   if (scope?.global) return <span aria-hidden className="flex h-6 w-6 shrink-0 items-center justify-center text-smoke"><Icon name="globe" className="h-4 w-4" /></span>

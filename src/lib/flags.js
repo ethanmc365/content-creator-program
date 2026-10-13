@@ -1,9 +1,9 @@
 import { ALL_COUNTRIES } from './allCountries'
 
-// THE MAP'S OWN SHORT NAMES (12 Oct 2026). The world atlas abbreviates ("Dem. Rep. Congo", "Bosnia and Herz.") and
-// `COUNTRIES` (the geography game's 83) only lists aliases for the countries it plays, so hovering about 150 countries
-// on a creator's travel map showed a name with no flag. Every country now resolves: the pickers' full list (every
-// country with a dialling code) plus these spellings.
+// THE MAP'S OWN SHORT NAMES. The world atlas abbreviates ("Dem. Rep. Congo", "Bosnia and Herz.") and `COUNTRIES` (the
+// geography game's 83) only lists aliases for the countries it plays, so hovering about 150 countries on a creator's
+// travel map showed a name with no flag. Every country now resolves: the pickers' full list (every country with a
+// dialling code) plus these spellings.
 const ATLAS_ALIASES = {
   'marshall is.': 'MH', 'n. mariana is.': 'MP', 'u.s. virgin is.': 'VI', 's. geo. and the is.': 'GS',
   'br. indian ocean ter.': 'IO', 'pitcairn is.': 'PN', 'falkland is.': 'FK', 'cayman is.': 'KY', 'british virgin is.': 'VG',

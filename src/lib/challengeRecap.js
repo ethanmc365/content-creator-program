@@ -1,10 +1,4 @@
-// THE END-OF-CHALLENGE RECAP: THE NUMBERS (24 Sep 2026).
-//
-// Ethan: "the end-of-challenge recap card... the Spotify wrap-style stats
-// engine that the creators can then share if they want to. This just shows
-// their own stats, like where they placed, the percentage of the creators that
-// they've come in, and their top videos... take a lot of design inspo from
-// that end of year card."
+// THE END-OF-CHALLENGE RECAP: THE NUMBERS.
 //
 // Pure, so it is tested; the cards are components/wrapped/challengeStory.jsx
 // and the runner is the Year in Review's own. The same rules the year recap
@@ -74,9 +68,7 @@ export function buildChallengeRecap({ challenge, me, submissions = [], results =
 
   const communityViews = entries.reduce((sum, s) => sum + num(s.logged_views), 0)
 
-  // FACTS WORTH A LINE (28 Sep 2026). Ethan: "add in some more analytics and
-  // cool facts about the challenge". Each is null when it would not be true or
-  // not be flattering enough to say.
+  // FACTS WORTH A LINE. Each is null when it would not be true or not be flattering enough to say.
   const best = top[0]?.views || 0
   const allViews = entries.map((s) => num(s.logged_views))
   const beaten = best > 0 ? allViews.filter((v) => v < best).length : 0

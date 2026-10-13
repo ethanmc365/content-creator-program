@@ -23,11 +23,6 @@ import { teamApi } from '../api/team'
 
 // MY PORTFOLIO.
 //
-// Ethan: "similarly to how we have the 'my rewards' page for each creator on the
-// profile drop down we should also have a 'my portfolio' page... the big
-// functionality is that they can customise and export a pdf of their own
-// portfolio."
-//
 // AND AN ADMIN CAN OPEN SOMEBODY ELSE'S: `/portfolio/:id`, the same shape as
 // the rewards page, "just to ensure everything looks correct and works". It is
 // READ ONLY for them, and that is enforced by the RLS policy as well as by this
@@ -55,12 +50,7 @@ export default function Portfolio() {
 
   const [state, setState] = useState(null)      // { creator, portfolio, videos, certificates }
   const [dirty, setDirty] = useState(false)
-  // THE EDITOR IS A SHEET ON A PHONE (21 Sep 2026). Ethan: "rather than having
-  // the edit things at the bottom, it should just be a separate button beside
-  // where it says 'Download PDF'... clicking that will then show the screen for
-  // them to make the changes. They can save it, and it will show up. Have that
-  // rather than having them scroll down and scroll up to see the changes." A
-  // desktop keeps the editor in its column beside the document.
+  // THE EDITOR IS A SHEET ON A PHONE. A desktop keeps the editor in its column beside the document.
   const desktop = useMediaQuery('(min-width: 1024px)')
   const [editing, setEditing] = useState(false)
   const [past, setPast] = useState([])          // portfolio snapshots, oldest first
@@ -95,12 +85,10 @@ export default function Portfolio() {
         .eq('profile_id', viewingId).eq('status', 'tracking')
         .order('logged_views', { ascending: false }),
     ])
-    // THE ACCOUNT EMAIL. Your own is on the session. An admin looking at
-    // somebody else's gets theirs from the definer RPC the roster uses, which
-    // refuses anyone who is not an admin - without it the "Work with me" page
-    // an admin reviews had no email card at all, which is what Ethan saw
-    // ("it doesn't show their email on the Work With Me section"). The public
-    // page never gets it from here: it reads the address saved into the copy.
+    // THE ACCOUNT EMAIL. Your own is on the session. An admin looking at somebody else's gets theirs from the definer
+    // RPC the roster uses, which refuses anyone who is not an admin - without it the "Work with me" page an admin
+    // reviews had no email card at all, which is what the team saw ("it doesn't show their email on the Work With Me
+    // section"). The public page never gets it from here: it reads the address saved into the copy.
     let email = viewingId === user?.id ? (user?.email || null) : null
     if (!email && viewingId !== user?.id) {
       const { data: rows } = await teamApi.adminListEmails()
@@ -142,10 +130,8 @@ export default function Portfolio() {
 
   // UNDO, AND WHY IT IS NOT ONE STEP PER KEYSTROKE.
   //
-  // Ethan: "there should be also a back button to undo a change that you made".
-  // Every control here calls `setPortfolio`, including a textarea on every
-  // character - so a naive stack would make Undo a very slow backspace, and
-  // twelve presses would still be inside the same sentence.
+  // Every control here calls `setPortfolio`, including a textarea on every character - so a naive stack would make Undo
+  // a very slow backspace, and twelve presses would still be inside the same sentence.
   //
   // So a change only becomes an undo point if it is the FIRST of a burst:
   // pushes inside `UNDO_COALESCE_MS` of the last one are folded into it. Typing
@@ -234,9 +220,8 @@ export default function Portfolio() {
 
   // AUTOSAVE, DEBOUNCED.
   //
-  // Ethan: "obviously the changes should be saved automatically". They were
-  // not - there was a "Save changes" button that appeared when dirty, so a
-  // creator who edited their bio and closed the tab lost it.
+  // They were not - there was a "Save changes" button that appeared when dirty, so a creator who edited their bio and
+  // closed the tab lost it.
   //
   // AUTOSAVE_MS is longer than the undo coalesce window on purpose: undo should
   // step back per edit, but a write should only happen once somebody has
@@ -289,10 +274,8 @@ export default function Portfolio() {
 
   return (
     <div className="page max-w-6xl">
-      {/* EVERYTHING ARRIVES (30 Sep 2026). Ethan: "I noticed there are no animations for that page. Whenever it
-          loads in, everything comes in with a nice, smooth animation rather than just appearing." The blocks
-          above the fold rise in one after another (a growing delay), the document's pages arrive as they
-          scroll into view (PortfolioDeck `reveal`), and the editor's sections follow the page. */}
+      {/* EVERYTHING ARRIVES. The blocks above the fold rise in one after another (a growing delay), the document's pages
+          arrive as they scroll into view (PortfolioDeck `reveal`), and the editor's sections follow the page. */}
       <Reveal>
         <PageHeader
           title={tr('Portfolio')}
@@ -306,14 +289,10 @@ export default function Portfolio() {
 
       {/* ACROSS THE TOP, ABOVE BOTH COLUMNS - see the note in KitStrip. The
           editor then starts below it, beside the portfolio it edits. */}
-      {/* THE TOP ROW IS THE SAME GRID AS THE BOTTOM ONE (21 Sep 2026): the
-          share-you're-a-creator graphics are as wide as the portfolio, and the
-          Year in Review card is as wide as the editor. A phone gets the
-          graphics, then the portfolio, then the editor, and the year card last. */}
-      {/* ON A PHONE THE YEAR CARD IS A SLIM BAR AT THE VERY TOP (21 Sep 2026).
-          Ethan: "The year in review should be showing up at the top. Make the
-          card even a little bit smaller for mobile and show it at the top, at
-          the very top above Share your Tryp.com Creator." */}
+      {/* THE TOP ROW IS THE SAME GRID AS THE BOTTOM ONE: the share-you're-a-creator graphics are as wide as the
+          portfolio, and the Year in Review card is as wide as the editor. A phone gets the graphics, then the portfolio,
+          then the editor, and the year card last. */}
+      {/* ON A PHONE THE YEAR CARD IS A SLIM BAR AT THE VERY TOP. */}
       {!readOnly && <Reveal delay={0.06} className="lg:hidden"><YearTeaser tiny className="mb-5" /></Reveal>}
 
       {!readOnly && (
@@ -323,21 +302,17 @@ export default function Portfolio() {
         </div>
       )}
 
-      {/* `grid-cols-1` IS LOAD-BEARING (21 Sep 2026). With no template the
-          phone's single column is an implicit `auto` track, which grows to the
-          editor's widest unbreakable content - and the deck, which sizes itself
-          to its column, then drew every page wider than the screen with the
-          right-hand third cut off. `minmax(0, 1fr)` cannot outgrow the page. */}
+      {/* `grid-cols-1` IS LOAD-BEARING. With no template the phone's single column is an implicit `auto` track, which
+          grows to the editor's widest unbreakable content - and the deck, which sizes itself to its column, then drew
+          every page wider than the screen with the right-hand third cut off. `minmax(0, 1fr)` cannot outgrow the page. */}
       <div className="grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,1fr)_360px]">
         {/* THE DOCUMENT COMES FIRST IN THE DOM. On a phone the preview is what
             you land on, which is the thing this page is for; the controls are
             under it. On a desktop the grid puts the editor on the right. */}
         <div ref={holder} className="min-w-0">
-          {/* ONE ENTRANCE FOR THE WHOLE PAGE (3 Oct 2026). Ethan: "Some things flash up quickly, and others float in
-              smoothly. Let's just ensure that everything comes in nicely together." The toolbar had its own CSS
-              keyframe and the editor's sections a 0.4s fade of their own INSIDE a column that was itself sliding in
-              over 0.7s - three speeds on one screen. Everything now rides Reveal: header, strip, toolbar, the first
-              page, then the editor, each a beat after the last. */}
+          {/* ONE ENTRANCE FOR THE WHOLE PAGE. The toolbar had its own CSS keyframe and the editor's sections a 0.4s fade
+              of their own INSIDE a column that was itself sliding in over 0.7s - three speeds on one screen. Everything
+              now rides Reveal: header, strip, toolbar, the first page, then the editor, each a beat after the last. */}
           <Reveal delay={0.14}>
           <div className="mb-4 flex flex-wrap items-center gap-3">
             {/* Side by side on a phone, half the row each. */}
@@ -478,11 +453,6 @@ export default function Portfolio() {
 
 /**
  * WHAT AN ADMIN NEEDS FROM SOMEBODY ELSE'S PORTFOLIO.
- *
- * Ethan: "I need the ability to view all the creators' portfolios... currently
- * it does, but the design is weird because I can't see the edit function on the
- * design. So just work on improving that more, how it appears for admins, etc.
- * so I can properly review it."
  *
  * The editor is hidden when `?as=` is set and that is correct - an admin must
  * not rewrite a creator's own words, and RLS would refuse the write anyway. But

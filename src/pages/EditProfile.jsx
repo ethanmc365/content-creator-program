@@ -21,11 +21,8 @@ import { flightsApi } from '../api/flights'
 
 // Edit every part of your own profile on one calm page.
 //
-// FOUR NAMES, NO EXPLANATIONS. Each tab carried a line of hint text underneath
-// it ("Photo, name and the lines people read first"), which is four sentences
-// of furniture explaining four words that do not need explaining. Ethan: "each
-// of these has a little description under that is not needed, just have the
-// title."
+// FOUR NAMES, NO EXPLANATIONS. Each tab carried a line of hint text underneath it ("Photo, name and the lines people
+// read first"), which is four sentences of furniture explaining four words that do not need explaining.
 const TABS = [
   { key: 'you', label: 'You', icon: 'user' },
   { key: 'links', label: 'Links', icon: 'link' },
@@ -119,19 +116,13 @@ export default function EditProfile() {
   // Phone is stored separately (private: only the creator and admins can read
   // it). Payment details live on the Settings page now. Load the private row.
   //
-  // AND THE DATE OF BIRTH IS IN THERE TOO, WHICH IS THE WHOLE BUG (2 Sep 2026).
+  // AND THE DATE OF BIRTH IS IN THERE TOO, WHICH IS THE WHOLE BUG.
   //
-  // Ethan: "we still have the issue with the date of birth. I clicked edit
-  // profile, entered my date of birth, clicked save, and then a few minutes
-  // later clicked edit profile and it was showing up as blank again."
-  //
-  // The save was never the problem and neither was the field. `profiles` has a
-  // BEFORE trigger, `mirror_dob_to_private`, which copies any dob it is handed
-  // into `creator_private.dob`, derives `profiles.age` from it and then sets
-  // `new.dob := null` - by design, so the public row never carries a full date
-  // of birth. So the write worked perfectly, and the form then re-seeded itself
-  // from `profiles.dob`, which is null on every row in the database and always
-  // will be. It read back the one column guaranteed to be empty.
+  // The save was never the problem and neither was the field. `profiles` has a BEFORE trigger, `mirror_dob_to_private`,
+  // which copies any dob it is handed into `creator_private.dob`, derives `profiles.age` from it and then sets
+  // `new.dob:= null` - by design, so the public row never carries a full date of birth. So the write worked perfectly,
+  // and the form then re-seeded itself from `profiles.dob`, which is null on every row in the database and always will
+  // be. It read back the one column guaranteed to be empty.
   //
   // The private row is the only place the date exists, so it is where the form
   // reads it from. RLS on `creator_private` is already owner-and-admin, which
@@ -170,9 +161,8 @@ export default function EditProfile() {
   }
   // Data export & account deletion moved to the Settings page (Account section).
 
-  // A PHOTO STILL UPLOADING IS WAITED FOR, NOT RACED (28 Sep 2026). See
-  // AvatarUpload's `onUploadStart`: Save used to write the old photo if it was
-  // pressed while the new one was still on its way up.
+  // A PHOTO STILL UPLOADING IS WAITED FOR, NOT RACED. See AvatarUpload's `onUploadStart`: Save used to write the old
+  // photo if it was pressed while the new one was still on its way up.
   const photoJob = useRef(null)
   const uploadedPhoto = useRef('')
   const [photoPending, setPhotoPending] = useState(false)
@@ -234,15 +224,10 @@ export default function EditProfile() {
     <div className="page max-w-5xl">
       <PageHeader title={tr("Edit profile")} />
 
-      {/* ================= FOUR PANELS, NOT ONE LONG FORM =================
-          Ethan: "the edit profile page currently opens up, seems like a lot of
-          scrolling and it's hard to completely understand, so I would improve
-          it a lot."
-          It was seven full-width cards in a single column with the save button
-          at the bottom of all of them, so the shortest edit on the page - swap
-          your photo - meant scrolling past a world map and a bucket list to
-          commit it. Four panels, one at a time, and everything saves together
-          whichever one you are looking at.
+      {/* ================= FOUR PANELS, NOT ONE LONG FORM ================= It was seven full-width cards in a single
+          column with the save button at the bottom of all of them, so the shortest edit on the page - swap your photo -
+          meant scrolling past a world map and a bucket list to commit it. Four panels, one at a time, and everything
+          saves together whichever one you are looking at.
           THE FORM IS ONE FORM STILL. The panels are shown and hidden, not
           mounted and unmounted: `save` posts the whole `form` object, and a
           field that had been unmounted would post whatever it was when the
@@ -325,9 +310,10 @@ export default function EditProfile() {
             <PhoneInput value={contact} onChange={setContact} />
           </section>
           </div>
-          {/* ONLY THE OPEN PANEL IS DRAWN (9 Oct 2026). All four were mounted and merely hidden, so every key typed into "About you"
-              re-rendered the world map (a path per country), the photo board and the language list as well - the "laggy for text"
-              on this page. The form lives in this component, not in the panels, so nothing is lost when a panel closes. */}
+          {/* ONLY THE OPEN PANEL IS DRAWN. All four were mounted and merely hidden, so every key typed into "About you"
+              re-rendered the world map (a path per country), the photo board and the language list as well - the "laggy
+              for text" on this page. The form lives in this component, not in the panels, so nothing is lost when a
+              panel closes. */}
           {tab === 'links' && (<div className="space-y-6">
           <section className="card space-y-6">
             <h2 className="text-lg font-semibold">{tr("Social links")}</h2>
@@ -409,8 +395,8 @@ export default function EditProfile() {
             {form.bucket_list.map((b, i) => (
               <div key={i} className="flex items-start gap-2">
                 <span className="mt-2 w-8 shrink-0 text-center text-2xl leading-none" aria-hidden>{flagForCountry(b.country) || '📍'}</span>
-                {/* STACKED ON A PHONE (9 Oct 2026): two flex-1 inputs, a flag and a button in 343px left each field about 110px, and a
-                    flex child with no min-width will not shrink below its content - so the row pushed past the card. */}
+                {/* STACKED ON A PHONE: two flex-1 inputs, a flag and a button in 343px left each field about 110px, and
+                    a flex child with no min-width will not shrink below its content - so the row pushed past the card. */}
                 <div className="grid min-w-0 flex-1 gap-2 sm:grid-cols-2">
                   <input
                     type="text" placeholder={tr("Country (e.g. Japan)")} className="input min-w-0"
@@ -446,16 +432,9 @@ export default function EditProfile() {
                 })
               }
             />
-            {/* THE LIST IS BACK UNDER THE MAP, AND IT IS THE WAY OUT.
-                This was a bare count: "47 countries selected". Fine as a
-                total, useless as a control - the only way to un-pick a country
-                was to find it again on the map, which for anything smaller than
-                France is a real hunt. Ethan: "improve the UI here but it should
-                still be showing up the names of the country here so you can
-                easily see and x any."
-                (The public profile has the opposite answer and for the opposite
-                reason: there the map IS the list and nothing is removable, so
-                forty grey chips were six rows of nothing.) */}
+            {/* THE LIST IS BACK UNDER THE MAP, AND IT IS THE WAY OUT. This was a bare count: "47 countries selected".
+                Fine as a total, useless as a control - the only way to un-pick a country was to find it again on the
+                map, which for anything smaller than France is a real hunt. */}
             <div className="space-y-2.5">
               <p className="text-sm font-semibold text-brand">
                 {form.countries_visited.length} {form.countries_visited.length === 1 ? 'country' : 'countries'} selected
@@ -483,14 +462,7 @@ export default function EditProfile() {
 
           {/* Travel photos last, matching the public profile's section order. */}
           </div>)}
-          {/* ---------- Photos ----------
-              ONE SURFACE (1 Sep 2026).
-
-              Ethan: "i think rather than seperating the upload section and the
-              board section they should be integrated so you upload them and
-              rather than having to press x there, there should be a button to
-              x it on the actual board... and also should have the option to
-              type the caption directly onto the photo."
+          {/* ---------- Photos ---------- ONE SURFACE.
 
               This was two cards: a "Travel photos" film strip of 104px squares
               carrying add / caption / remove, and "Arrange your board"

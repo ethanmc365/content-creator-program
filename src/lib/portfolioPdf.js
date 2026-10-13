@@ -5,17 +5,13 @@ import { PAGE_H, PAGE_W } from './portfolio'
 //
 // A PHOTOGRAPH OF THE REAL PAGES, NOT A SECOND DRAWING OF THEM.
 //
-// `lib/invoicePdf` draws its document with pdf-lib primitives - real text, real
-// vectors, selectable and tiny - and that is right for an invoice, which is a
-// fixed form with eight fields in it that finance reads in a PDF viewer. It is
-// the wrong answer here and the reason is written in the first paragraph of
-// `lib/domSnapshot`: the shareable result used to be re-drawn on a canvas, "a
-// second implementation of the podium, in a different language, kept in step
-// with the real one by hand", and it drifted. A portfolio has photographs,
-// avatars, a five-page layout and copy the creator edits live. Drawing it twice
-// would mean the preview and the PDF disagree the first time anybody changes a
-// margin, and the preview is the thing Ethan asked to be exact: "it should show
-// on the screen exactly how the pdf will look".
+// `lib/invoicePdf` draws its document with pdf-lib primitives - real text, real vectors, selectable and tiny - and that
+// is right for an invoice, which is a fixed form with eight fields in it that finance reads in a PDF viewer. It is the
+// wrong answer here and the reason is written in the first paragraph of `lib/domSnapshot`: the shareable result used to
+// be re-drawn on a canvas, "a second implementation of the podium, in a different language, kept in step with the real
+// one by hand", and it drifted. A portfolio has photographs, avatars, a five-page layout and copy the creator edits
+// live. Drawing it twice would mean the preview and the PDF disagree the first time anybody changes a margin, and the
+// preview is the thing
 //
 // The cost is a raster PDF: text is not selectable and the file is a megabyte
 // or two rather than fifty kilobytes. For a document whose whole job is to be
@@ -26,11 +22,9 @@ import { PAGE_H, PAGE_W } from './portfolio'
 // print at arm's length, and half the file size of 3x.
 const SCALE = 2
 
-// THE PDF PAGE HAS TO BE THE SAME SHAPE AS THE PREVIEW, or the snapshot is
-// stretched onto it and every circle becomes an ellipse. It used to be A4
-// landscape (841.89 x 595.28, root-2) and the pages were 1123x794 to match.
-// Both moved to 16:9 together on 20 Sep 2026 - see the note on PAGE_W. This is
-// 13.333in x 7.5in in PostScript points, which is what PowerPoint and Google
+// THE PDF PAGE HAS TO BE THE SAME SHAPE AS THE PREVIEW, or the snapshot is stretched onto it and every circle becomes an
+// ellipse. It used to be A4 landscape (841.89 x 595.28, root-2) and the pages were 1123x794 to match. Both moved to 16:9
+// together - see the note on PAGE_W. This is 13.333in x 7.5in in PostScript points, which is what PowerPoint and Google
 // Slides call widescreen.
 const SLIDE_16_9 = { w: 960, h: 540 }
 

@@ -42,9 +42,8 @@ const REGIONS = ['World', ...CONTINENTS]
 // is fun or hard about this one, because that is the question you are actually
 // asking. Ten flags is not a challenge; ten flags nobody can tell apart is.
 //
-// FOUR PRACTICE MODES, AND GUESS THE LANGUAGE IS NOT ONE OF THEM ANY MORE.
-// It moved up to the daily shelf (see DAILIES) at Ethan's request, which is
-// also what makes this row a clean four.
+// FOUR PRACTICE MODES, AND GUESS THE LANGUAGE IS NOT ONE OF THEM ANY MORE. It moved up to the daily shelf (see DAILIES)
+// at the team's request, which is also what makes this row a clean four.
 const MODES = [
   // Plain and factual. The old line ("Some you will know instantly. Some are
   // three stripes and a prayer.") was trying too hard next to three sentences
@@ -141,15 +140,11 @@ export default function Game() {
 
   // OPENING A GAME PUTS YOU AT THE TOP OF THE PAGE. ALL OF IT.
   //
-  // THE BUG THIS FIXES, TWICE OVER. Screens swap in place and the browser keeps
-  // your scroll offset when they do, so tapping a daily card several hundred
-  // pixels down a tall menu left you several hundred pixels down a page that
-  // had just become much shorter - which is the leaderboard, with the puzzle
-  // off the top. Ethan, twice: "on mobile when you click to play a daily game
-  // it doesn't immediately show up, it's scrolled further down the screen
-  // showing leaderboard", and then "it starts with the page half scrolled down
-  // the leaderboard, this is wrong. The page should always open at the top
-  // where the actual game is, none of it should be cut off."
+  // THE BUG THIS FIXES, TWICE OVER. Screens swap in place and the browser keeps your scroll offset when they do, so
+  // tapping a daily card several hundred pixels down a tall menu left you several hundred pixels down a page that had
+  // just become much shorter - which is the leaderboard, with the puzzle off the top., and then "it starts with the page
+  // half scrolled down the leaderboard, this is wrong. The page should always open at the top where the actual game is,
+  // none of it should be cut off."
   //
   // The first fix scrolled the BOARD to the top of the viewport, which is a
   // different thing and is why it did not hold: it measures an element whose
@@ -157,13 +152,8 @@ export default function Game() {
   // layout in an effect), so the offset it computed was too small, and when the
   // board then grew, the leaderboard underneath was what had been scrolled to.
   //
-  // AND THEN IT WENT ONE STEP TOO FAR THE OTHER WAY. Scrolling to zero puts
-  // "Travel Games" - a heading you have already read, on a page you are already
-  // on - at the top of a phone screen, and pushes the puzzle's own card down
-  // under it. Ethan, on Guess the Language: "it should only show the little
-  // card showing the number of questions and the time, because that just fits
-  // perfectly for the UI... it's not fully scrolled up, but it cuts out the
-  // heading."
+  // AND THEN IT WENT ONE STEP TOO FAR THE OTHER WAY. Scrolling to zero puts "Travel Games" - a heading you have already
+  // read, on a page you are already on - at the top of a phone screen, and pushes the puzzle's own card down under it.
   //
   // So the target is the TOP OF THE GAME, not the top of the document, and the
   // page heading is scrolled away above it.
@@ -194,15 +184,12 @@ export default function Game() {
   useEffect(() => {
     const settle = () => {
       const el = screen === 'menu' ? null : gameRef.current
-      // A DESKTOP GOES TO THE VERY TOP, FULL STOP (2 Sep 2026).
+      // A DESKTOP GOES TO THE VERY TOP, FULL STOP.
       //
-      // Scrolling the page heading away is a PHONE answer to a phone problem:
-      // there, the heading plus the app header is a third of the screen and the
-      // puzzle needs all of it. On a desktop there is room for both, and
-      // parking the document 90-odd pixels down means the page opens looking
-      // like somebody already scrolled it. Ethan, on Flight Path: "on desktop
-      // it still scrolled on a bit. It should always be at the top." Same
-      // instruction he gave for Guess the Country.
+      // Scrolling the page heading away is a PHONE answer to a phone problem: there, the heading plus the app header is
+      // a third of the screen and the puzzle needs all of it. On a desktop there is room for both, and parking the
+      // document 90-odd pixels down means the page opens looking like somebody already scrolled it. Same instruction he
+      // gave for Guess the Country.
       //
       // `matchMedia` rather than the `useIsMobile` hook because this runs
       // inside an effect and on a raf after it; a hook value captured in the
@@ -226,10 +213,7 @@ export default function Game() {
     return () => cancelAnimationFrame(raf)
   }, [screen, screenSeq])
 
-  // CLOSING A DAILY BOARD IS NOT THE SAME AS FINISHING ONE (3 Sep 2026).
-  //
-  // Ethan: "just clicking on the game and not actually playing it shows up a
-  // green tick on the game card like it's been played."
+  // CLOSING A DAILY BOARD IS NOT THE SAME AS FINISHING ONE.
   //
   // This passed the puzzle's key to `markPlayed`, and a key is an ASSERTION -
   // it adds that puzzle to the played set outright. So the tick was earned by
@@ -274,9 +258,9 @@ export default function Game() {
           four more you can play as often as you like", which is a description
           of the two section headings directly underneath it. */}
       <PageHeader
-        /* "Travel games", not "Games", and the same words the nav uses for it.
-           Ethan: "rename the auto heading to travel games, capital T, capital
-           G, rather than just games, for both mobile and desktop." */
+        /*
+         * "Travel games", not "Games", and the same words the nav uses for it.
+         */
         title={<span className="flex items-center gap-2"><Icon name="joystick" className="h-7 w-7 text-brand" /> {tr("Travel Games")}</span>}
         subtitle={event ? `Event: ${event.title}` : undefined}
       />
@@ -309,14 +293,10 @@ export default function Game() {
           daysByPuzzle={daysByPuzzle} playedToday={playedToday}
         />
       )}
-      {/* LEAVING A DAILY PUZZLE TICKS IT OFF, ON THE SPOT.
-          Every daily board writes its result to localStorage the moment it
-          finishes, so by the time `onExit` runs the answer is already on this
-          device - `markPlayed` just tells the hook to look, and re-checks the
-          server behind it. Without this the menu kept whatever set it built on
-          mount, so you could play Flight Path, come straight back, and be
-          invited to play it again. Ethan: "after I played for example flight
-          path, it didn't immediately update and show that I played it." */}
+      {/* LEAVING A DAILY PUZZLE TICKS IT OFF, ON THE SPOT. Every daily board writes its result to localStorage the
+          moment it finishes, so by the time `onExit` runs the answer is already on this device - `markPlayed` just tells
+          the hook to look, and re-checks the server behind it. Without this the menu kept whatever set it built on
+          mount, so you could play Flight Path, come straight back, and be invited to play it again. */}
       <div ref={gameRef}>
         {screen === 'play' && <Round mode={mode} region={region} questions={questions} onQuit={() => setScreen('menu')} onFinish={(r) => { setSavedScore(r); setScreen('results') }} />}
         {screen === 'results' && (
@@ -328,13 +308,10 @@ export default function Game() {
         {screen === 'languages' && <LanguageGame onExit={() => leaveDaily()} />}
       </div>
 
-      {/* `grid-cols-1` IS NOT A NO-OP. Without it the column is an implicit
-          `auto` track, and Safari sizes that to the widest row's min-content
-          whatever `min-w-0` says on the item - so on an iPhone the boards
-          came out a few pixels wider than the screen and the right edge of
-          the card was cut off (Ethan, 21 Sep: Flight Path and Guess the
-          language). `minmax(0, 1fr)` is a track that cannot grow past its
-          container on any engine. */}
+      {/* `grid-cols-1` IS NOT A NO-OP. Without it the column is an implicit `auto` track, and Safari sizes that to the
+          widest row's min-content whatever `min-w-0` says on the item - so on an iPhone the boards came out a few pixels
+          wider than the screen and the right edge of the card was cut off (the team, 21 Sep: Flight Path and Guess the
+          language). `minmax(0, 1fr)` is a track that cannot grow past its container on any engine. */}
       <div className="mt-12 min-w-0">
         {DAILY_KEYS.includes(screen) ? (
           // Daily puzzles get two boards: today's race on the left, the
@@ -359,10 +336,8 @@ export default function Game() {
 //
 // THE HUB, REBUILT.
 //
-// The old one was three headings and a stack of near-identical white cards -
-// two daily puzzles, five modes, seven region pills and a Start button - all the
-// same weight, so nothing on the page said what to do first. Ethan: "it doesn't
-// look good and doesn't look fun".
+// The old one was three headings and a stack of near-identical white cards - two daily puzzles, five modes, seven region
+// pills and a Start button - all the same weight, so nothing on the page said what to do first.
 //
 // The order is now the order of the decision. Your streak is what brings you
 // back, so it leads. TODAY is the thing that expires, so the two daily puzzles
@@ -377,14 +352,10 @@ export default function Game() {
 
 // THE THREE CARDS ARE THE SAME SIZE, WHATEVER IS WRITTEN ON THEM.
 //
-// THE BUG THIS FIXES. The button had no `h-full`, so each card was as tall as
-// its own contents - and the contents differ: "Guess the Country" is long
-// enough to push its three pills onto a second line where "Flight Path" is not.
-// So Flight Path came out visibly shorter than the two beside it, which reads
-// as the odd one out rather than as one of a set. Ethan: "the daily puzzle cards
-// are different sizes, the flight path should be the same size as the other
-// two." Reveal's wrapper is already `height: 100%` (index.css), so the card
-// only has to agree to fill it.
+// THE BUG THIS FIXES. The button had no `h-full`, so each card was as tall as its own contents - and the contents
+// differ: "Guess the Country" is long enough to push its three pills onto a second line where "Flight Path" is not. So
+// Flight Path came out visibly shorter than the two beside it, which reads as the odd one out rather than as one of a
+// set. Reveal's wrapper is already `height: 100%` (index.css), so the card only has to agree to fill it.
 //
 // The pills row is also fixed height now, for the same reason from the other
 // direction: a card whose height comes from a badge appearing is a card that
@@ -392,16 +363,12 @@ export default function Game() {
 //
 // AND `h-full` IS NOT ENOUGH ON A PHONE, which is what was still wrong. It
 // makes a card fill its GRID ROW, and a grid row is as tall as its tallest cell
-// - so on a desktop, where three cards share one row, they equalise for free.
-// At `grid-cols-1` every card is alone in its own row, there is nothing to
-// equalise against, and each one is exactly as tall as its own description:
-// "Guess the Country" runs to two lines at 375px where "Flight Path" runs to
-// one, so the stack came out uneven. Ethan: "on mobile on the travel games page
-// the cards are not all the same size."
-// The description is an exact two-line box, so the card is the same height at
-// every width whatever is written on it. `leading-5` is 20px and `h-10` is
-// 40px exactly - an inexact pair leaves a sliver of a third line showing under
-// the clamp, which is the trap CreatorCard's bio fell into.
+// - so on a desktop, where three cards share one row, they equalise for free. At `grid-cols-1` every card is alone in
+//   its own row, there is nothing to equalise against, and each one is exactly as tall as its own description: "Guess
+//   the Country" runs to two lines at 375px where "Flight Path" runs to one, so the stack came out uneven. The
+//   description is an exact two-line box, so the card is the same height at every width whatever is written on it.
+//   `leading-5` is 20px and `h-10` is 40px exactly - an inexact pair leaves a sliver of a third line showing under the
+//   clamp, which is the trap CreatorCard's bio fell into.
 function DailyCard({ daily, done, onPlay, streak }) {
   const tr = useT()
   return (
@@ -409,10 +376,8 @@ function DailyCard({ daily, done, onPlay, streak }) {
       onClick={onPlay}
       className="group relative flex h-full flex-col overflow-hidden rounded-card border border-brand/25 bg-white p-5 text-left shadow-card transition-all duration-200 hover:-translate-y-1 hover:border-brand/50 hover:shadow-lift"
     >
-      {/* BARE GLYPH, NO WASH (12 Oct 2026). Ethan: "when you're not clicking
-          on it, it shows the weird orange background with the icon." The
-          solid orange tile and the orange blur behind it are gone; the icon
-          is a bare brand glyph like everywhere else (icon rule). */}
+      {/* BARE GLYPH, NO WASH. The solid orange tile and the orange blur behind it are gone; the icon is a bare brand
+          glyph like everywhere else (icon rule). */}
       <span className="relative flex flex-1 items-start gap-4">
         <span className="flex h-12 w-8 shrink-0 items-start justify-center pt-0.5 text-brand transition-transform duration-200 group-hover:scale-110">
           <Icon name={daily.icon} className="h-7 w-7" />
@@ -461,15 +426,10 @@ function Menu({ mode, setMode, region, setRegion, onStart, onDaily, eventTitle, 
       <Reveal as="section" from="down" delay={0.06}>
         <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
           <h2 className="text-lg font-semibold">{tr("Today’s puzzles")}</h2>
-          {/* HOW FAR THROUGH TODAY YOU ARE, AND NOTHING ELSE (2 Sep 2026).
-              Ethan: "remove this copy from above the today's puzzle section -
-              'Everyone gets the same three, until midnight.'"
-              It was the line for somebody who had played none of them, and it
-              explained the rules of a section whose three cards say the same
-              thing by existing. What is left is the only version of this line
-              that tells the reader something they did not know: how many of
-              today's three they still have. Nothing at all once they are done -
-              the green ticks say that. */}
+          {/* HOW FAR THROUGH TODAY YOU ARE, AND NOTHING ELSE. It was the line for somebody who had played none of them,
+              and it explained the rules of a section whose three cards say the same thing by existing. What is left is
+              the only version of this line that tells the reader something they did not know: how many of today's three
+              they still have. Nothing at all once they are done - the green ticks say that. */}
           {!allDone && doneCount > 0 && (
             <span className="text-xs text-smoke">
               {tr('{n} of 3 done. The rest expire at midnight.', { n: doneCount })}
@@ -526,11 +486,8 @@ function Menu({ mode, setMode, region, setRegion, onStart, onDaily, eventTitle, 
                     one under it. `leading-[1.15rem]` is 18.4px and the box is
                     two of them exactly. */}
                 <span className="min-w-0">
-                  {/* THROUGH `tr`: the modes are a TABLE, and a table's
-                      strings are variables at the call site, which is why the
-                      i18n report cannot see them and why they were still
-                      English. Ethan: "the travel games aren't translated, and
-                      the descriptions for them." */}
+                  {/* THROUGH `tr`: the modes are a TABLE, and a table's strings are variables at the call site, which is
+                      why the i18n report cannot see them and why they were still English. */}
                   <span className="block font-semibold leading-snug">{tr(m.title)}</span>
                   <span className="mt-1 line-clamp-2 block h-[2.3rem] overflow-hidden text-[13px] leading-[1.15rem] text-smoke">{tr(m.text)}</span>
                 </span>
@@ -674,8 +631,7 @@ function Round({ mode, region, questions, onQuit, onFinish }) {
 
   return (
     <div className="space-y-5">
-      {/* ONE HEADER FOR EVERY MODE. See GameChrome - the bar Ethan liked on
-          Say hello is now the bar on all five. */}
+      {/* ONE HEADER FOR EVERY MODE. See GameChrome - the bar the team liked on Say hello is now the bar on all five. */}
       <GameChrome
         icon={MODE_BY_KEY[mode].icon}
         title={MODE_BY_KEY[mode].regions ? `${tr(MODE_LABEL[mode])} · ${tr(region)}` : tr(MODE_LABEL[mode])}
@@ -901,12 +857,9 @@ function Results({ result, mode, region, eventId, userId, onPlayAgain, onMenu })
   return (
     <div className="card flex flex-col items-center gap-4 !py-10 text-center animate-pop-in">
       {great && <Confetti count={50} />}
-      {/* NO BADGE ABOVE THE RING. There was a trophy for a good round and a
-          globe for a poor one, sitting directly over a score ring that already
-          says the same thing more precisely - and the globe in particular read
-          as a consolation sticker. Ethan: "get rid of that logo above with the
-          globe, it's not necessary for any of them even if you do good". The
-          ring is the result; the verdict underneath is the reaction. */}
+      {/* NO BADGE ABOVE THE RING. There was a trophy for a good round and a globe for a poor one, sitting directly over
+          a score ring that already says the same thing more precisely - and the globe in particular read as a
+          consolation sticker. The ring is the result; the verdict underneath is the reaction. */}
 
       {/* THE SCORE AS A RING, not as a line of text. A round result is a
           proportion, and a proportion drawn is read in one glance. */}
@@ -949,7 +902,7 @@ function Leaderboard({ mode, region, eventId, highlightUser, daily = false, head
   const [streaks, setStreaks] = useState({}) // player_id -> weekly streak for this mode
   const pressTimer = useRef(null)
 
-  // THE RANKING HAPPENS WHERE THE ROWS ARE (16 Sep 2026).
+  // THE RANKING HAPPENS WHERE THE ROWS ARE.
   //
   // THE BUG: this fetched EVERY score row for the mode and region with no
   // limit, then worked out each player's best in the browser. PostgREST caps a
@@ -986,9 +939,9 @@ function Leaderboard({ mode, region, eventId, highlightUser, daily = false, head
   }, [mode, region, eventId, daily])
 
   useEffect(() => { load() }, [load])
-  // YOUR SCORE SHOWS THE MOMENT IT IS SAVED (7 Oct 2026). Ethan finished a daily puzzle and his row only appeared after
-  // leaving and coming back: the boards waited for a realtime INSERT event, which does not always arrive. Every save
-  // now announces itself on this page, and the boards reload on it.
+  // YOUR SCORE SHOWS THE MOMENT IT IS SAVED. The team finished a daily puzzle and their row only appeared after leaving
+  // and coming back: the boards waited for a realtime INSERT event, which does not always arrive. Every save now
+  // announces itself on this page, and the boards reload on it.
   useEffect(() => onScore(load), [load])
   useEffect(() => {
     // Channel topic must be unique per mounted board - the daily screens mount
@@ -1014,9 +967,6 @@ function Leaderboard({ mode, region, eventId, highlightUser, daily = false, head
 
   return (
     // `min-w-0`, AND IT IS THE WHOLE FIX FOR THE BOARD RUNNING OFF A PHONE.
-    //
-    // Ethan: "on games and daily puzzles the right of the leaderboard is cut
-    // off on each card."
     //
     // Measured on a 375px viewport: the grid column came out 422px wide and the
     // page scrolled to 442, so the right-hand edge of every row - the time, the

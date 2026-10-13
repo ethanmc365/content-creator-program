@@ -5,10 +5,6 @@ import { useT } from '../../lib/i18n'
 
 // WHO SEES THIS, AS A REAL CONTROL.
 //
-// Ethan: "we kind of have this already but please improve the design and the
-// selection drop down as its currently just apple style, also add in the
-// ability to select multiple, like spain and germany, not just 1."
-//
 // The old one was a native `<select>`, which on a Mac is the OS roller and on a
 // phone is a full-screen wheel, and which can hold exactly one value. Two
 // problems, one control. This is a menu of checkable rows with a summary line,
@@ -26,13 +22,9 @@ export default function MarketPicker({ chapters = [], value = [], onChange, id =
 
   // THE MENU IS IN THE FLOW, SO THE CARD GROWS INSTEAD OF THE MENU FLOATING.
   //
-  // It used to be an absolutely-positioned overlay that measured its room on
-  // open and flipped upwards when there was not enough. That is the standard
-  // answer and it was the wrong one here: inside a modal there is almost never
-  // 300px below the control, so the picker flipped nearly every time and opened
-  // UP over the fields you had just filled in. Ethan: "the popup shows up above
-  // which is weird, it should be below and the card can be extended when it's
-  // pressed so the design looks good."
+  // It used to be an absolutely-positioned overlay that measured its room on open and flipped upwards when there was not
+  // enough. That is the standard answer and it was the wrong one here: inside a modal there is almost never 300px below
+  // the control, so the picker flipped nearly every time and opened UP over the fields you had just filled in.
   //
   // An in-flow menu cannot be clipped and cannot cover anything, because it is
   // not on top of the layout - it IS the layout. The modal grows, its own

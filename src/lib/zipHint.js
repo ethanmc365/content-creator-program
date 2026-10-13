@@ -1,12 +1,5 @@
 // THE HINT BUTTON: "put me back to the last thing I got right".
 //
-// Ethan, 16 Sep 2026: "let's say you move the plane a bit trying to complete it
-// but think you've gone wrong, clicking the hint button will reset you back to
-// the last correct state and have the plane facing in the right direction to go
-// next. The hint should never fill in more than they've got already, just go
-// back to correct what's wrong, and if they were right then it should stay the
-// same."
-//
 // WHAT "CORRECT" HAS TO MEAN, AND THE OBVIOUS ANSWER IS WRONG
 //
 // The tempting implementation is to compare the player's route against

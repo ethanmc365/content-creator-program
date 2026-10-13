@@ -224,12 +224,10 @@ export default function InvoiceQueue({ onEdit, inMarket, onChanged }) {
     onChanged: () => { load(); onChanged?.() },
   })
 
-  // BULK APPROVAL, ONE RPC CALL AT A TIME (23 Sep 2026) - the same shape as
-  // the Applications queue's bulk approve: `decide_invoice` is called once per
-  // invoice rather than in one statement, so a self-submitted invoice (which
-  // the function refuses unless you are the owner) fails legibly instead of
-  // taking the whole batch down with it, and the toast says how many actually
-  // landed.
+  // BULK APPROVAL, ONE RPC CALL AT A TIME - the same shape as the Applications queue's bulk approve: `decide_invoice` is
+  // called once per invoice rather than in one statement, so a self-submitted invoice (which the function refuses unless
+  // you are the owner) fails legibly instead of taking the whole batch down with it, and the toast says how many
+  // actually landed.
   async function bulkApprove() {
     const ids = [...selected]
     if (!ids.length) return
@@ -301,8 +299,8 @@ export default function InvoiceQueue({ onEdit, inMarket, onChanged }) {
           <Group title="Approved, ready to send" rows={groups.approved} {...shared} />
           <Group title="Ready to submit" rows={groups.ready} {...shared} />
           <Group title="Waiting on bank details" rows={groups.blocked} {...shared} />
-          {/* ALREADY SENT, SAID SO PLAINLY (3 Oct 2026). Ethan: a creator asked whether they should send their
-              invoice to Francesco - it had already gone. "Sent, not yet paid" read like a to-do. */}
+          {/* ALREADY SENT, SAID SO PLAINLY. The team: a creator asked whether they should send their invoice to
+              Francesco - it had already gone. "Sent, not yet paid" read like a to-do. */}
           <Group
             title="Sent"
             hint="Nothing left to send for these. Finance has the invoice; each one is marked paid by itself 7 days after it was sent."

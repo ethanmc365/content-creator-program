@@ -25,11 +25,9 @@ import { certificatesApi } from '../../api/certificates'
 // argument is about a button on every row, not about a section of its own
 // below. Nothing here interrupts the ledger.
 //
-// THE DOWNLOAD IS A PHOTOGRAPH OF THE REAL CARD, at 2x, through the same
-// `snapshotNode` the shareable results use. Ethan: "ensure creators can save it
-// to camera roll/download it when they receive it." On iOS the only thing that
-// reliably reaches a camera roll is a blob handed to a download, which is what
-// `downloadBlob` does - a link to a remote image navigates instead.
+// THE DOWNLOAD IS A PHOTOGRAPH OF THE REAL CARD, at 2x, through the same `snapshotNode` the shareable results use. On
+// iOS the only thing that reliably reaches a camera roll is a blob handed to a download, which is what `downloadBlob`
+// does - a link to a remote image navigates instead.
 export default function CertificateWall({ profileId, className, readOnly = false }) {
   const tr = useT()
   const { profile, isAdmin } = useAuth()
@@ -45,10 +43,8 @@ export default function CertificateWall({ profileId, className, readOnly = false
     profilesApi.profiles().select('name, photo_url').eq('id', profileId).maybeSingle().then(({ data }) => { if (alive) setOwner(data || null) })
     return () => { alive = false }
   }, [profileId, profile?.id])
-  // AN ADMIN ON THEIR OWN REWARDS PAGE SEES EVERY DESIGN AS A CREATOR WOULD (30 Sep 2026). Ethan:
-  // "Whenever I'm viewing the rewards page, I'll be able to see how the certificates look for the
-  // creators too, to make sure it's right and ensure they're able to download it easily." Viewing a
-  // creator (?as=) shows that creator's real wall instead.
+  // AN ADMIN ON THEIR OWN REWARDS PAGE SEES EVERY DESIGN AS A CREATOR WOULD. Viewing a creator (?as=) shows that
+  // creator's real wall instead.
   const previewing = isAdmin && !readOnly && profileId === profile?.id
   const listLang = speaks.some((l) => l.code === getLocale()) ? getLocale() : 'en'
 
@@ -88,10 +84,9 @@ export default function CertificateWall({ profileId, className, readOnly = false
 
   if (rows === null) return <Skeleton className={cx('h-40 w-full rounded-card', className)} />
   if (previewing) return <AdminPreview designs={designs} className={className} />
-  // STILL TO EARN (30 Sep 2026): every live certificate the creator does not have yet, as a quiet
-  // locked tile saying how it is earned, so the section is a collection to fill rather than
-  // something that appears out of nowhere. Hand-given ones are left out - there is no way to "go
-  // and get" those.
+  // STILL TO EARN: every live certificate the creator does not have yet, as a quiet locked tile saying how it is earned,
+  // so the section is a collection to fill rather than something that appears out of nowhere. Hand-given ones are left
+  // out - there is no way to "go and get" those.
   const have = new Set(rows.map((r) => r.design_id))
   // Only what this person can actually earn: community designs for the community, VIP ones for VIP and official creators.
   const forMe = (d) => (d.audience === 'all') || (d.audience === 'vip' ? !!profile?.is_vip : !profile?.is_vip)
@@ -119,13 +114,10 @@ export default function CertificateWall({ profileId, className, readOnly = false
         )}
       </div>
 
-      {/* BIG, TWO A ROW (12 Oct 2026). Ethan: "Currently, it's really tiny. It should be big, especially on desktop ...
-          have two on each side and, on mobile, just one." Each tile is the certificate itself at the width of its column,
-          the thing you are about to open, with Save and Share under it. */}
-      {/* ONE A ROW, SIDEWAYS (13 Oct 2026). Ethan: "it starts off narrower and then gets wider just to the certificate
-          section, which doesn't make sense ... keep it all narrow and have one certificate in each row, and maybe have it
-          scrollable to the right." The page keeps one width; certificates sit in a swipeable rail, one at a time with
-          the next peeking in, arrows on a desktop. */}
+      {/* BIG, TWO A ROW. Each tile is the certificate itself at the width of its column, the thing you are about to
+          open, with Save and Share under it. */}
+      {/* ONE A ROW, SIDEWAYS. The page keeps one width; certificates sit in a swipeable rail, one at a time with the
+          next peeking in, arrows on a desktop. */}
       <CertRail count={rows.length + toEarn.length}>
         {rows.map((row, i) => (
           <CertificateRow key={row.id} row={row} lang={listLang} readOnly={readOnly} onOpen={() => openOne(row)} index={i} />
@@ -198,9 +190,8 @@ function LockedRow({ design: raw, lang, index = 0, who }) {
   const tr = useT()
   const profile = who
   const { design } = useCertificateDesign(raw, lang)
-  // THEIR NAME, NOT THE SAMPLE'S (13 Oct 2026). Ethan: "whenever it shows the Still to Earn certificate, it shows
-  // Roxana Travels ... they should see their name there." The locked tile is the certificate they are working towards,
-  // so it wears their name and photo; only the challenge and date are examples.
+  // THEIR NAME, NOT THE SAMPLE'S. The locked tile is the certificate they are working towards, so it wears their name
+  // and photo; only the challenge and date are examples.
   const facts = { ...sampleFacts(design), serial: '', name: profile?.name || sampleFacts(design).name, photo: profile?.photo_url || '' }
   return (
     <div className="animate-rise overflow-hidden rounded-card border border-dashed border-gray-200 bg-white/70" style={{ animationDelay: `${Math.min(index, 6) * 60}ms` }}>
@@ -320,12 +311,10 @@ function CertificateRow({ row, lang, readOnly, onOpen, index = 0 }) {
   )
 }
 
-// THE VIEWER (30 Sep 2026). The certificate and its Instagram-story version are two
-// tabs of ONE picture-taker, each with its own Save button, because Ethan wanted creators
-// to "download the certificate or this Instagram story version" and to open the story
-// full screen (it could only be posted, never looked at). The language chips appear only
-// when the creator speaks more than English; an admin sees every language, to review the
-// wording before it goes out.
+// THE VIEWER. The certificate and its Instagram-story version are two tabs of ONE picture-taker, each with its own Save
+// button, because the team wanted creators to "download the certificate or this Instagram story version" and to open the
+// story full screen (it could only be posted, never looked at). The language chips appear only when the creator speaks
+// more than English; an admin sees every language, to review the wording before it goes out.
 function CertificateViewer({ row, onClose, tr }) {
   const { profile, isAdmin } = useAuth()
   const [node, setNode] = useState(null)
@@ -335,8 +324,8 @@ function CertificateViewer({ row, onClose, tr }) {
   const [holder, setHolder] = useState(null)
   const [view, setView] = useState('certificate')
   const langs = certificateLocales(profile, { all: isAdmin })
-  // OPENS IN THE READER'S LANGUAGE WHEN THEY SPEAK IT (2 Oct 2026). A creator on the Portuguese
-  // platform who speaks Portuguese opened every certificate in English and had to find the chip.
+  // OPENS IN THE READER'S LANGUAGE WHEN THEY SPEAK IT. A creator on the Portuguese platform who speaks Portuguese opened
+  // every certificate in English and had to find the chip.
   const reading = getLocale()
   const startLang = langs.some((l) => l.code === reading) ? reading : 'en'
   const [lang, setLang] = useState(startLang)
@@ -494,8 +483,7 @@ function CertificateViewer({ row, onClose, tr }) {
   )
 }
 
-// SHARE IT (12 Oct 2026). Ethan: "There should maybe be a suggestion as well to share it on their Instagram, LinkedIn,
-// etc." Instagram takes the story picture (the share sheet on a phone, a download elsewhere); LinkedIn gets the
+// SHARE IT. Instagram takes the story picture (the share sheet on a phone, a download elsewhere); LinkedIn gets the
 // certificate on the creator's profile under Licenses & certifications, with the check link as its credential URL, or a
 // post linking to the check page; and the check link itself can be copied anywhere.
 function ShareRow({ row, tr, onStory, onTikTok, busy }) {
@@ -560,9 +548,8 @@ export function FullScreen({ w, h, onClose, label, children }) {
 /**
  * 1080 x 1920: the certificate on the brand gradient, for a story.
  *
- * EXPORTED SINCE 28 Sep 2026, so the studio can show an admin what they are
- * actually giving out. It is photographed at 2x (2160 x 3840) since 30 Sep, and it
- * says "I just earned" - in the creator's voice, because it is theirs to post.
+ * EXPORTED SINCE, so the studio can show an admin what they are actually giving out. It is photographed at 2x (2160 x
+ * 3840) since 30 Sep, and it says "I just earned" - in the creator's voice, because it is theirs to post.
  */
 export function StoryFrame({ refCb, design, facts, lang = 'en' }) {
   const W = 1080
@@ -572,16 +559,14 @@ export function StoryFrame({ refCb, design, facts, lang = 'en' }) {
       ref={refCb}
       style={{
         width: W, height: 1920, position: 'relative', overflow: 'hidden', fontFamily: 'Poppins, system-ui, sans-serif',
-        // LIGHT AT THE TOP, DARK AT THE FOOT (30 Sep 2026, Ethan: "do the gradient the opposite way,
-        // so the darker colour at the bottom, lighter colour at the top").
+        // LIGHT AT THE TOP, DARK AT THE FOOT ().
         background: 'linear-gradient(200deg,#ffb37a 0%,#f5853f 42%,#d94407 100%)', color: '#ffffff',
         display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 56,
       }}
     >
       <div style={{ position: 'absolute', left: -240, bottom: -260, width: 760, height: 760, borderRadius: '50%', background: 'radial-gradient(circle, rgba(255,255,255,0.14) 0%, rgba(255,255,255,0) 68%)' }} />
       <div style={{ textAlign: 'center', padding: '0 80px' }}>
-        {/* BOLDER, NOT SPACED-OUT CAPITALS (30 Sep 2026). Ethan: "make it a bit bolder ... rather
-            than very slim". Thin tracked capitals at 85% read as a label; this is the creator saying it. */}
+        {/* BOLDER, NOT SPACED-OUT CAPITALS. Thin tracked capitals at 85% read as a label; this is the creator saying it. */}
         <p style={{ margin: 0, fontSize: 46, fontWeight: 700, letterSpacing: '-0.01em', lineHeight: 1.1, textShadow: '0 2px 18px rgba(120,40,0,0.18)' }}>{tIn(lang, 'I just earned')}</p>
         <p style={{ margin: '18px 0 0', fontSize: 64, fontWeight: 700, lineHeight: 1.08, letterSpacing: '-0.02em' }}>{design?.title || tIn(lang, 'Certificate')}</p>
       </div>

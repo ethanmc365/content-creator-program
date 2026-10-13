@@ -12,20 +12,14 @@ import { flagFromIso } from '../../lib/flags'
 import { monthLabel, vipRpc, useKindT } from '../../lib/vip'
 import { vipApi } from '../../api/vip'
 
-// WHAT THE TEAM SAYS TO ITS VIPS (rebuilt 4 Oct 2026).
-//
-// Ethan, on the Content page: "It says 'From the team' as a title, but they're not showing up under where exactly? It's not
-// clear. It shows month 00, but I want it to actually show exactly where that is showing up, like show the actual interface ...
-// the title should be first and then the message, rather than the other way around, but the title is optional. There should be
-// the option for this to only last there for 10 days or something ... for every VIP, for all the markets, or just in Spain."
+// WHAT THE TEAM SAYS TO ITS VIPS (rebuilt).
 //
 // So: the title comes first (and may be left out), the message second; it can end by itself after a number of days; it goes to one
 // market or, for the owner, to every VIP market; and the preview shows the three places it will actually appear - the top of the
 // VIP page, the VIP announcements room, and the notification - drawn as those places, with no invented numbers.
 
-// 4 Oct 2026, Ethan: "whenever I say 'tell your VIP something' I don't want it to go to the actual announcements on the room. It should
-// just appear on the VIP page and as a notification." So there are two places now, not three, there is no pin (a note is always at the top
-// of the page while it lasts), and the audience list shows a flag - the globe for the Worldwide VIP market and a star for EVERY VIP market,
+// 4 Oct 2026, So there are two places now, not three, there is no pin (a note is always at the top of the page while it
+// lasts), and the audience list shows a flag - the globe for the Worldwide VIP market and a star for EVERY VIP market,
 // which are different things: one market, or all of them.
 const isWorldwide = (p) => !p?.community?.country_codes?.length
 const programmeIcon = (p) => (isWorldwide(p) ? '🌍' : (p.community.country_codes || []).slice(0, 2).map(flagFromIso).join(''))

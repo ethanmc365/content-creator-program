@@ -15,9 +15,8 @@ import { challengesApi } from '../api/challenges'
 import { submissionsApi } from '../api/submissions'
 import { profilesApi } from '../api/profiles'
 
-// THE END-OF-CHALLENGE RECAP PAGE (24 Sep 2026). See lib/challengeRecap for
-// the numbers and components/wrapped/challengeStory for the cards; the story
-// runner is the Year in Review's own.
+// THE END-OF-CHALLENGE RECAP PAGE. See lib/challengeRecap for the numbers and components/wrapped/challengeStory for the
+// cards; the story runner is the Year in Review's own.
 //
 // Opens once a challenge has closed, for anybody who entered it. An admin can
 // look at any creator's with `?as=<creator id>` - the way to check a recap
@@ -48,10 +47,8 @@ export default function ChallengeRecap() {
 
       // Rewards: a creator reads their own; an admin previewing reads the
       // creator's through the admin policy.
-      // THE PRIZE POOL COUNTS THE VOUCHERS (28 Sep 2026). Ethan: "For the
-      // prize pool, it should also include any Tryp.com vouchers so that it
-      // looks even bigger." Same arithmetic as the analytics page's spend
-      // (lib/challengeSpend), from the same standings the payout reads.
+      // THE PRIZE POOL COUNTS THE VOUCHERS. Same arithmetic as the analytics page's spend (lib/challengeSpend), from the
+      // same standings the payout reads.
       const [{ data: rewards }, { data: standings }] = await Promise.all([
         moneyApi.rewards()
           .select('amount, currency, reward_type, prize_slot, status')

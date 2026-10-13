@@ -1,8 +1,4 @@
-// WHO TOOK PART, MARKET BY MARKET (22 Sep 2026).
-//
-// Ethan: "when I click to see the insights on the challenge so far and at the
-// end I want to see the participation split between the markets - a graph and
-// numbers, like how many submitted from the UK market and from Spain."
+// WHO TOOK PART, MARKET BY MARKET.
 //
 // A creator belongs to their HOME market (`community_members.is_home`), which
 // is the one placement an admin chose on approval. Somebody with no home row is

@@ -42,12 +42,10 @@ export function dailyStreak(dayKeys, today = ukDayIndex()) {
 /**
  * The seven day indexes of the week `today` falls in, Monday first.
  *
- * WHY THIS EXISTS. The streak card's "This week" strip drew `today-6 … today`,
- * which is a ROLLING seven days wearing weekday letters - so on a Thursday the
- * strip started on Friday, the letters ran F S S M T W T, and the same tile
- * meant a different day depending on when you looked. Ethan asked whether it
- * resets weekly; it did not, and the honest answer to "should it" is yes, or the
- * word "week" on the label is not describing anything.
+ * WHY THIS EXISTS. The streak card's "This week" strip drew `today-6 … today`, which is a ROLLING seven days wearing
+ * weekday letters - so on a Thursday the strip started on Friday, the letters ran F S S M T W T, and the same tile meant
+ * a different day depending on when you looked. The team asked whether it resets weekly; it did not, and the honest
+ * answer to "should it" is yes, or the word "week" on the label is not describing anything.
  *
  * The UK day index is days since the epoch and the epoch was a THURSDAY, so
  * `(day + 3) mod 7` is 0 on a Monday. Written down because getting it wrong is

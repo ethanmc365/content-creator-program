@@ -10,11 +10,6 @@ import { moneyApi } from '../api/money'
 
 // "ADD YOUR BANK DETAILS" - ASKED EVERY TIME, ENFORCED NEVER.
 //
-// Ethan: "I didn't see it enforce putting bank details yet. Maybe it shouldn't
-// enforce it - you can click to add them later, but then every time you open
-// the app/website there should be a visual pop up asking you to put in your
-// bank details. If you've entered them then it shouldn't ask."
-//
 // That is the right shape and it is worth saying why, because the tour tried to
 // enforce it and could not. Bank details are the one thing a creator genuinely
 // may not have to hand - they are on a card in another room, or the account is
@@ -40,11 +35,7 @@ export default function BankDetailsPrompt() {
   const tr = useT()
   const { user, profile } = useAuth()
   const [open, setOpen] = useState(false)
-  // IT ASKS AGAIN WHEN THE SLOT FREES UP, IN THE SAME APP OPEN (7 Sep 2026).
-  //
-  // Ethan: "creators should always be getting these - if they don't have both
-  // their payment details and their notifications on, every time they open it
-  // they should be prompted."
+  // IT ASKS AGAIN WHEN THE SLOT FREES UP, IN THE SAME APP OPEN.
   //
   // This prompt is third in the queue, so on any device where the notifications
   // ask fires first it lost the slot and, before this, never looked again. That
@@ -55,19 +46,11 @@ export default function BankDetailsPrompt() {
   useEffect(() => onNagChange(() => setNagTurn((n) => n + 1)), [])
 
   useEffect(() => {
-    // Admins are not paid through this, and a pending applicant has no prizes
-    // to be paid for yet - asking either of them is noise. (Ethan, 7 Sep 2026:
-    // "if someone is promoted to an admin they shouldn't get it, their payment
-    // details aren't required." Already true here, and now true of the
-    // notifications ask next door as well.)
+    // Admins are not paid through this, and a pending applicant has no prizes to be paid for yet - asking either of them
+    // is noise. ( Already true here, and now true of the notifications ask next door as well.)
     if (!user?.id || !profile || profile.is_admin || profile.status !== 'active') return undefined
 
-    // NOT ON THEIR VERY FIRST SESSION, BECAUSE THE TUTORIAL ASKS (4 Sep 2026).
-    //
-    // Ethan: "this new account didn't show up the tutorial at all - it just
-    // asked for the bank details and that was it. This payment detail thing
-    // doesn't need to be the first thing that shows up on the first step in the
-    // app, because we're having it in the actual tutorial in the middle of it."
+    // NOT ON THEIR VERY FIRST SESSION, BECAUSE THE TUTORIAL ASKS.
     //
     // Two modals about the same thing, in the same minute, is the walkthrough
     // arriving to find its own subject already covered by a dialog. The
@@ -125,11 +108,10 @@ export default function BankDetailsPrompt() {
             {tr('Prizes are paid by bank transfer, and we can only raise an invoice once we know where to send it. It takes about a minute and you only do it once.')}
           </p>
         </div>
-        {/* Ethan asked for this line to change. What it said was true and it
-            was also a small threat - "we will remind you" is the sentence a
-            dialog uses when it intends to be back. What somebody needs to know
-            is what happens to their money if they leave it, which is the honest
-            reason to do it now and does not require nagging. */}
+        {/* The team asked for this line to change. What it said was true and it was also a small threat - "we will
+            remind you" is the sentence a dialog uses when it intends to be back. What somebody needs to know is what
+            happens to their money if they leave it, which is the honest reason to do it now and does not require
+            nagging. */}
         <p className="text-sm leading-relaxed text-smoke">
           {tr('If you win before we have these, your prize waits until we do. You can add them any time from Settings.')}
         </p>

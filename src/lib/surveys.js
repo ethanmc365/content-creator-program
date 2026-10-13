@@ -1,9 +1,8 @@
-// SURVEYS: THE ARITHMETIC AND THE RULES, AWAY FROM THE SCREENS (30 Sep 2026, migration 291;
-// second pass 1 Oct 2026, migration 293).
+// SURVEYS: THE ARITHMETIC AND THE RULES, AWAY FROM THE SCREENS (migration 291; second pass, migration 293).
 //
 // A survey is a list of questions. Six kinds:
 //   rating   1 to 5 stars                         -> a number
-//   scale    0 to 10 ("how likely ...")           -> a number
+//   scale 0 to 10 ("how likely...") -> a number
 //   yesno    Yes or No                            -> 'yes' | 'no'
 //   choice   pick one of the options              -> the option's text
 //   multi    pick any of the options              -> an array of option texts
@@ -11,10 +10,8 @@
 // Answers are stored as { [questionId]: value } so reordering or renaming a question never breaks
 // the answers already in. Each question may carry a `help` line shown under it.
 //
-// HOW IT ASKS IS NO LONGER A CHOICE (1 Oct 2026). Ethan: "I think we don't need the ask ones. It
-// should just automatically keep asking until the answer, or if they select 'I don't want to take
-// part'". Every survey keeps coming back each time the app opens until it is answered or declined,
-// and declining asks once more, kindly, before it takes the no.
+// HOW IT ASKS IS NO LONGER A CHOICE. Every survey keeps coming back each time the app opens until it is answered or
+// declined, and declining asks once more, kindly, before it takes the no.
 
 import { t } from './i18n'
 

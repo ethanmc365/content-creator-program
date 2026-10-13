@@ -87,11 +87,10 @@ export const playCommiserate = () => play((a) => {
 })
 
 /**
- * PASSING A NUMBERED STOP. Ethan asked for "a little ding like a coin in Mario
- * Kart", and the reason that sound works is that it is TWO notes a fifth apart
- * played almost on top of each other - the second lands before the first has
- * finished, so it reads as one bright event rather than as a little tune. Square
- * waves, because a sine is too round to cut through and a saw is harsh.
+ * PASSING A NUMBERED STOP. The team asked for "a little ding like a coin in Mario Kart", and the reason that sound works
+ * is that it is TWO notes a fifth apart played almost on top of each other - the second lands before the first has
+ * finished, so it reads as one bright event rather than as a little tune. Square waves, because a sine is too round to
+ * cut through and a saw is harsh.
  */
 export const playCoin = () => play((a) => {
   tone(a, 987.77, 0, 0.07, 0.10, 'square')   // B5
@@ -159,11 +158,10 @@ function buildEngine(a) {
 
   // THE AIRFLOW. Wide and low: this is the bed the rest sits on.
   //
-  // It used to be the ONLY noise path, a single bandpass at 420Hz with Q 0.7,
-  // and Ethan's note was that it did not sound like a plane. That is exactly
-  // what one wide band of noise sounds like: a hiss. A real engine has a
-  // strong resonant peak - the blade passing tone - which is what the ear
-  // actually latches onto, and a broad rush of air around it.
+  // It used to be the ONLY noise path, a single bandpass at 420Hz with Q 0.7, and the team's note was that it did not
+  // sound like a plane. That is exactly what one wide band of noise sounds like: a hiss. A real engine has a strong
+  // resonant peak - the blade passing tone - which is what the ear actually latches onto, and a broad rush of air around
+  // it.
   const air = a.createBiquadFilter()
   air.type = 'bandpass'
   air.frequency.value = 320

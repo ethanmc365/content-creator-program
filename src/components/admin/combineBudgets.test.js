@@ -1,9 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import { combineBudgets, prizeBudget } from './PrizeBreakdownFields'
 
-// A split challenge (the Spanish community runs two groups) costs every group's prizes and every group's
-// taking-part reward, added up. Ethan: "at the very bottom the total cost doesn't appear whenever you assign
-// different prizes for the different groups."
+// A split challenge (the Spanish community runs two groups) costs every group's prizes and every group's taking-part
+// reward, added up.
 describe('combineBudgets', () => {
   const groupA = prizeBudget({
     prizes: [{ place: '1st', prize: '€100', amount: 100, type: 'cash' }, { place: '2nd', prize: '€50 voucher', amount: 50, type: 'voucher' }],

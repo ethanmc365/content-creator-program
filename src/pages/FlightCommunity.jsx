@@ -23,19 +23,14 @@ import { flightsApi } from '../api/flights'
 //
 // WHY THIS IS ITS OWN PAGE NOW.
 //
-// All of this used to be two sections near the bottom of `/flights`, under a
-// records wall, a streak, an airline ranking, a year-by-year chart and the log
-// itself. Ethan: "the across the community for this should have its own page and
-// a button at the top to access it. On this page the leaderboards, community
-// info from flights etc and other cool features should appear."
+// All of this used to be two sections near the bottom of `/flights`, under a records wall, a streak, an airline ranking,
+// a year-by-year chart and the log itself.
 //
-// He is right, and the reason is that they answer a different question with a
-// different owner. `/flights` is about YOU - it is a private record, and every
-// number on it is your own. This is about everybody else, and it is the only
-// part of the flight log with any social pull in it: who has flown furthest,
-// who else has been where you are going, who is on your routes. Buried nine
-// screens down, it was a footnote to a personal page; at the top of its own
-// page it is a reason to open the feature at all.
+// they are right, and the reason is that they answer a different question with a different owner. `/flights` is about
+// YOU - it is a private record, and every number on it is your own. This is about everybody else, and it is the only
+// part of the flight log with any social pull in it: who has flown furthest, who else has been where you are going, who
+// is on your routes. Buried nine screens down, it was a footnote to a personal page; at the top of its own page it is a
+// reason to open the feature at all.
 //
 // WHAT IS AND IS NOT IN HERE. Only flights their owner has ticked to share, and
 // even then only who flew, how many times, how far and between which airports.
@@ -49,24 +44,15 @@ import { flightsApi } from '../api/flights'
 function Board({ icon, title, rows, value, unit, myId, open, note }) {
   // THREE, THEN THE REST ON A TAP.
   //
-  // Ethan: "we only show maybe the top five, or when clicking on it, it expands
-  // down and shows the top ten for all the leaderboards... and obviously it
-  // doesn't show for all of them, like if I click on most countries it'll show
-  // the drop down leaderboard for most countries... I will just bring it back
-  // to only showing the top three."
-  //
   // Eight rows x three boards is twenty-four names, which on a phone is the
   // whole page and on a desktop is three columns of ties. Three is the shape
   // everybody already reads a ranking in.
   //
   // THE EXPANSION IS FOR ALL THREE AT ONCE, AND IT LIVES IN THE SECTION.
   //
-  // It used to be `useState` in here, one per board, so the control at the foot
-  // of each card only ever opened its own - and because the three cards are a
-  // `grid items-stretch`, opening one STRETCHED the other two to match without
-  // filling them, which is what Ethan hit: "it does expand the cards and at the
-  // bottom of those cards I have to click show top 20 to see them... clicking
-  // see top 20 and clicking show fewer should do it for them all."
+  // It used to be `useState` in here, one per board, so the control at the foot of each card only ever opened its own -
+  // and because the three cards are a `grid items-stretch`, opening one STRETCHED the other two to match without filling
+  // them, which is what
   //
   // Three cards that are already forced to the same height are one control, not
   // three. `open` is now owned by the section and passed down.
@@ -254,12 +240,10 @@ export default function FlightCommunity() {
       // log because obviously people have already logged the countries they've
       // been to when they signed up in that travel map."
       //
-      // He is right, and the flight-log-only version was actively misleading -
-      // a creator who has been to thirty countries and logged four flights
-      // ranked below somebody with six flights and no travel map. It is a
-      // UNION, not a replacement: a country you flew to counts whether or not
-      // you remembered to tick it at signup, and one you drove to counts even
-      // though no flight will ever prove it.
+      // they are right, and the flight-log-only version was actively misleading - a creator who has been to thirty
+      // countries and logged four flights ranked below somebody with six flights and no travel map. It is a UNION, not a
+      // replacement: a country you flew to counts whether or not you remembered to tick it at signup, and one you drove
+      // to counts even though no flight will ever prove it.
       //
       // The two sides speak different languages - an airport carries ISO-2, the
       // travel map carries country NAMES - so the names are resolved to codes
@@ -269,11 +253,6 @@ export default function FlightCommunity() {
       // them.
       //
       // BUT THE TRAVEL MAP HAS NO DATES, SO IT CANNOT ANSWER A DATED QUESTION.
-      //
-      // Ethan: "it needs to be by flights logged, not from onboarding map they
-      // filled in, the reason is because there's no years or dates for when
-      // they've been there if they just clicked the map... so for all time it
-      // can show them but for 2026 it has to be from flights logged."
       //
       // Exactly right, and the union was quietly wrong in the year view: the
       // board is windowed to the current year, so a creator with one flight in
@@ -303,7 +282,7 @@ export default function FlightCommunity() {
   }, [board, win])
 
   // Only the creators with a flight in the window. The leaderboard returns everybody who shares their log, flights or
-  // not, so this said "175 creators sharing" over 50 flights (3 Oct 2026).
+  // not, so this said "175 creators sharing" over 50 flights.
   const sharing = (board || []).filter((b) => Number(b.flights) > 0).length
 
   // THE MAP'S DATA, IN THE SHAPE `FlightMap` ALREADY TAKES.
@@ -394,13 +373,9 @@ export default function FlightCommunity() {
         </Reveal>
 
         {/* ---- WHERE WE ALL GO ----
-            THE PICTURE, AND IT LEADS.
-            Ethan: "improve the across the community tab, build in more features
-            there that would be interesting, maybe a visual image or map."
-            A page of three rankings and a bar chart is a page of numbers about
-            travel, which is the one subject that should never be only numbers.
-            Every shared route in the community drawn at once is the only thing
-            on here that anybody would screenshot.
+            THE PICTURE, AND IT LEADS. A page of three rankings and a bar chart is a page of numbers about travel, which
+            is the one subject that should never be only numbers. Every shared route in the community drawn at once is
+            the only thing on here that anybody would screenshot.
 
             It is the SAME COMPONENT as your own log's map (see `mapData`), so
             there is one map to maintain and moving between the two pages reads
@@ -579,16 +554,10 @@ export default function FlightCommunity() {
                   {tr("Your aircraft collection →")}
                 </Link>
               </div>
-              {/* THE AIRCRAFT, AND THE PEOPLE WHO HAVE BEEN ON IT.
-                  Ethan: "it should show the visual image of the plane not an
-                  icon and it should show creator profiles as like they've flown
-                  it, like how rsvp would look."
-                  Both halves are the same point. A generic plane glyph beside
-                  the words "Airbus A320neo" says nothing the words did not, and
-                  the collection already ships a photograph of every type. And
-                  "2 creators have flown it" is trivia where two faces are an
-                  introduction - the same reason "others on your routes" names
-                  people instead of counting them. */}
+              {/* THE AIRCRAFT, AND THE PEOPLE WHO HAVE BEEN ON IT. Both halves are the same point. A generic plane glyph
+                  beside the words "Airbus A320neo" says nothing the words did not, and the collection already ships a
+                  photograph of every type. And "2 creators have flown it" is trivia where two faces are an introduction
+                  - the same reason "others on your routes" names people instead of counting them. */}
               <Reveal className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3" stagger={0.04}>
                 {(allFleet ? fleet : fleet.slice(0, 3)).map((a) => {
                   const type = aircraftTypeByName(a.aircraft)
@@ -639,14 +608,9 @@ export default function FlightCommunity() {
                   )
                 })}
               </Reveal>
-              {/* EVERY TYPE, NOT THE FIRST TWELVE.
-                  Ethan: "it's not showing all the aircrafts we've been on, I
-                  think it should show them all or show the first 3 with a
-                  toggle to view all and they would then appear below." The cap
-                  was a silent 12 over a list the RPC already returns 40 of, so
-                  a community that has been on more types than that was simply
-                  told it had not. Three is a full row on desktop and the rest
-                  open underneath in place, which is the second half of the ask
+              {/* EVERY TYPE, NOT THE FIRST TWELVE. The cap was a silent 12 over a list the RPC already returns 40 of, so
+                  a community that has been on more types than that was simply told it had not. Three is a full row on
+                  desktop and the rest open underneath in place, which is the second half of the ask
                   - not a link to another page. */}
               {fleet.length > 3 && (
                 <button
@@ -659,11 +623,7 @@ export default function FlightCommunity() {
                 </button>
               )}
 
-              {/* WHY THE WALL IS THIN, WHEN IT IS (2 Sep 2026).
-
-                  Ethan: "it's still showing that we're only flying one plane
-                  even though it's obviously multiple - and I think Jacob
-                  selected other ones too."
+              {/* WHY THE WALL IS THIN, WHEN IT IS.
 
                   The page was right and it looked broken, which is the worse of
                   the two failures. Forty-one of the forty-five flights logged
@@ -707,9 +667,6 @@ export default function FlightCommunity() {
 
 // WHO FLIES THIS ROUTE, ON THE CARD THAT OPENS WHEN YOU PRESS IT.
 //
-// Ethan: "same for the across the community trips, and it should provide some
-// info, show the creator's name and profile picture."
-//
 // The community map cannot list flights - `community_routes` returns a pair of
 // codes and two counts, and that is deliberate (migration 103: a date and a
 // flight number are somebody's movement history). What it CAN say is who,
@@ -742,16 +699,11 @@ function RouteCreators({ from, to }) {
       <ul className="space-y-1">
         {rows.slice(0, 4).map((c) => (
           <li key={c.creator_id}>
-            {/* THE ROW SAYS TWO NUMBERS, AND THEY ARE DIFFERENT KINDS OF FACT.
-                Ethan: "it says two for the flight he's been on, but then it
-                should say, like, in total, ten flights."
-                "2 on this route" is about the LINE you just pressed; "27
-                flights logged" is about the PERSON, and it is the one that
-                turns a name into somebody worth opening. They are stacked
-                rather than run together because reading "2 flights 27 flights"
-                on one line is a puzzle. See migration 156 for where the second
-                number comes from - and note it counts SHARED flights only, the
-                same definition the leaderboard on this page publishes. */}
+            {/* THE ROW SAYS TWO NUMBERS, AND THEY ARE DIFFERENT KINDS OF FACT. "2 on this route" is about the LINE you
+                just pressed; "27 flights logged" is about the PERSON, and it is the one that turns a name into somebody
+                worth opening. They are stacked rather than run together because reading "2 flights 27 flights" on one
+                line is a puzzle. See migration 156 for where the second number comes from - and note it counts SHARED
+                flights only, the same definition the leaderboard on this page publishes. */}
             <Link
               to={`/profile/${c.creator_id}`}
               className="flex items-center gap-3 rounded-xl px-2 py-1.5 transition-colors duration-200 hover:bg-cloud"

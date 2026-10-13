@@ -8,19 +8,19 @@
 // TWO THINGS WERE WRONG, and they are opposite halves of the same missing idea:
 // nothing ever recorded which currency the prize was DECIDED in.
 //
-//  1. THE NOTE APPEARED WHEN IT SHOULD NOT. Ethan: "when I click on GBP, it
+//  1. THE NOTE APPEARED WHEN IT SHOULD NOT. The team: "when I click on GBP, it
 //     shows £20 in the invoice, which is correct, but then it shows 'converted
 //     from €23 at today's European Central Bank rate'. That doesn't really make
 //     sense. It shouldn't be showing up."
 //
-//     He is right, and the reason it did is that the composer only knew what the
+//     they are right, and the reason it did is that the composer only knew what the
 //     figure was a moment ago, not what it started as. A £20 prize opens as €23
 //     (converted - worth saying), and pressing GBP takes it back to £20, which
 //     is the prize itself. Nothing has been converted; the round trip has been
 //     undone. The note was describing the last button press rather than the
 //     document.
 //
-//  2. IT ONLY EVER CONVERTED ONE WAY. Ethan: "if a creator with euro details
+//  2. IT ONLY EVER CONVERTED ONE WAY. The team: "if a creator with euro details
 //     wins a UK prize then they receive euro at the conversion rate but we also
 //     need to build it the other way - if a creator with UK details wins a euro
 //     prize, it should be converted to pounds for them."

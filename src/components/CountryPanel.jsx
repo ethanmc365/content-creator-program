@@ -113,11 +113,9 @@ export function useMessageCreator(onCreatorClick) {
   const { user } = useAuth()
   const navigate = useNavigate()
 
-  // A DM IS OPENED, NOT CREATED (9 Sep 2026). `openConversation` INSERTS a row,
-  // so pressing Message and then changing your mind left an empty thread in two
-  // inboxes. `/messages?to=` opens the thread either way and Messages.jsx
-  // creates the row on the first send - see `ensureConversation` there. It is
-  // also instant, which the round trip this replaced was not.
+  // A DM IS OPENED, NOT CREATED. `openConversation` INSERTS a row, so pressing Message and then changing your mind left
+  // an empty thread in two inboxes. `/messages?to=` opens the thread either way and Messages.jsx creates the row on the
+  // first send - see `ensureConversation` there. It is also instant, which the round trip this replaced was not.
   function message(creator) {
     if (!user?.id) return
     navigate(`/messages?to=${creator.id}`)
@@ -136,13 +134,11 @@ export function useMessageCreator(onCreatorClick) {
 // of the map. The CALLER gives us a definite box and this shrinks inside it;
 // `overflow-hidden` makes min-height 0 so flex is allowed to squeeze it.
 //
-// THE CARD SCROLLS, WHATEVER MAP IT SITS ON (2 Oct 2026). Ethan: "when I click on a country and it shows the
-// popup, I should be able to scroll on that card to see who's been there ... same issue with the map on the
-// worldwide page." The card is drawn INSIDE the map's box, and the box claims gestures for itself: a non-passive
-// wheel listener that preventDefaults every wheel the map owns (CreatorMap), and `touch-action: none` from
-// `[data-zoomable]` (index.css). So a wheel or a finger on the list moved nothing. The card now stops its own
-// wheel/touch events from reaching the box (native listeners, because the box's is native too and React's
-// synthetic stopPropagation runs only after it), and index.css gives `[data-map-panel]` `touch-action: pan-y`.
+// THE CARD SCROLLS, WHATEVER MAP IT SITS ON. The card is drawn INSIDE the map's box, and the box claims gestures for
+// itself: a non-passive wheel listener that preventDefaults every wheel the map owns (CreatorMap), and `touch-action:
+// none` from `[data-zoomable]` (index.css). So a wheel or a finger on the list moved nothing. The card now stops its own
+// wheel/touch events from reaching the box (native listeners, because the box's is native too and React's synthetic
+// stopPropagation runs only after it), and index.css gives `[data-map-panel]` `touch-action: pan-y`.
 export function MapPanel({ badge, title, subtitle, onClose, className, children }) {
   const tr = useT()
   const ref = useRef(null)
@@ -318,11 +314,10 @@ export default function CountryPanel({
                 button that re-shows the fact you are already reading is a button
                 that looks broken.
 
-                NO "4 of 11". Ethan asked for it gone and he is right: a counter
-                turns reading into a chore with a length, and the moment you can
-                see there are seven left you are no longer reading, you are
-                getting through them. Press the button, get another fact. Past
-                the end it comes round again and says so to nobody. */}
+                NO "4 of 11". The team asked for it gone and they are right: a counter turns reading into a chore with a
+                length, and the moment you can see there are seven left you are no longer reading, you are getting
+                through them. Press the button, get another fact. Past the end it comes round again and says so to
+                nobody. */}
             {bank.length > 1 && (
               <div className="mt-2 flex">
                 <button

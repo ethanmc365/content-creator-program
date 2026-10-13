@@ -124,12 +124,7 @@ describe('buildQuestion', () => {
   })
 })
 
-// ---------------------------------------------------------------------------
-// The bigger bank, 16 Sep 2026.
-//
-// Ethan: "I've noticed a lot of repetition in words while playing over the last
-// few weeks so more variety will be better. But ensure they are still quite
-// commonly used."
+// --------------------------------------------------------------------------- The bigger bank.
 //
 // The repetition had a specific cause and it was not the size of the bank: every
 // language held the SAME TEN MEANINGS - hello, good morning, thank you, please,

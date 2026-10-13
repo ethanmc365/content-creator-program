@@ -12,11 +12,6 @@ import { challengesApi } from '../../api/challenges'
 
 // START FROM THE BEST BRIEF THE PROGRAMME HAS EVER RUN.
 //
-// Ethan: "rather than admins starting from scratch every time, they can save the
-// challenge as a template... I think this should be in a nice UI at the top that
-// you scroll horizontally to view and select through them. It should show the
-// template name, and the admin profile picture and name that created it."
-//
 // A HORIZONTAL RAIL AND NOT A DROPDOWN, and the reason is what a template
 // actually is. A dropdown of names asks somebody to remember what "September
 // hidden gems v2" contained; a rail of cards with a face on them is a
@@ -24,13 +19,11 @@ import { challengesApi } from '../../api/challenges'
 // roughly how big it was. It also degrades honestly: one template is one card
 // and looks deliberate, where a select with one option looks broken.
 //
-// PRESSING A CARD DOES NOT APPLY IT. It opens the template and shows what is
-// in it. Ethan asked for exactly that - "Clicking on the button should open a
-// pop-up where you can see the key details... and then there should be a button
-// to click Use this template" - and it is the right shape for a destructive
-// action wearing a friendly coat: applying a template OVERWRITES a form the
-// admin may have already typed into, so it needs a sentence and a second press
-// rather than happening under their finger.
+// PRESSING A CARD DOES NOT APPLY IT. It opens the template and shows what is in it. The team asked for exactly that -
+// "Clicking on the button should open a pop-up where you can see the key details... and then there should be a button to
+// click Use this template" - and it is the right shape for a destructive action wearing a friendly coat: applying a
+// template OVERWRITES a form the admin may have already typed into, so it needs a sentence and a second press rather
+// than happening under their finger.
 
 function timeAgo(iso, tr) {
   const days = Math.floor((Date.now() - new Date(iso).getTime()) / 86400000)

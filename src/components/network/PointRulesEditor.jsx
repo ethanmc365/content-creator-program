@@ -56,9 +56,6 @@ const newRule = (kind) => ({ id: `new-${tempId++}`, kind, ...(DEFAULTS[kind] || 
 
 // A NUMBER YOU TYPE, NOT ONE YOU CLICK UP AND DOWN.
 //
-// Ethan: "I don't like that you have those clicking arrows to change it, I just
-// want to be able to type in the number, so it will look clean."
-//
 // `type="number"` brings spinners, changes value on a scroll wheel that was
 // only passing over the field, and on several phones opens a keypad with no
 // minus or decimal. A text field with `inputMode` is the same keyboard without
@@ -85,9 +82,8 @@ function NumberBox({ value, onChange, width = 'w-14', decimal = false, ariaLabel
       inputMode={decimal ? 'decimal' : 'numeric'}
       value={text}
       onChange={(e) => {
-        // A LEADING ZERO IS DROPPED AS YOU TYPE. Clearing the points box used
-        // to put a 0 straight back, so typing 2 read "02" (Ethan: "it shows
-        // up as a zero first"). "0." is kept so a decimal is still reachable.
+        // A LEADING ZERO IS DROPPED AS YOU TYPE. Clearing the points box used to put a 0 straight back, so typing 2 read
+        // "02" ( ). "0." is kept so a decimal is still reachable.
         const clean = e.target.value.replace(decimal ? /[^0-9.]/g : /[^0-9]/g, '').replace(/^0+(?=\d)/, '')
         setText(clean)
         onChange(clean === '' ? null : Number(clean))
@@ -105,29 +101,21 @@ function NumberBox({ value, onChange, width = 'w-14', decimal = false, ariaLabel
 
 // ONE ROW, AND THE SAME SHAPE WHATEVER THE RULE IS.
 //
-// Ethan's first report was that the three kinds looked different from each
-// other and that points and views were easy to mix up. Both were true, and they
-// had the same cause: the second number moved around. A "per video" row put its
-// cap before the points, a milestone row put its view count before the points,
-// and a bonus row had nothing there at all - so the eye never learned where to
-// look and the two numbers on a milestone row (5 and 10,000) sat in identical
-// boxes meaning completely different things.
+// The team's first report was that the three kinds looked different from each other and that points and views were easy
+// to mix up. Both were true, and they had the same cause: the second number moved around. A "per video" row put its cap
+// before the points, a milestone row put its view count before the points, and a bonus row had nothing there at all - so
+// the eye never learned where to look and the two numbers on a milestone row (5 and 10,000) sat in identical boxes
+// meaning completely different things.
 //
 // So: the name is always the same width, POINTS ALWAYS COMES FIRST and always
 // looks the same, and whatever else the rule needs comes after it in a box that
 // is visibly not a points box.
 //
 // AND THEN IT WAS STILL NOT ALIGNED, WHICH IS THE SECOND REPORT.
-// Ethan: "it annoys me that the video posted shows one point, and then below
-// it's two points, five points, ten points - they're misaligned. The one point
-// is more to the right than the others. I think it's because the [box] after
-// the points is different."
 //
-// He diagnosed it exactly. The row was a FLEX with a `flex-1` name field, so
-// the name absorbed whatever the trailing box did not use - and the trailing
-// box is a different width on every kind of rule ("at 10,000 views" is much
-// wider than "up to 10 pts"). Every column after the name therefore sat
-// somewhere different on every row.
+// They diagnosed it exactly. The row was a FLEX with a `flex-1` name field, so the name absorbed whatever the trailing
+// box did not use - and the trailing box is a different width on every kind of rule ("at 10,000 views" is much wider
+// than "up to 10 pts"). Every column after the name therefore sat somewhere different on every row.
 //
 // It is a GRID from `sm` now, with the points column and the condition column
 // both fixed. The name is the only thing that flexes, which is the only thing
@@ -141,12 +129,10 @@ function Row({ rule, onChange, onRemove }) {
   const meta = KINDS[rule.kind] || KINDS.bonus
   return (
     <div className="rounded-xl border border-gray-200 bg-white px-3 py-2.5 transition-colors hover:border-brand/30">
-    {/* ON A PHONE IT IS TWO LINES, NOT A WRAPPING HEAP (29 Sep 2026). Ethan: editing
-        the points on mobile was fiddly. The row used to be a wrapping flex, so the
-        name, the points box, the condition and the bin fell wherever the width let
-        them. Now line one is always [icon] [name] [remove] and line two is always
-        [points] [what earns them], each with its little label, at a 44px touch height.
-        From `sm` up it is the five-column grid it always was (`contents` lets the
+    {/* ON A PHONE IT IS TWO LINES, NOT A WRAPPING HEAP. The team: editing the points on mobile was fiddly. The row used
+        to be a wrapping flex, so the name, the points box, the condition and the bin fell wherever the width let them.
+        Now line one is always [icon] [name] [remove] and line two is always [points] [what earns them], each with its
+        little label, at a 44px touch height. From `sm` up it is the five-column grid it always was (`contents` lets the
         second line's two boxes become grid cells again). */}
     <div className={cx('grid grid-cols-[2.25rem_minmax(0,1fr)_2.5rem] items-center gap-x-2 gap-y-2.5', ROW_GRID)}>
       <span className="order-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-cloud text-smoke sm:order-1" title={meta.label}>
@@ -161,14 +147,11 @@ function Row({ rule, onChange, onRemove }) {
         aria-label={tr("Rule name")}
       />
 
-      {/* POINTS. First, every time, in SOLID Tryp orange, and in a column of a
-          fixed width so "1 pts" starts exactly where "10 pts" starts.
-          It was a pale wash of the brand with brand-coloured digits on it -
-          the light orange Ethan has asked twice to stop seeing, and, worse,
-          barely louder than the plain bordered box beside it holding a view
-          count. The two numbers on a milestone row (5 and 10,000) mean
-          completely different things and now look completely different:
-          white on orange is the score, ink on white is the condition. */}
+      {/* POINTS. First, every time, in SOLID Tryp orange, and in a column of a fixed width so "1 pts" starts exactly
+          where "10 pts" starts. It was a pale wash of the brand with brand-coloured digits on it - the light orange the
+          team has asked twice to stop seeing, and, worse, barely louder than the plain bordered box beside it holding a
+          view count. The two numbers on a milestone row (5 and 10,000) mean completely different things and now look
+          completely different: white on orange is the score, ink on white is the condition. */}
       <div className="order-4 col-span-3 flex items-stretch gap-2 sm:contents">
       <label className="flex min-h-[2.75rem] w-[5rem] shrink-0 items-center justify-center gap-1 rounded-lg bg-brand px-2 py-1.5 shadow-sm sm:order-3 sm:min-h-0 sm:w-full">
         <NumberBox
@@ -261,13 +244,9 @@ function Row({ rule, onChange, onRemove }) {
       </button>
     </div>
 
-    {/* THE BONUS SETTINGS, AS ONE PANEL (21 Sep 2026).
-        Ethan: "could you tidy up the way the bonus points currently look,
-        because it seems a bit scattered and misaligned with the other style."
-        It was three free-standing sentences, each with a box dropped somewhere
-        along it, so no two boxes lined up. Now it is one tinted panel under the
-        row, indented to the name column, with three labelled fields: the
-        question (what makes the bonus automatic), the view gate, and the cap.
+    {/* THE BONUS SETTINGS, AS ONE PANEL. It was three free-standing sentences, each with a box dropped somewhere along
+        it, so no two boxes lined up. Now it is one tinted panel under the row, indented to the name column, with three
+        labelled fields: the question (what makes the bonus automatic), the view gate, and the cap.
 
         THE QUESTION: typing one turns this bonus into a tick box on the submit
         form, awarded from the answer. Blank means an admin awards it from the
@@ -282,18 +261,16 @@ function Row({ rule, onChange, onRemove }) {
 }
 
 
-// THE SETTINGS OF A SPECIAL BONUS, moved out of the row (4 Oct 2026) so the bonus section can show one tidy line per bonus and open the detail only when it is wanted.
+// THE SETTINGS OF A SPECIAL BONUS, moved out of the row so the bonus section can show one tidy line per bonus and open
+// the detail only when it is wanted.
 function BonusSettings({ rule, onChange, weeks }) {
   const tr = useT()
   return (
     <div className="space-y-3">
-      {/* HOW IT IS EARNED, AS A CHOICE (26 Sep 2026). Ethan: "the bonus thing
-          with all those different things seems a bit confusing ... make it more
-          user-friendly to the admins." It used to be a question box whose
-          meaning changed when it was left blank. Now it is two buttons that say
-          what happens, and the question only appears for the one that needs it.
-          A null prompt is "I award it"; a string (even empty while typing) is
-          "creator ticks a box". Saving trims an empty one back to null. */}
+      {/* HOW IT IS EARNED, AS A CHOICE. It used to be a question box whose meaning changed when it was left blank. Now
+          it is two buttons that say what happens, and the question only appears for the one that needs it. A null prompt
+          is "I award it"; a string (even empty while typing) is "creator ticks a box". Saving trims an empty one back to
+          null. */}
       <div>
         <span className="mb-1.5 block text-[11px] font-semibold text-smoke">{tr("How it is earned")}</span>
         <div className="grid grid-cols-2 gap-1.5 sm:max-w-md">
@@ -361,7 +338,7 @@ function BonusSettings({ rule, onChange, weeks }) {
           <span className="mt-1 block text-[11px] text-smoke">{tr("Blank: no limit")}</span>
         </label>
       </div>
-      {/* WHAT THE CREATOR WILL READ, in the words they will read it in (30 Sep 2026). */}
+      {/* WHAT THE CREATOR WILL READ, in the words they will read it in. */}
       {Number(rule.max_points) > 0 && Number(rule.points) > 0 && (
         <p className="flex items-start gap-2 rounded-lg bg-white px-3 py-2 text-xs leading-relaxed text-ink ring-1 ring-brand/15">
           <Icon name="star" className="mt-0.5 h-3.5 w-3.5 shrink-0 text-brand" />
@@ -378,10 +355,10 @@ function BonusSettings({ rule, onChange, weeks }) {
 }
 
 
-// THE BONUS SECTION, REBUILT (4 Oct 2026). Ethan: "make it better than off-cards, side cards and weird UI, but much more functional."
-// Each bonus is ONE line - what it is called, what it pays - with a plain sentence under it saying what a creator has to do, and a
-// "Settings" press that opens everything else (the cap, how it is earned, when it runs). Nothing sits in a card inside a card, and
-// adding one is a list of options that each say what they do, so no label is cut off.
+// THE BONUS SECTION, REBUILT. Each bonus is ONE line - what it is called, what it pays - with a plain sentence under it
+// saying what a creator has to do, and a "Settings" press that opens everything else (the cap, how it is earned, when it
+// runs). Nothing sits in a card inside a card, and adding one is a list of options that each say what they do, so no
+// label is cut off.
 const BONUS_INFO = {
   bonus: { title: 'Special bonus', does: 'A one-off for something specific, like a theme. The creator ticks a box, or you award it.' },
   per_post: { title: 'Per video', does: 'Points for every video a creator posts, up to a ceiling.' },
@@ -513,10 +490,7 @@ function AddBonus({ onAdd }) {
 
 // WHEN A BONUS RUNS (migration 256).
 //
-// Ethan: "maybe I want the bonus point to run for the whole challenge, or maybe
-// just for a certain period or a certain week... so there's a different bonus
-// point every week." The only way to stop one used to be deleting it, which
-// took everybody's points with it.
+// The only way to stop one used to be deleting it, which took everybody's points with it.
 //
 // Three answers, one control: the whole challenge, one of its weeks (worked
 // out from the challenge's own dates, so "Week 2" means the same thing here as
@@ -621,9 +595,7 @@ function ConsistencyPeriod({ rule, onChange }) {
   // so the box does not vanish from under somebody typing "14".
   const [custom, setCustom] = useState(() => !CONSISTENCY_PERIODS.some((p) => p.days === days))
   const named = !custom && CONSISTENCY_PERIODS.find((p) => p.days === days)
-  // THE PLATFORM'S OWN DROPDOWN. It was a native <select>, which opens the
-  // operating system's menu - Ethan: "this UI is the weird Apple [menu]. It's
-  // not our custom UI, so please fix that."
+  // THE PLATFORM'S OWN DROPDOWN. It was a native <select>, which opens the operating system's menu -
   const options = [
     ...CONSISTENCY_PERIODS.map((p) => ({ value: String(p.days), label: tr(p.label.charAt(0).toUpperCase() + p.label.slice(1)) })),
     { value: 'custom', label: tr('Every few days') },
@@ -678,10 +650,9 @@ export default function PointRulesEditor({ rules, onChange, thresholdMode, onThr
     onChange(rules.filter((_, j) => j !== i))
   }
 
-  // TWO SECTIONS, EACH WITH ITS OWN ADD BUTTONS (26 Sep 2026). One list of
-  // every kind, with six add-buttons under it, mixed view milestones in among
-  // bonuses and made the section hard to read. The indexes into `rules` are
-  // kept so edits land on the right row whichever section draws it.
+  // TWO SECTIONS, EACH WITH ITS OWN ADD BUTTONS. One list of every kind, with six add-buttons under it, mixed view
+  // milestones in among bonuses and made the section hard to read. The indexes into `rules` are kept so edits land on
+  // the right row whichever section draws it.
   const indexed = rules.map((r, i) => ({ r, i }))
   const milestones = indexed.filter(({ r }) => RULE_USES_THRESHOLD.has(r.kind))
   const extras = indexed.filter(({ r }) => !RULE_USES_THRESHOLD.has(r.kind))

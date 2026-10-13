@@ -7,9 +7,8 @@ import { useT } from '../lib/i18n'
 
 // THE COMPOSER. ONE OF THEM.
 //
-// There were three: a WYSIWYG contentEditable in the legacy chat, and a plain
-// one-row textarea in the market rooms and in the DMs. Everything Ethan
-// reported about typing came out of that split:
+// There were three: a WYSIWYG contentEditable in the legacy chat, and a plain one-row textarea in the market rooms and
+// in the DMs. Everything the team reported about typing came out of that split:
 //
 //   * "the textbox doesn't get bigger at all" - a `rows={1}` textarea does not
 //     grow. Only the DMs had an auto-grow effect, and only the DMs.
@@ -203,11 +202,9 @@ const ChatComposer = forwardRef(function ChatComposer({
           // on mobile is deliberate: anything smaller and iOS zooms the page on
           // focus, and the overlay geometry never recovers.
           //
-          // `rt-scroll` is what makes that scroll actually work on a phone -
-          // see the note in index.css. Without it the drag chains out to the
-          // locked document behind the overlay and takes the keyboard with it.
-          // A ROUNDED PILL ON A SOFT GREY, LIKE EVERY MESSAGING APP (12 Oct 2026,
-          // "improve the overall style of the mobile chat").
+          // `rt-scroll` is what makes that scroll actually work on a phone - see the note in index.css. Without it the
+          // drag chains out to the locked document behind the overlay and takes the keyboard with it. A ROUNDED PILL ON
+          // A SOFT GREY, LIKE EVERY MESSAGING APP ("improve the overall style of the mobile chat").
           className="input rt-scroll max-h-40 min-h-[2.75rem] flex-1 self-stretch overflow-y-auto overscroll-contain !rounded-[22px] !border-transparent !bg-cloud px-4 py-2.5 text-base focus:!bg-white focus:!border-gray-200 sm:text-sm"
         />
 

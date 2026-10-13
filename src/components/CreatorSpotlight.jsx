@@ -59,8 +59,8 @@ export default function CreatorSpotlight() {
         .select('id, name, photo_url, bio, about, city, country, countries_visited')
         .eq('status', 'active').eq('is_admin', false).in('is_test', testFlags())
         .is('deletion_requested_at', null)
-        // ONLY SOMEBODY WHO HAS BEEN AROUND LATELY (5 Oct 2026). The spotlight is "a creator to go and say hello to"; featuring one who
-        // has not opened the app in months is a connection request into the void. Last seen within 30 days.
+        // ONLY SOMEBODY WHO HAS BEEN AROUND LATELY. The spotlight is "a creator to go and say hello to"; featuring one
+        // who has not opened the app in months is a connection request into the void. Last seen within 30 days.
         .gte('last_seen_at', new Date(Date.now() - 30 * 86400000).toISOString())
         .order('created_at', { ascending: true })
       if (!alive) return
@@ -139,12 +139,9 @@ export default function CreatorSpotlight() {
           {/* Their travel map: zoomed to the countries they've actually
               visited (fitSelected) so it fills the panel instead of floating
               small in an empty world. Vertically centred against the card. */}
-          {/* NOT ON A PHONE (12 Oct 2026). Ethan: "it's really small on mobile
-              and actually hard to navigate... Remove that map from mobile."
-              `useIsMobile` rather than `hidden sm:block`, so the map (and its
-              atlas fetch) never mounts there at all. On a desktop it now
-              STRETCHES to the card's height and fills it (`fill`) instead of
-              sitting as a 2:1 strip with white above and below. */}
+          {/* NOT ON A PHONE. `useIsMobile` rather than `hidden sm:block`, so the map (and its atlas fetch) never mounts
+              there at all. On a desktop it now STRETCHES to the card's height and fills it (`fill`) instead of sitting
+              as a 2:1 strip with white above and below. */}
           {!isMobile && creator.countries_visited?.length > 0 && (
             <div className="flex min-h-[18rem] shrink-0 self-stretch lg:w-[28rem]">
               <div className="relative flex-1 overflow-hidden rounded-card border border-gray-100">

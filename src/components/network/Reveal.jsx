@@ -73,10 +73,6 @@ export default function Reveal({
   from = 'up',
   // A DENSE LIST IS NOT A GRID OF CARDS, AND IT MUST NOT MOVE LIKE ONE.
   //
-  // Ethan, on the rooms index and the DM inbox: "whenever they're originally
-  // appearing, both on desktop and mobile, it seems really laggy, and it moves
-  // a bit and it's jittery."
-  //
   // The house entrance is 24px of travel over 720ms with a compositor layer
   // promised to every child. That is right for six big cards and wrong for
   // twenty conversation rows: twenty promoted layers, each carrying an avatar
@@ -103,15 +99,11 @@ export default function Reveal({
   // HOW FAR BELOW THE FOLD THE OBSERVER STARTS WATCHING, as a percentage of the
   // viewport height.
   //
-  // 15% is one flick of a thumb and is right for a card, which is cheap to draw
-  // and 24px from home. It is NOT right for something that has work to do after
-  // it is told to arrive - the community map has 349 country paths, forty pins
-  // and a one-second landing sequence of its own, and by the time all of that
-  // has run the reader has been looking at the space where it should be for
-  // most of a second. Ethan, on the phone: "whenever scrolling down the
-  // community map appears delayed - you're actually there seeing a blank
-  // screen." Anything expensive should be given a bigger head start rather than
-  // a shorter animation.
+  // 15% is one flick of a thumb and is right for a card, which is cheap to draw and 24px from home. It is NOT right for
+  // something that has work to do after it is told to arrive - the community map has 349 country paths, forty pins and a
+  // one-second landing sequence of its own, and by the time all of that has run the reader has been looking at the space
+  // where it should be for most of a second. Anything expensive should be given a bigger head start rather than a
+  // shorter animation.
   early = 15,
   // IS THIS CONTAINER A FLEX ROW? See `.reveal-row` in index.css: the wrapper's
   // `height: 100%` is correct in a grid and actively harmful in a row, where it
@@ -119,9 +111,9 @@ export default function Reveal({
   // stretch`. A caller laying its children out in a row says so, and gets
   // equal-height cards.
   row = false,
-  // THE CONTAINER IS THE UNIT, HOWEVER TALL (9 Oct 2026). The right-hand rail is one column of cards that must arrive together, staggered,
-  // on the same frame as the article. A rail taller than 1.25 screens used to fall into per-item mode, which waits for the page to stop
-  // growing (about two seconds on the hub) and drops the stagger.
+  // THE CONTAINER IS THE UNIT, HOWEVER TALL. The right-hand rail is one column of cards that must arrive together,
+  // staggered, on the same frame as the article. A rail taller than 1.25 screens used to fall into per-item mode, which
+  // waits for the page to stop growing (about two seconds on the hub) and drops the stagger.
   whole = false,
   // THE CONTAINER'S DOM NODE, FOR A CALLER THAT NEEDS TO DRIVE IT.
   //
@@ -141,14 +133,11 @@ export default function Reveal({
   ...rest
 }) {
 
-  // MOTION SPENT BEHIND A DIALOG IS MOTION NOBODY SEES (18 Sep 2026).
+  // MOTION SPENT BEHIND A DIALOG IS MOTION NOBODY SEES.
   //
-  // Ethan, on a phone: "when the worldwide page loads on mobile there is no
-  // animations." Measured on the worldwide hub at 375px: on app open the
-  // notifications ask is already on screen, `lockScroll` has the body out of
-  // flow, and the first three sections of the page carry `is-in is-done`
-  // BEHIND the scrim. They animated. They animated under a black overlay, and
-  // the page handed back afterwards was one that had finished arriving.
+  // Measured on the worldwide hub at 375px: on app open the notifications ask is already on screen, `lockScroll` has the
+  // body out of flow, and the first three sections of the page carry `is-in is-done` BEHIND the scrim. They animated.
+  // They animated under a black overlay, and the page handed back afterwards was one that had finished arriving.
   //
   // The second half of the same report - "scrolling should also have clean
   // animations" - is the same cause one step further on: a locked body cannot
@@ -170,7 +159,7 @@ export default function Reveal({
   const locked = useSyncExternalStore(onScrollLockChange, isScrollLocked, () => false)
   const [inOverlay, setInOverlay] = useState(false)
   const held = locked && !inOverlay
-  // BACK TO A PAGE ALREADY SEEN (13 Oct 2026): it mounts arrived, never at opacity 0. See lib/navReturn.
+  // BACK TO A PAGE ALREADY SEEN: it mounts arrived, never at opacity 0. See lib/navReturn.
   const [returning] = useState(isReturnVisit)
   const [shown, setShown] = useState(returning)
   // Read by the per-item measurement, which must not change its mind after the
@@ -181,9 +170,6 @@ export default function Reveal({
   useEffect(() => { shownRef.current = shown }, [shown])
   // ---------------------------------------------------------------------
   // WHEN THE CONTAINER IS TALLER THAN THE SCREEN, EACH ITEM ANSWERS FOR ITSELF.
-  //
-  // Ethan (9 Sep 2026), about the landing page: "on mobile it is terrible,
-  // doesn't have any of those clean animations."
   //
   // The animations were running. They were running in the wrong place. This
   // component observes the CONTAINER, which is exactly right for the layout it
@@ -207,11 +193,9 @@ export default function Reveal({
   // relationship between things arriving together; when they arrive one at a
   // time, a per-child delay is just a card that hesitates before moving.
   // ---------------------------------------------------------------------
-  // IS THERE ANYTHING IN HERE TO ANIMATE YET? (19 Sep 2026)
+  // IS THERE ANYTHING IN HERE TO ANIMATE YET?
   //
-  // THE BUG. Ethan, on a phone: "for mobile there is still no real visible
-  // animations, the hey Ethan title animates in nicely but the latest
-  // announcements, today's puzzles and everyone right now doesn't."
+  // THE BUG.
   //
   // Measured on the hub at 375px, polling every 70ms through a load: a section
   // sat at `offsetHeight: 0` for a full second after its `Reveal` had mounted,
@@ -232,23 +216,20 @@ export default function Reveal({
   // the actual question ("is there something on screen to move") and no caller
   // can get it wrong.
   const [hasBody, setHasBody] = useState(false)
-  // HAS THE PAGE STOPPED MOVING UNDER THIS SECTION? (19 Sep 2026)
+  // HAS THE PAGE STOPPED MOVING UNDER THIS SECTION?
   //
   // THE CASCADE. `hasBody` above stops a section spending its entrance on its
   // own empty box. It does nothing about the damage that box does to everything
   // BELOW it, and on the hub that is most of the page.
   //
-  // `WhoToMeet` returns `null` until its own query lands, and an empty
-  // `.reveal-item` is `display: none`, so its section is genuinely 0px tall for
-  // about a second - measured on the hub at 375px, polling through a load: 0,
-  // then 457. The moment the picks arrive, everything under it moves down 457
-  // pixels. Every section in that half of the page had already been asked "are
-  // you on screen" while it was sitting 457px higher than it belongs, and the
-  // honest answer at the time was yes. So they revealed, they ran their 720ms
-  // against nobody, and then the page pushed them below the fold - finished.
-  // Scroll down to them and they are simply there. That is Ethan's "today's
-  // puzzles and everyone right now don't [animate]", and it is why the greeting
-  // is the one thing that does: nothing ever moves the top of the page.
+  // `WhoToMeet` returns `null` until its own query lands, and an empty `.reveal-item` is `display: none`, so its section
+  // is genuinely 0px tall for about a second - measured on the hub at 375px, polling through a load: 0, then 457. The
+  // moment the picks arrive, everything under it moves down 457 pixels. Every section in that half of the page had
+  // already been asked "are you on screen" while it was sitting 457px higher than it belongs, and the honest answer at
+  // the time was yes. So they revealed, they ran their 720ms against nobody, and then the page pushed them below the
+  // fold - finished. Scroll down to them and they are simply there. That is the team's "today's puzzles and everyone
+  // right now don't [animate]", and it is why the greeting is the one thing that does: nothing ever moves the top of the
+  // page.
   //
   // The observer was not wrong. It answered a question about a layout that was
   // still arriving. So for the first few seconds of a page's life a reveal is
@@ -260,21 +241,14 @@ export default function Reveal({
   // or beyond the BOTTOM of the viewport, which is the one position from which
   // nobody can have seen it. And it stops entirely once the window closes.
   //
-  // AND THE WINDOW IS MEASURED, NOT GUESSED. The first version of this was four
-  // seconds from mount, which is the same shape of guess the bug is about -
-  // Ethan: "I think it depends on how long it takes for the page to load." A
-  // fixed window is right on a fast connection and has closed before the data
-  // lands on a slow one. `lib/pageSettled` watches the document's height
-  // instead, with one observer for the whole page, and answers the question
-  // that actually matters: has anything moved lately.
+  // AND THE WINDOW IS MEASURED, NOT GUESSED. The first version of this was four seconds from mount, which is the same
+  // shape of guess the bug is about - A fixed window is right on a fast connection and has closed before the data lands
+  // on a slow one. `lib/pageSettled` watches the document's height instead, with one observer for the whole page, and
+  // answers the question that actually matters: has anything moved lately.
   const settled = useSyncExternalStore(onPageSettled, isPageSettled, () => true)
   const [perItem, setPerItem] = useState(false)
   const [shownItems, setShownItems] = useState(() => new Set())
   // WHICH ITEMS HAVE FINISHED MOVING, IN PER-ITEM MODE.
-  //
-  // Ethan: "animations on the mobile app version is something that needs
-  // improved - even on the worldwide screen, the sections just seem to flash
-  // and appear in."
   //
   // THIS IS THE SAME BUG THE STYLESHEET ALREADY DOCUMENTS, REINTRODUCED IN THE
   // BRANCH THAT EXISTS TO FIX MOBILE. The note beside `.reveal.is-done` in
@@ -331,9 +305,7 @@ export default function Reveal({
   // appeared, while everything further down (which gets its entry after a
   // scroll, long after the first paint) animated normally.
   //
-  // Ethan: "the hey Ethan appears in immediately, whereas the other things
-  // smoothly animate in." That is the greeting, which is always the first
-  // element on the hub and therefore always the one this could hit.
+  // That is the greeting, which is always the first element on the hub and therefore always the one this could hit.
   //
   // Two frames, because one is not a guarantee: the first rAF callback runs
   // BEFORE that frame's paint, so the second is the first moment the hidden
@@ -476,11 +448,12 @@ export default function Reveal({
     // tall mode would be the one that turns a missing animation into missing
     // content. Anything already at or above the fold and still hidden wins;
     // anything below it is correctly still waiting.
-    // THE NET RE-RENDERED THE PAGE ON EVERY SCROLL EVENT (9 Oct 2026). It ended in `setShownItems(new Set([...prev, ...arrived]))`
-    // whether or not anything was new, and a new Set is a new state: so on every tall section (most of the long pages) each
-    // scroll tick was a React render of that section plus a getBoundingClientRect per card. That is a large part of "the
-    // platform feels laggy when I scroll, especially on a long page". Now it remembers what it has already shown, does
-    // nothing at all unless a card is genuinely new, looks once per frame, and takes its listener off when every card is in.
+    // THE NET RE-RENDERED THE PAGE ON EVERY SCROLL EVENT. It ended in `setShownItems(new Set([...prev,...arrived]))`
+    // whether or not anything was new, and a new Set is a new state: so on every tall section (most of the long pages)
+    // each scroll tick was a React render of that section plus a getBoundingClientRect per card. That is a large part of
+    // "the platform feels laggy when I scroll, especially on a long page". Now it remembers what it has already shown,
+    // does nothing at all unless a card is genuinely new, looks once per frame, and takes its listener off when every
+    // card is in.
     const known = new Set()
     let queued = 0
     const net = () => {
@@ -523,30 +496,23 @@ export default function Reveal({
     if (shownRef.current) return undefined
     // AND IT DOES NOT DECIDE ANYTHING WHILE THE PAGE IS STILL ARRIVING.
     //
-    // This is the other half of `settled`, and it is the half that makes the
-    // behaviour the same every time instead of most of the time. Ethan: "most
-    // of the time they don't seem to work, I think it depends on how long it
-    // takes for the page to load." He is right, and that is the whole
-    // diagnosis: the observer fires the instant the sections commit, which is
-    // the instant the browser is busiest - parsing an atlas, decoding forty
-    // avatars, running three more queries - and a 720ms transform on a big card
-    // in the middle of that either judders or is dropped to its final frame.
-    // Whether it looked right depended entirely on what the connection did.
+    // This is the other half of `settled`, and it is the half that makes the behaviour the same every time instead of
+    // most of the time. they are right, and that is the whole diagnosis: the observer fires the instant the sections
+    // commit, which is the instant the browser is busiest - parsing an atlas, decoding forty avatars, running three more
+    // queries - and a 720ms transform on a big card in the middle of that either judders or is dropped to its final
+    // frame. Whether it looked right depended entirely on what the connection did.
     //
     // A page that waits for its own layout to stop moving runs its entrance
     // once, in order, with a main thread that has nothing else to do. The cost
     // is 400ms; the 1,200ms net below is what guarantees the content appears
     // regardless, so this can never be the reason something is missing.
     //
-    // BUT THE FIRST SCREEN DOES NOT WAIT FOR THE REST OF THE PAGE (22 Sep
-    // 2026). Ethan: the Worldwide page "takes too long to animate in, it shows
-    // a white screen for a second first." The gate was also holding sections
-    // ALREADY on screen at load, and the hub keeps changing height for a
-    // second or more (the map, who-to-meet, the spotlight all land late,
-    // BELOW the fold), so the first screen sat at opacity 0 for all of it.
-    // Growth happens under the first screen, so a section whose box is on
-    // screen now is where it will stay: it starts once painted. `bottom > 0`
-    // is also "has a real box" - a node with no layout reports all zeros.
+    // BUT THE FIRST SCREEN DOES NOT WAIT FOR THE REST OF THE PAGE. The team: the Worldwide page "takes too long to
+    // animate in, it shows a white screen for a second first." The gate was also holding sections ALREADY on screen at
+    // load, and the hub keeps changing height for a second or more (the map, who-to-meet, the spotlight all land late,
+    // BELOW the fold), so the first screen sat at opacity 0 for all of it. Growth happens under the first screen, so a
+    // section whose box is on screen now is where it will stay: it starts once painted. `bottom > 0` is also "has a real
+    // box" - a node with no layout reports all zeros.
     if (!settled) {
       const vh = window.innerHeight || 0
       const r = node.getBoundingClientRect?.()
@@ -561,16 +527,13 @@ export default function Reveal({
     }
     // THE ROOT MARGIN HAS TO GROW THE VIEWPORT, NOT SHRINK IT.
     //
-    // THE BUG THIS FIXES. This said `-10%`, and a NEGATIVE bottom margin pulls
-    // the observer's bottom edge UP - so a section did not begin arriving until
-    // its top had already travelled a tenth of a screen INTO view, and then
-    // took its delay and its 720ms transition on top of that. Scrolling down
-    // the hub therefore meant looking at an empty space where Daily puzzles or
-    // the map should be for the better part of a second: Ethan's "there's a big
-    // delay before daily puzzles and everyone right now appear". The comment
-    // above has always said the intent was to start it "slightly before the
-    // element is on screen", which is a POSITIVE margin; the code did the exact
-    // opposite of what it was documented to do.
+    // THE BUG THIS FIXES. This said `-10%`, and a NEGATIVE bottom margin pulls the observer's bottom edge UP - so a
+    // section did not begin arriving until its top had already travelled a tenth of a screen INTO view, and then took
+    // its delay and its 720ms transition on top of that. Scrolling down the hub therefore meant looking at an empty
+    // space where Daily puzzles or the map should be for the better part of a second: the team's "there's a big delay
+    // before daily puzzles and everyone right now appear". The comment above has always said the intent was to start it
+    // "slightly before the element is on screen", which is a POSITIVE margin; the code did the exact opposite of what it
+    // was documented to do.
     //
     // 15% of the viewport below the fold is roughly one flick of a thumb ahead
     // of the reader, so the motion is FINISHING as the section arrives rather
@@ -606,19 +569,15 @@ export default function Reveal({
       // resolve to showing the content, never to hiding it.
       if (vh === 0) { setShown(true); return }
       const r = node.getBoundingClientRect()
-      // THE NET HAS TO HAVE THE SAME LEAD AS THE OBSERVER (19 Sep 2026).
+      // THE NET HAS TO HAVE THE SAME LEAD AS THE OBSERVER.
       //
-      // This read `r.top < vh`, which is the element already touching the
-      // bottom of the screen - a full 15% of a viewport LATER than the moment
-      // the IntersectionObserver above was set up to fire. That is fine as a
-      // test for "something is broken, show the content", which is what it was
-      // written for. It is wrong now that this listener also has to cover a
-      // scroll the observer was slow to report on - and a phone flicking
-      // through 800px in a third of a second is exactly that case. Revealing a
-      // section the moment its top crosses the fold means the 720ms entrance
-      // starts under the reader's thumb and finishes somewhere off the bottom
-      // of the screen, which is the difference between a page that arrives and
-      // Ethan's "today's puzzles and everyone right now doesn't [animate]".
+      // This read `r.top < vh`, which is the element already touching the bottom of the screen - a full 15% of a
+      // viewport LATER than the moment the IntersectionObserver above was set up to fire. That is fine as a test for
+      // "something is broken, show the content", which is what it was written for. It is wrong now that this listener
+      // also has to cover a scroll the observer was slow to report on - and a phone flicking through 800px in a third of
+      // a second is exactly that case. Revealing a section the moment its top crosses the fold means the 720ms entrance
+      // starts under the reader's thumb and finishes somewhere off the bottom of the screen, which is the difference
+      // between a page that arrives and the team's "today's puzzles and everyone right now doesn't [animate]".
       if (r.top < vh * (1 + early / 100)) setShown(true)
     }
     const t = setTimeout(check, 1200)

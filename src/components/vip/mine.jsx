@@ -7,7 +7,7 @@ import { cx, formatDate } from '../../lib/utils'
 import { metricAmount, money, nf, useOptionalRpc, useKindT } from '../../lib/vip'
 import { vipApi } from '../../api/vip'
 
-// THE VIP'S OWN SIDE, ADDED IN THE SECOND PASS (30 Sep 2026, migration 298): what the team has said, and how they are doing.
+// THE VIP'S OWN SIDE, ADDED IN THE SECOND PASS (migration 298): what the team has said, and how they are doing.
 
 /** What the team has told the VIPs. Pinned first, three at most; draws nothing when there is nothing (or no table yet). */
 export function VipAnnouncements({ programmeId }) {
@@ -32,9 +32,8 @@ export function VipAnnouncements({ programmeId }) {
 /** One announcement as a VIP sees it. The team's composer draws the same card as its live preview. */
 export function AnnouncementCard({ a, delay = 0, preview = false }) {
   const tr = useKindT()
-  // A PINNED NOTE GLOWS (3 Oct 2026). Ethan, on the preview: "don't like the colour ... maybe have a nice gradient or
-  // something, still make it stand out, maybe it can glow." Pinned is the brand gradient with a soft orange halo and one
-  // pass of light; an unpinned note is a plain white card.
+  // A PINNED NOTE GLOWS. Pinned is the brand gradient with a soft orange halo and one pass of light; an unpinned note is
+  // a plain white card.
   if (a.pinned) {
     return (
       <article className="relative overflow-hidden rounded-card bg-gradient-to-br from-brand via-brand to-brand-light p-4 text-white shadow-[0_10px_34px_-10px_rgba(217,68,7,0.65)] ring-1 ring-white/20 animate-rise sm:p-5" style={{ animationDelay: `${delay}ms` }}>
@@ -84,9 +83,9 @@ export function VipStats({ overview, rules, programmeId }) {
     life, stats: overview.stats, videos: overview.videos, mine, joined: overview.member?.joined_on,
     earnedTotal: (Number(wallet?.lifetime_earned) || 0) + (Number(overview.stats?.base) || 0),
   }
-  // THE TEAM'S MILESTONES FIRST (4 Oct 2026). Ethan: "if there's a milestone set up, then it will show the next milestone being
-  // reached." Every milestone rule the team is running is measured on its own number; the nearest one still to reach is the
-  // headline and the rest wait underneath. No rules at all: the round-number ladder on total views, as before.
+  // THE TEAM'S MILESTONES FIRST. Every milestone rule the team is running is measured on its own number; the nearest one
+  // still to reach is the headline and the rest wait underneath. No rules at all: the round-number ladder on total
+  // views, as before.
   const set = (rules || [])
     .filter((r) => r.kind === 'milestone' && r.active !== false && Number(r.conditions?.threshold) > 0)
     .map((r) => {

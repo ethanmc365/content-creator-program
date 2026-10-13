@@ -95,14 +95,10 @@ export default function MarketMembers() {
             />
           ) : (
             <>
-              {/* THE TRYP.COM TEAM COMES FIRST. It used to sit under the roster,
-                  which on Ireland meant scrolling past 44 creator cards to find
-                  the four people who actually run the market. Ethan's read:
-                  "the team here should actually be moved to the top above the
-                  creators because that's showing the Tryp.com team". Putting it
-                  first costs the roster nothing - it is a row of pills, not a
-                  section - and it answers "who do I talk to" before the reader
-                  has to go looking. */}
+              {/* THE TRYP.COM TEAM COMES FIRST. It used to sit under the roster, which on Ireland meant scrolling past
+                  44 creator cards to find the four people who actually run the market. Putting it first costs the roster
+                  nothing - it is a row of pills, not a section - and it answers "who do I talk to" before the reader has
+                  to go looking. */}
               {team.length > 0 && (
                 <section>
                   <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold">

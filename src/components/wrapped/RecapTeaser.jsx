@@ -7,13 +7,12 @@ import { dateLocale } from '../../lib/utils'
 import { lockScroll } from '../../lib/scrollLock'
 import { useT } from '../../lib/i18n'
 
-// THE RECAP IS COMING (1 Oct 2026).
+// THE RECAP IS COMING.
 //
-// Ethan: the Wrapped-style recap is built "but we don't have a place where we'll actually show it
-// to the creators yet ... on their actual profile page ... above the About section and the Your
-// Local Time section, so it's spanning across both those columns ... a nice Tryp.com gradient
-// that's constantly animated and glowing ... clicking on it will just show a pop-up with the lock
-// symbol on it, the way we designed it ... to create some awareness of it before then."
+// The team: the Wrapped-style recap is built "but we don't have a place where we'll actually show it to the creators
+// yet... on their actual profile page... above the About section and the Your Local Time section, so it's spanning
+// across both those columns... a nice Tryp.com gradient that's constantly animated and glowing... clicking on it will
+// just show a pop-up with the lock symbol on it, the way we designed it... to create some awareness of it before then."
 //
 // So: one banner on every creator's profile, the brand gradient drifting and breathing, with a
 // bar that fills through the year towards the day it opens. Pressing it opens the locked card
@@ -24,8 +23,8 @@ const YEAR = 2026
 const OPENS_ON = new Date(YEAR, 11, 3) // 3 December
 const YEAR_START = new Date(YEAR, 0, 1)
 
-// WHEN CREATORS SEE IT (2 Oct 2026): from 18 November, about two weeks of build-up before it opens
-// on 3 December, until the end of the year. 'before' | 'on' | 'after'.
+// WHEN CREATORS SEE IT: from 18 November, about two weeks of build-up before it opens on 3 December, until the end of
+// the year. 'before' | 'on' | 'after'.
 const SHOW_FROM = new Date(YEAR, 10, 18)
 const SHOW_UNTIL = new Date(YEAR + 1, 0, 1)
 export function recapTeaserWindow(now = new Date()) {

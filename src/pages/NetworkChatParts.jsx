@@ -73,11 +73,10 @@ export const loadRoomOrder = () => {
 // emoji reaction places below the last few messages" - the doubled circles were
 // the blank messages, not a duplicated control.
 //
-// AND THEY ARE THE REAL THING, NOT A REFERENCE TO IT (3 Sep 2026). This used to
-// draw a strip saying which card it was, linking to `/chat` - which redirects
-// to `/rooms`, so the only control on it sent you back where you already were.
-// See <AttachedCard>. This list is now only "does this message carry a card,
-// and which one"; the cards themselves load what they draw.
+// AND THEY ARE THE REAL THING, NOT A REFERENCE TO IT. This used to draw a strip saying which card it was, linking to
+// `/chat` - which redirects to `/rooms`, so the only control on it sent you back where you already were. See
+// <AttachedCard>. This list is now only "does this message carry a card, and which one"; the cards themselves load what
+// they draw.
 export const CARD_KINDS = [
   { idKey: 'poll_id' },
   { idKey: 'game_event_id' },
@@ -91,11 +90,7 @@ export const CARD_KINDS = [
 export const hasContent = (m) =>
   !!(m.body?.trim() || m.image_url || m.video_url || m.poll_id || m.game_event_id || m.resource_id || m.leaderboard_challenge_id)
 
-// A POLL IS VOTED ON WHERE IT IS POSTED (3 Sep 2026).
-//
-// Ethan: "fix the polls/games/resources gap. Those cards link to /rooms but can
-// only actually be voted on from the old chat surface. They should be working
-// in every one of the rooms and future rooms."
+// A POLL IS VOTED ON WHERE IT IS POSTED.
 //
 // THE ROOMS DREW A LINK, NOT A CARD. Every poll, game and resource posted into
 // a market room rendered as a tappable strip whose destination was `/chat` -
@@ -120,12 +115,14 @@ export const hasContent = (m) =>
 /** A card with nothing else said: it stands on its own, with no bubble around it. */
 export const cardOnly = (m) => !m.body?.trim() && !m.image_url && !m.video_url && !m.reply_to && !m.leaderboard_challenge_id && CARD_KINDS.some((c) => m[c.idKey])
 
-/** A live leaderboard with words: one white bubble holding both (13 Oct 2026). */
+/* A live leaderboard with words: one white bubble holding both. */
 export const boardBubble = (m) => !!m.leaderboard_challenge_id && !m.image_url && !m.video_url
 
-/** A POLL IS A MESSAGE TOO (13 Oct 2026). Ethan: pressing a poll anywhere but its options should bring up react and
- *  reply, "and there should still be the orange bubble around it, as in I actually sent the message". So a poll gets the
- *  same framed bubble as a shared leaderboard: the sender's colour round the white card, and the frame opens the bar. */
+/**
+ * A POLL IS A MESSAGE TOO. The team: pressing a poll anywhere but its options should bring up react and reply, "and
+ * there should still be the orange bubble around it, as in I actually sent the message". So a poll gets the same framed
+ * bubble as a shared leaderboard: the sender's colour round the white card, and the frame opens the bar.
+ */
 export const pollBubble = (m) => !!m.poll_id && !m.image_url && !m.video_url && !m.leaderboard_challenge_id
 
 export const framed = (m) => boardBubble(m) || pollBubble(m)
@@ -150,12 +147,12 @@ export function AttachedCard({ message }) {
   )
 }
 
-// THE SELECTED ROOM, EVERYWHERE (4 Oct 2026). Ethan: the room you are in should wear the VIP rooms' orange gradient, not a flat
+// THE SELECTED ROOM, EVERYWHERE. The team: the room you are in should wear the VIP rooms' orange gradient, not a flat
 // orange wash - on every room, desktop and phone. The phone sheet (chat/RoomSwitcherSheet) uses the same classes.
-// SMOOTH BETWEEN ROOMS (4 Oct 2026). The row used to ease its label from ink to white (`transition-all`) while the gradient -
-// a background-image, which cannot be transitioned - snapped in, so dark text sat on white for a beat. Now the label flips at
-// once and ONE gradient (a shared layoutId) slides from the old room to the new one underneath it, behind the content (-z-10
-// inside the row's own stacking context), the same trick as the filter chips and Segmented.
+// SMOOTH BETWEEN ROOMS. The row used to ease its label from ink to white (`transition-all`) while the gradient - a
+// background-image, which cannot be transitioned - snapped in, so dark text sat on white for a beat. Now the label flips
+// at once and ONE gradient (a shared layoutId) slides from the old room to the new one underneath it, behind the content
+// (-z-10 inside the row's own stacking context), the same trick as the filter chips and Segmented.
 export function RoomOnBg() {
   return <motion.span layoutId="room-on" transition={SOFT_SPRING} className="absolute inset-0 -z-10 rounded-xl bg-gradient-to-r from-brand to-brand-light shadow-card" />
 }

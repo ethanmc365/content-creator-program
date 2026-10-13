@@ -214,8 +214,8 @@ export function IntroModal({ open, onClose, community, channel, onPosted }) {
     })
   }
 
-  // THE CARD IS THE PREVIEW (24 Sep 2026). What gets posted is exactly what
-  // is drawn beside the form - the same component the room uses.
+  // THE CARD IS THE PREVIEW. What gets posted is exactly what is drawn beside the form - the same component the room
+  // uses.
   const intro = useMemo(() => buildIntro(profile || {}, form, extras), [profile, form, extras])
 
   const enough = form.where.trim() || form.about.trim()
@@ -251,9 +251,7 @@ export function IntroModal({ open, onClose, community, channel, onPosted }) {
               onChange={(e) => set({ where: e.target.value })} />
           </Field>
 
-          {/* IN YOUR OWN WORDS (28 Sep 2026). Ethan: "add the space for them
-              to write more about themselves, like adding a bit about their
-              hobbies ... I would remove the 'What do you make?' section." */}
+          {/* IN YOUR OWN WORDS. */}
           <Field label={tr("A bit about you")} hint={tr("What you do, what you love, your hobbies. Write as much as you like.")}>
             <AutoTextarea
               className="input resize-none text-base leading-relaxed sm:text-sm"
@@ -364,9 +362,8 @@ export function IntroModal({ open, onClose, community, channel, onPosted }) {
 //
 // WHERE IT APPEARS, AND HOW OFTEN.
 //
-// This was an app-wide popup that opened on any chat path, which meant it fired
-// on every visit to /rooms - Ethan's report - and it fired as a full-height
-// bottom sheet, so answering it felt like being sent to a form rather than being
+// This was an app-wide popup that opened on any chat path, which meant it fired on every visit to /rooms - the team's
+// report - and it fired as a full-height bottom sheet, so answering it felt like being sent to a form rather than being
 // invited to post in a room.
 //
 // It belongs to ONE ROOM: the worldwide introductions room. That is the room
@@ -426,11 +423,8 @@ export default function IntroInvite({ community, channel, canPost = true }) {
     return () => { alive = false }
   }, [user?.id, isIntroRoom, canPost])
 
-  // ALWAYS THERE IN THIS ROOM (26 Sep 2026). Ethan: "there should be a button
-  // ... so that anyone can always redo it if they want to, so they can post
-  // another one. Because currently, once you've done it, there's no button to
-  // redo it again." It still only opens ITSELF for somebody who has never
-  // posted; after that it is a quieter "post a new intro".
+  // ALWAYS THERE IN THIS ROOM. It still only opens ITSELF for somebody who has never posted; after that it is a quieter
+  // "post a new intro".
   if (!isIntroRoom || !canPost || !user?.id) return null
 
   return (
@@ -438,12 +432,9 @@ export default function IntroInvite({ community, channel, canPost = true }) {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        // ALWAYS MOVING, ALWAYS COLOURFUL (28 Sep 2026). Ethan: "improve the
-        // UI if it maybe had some constant animations. Maybe make it a little
-        // bit colourful so it stands out." A warm gradient that drifts, a pass
-        // of light across it and twinkling sparkles; the same whether or not
-        // you have posted before. Decoration only - it stops under reduced
-        // motion and nothing moves position.
+        // ALWAYS MOVING, ALWAYS COLOURFUL. A warm gradient that drifts, a pass of light across it and twinkling
+        // sparkles; the same whether or not you have posted before. Decoration only - it stops under reduced motion and
+        // nothing moves position.
         className="intro-cta group relative mb-2 flex w-full items-center gap-2.5 overflow-hidden rounded-xl px-3 py-2.5 text-left text-white shadow-card transition-transform duration-200 hoverable:hover:-translate-y-0.5 active:scale-[0.99]"
       >
         <span aria-hidden className="challenge-sheen pointer-events-none absolute inset-y-0" />

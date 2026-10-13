@@ -4,11 +4,9 @@ import vercel from '../../vercel.json'
 
 // EVERY INLINE SCRIPT IN index.html IS ALLOWED BY THE CONTENT SECURITY POLICY.
 //
-// THE BUG THIS EXISTS FOR (9 Sep 2026). The boot layer learned to draw the
-// public page's shape instead of the signed-in app shell, decided by an inline
-// script reading `location.pathname` - the only thing that knows which page is
-// coming before a single module has been fetched. It worked perfectly on the
-// dev server and did nothing at all on production, because
+// THE BUG THIS EXISTS FOR. The boot layer learned to draw the public page's shape instead of the signed-in app shell,
+// decided by an inline script reading `location.pathname` - the only thing that knows which page is coming before a
+// single module has been fetched. It worked perfectly on the dev server and did nothing at all on production, because
 //
 //     script-src 'self' 'wasm-unsafe-eval' https://challenges.cloudflare.com
 //

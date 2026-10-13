@@ -3,9 +3,6 @@ import { supabase } from './supabase'
 
 // "CONTINUE WITH GOOGLE", AND THE BUTTON KNOWS WHETHER IT WORKS.
 //
-// Ethan, 7 Sep 2026: "can we add Continue with Google on the signup/login page.
-// I've noticed a lot of [rivals] have this and I think it'll be great for us."
-//
 // The client half of that is four lines of `signInWithOAuth`. The part worth a
 // file is the part that is NOT in our hands: Google sign-in only exists once a
 // Google Cloud OAuth client has been created and its id and secret pasted into
@@ -24,9 +21,8 @@ import { supabase } from './supabase'
 // at all, because the email form underneath it always works and a dead button
 // on the front door is the worst thing on this screen.
 //
-// The practical effect: the moment Ethan finishes the dashboard step, every
-// creator's next page load has the button. No deploy, no flag, nothing to
-// remember.
+// The practical effect: the moment the team finishes the dashboard step, every creator's next page load has the button.
+// No deploy, no flag, nothing to remember.
 
 const SETTINGS_URL = `${import.meta.env.VITE_SUPABASE_URL}/auth/v1/settings`
 

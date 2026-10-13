@@ -5,11 +5,9 @@ import { splitDetail } from '../components/admin/ErrorWatch'
 
 // THE HALF OF CRASH REPORTING THAT HAD NO TEST, AND WAS THEREFORE MISSING.
 //
-// `captureError` had exactly one caller - the React error boundary - so every
-// fault outside a render was invisible to the admin panel, and `client_errors`
-// held zero rows on 9 Sep 2026 while the platform was demonstrably not perfect.
-// Nothing went red, because nothing was asserting that a thrown error anywhere
-// else reaches the reporter at all.
+// `captureError` had exactly one caller - the React error boundary - so every fault outside a render was invisible to
+// the admin panel, and `client_errors` held zero rows while the platform was demonstrably not perfect. Nothing went red,
+// because nothing was asserting that a thrown error anywhere else reaches the reporter at all.
 describe('global crash handlers', () => {
   let reported
   const report = (...args) => reported.push(args)
@@ -72,12 +70,10 @@ describe('global crash handlers', () => {
 // THE REPORTER WAS OVERWRITING THE EVIDENCE, AND ONE OF THE TWO ERRORS SITTING
 // ON THE PANEL ON 12 SEP 2026 WAS THE PROOF.
 //
-// It read: message "Pa", detail two frames both inside `monitoring-*.js`. Not
-// one fact in it was about the thing that failed, because `new Error(msg)` was
-// being constructed in this file - so the stack it carried was the reporter's
-// own. Ethan: "the information provided doesn't really help me." It could not:
-// the only shape a rejection had to be to survive intact was `instanceof
-// Error`, and in a bundled app most of them are not.
+// It read: message "Pa", detail two frames both inside `monitoring-*.js`. Not one fact in it was about the thing that
+// failed, because `new Error(msg)` was being constructed in this file - so the stack it carried was the reporter's own.
+// It could not: the only shape a rejection had to be to survive intact was `instanceof Error`, and in a bundled app most
+// of them are not.
 //
 // `describeReason` is tested as the pure function it is rather than through the
 // listeners. The handlers are module-global and deliberately deduplicate a
@@ -157,8 +153,8 @@ describe('the detail field', () => {
     expect(splitDetail(stored)).toEqual({ frames: 'Error: x\n  at y', ctx })
   })
 
-  // Every row written before 12 Sep 2026 is all stack and no marker, and losing
-  // those frames would be trading a real fault for a cosmetic one.
+  // Every row written is all stack and no marker, and losing those frames would be trading a real fault for a cosmetic
+  // one.
   it('treats a row written before the marker existed as all stack', () => {
     expect(splitDetail('at a\nat b')).toEqual({ frames: 'at a\nat b', ctx: null })
   })
@@ -201,10 +197,8 @@ describe('the error guide', () => {
 
 // THE LINK THAT KEPT NOT WORKING.
 //
-// Ethan, twice: "I tried to login and check Sentry but I was having
-// difficulties logging in", and then, after the first fix, "for the error
-// monitoring the link to Sentry still doesn't work, I think this is correct link
-// https://trypcom-z4.sentry.io/issues/?project=4512045143556176".
+// , and then, after the first fix, "for the error monitoring the link to Sentry still doesn't work, I think this is
+// correct link https://trypcom-z4.sentry.io/issues/?project=4512045143556176".
 //
 // That URL is the fixture. It is the one link anybody has confirmed reaches the
 // right dashboard, so the test is simply that we build it - not that we build

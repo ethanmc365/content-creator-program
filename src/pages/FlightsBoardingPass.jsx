@@ -10,13 +10,10 @@ import { km, PassField } from './FlightsParts'
 //
 // THE FORM'S ANSWER, DRAWN AS THE THING IT IS ABOUT.
 //
-// This was a tinted rectangle with a definition list in it. Ethan: "when
-// logging a flight can you make the UI and design much more interactive, I want
-// it to look really cool." A boarding pass is the right object for two reasons
-// beyond looking like one: it is the shape everybody already reads flight
-// information in, so the codes, the date and the flight number land where the
-// eye is already going to look for them; and it is the artefact the form is
-// replacing, so filling in the form produces one.
+// This was a tinted rectangle with a definition list in it. A boarding pass is the right object for two reasons beyond
+// looking like one: it is the shape everybody already reads flight information in, so the codes, the date and the flight
+// number land where the eye is already going to look for them; and it is the artefact the form is replacing, so filling
+// in the form produces one.
 //
 // It builds ITSELF as you type. With one airport it is a stub with the other
 // end blank, with both it draws the arc and the aircraft starts flying, and
@@ -52,12 +49,10 @@ export function BoardingPass({ from, to, facts, dateStr, airlineName, flightNo, 
             whole stub. Now the codes are a row of their own and the route is a
             full-width band beneath them, anchored under DUB and under BUD. The
             plane has the whole card to cross. */}
-        {/* THE ROUTE RUNS BETWEEN THE CODES, LEVEL WITH THEM.
-            Ethan drew a red line across the screenshot to say where: from the
-            right edge of DUB to the left edge of LIS, at the height of the
-            codes. It had been a full-width band UNDER the codes with a white
-            dot at each end, so the plane crossed the whole card while the two
-            dots - not the codes - read as the airports.
+        {/* THE ROUTE RUNS BETWEEN THE CODES, LEVEL WITH THEM. The team drew a red line across the screenshot to say
+            where: from the right edge of DUB to the left edge of LIS, at the height of the codes. It had been a
+            full-width band UNDER the codes with a white dot at each end, so the plane crossed the whole card while the
+            two dots - not the codes - read as the airports.
 
             Three rows rather than two columns is what makes that possible.
             Labels, then codes-with-the-route-between-them on a single
@@ -84,20 +79,12 @@ export function BoardingPass({ from, to, facts, dateStr, airlineName, flightNo, 
               </svg>
               {from && to && (
                 <span className="pass-plane-fly">
-                  {/* A PLAIN WHITE PLANE, NOT THE BRAND ONE.
-                      It was the tryp.com plane photograph, which was asked for
-                      and then read back badly at this size: a 40px photo of an
-                      aircraft on a moving element is a grey-and-white smudge
-                      with a shadow under it, and the thing it is meant to say -
-                      "something is flying along this line" - was the part that
-                      got lost. Ethan: "keep the animation the same, the line the
-                      same, but change the tryp.com airplane to a standard just
-                      white icon airplane. I think it'll look more clear and
-                      simple."
-                      So: a flat silhouette in pure white, which holds its shape
-                      at any size and needs no drop shadow to sit on the orange.
-                      `plane-flight` is nose-up like every plane glyph in the
-                      set, and the line runs left to right, so `.pass-plane-img`
+                  {/* A PLAIN WHITE PLANE, NOT THE BRAND ONE. It was the tryp.com plane photograph, which was asked for
+                      and then read back badly at this size: a 40px photo of an aircraft on a moving element is a
+                      grey-and-white smudge with a shadow under it, and the thing it is meant to say - "something is
+                      flying along this line" - was the part that got lost. So: a flat silhouette in pure white, which
+                      holds its shape at any size and needs no drop shadow to sit on the orange. `plane-flight` is
+                      nose-up like every plane glyph in the set, and the line runs left to right, so `.pass-plane-img`
                       turns it a quarter. */}
                   <Icon
                     name="plane-flight"
@@ -117,13 +104,10 @@ export function BoardingPass({ from, to, facts, dateStr, airlineName, flightNo, 
         </div>
       </div>
 
-      {/* A PLAIN DASHED RULE, AND NO NOTCHES.
-          There were two half-circles hanging off the edges to suggest a
-          perforation. Ethan: "there's like two half circles on either side which
-          look bad. Not sure why they're there." They were pinned outside the
-          card, so on any background that was not white they were two white
-          blobs floating beside it - and the card is `overflow-hidden`, so they
-          were clipped into quarter-circles as often as not. */}
+      {/* A PLAIN DASHED RULE, AND NO NOTCHES. There were two half-circles hanging off the edges to suggest a
+          perforation. They were pinned outside the card, so on any background that was not white they were two white
+          blobs floating beside it - and the card is `overflow-hidden`, so they were clipped into quarter-circles as
+          often as not. */}
       <div className="border-t border-dashed border-brand/30 px-5 py-4">
         {/* CENTRED, AND EVENLY SPLIT. Six fields in a 3-up grid left two of them
             alone on a second row hanging to the left. */}
@@ -132,8 +116,7 @@ export function BoardingPass({ from, to, facts, dateStr, airlineName, flightNo, 
           <PassField label={tr("Flight")} value={flightNo?.trim().toUpperCase() || (airlineName ? airlineName.split(' ')[0] : '—')} />
           <PassField label={tr("Seat")} value={seat?.trim().toUpperCase() || '—'} />
           <PassField label={tr("Distance")} value={facts ? `${km(facts.dist)} km` : '—'} />
-          {/* NO "estimated" HINT. Ethan: "remove that." Everything on this pass
-              is derived from two airport codes and it says so nowhere else
+          {/* NO "estimated" HINT. Everything on this pass is derived from two airport codes and it says so nowhere else
               either; one field apologising for itself just draws the eye. */}
           <PassField label={tr("In the air")} value={facts ? humanHours(facts.mins) : '—'} />
           <PassField

@@ -31,9 +31,8 @@ const STATUS = {
   contender: { label: 'Next in line', cls: 'bg-gray-100 text-smoke' },
 }
 
-// A BAR TOWARDS THE THRESHOLD, THAT FILLS ON ARRIVAL (22 Sep 2026). It starts
-// at zero and eases to its value one frame after mounting, so the list reads
-// as filling up rather than appearing half-drawn.
+// A BAR TOWARDS THE THRESHOLD, THAT FILLS ON ARRIVAL. It starts at zero and eases to its value one frame after mounting,
+// so the list reads as filling up rather than appearing half-drawn.
 function ProgressBar({ value, delay = 0 }) {
   const [shown, setShown] = useState(0)
   useEffect(() => {
@@ -67,13 +66,9 @@ function Person({ r, note, progress, index = 0 }) {
 
 const ordinal = (n) => `${n}${n === 1 ? 'st' : n === 2 ? 'nd' : n === 3 ? 'rd' : 'th'}`
 
-// THE COMPACT STRIP, BOLTED ONTO THE LEADERBOARD CARD (23 Sep 2026). Ethan:
-// "the participation award should be more compact and bolted on to the
-// leaderboard card above rather than take up so much space." The full
-// per-person progress-bar list was its own card the same size as the podium -
-// this is one summary line, one aggregate bar, a cluster of faces, and an
-// "everyone" toggle for the detail underneath, all inside whatever card the
-// caller wraps it in.
+// THE COMPACT STRIP, BOLTED ONTO THE LEADERBOARD CARD. The full per-person progress-bar list was its own card the same
+// size as the podium - this is one summary line, one aggregate bar, a cluster of faces, and an "everyone" toggle for the
+// detail underneath, all inside whatever card the caller wraps it in.
 function CompactStanding({ challenge, rows }) {
   const [open, setOpen] = useState(false)
   const byPoints = challenge?.participation_basis === 'points'
@@ -164,12 +159,10 @@ function FullStandings({ challenge, rows, embedded = false }) {
   const byPoints = challenge?.participation_basis === 'points'
   const threshold = Number(challenge?.participation_threshold) || 0
 
-  // A CREATOR IN THE PRIZE PLACES IS NOT A VOUCHER CANDIDATE (22 Sep 2026).
-  // Ethan: the panel listed Zaira Amate (1st, 23 points) under the voucher as
-  // though she had earned it. The server already excluded her - the voucher on
-  // the Global Challenge is for creators OUTSIDE the top 10 - but drawing her
-  // in the list with a grey chip read as the opposite. They are named once,
-  // underneath, instead.
+  // A CREATOR IN THE PRIZE PLACES IS NOT A VOUCHER CANDIDATE. The team: the panel listed Zaira Amate (1st, 23 points)
+  // under the voucher as though she had earned it. The server already excluded her - the voucher on the Global Challenge
+  // is for creators OUTSIDE the top 10 - but drawing her in the list with a grey chip read as the opposite. They are
+  // named once, underneath, instead.
   const allPart = rows.filter((r) => r.slot === 'participation')
   const part = allPart.filter((r) => r.status !== 'excluded')
   const placed = allPart.filter((r) => r.status === 'excluded')

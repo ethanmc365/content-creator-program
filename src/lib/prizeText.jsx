@@ -1,13 +1,11 @@
 import { DEFAULT_LOCALE, tIn, useLocale } from './i18n'
 
-// PRIZE WORDING IN THE READER'S LANGUAGE (2 Oct 2026).
+// PRIZE WORDING IN THE READER'S LANGUAGE.
 //
-// Ethan: "translate, for example, words like €100 cash, €150 cash, and the Trip.com participation
-// voucher. Ensure everything is translated if we can." A prize is a line an admin typed into the
-// prize table, so it is not in the dictionary - but it is always built from the same handful of
-// words around an amount. Those words are swapped here, instantly and without a network call; the
-// amount and any brand name are left exactly as written. A whole line that a lead has translated in
-// the Languages editor wins over this.
+// A prize is a line an admin typed into the prize table, so it is not in the dictionary - but it is always built from
+// the same handful of words around an amount. Those words are swapped here, instantly and without a network call; the
+// amount and any brand name are left exactly as written. A whole line that a lead has translated in the Languages editor
+// wins over this.
 
 const TERMS = {
   es: [

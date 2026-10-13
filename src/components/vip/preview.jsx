@@ -10,10 +10,9 @@ import { cx } from '../../lib/utils'
 import { vipRpc, useKindT } from '../../lib/vip'
 import { vipApi } from '../../api/vip'
 
-// SEE IT AS A VIP (3 Oct 2026).
+// SEE IT AS A VIP.
 //
-// Ethan: "give me the function to view all the pages as a VIP again, because that seems to be gone. I guess on the VIP
-// tools, there should be some place to do that." Two doors, because they answer two different questions:
+// Two doors, because they answer two different questions:
 //
 //   * THE WHOLE PLATFORM AS A VIP. Signs into the sandbox VIP (the `impersonate` edge function, target 'vip') so the
 //     Worldwide page, Rooms, the Calendar and every other page are drawn exactly as a VIP gets them. Read only: the
@@ -56,8 +55,7 @@ export function VipPreviewTab({ programme }) {
   }
   const open = (id) => setParams(id ? { mode: 'as', who: id } : { mode: 'as' }, { replace: false })
 
-  // FIND THE RIGHT CREATOR (3 Oct 2026). Ethan: "for that open one VIP page, we can easily like search through and find
-  // the right creator." A search over the names, test accounts last.
+  // FIND THE RIGHT CREATOR. A search over the names, test accounts last.
   const term = q.trim().toLowerCase()
   const real = (people || []).filter((p) => (who === 'all' || (who === 'team') === teamIds.has(p.id)) && (!term || String(p.name || '').toLowerCase().includes(term)))
     .sort((a, b) => Number(!!a.test) - Number(!!b.test) || String(a.name).localeCompare(String(b.name)))
@@ -106,7 +104,8 @@ export function VipPreviewTab({ programme }) {
                   </span>
                   <Icon name="chevronRight" className="h-4 w-4 text-gray-300 transition-transform group-hover:translate-x-0.5 group-hover:text-brand" />
                 </button>
-                {/* THEIR PROFILE TOO (9 Oct 2026): "we just have the function to view their VIP page ... it can also bring you to their profile." */}
+                {/* THEIR PROFILE TOO: "we just have the function to view their VIP page... it can also bring you to
+                    their profile." */}
                 <Link to={`/profile/${p.id}`} aria-label={tr('Open {n}\'s profile', { n: p.name })} title={tr('Their profile')} className="absolute right-2.5 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full bg-cloud text-smoke transition-colors hoverable:hover:bg-brand hoverable:hover:text-white"><Icon name="user" className="h-3.5 w-3.5" /></Link>
               </li>
             ))}

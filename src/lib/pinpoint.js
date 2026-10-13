@@ -574,7 +574,7 @@ export const PINPOINT_COUNTRIES = [
     ['Sing-sing festivals', 'Sepik River carvings', 'Rainforest tribes', 'Mount Wilhelm', 'Shares an island with Indonesia'],
     ['Bilum bags', 'Huli wigmen', 'Coral Triangle', 'Bougainville', "The Pacific's largest nation"],
   ] },
-  // ---- Europe (added 16 Sep 2026) ----
+  // ---- Europe (added) ----
   { name: 'Belarus', iso2: 'BY', region: 'Europe', tier: 'medium', sets: [
     ['Draniki', 'Flax fields', 'European bison', 'Landlocked between Poland and Russia', 'Minsk'],
     ['Mir Castle', 'Brest Fortress', 'Marc Chagall', 'Belovezhskaya Pushcha forest', 'Belarusian ruble'],
@@ -631,7 +631,7 @@ export const PINPOINT_COUNTRIES = [
     ['Ottoman-era bazaars', 'Dokufest film festival', 'Gračanica monastery', 'Sharri mountains', 'Albanian and Serbian'],
   ] },
 
-  // ---- Asia (added 16 Sep 2026) ----
+  // ---- Asia (added) ----
   { name: 'Iran', iso2: 'IR', region: 'Asia', tier: 'medium', aliases: ['persia'], sets: [
     ['Saffron', 'Persian carpets', 'Wind towers', 'Nowruz new year', 'Tehran'],
     ['Persepolis', 'Blue-tiled mosques', 'Isfahan', 'Caspian in the north, Gulf in the south', 'Ancient Persia'],
@@ -713,7 +713,7 @@ export const PINPOINT_COUNTRIES = [
     ['Umayyad Mosque', 'Euphrates river', 'Levantine mezze', 'Norias of Hama', 'Latakia on the coast'],
   ] },
 
-  // ---- Africa (added 16 Sep 2026) ----
+  // ---- Africa (added) ----
   { name: 'Sudan', iso2: 'SD', region: 'Africa', tier: 'medium', sets: [
     ['Gum arabic', 'More pyramids than Egypt', 'Where two Niles meet', 'Nubian desert', 'Khartoum'],
     ['Meroë pyramids', 'The Blue and White Nile join here', 'Kingdom of Kush', 'South of Egypt', 'Port Sudan'],
@@ -870,7 +870,7 @@ export const PINPOINT_COUNTRIES = [
     ['Dinka and Nuer peoples', 'Oil pipelines north', 'Nimule National Park', 'Pound currency', 'Kidepo valley'],
   ] },
 
-  // ---- North America (added 16 Sep 2026) ----
+  // ---- North America (added) ----
   { name: 'Belize', iso2: 'BZ', region: 'North America', tier: 'medium', sets: [
     ['A giant sinkhole in the sea', 'English is official in Central America', 'Barrier reef', 'Was British Honduras', 'Belmopan'],
     ['Great Blue Hole', 'Caye Caulker', 'Actun Tunichil Muknal', 'Between Mexico and Guatemala', 'Belize City'],
@@ -917,7 +917,7 @@ export const PINPOINT_COUNTRIES = [
     ['Fungee and pepperpot', 'Devil’s Bridge', 'Two islands, 365 beaches', 'East Caribbean dollar', 'Antiguan black pineapple'],
   ] },
 
-  // ---- South America (added 16 Sep 2026) ----
+  // ---- South America (added) ----
   { name: 'Guyana', iso2: 'GY', region: 'South America', tier: 'hard', sets: [
     ['The only English-speaking country in South America', 'A single-drop waterfall five times Niagara’s height', 'Rainforest covers most of it', 'On the Caribbean coast of the continent', 'Georgetown'],
     ['Kaieteur Falls', 'Rupununi savannah', 'Giant river otters', 'Between Venezuela, Brazil and Suriname', 'Essequibo river'],
@@ -929,7 +929,7 @@ export const PINPOINT_COUNTRIES = [
     ['Roti and pom', 'Galibi turtle beaches', 'Brokopondo reservoir', 'Surinamese dollar', 'Commewijne plantations'],
   ] },
 
-  // ---- Oceania (added 16 Sep 2026) ----
+  // ---- Oceania (added) ----
   { name: 'Samoa', iso2: 'WS', region: 'Oceania', tier: 'medium', sets: [
     ['Tatau tattooing', 'Fale houses open to the breeze', 'Skipped a day to change time zones', 'Polynesian islands', 'Apia'],
     ['To Sua Ocean Trench', 'Robert Louis Stevenson is buried here', 'Upolu and Savai’i', 'East of Fiji', 'Lalomanu beach'],
@@ -980,8 +980,8 @@ export const PINPOINT_COUNTRIES = [
     ['Bikini Atoll', 'Kwajalein, the world’s largest lagoon', 'Uses the US dollar', 'North of Kiribati', 'Compact of Free Association with the US'],
     ['Jaki-ed weaving', 'Arno Atoll', '29 coral atolls', 'Marshallese language', 'Rising seas threaten it'],
   ] },
-  // ---- The last eight sovereign states (16 Sep 2026). The bank is now every
-  // country on earth, which is a promise worth being able to make.
+  // ---- The last eight sovereign states. The bank is now every country on earth, which is a promise worth being able to
+  //  make.
   { name: 'Central African Republic', iso2: 'CF', region: 'Africa', tier: 'hard', aliases: ['car'], sets: [
     ['Landlocked and almost exactly in the middle', 'Diamonds', 'Rainforest and savannah meet here', 'Borders six countries', 'Bangui'],
     ['Dzanga-Sangha forest elephants', 'Boali Falls', 'Sango language', 'Between Chad, Sudan and the two Congos', 'Ubangi river'],
@@ -1026,11 +1026,7 @@ export const PINPOINT_COUNTRIES = [
 
 // ---------------------------------------------------------------- the day
 //
-// THREE THINGS VARY NOW, NOT ONE (16 Sep 2026).
-//
-// Ethan: "for the guess the country, new ways of structuring it and different
-// random levels, for example some easier and some more niche and difficult to
-// guess."
+// THREE THINGS VARY NOW, NOT ONE.
 //
 // It used to be one country out of 109, five clues, every single day. The bank
 // is 188 countries now - the second half of it deliberately niche - and two

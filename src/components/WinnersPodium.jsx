@@ -19,9 +19,8 @@ import { useT } from '../lib/i18n'
 // lays a stretched link UNDER this block and every control here stops the click
 // from reaching it.
 
-// NO VIDEO LINK BESIDE A NAME (22 Sep 2026). Ethan: every video a creator
-// enters earns points, so one "Watch" chip per person pointed at a single video
-// as if it were the one that won. On a points board no one video won anything.
+// NO VIDEO LINK BESIDE A NAME. The team: every video a creator enters earns points, so one "Watch" chip per person
+// pointed at a single video as if it were the one that won. On a points board no one video won anything.
 
 /** Stop a click reaching the card-wide stretched link underneath. */
 const own = (e) => e.stopPropagation()
@@ -56,11 +55,8 @@ export default function WinnersPodium({
   const scoreOf = (w) => (isPoints ? (w.points ?? w.final_views ?? 0) : (w.final_views ?? 0))
   const fmt = (n) => (isPoints ? Number(n).toLocaleString() : formatViews(n))
 
-  // THE TOP FIVE STAND ON THE PODIUM, THE NEXT FIVE LINE UP UNDER IT
-  // (22 Sep 2026). Ethan: "that leaderboard graphic on the top should similarly
-  // show the top 5 on the podium and the other 5 below" - the same shape the
-  // challenge page's own board has had since 21 Sep. Podium draws 4 | 2 | 1 |
-  // 3 | 5 when it is given five.
+  // THE TOP FIVE STAND ON THE PODIUM, THE NEXT FIVE LINE UP UNDER IT. - the same shape the challenge page's own board
+  // has had since 21 Sep. Podium draws 4 | 2 | 1 | 3 | 5 when it is given five.
   const prizeAt = (n) => {
     const rows = Array.isArray(prizes) ? prizes : []
     const hit = rows.find((p, i) => (parseInt(String(p?.place ?? ''), 10) || i + 1) === n)
@@ -71,18 +67,16 @@ export default function WinnersPodium({
   const slots = places
     ? Array.from({ length: deepest }, (_, i) => byRank.get(i + 1) || { rank: i + 1, empty: true })
     : winners
-  // THREE STEPS ON A PHONE (26 Sep 2026). Five steps in 343px squeezed names
-  // and scores into each other on the results page ("you can't even read their
-  // name"). Fourth and fifth join the list under the podium instead.
+  // THREE STEPS ON A PHONE. Five steps in 343px squeezed names and scores into each other on the results page ("you
+  // can't even read their name"). Fourth and fifth join the list under the podium instead.
   const podiumDepth = isMobile ? 3 : 5
   const top = slots.filter((w) => w.rank <= podiumDepth)
   const rest = slots.filter((w) => w.rank > podiumDepth)
 
-  // THE TOP THREE ARE THE SHARED PODIUM (components/Podium), which is the same
-  // block the all-time leaderboard draws. It used to be a second drawing of the
-  // same idea, with its own collar width, its own block heights and the word
-  // "1st" where the other one prints "1". Ethan asked for them to be the same;
-  // one component is the only version of "the same" that stays true.
+  // THE TOP THREE ARE THE SHARED PODIUM (components/Podium), which is the same block the all-time leaderboard draws. It
+  // used to be a second drawing of the same idea, with its own collar width, its own block heights and the word "1st"
+  // where the other one prints "1". The team asked for them to be the same; one component is the only version of "the
+  // same" that stays true.
   const steps = top.map((w) => (w.empty ? {
     rank: w.rank,
     empty: true,
@@ -173,10 +167,9 @@ export default function WinnersPodium({
           <p className="text-[10px] font-medium uppercase tracking-wide text-smoke">{tr("Entries")}</p>
         </div>
         <div>
-          {/* TOTAL VIEWS, WHATEVER THE SCORING (22 Sep 2026). Every caller
-              passes the summed VIEWS here, and it was printed as points and
-              labelled "Final points" - a number that means nothing. It is the
-              reach of the whole challenge so far and moves with every sync. */}
+          {/* TOTAL VIEWS, WHATEVER THE SCORING. Every caller passes the summed VIEWS here, and it was printed as points
+              and labelled "Final points" - a number that means nothing. It is the reach of the whole challenge so far
+              and moves with every sync. */}
           <p className="text-sm font-bold tabular-nums text-ink">{formatViews(totalScore)}</p>
           <p className="text-[10px] font-medium uppercase tracking-wide text-smoke">{tr("Total views")}</p>
         </div>

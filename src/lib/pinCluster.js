@@ -1,10 +1,8 @@
 // GROUPING THE MAP'S PINS, as pure arithmetic so it can be rehearsed.
 //
-// Pulled out of CreatorMap on 28 Sep 2026 after the grouping shipped a fault
-// nobody could see from the component: fully zoomed out, every creator in
-// Europe fell into a single pin reading "130" sitting on the UK. The maths is
-// twenty lines and the component is three thousand, so the maths lives here now
-// and `pinCluster.test.js` holds the cases that were wrong.
+// Pulled out of CreatorMap after the grouping shipped a fault nobody could see from the component: fully zoomed out,
+// every creator in Europe fell into a single pin reading "130" sitting on the UK. The maths is twenty lines and the
+// component is three thousand, so the maths lives here now and `pinCluster.test.js` holds the cases that were wrong.
 //
 // A `pt` is `{ x, y, t }` - a projected position and the town it belongs to.
 // A town needs only `country` here; everything else about it is the caller's.

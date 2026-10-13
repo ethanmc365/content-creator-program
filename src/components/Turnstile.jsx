@@ -19,9 +19,8 @@ const DRAWN_MIN_HEIGHT_PX = 10
 //
 //     400 captcha protection: request disallowed (timeout-or-duplicate)
 //
-// which is what Ethan hit on 3 Sep 2026 - and it is an infuriating failure
-// because nothing on screen looks wrong: the widget still shows its green tick,
-// so the form looks ready and the password looks rejected.
+// which is what the team hit - and it is an infuriating failure because nothing on screen looks wrong: the widget still
+// shows its green tick, so the form looks ready and the password looks rejected.
 //
 // Five minutes is easy to exceed. Somebody opens the login page and reads their
 // email first; somebody logs out and leaves the tab; somebody is handed a demo

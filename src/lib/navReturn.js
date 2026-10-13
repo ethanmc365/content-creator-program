@@ -1,9 +1,7 @@
-// GOING BACK IS NOT ARRIVING (13 Oct 2026).
+// GOING BACK IS NOT ARRIVING.
 //
-// Ethan, on his iPhone: "when im on a chat or room and swipe to the left back to the chats, the whole page seems to
-// reload and reanimate, it shouldnt have to reload and animate every time." The page you return to has already been
-// seen: iOS even draws a snapshot of it under your finger during the swipe. Replaying its entrance (the panel fade, the
-// rows rising one by one) on release reads as a reload.
+// The page you return to has already been seen: iOS even draws a snapshot of it under your finger during the swipe.
+// Replaying its entrance (the panel fade, the rows rising one by one) on release reads as a reload.
 //
 // So for a short window after a back/forward navigation (popstate), entrance motion is skipped:
 //  - `Reveal` mounts already arrived (`isReturnVisit()`), so its rows never sit at opacity 0;

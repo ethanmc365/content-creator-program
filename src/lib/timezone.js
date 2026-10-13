@@ -115,10 +115,9 @@ export function useTimezone(profile) {
   // it". Not "the device disagrees with the pin" - somebody who deliberately
   // pinned Lisbon while living in Madrid would be asked on every single visit.
   //
-  // AND ONLY WHEN THE CLOCK IS DIFFERENT (26 Sep 2026). A different NAME for
-  // the same clock (a browser reporting an alias, or a neighbouring city in the
-  // same zone) asked "Looks like you have moved ... London, same clock as
-  // London, so nothing would move" - a question with no possible consequence.
+  // AND ONLY WHEN THE CLOCK IS DIFFERENT. A different NAME for the same clock (a browser reporting an alias, or a
+  // neighbouring city in the same zone) asked "Looks like you have moved... London, same clock as London, so nothing
+  // would move" - a question with no possible consequence.
   const sameClock = !!device && !!seen && hoursBetween(device, seen) === 0
   const moved = !!device && !!seen && device !== seen && !sameClock
   // Somebody who has never been asked at all is not "moved", they are new. The

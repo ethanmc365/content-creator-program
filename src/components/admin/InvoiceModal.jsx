@@ -47,25 +47,16 @@ export function StageChip({ stage }) {
 // ---------------------------------------------------------------------------
 // LOOKING AT AN INVOICE.
 //
-// Ethan: "whenever I click on approved and ready to send, I want to actually
-// see a pop up with the preview invoice. I don't wanna have to download it
-// every time."
+// they are describing the missing middle of the whole workflow. Approving an invoice is a judgement about a DOCUMENT -
+// is the amount right, is the name right, is the bank block filled in - and the queue row shows a name, a number and a
+// total. The only way to see the thing you were signing off was to download a PDF, open it in another application, come
+// back, and press Approve from memory. So people pressed Approve from memory.
 //
-// He is describing the missing middle of the whole workflow. Approving an
-// invoice is a judgement about a DOCUMENT - is the amount right, is the name
-// right, is the bank block filled in - and the queue row shows a name, a
-// number and a total. The only way to see the thing you were signing off was to
-// download a PDF, open it in another application, come back, and press Approve
-// from memory. So people pressed Approve from memory.
-//
-// The row opens the document. Every action lives under it, in the order the
-// invoice actually travels: approve, then send, then mark paid. Sending opens
-// the addresses inline rather than throwing you into the composer - an
-// auto-raised invoice has nothing left to compose.
-// The email the recipient will actually receive, drawn from the same figures
-// the edge function puts in it. Ethan asked to see this before pressing send,
-// which is the same argument as the invoice preview one panel up: you should be
-// able to look at the thing you are about to send.
+// The row opens the document. Every action lives under it, in the order the invoice actually travels: approve, then
+// send, then mark paid. Sending opens the addresses inline rather than throwing you into the composer - an auto-raised
+// invoice has nothing left to compose. The email the recipient will actually receive, drawn from the same figures the
+// edge function puts in it. The team asked to see this before pressing send, which is the same argument as the invoice
+// preview one panel up: you should be able to look at the thing you are about to send.
 function EmailPreview({ inv, to, cc, replyTo }) {
   const ref = invoiceRef(inv.number)
   const amount = formatMoney(inv.amount, inv.currency)
@@ -169,11 +160,7 @@ export function InvoiceModal({ inv, open, onClose, onDecide, onRecordSent, onPai
   const toJoined = parseEmails(to.join(',')).join(', ')
   const ccJoined = parseEmails(cc.join(',')).join(', ')
 
-  // GMAIL IS THE ONLY WAY OUT NOW (3 Sep 2026).
-  //
-  // Ethan: "the auto 'send to email' isn't gonna be there any more. Pretty much
-  // just gonna download it and click compose in Gmail. It should automatically
-  // create the message and download the file for you to then send."
+  // GMAIL IS THE ONLY WAY OUT NOW.
   //
   // `startSend` used to hand the PDF to the `send-invoice` function, which
   // mailed it through Resend. That path is paused until mail.tryp.com has its
@@ -279,10 +266,9 @@ export function InvoiceModal({ inv, open, onClose, onDecide, onRecordSent, onPai
             Download PDF
           </button>
 
-          {/* ALWAYS A WAY BACK, which is the whole of Ethan's report: an invoice
-              approved before somebody noticed it was wrong could only be sent
-              wrong. Reopening also re-derives it from the creator's current
-              details, which is usually the entire fix. */}
+          {/* ALWAYS A WAY BACK, which is the whole of the team's report: an invoice approved before somebody noticed it
+              was wrong could only be sent wrong. Reopening also re-derives it from the creator's current details, which
+              is usually the entire fix. */}
           {(inv.stage === 'approved' || inv.stage === 'rejected') && onReopen && (
             <button type="button" onClick={() => onReopen(inv)} disabled={busy === inv.id}
               className="btn-ghost !py-2 !text-sm disabled:opacity-40">
@@ -353,13 +339,9 @@ export function InvoiceModal({ inv, open, onClose, onDecide, onRecordSent, onPai
             </button>
           )}
 
-          {/* DELETING ONE, WHICH THERE WAS SIMPLY NO WAY TO DO.
-              Ethan: "I created an example invoice and there seems to be no way
-              to delete it. I sent it back, but there still seems to be no way."
-              Every other control on this row moves the invoice FORWARD; sending
-              it back is the closest thing to undo and it removes nothing.
-              Last in the row, quiet, and refused outright by migration 183 on a
-              paid invoice - that document is the receipt that money left. */}
+          {/* DELETING ONE, WHICH THERE WAS SIMPLY NO WAY TO DO. Every other control on this row moves the invoice
+              FORWARD; sending it back is the closest thing to undo and it removes nothing. Last in the row, quiet, and
+              refused outright by migration 183 on a paid invoice - that document is the receipt that money left. */}
           {onDelete && !inv.paid_at && (
             <button type="button" onClick={() => onDelete(inv)} disabled={busy === inv.id}
               className="btn-ghost !py-2 !text-sm text-red-600 hover:bg-red-50 disabled:opacity-40">
@@ -375,12 +357,10 @@ export function InvoiceModal({ inv, open, onClose, onDecide, onRecordSent, onPai
 // ---------------------------------------------------------------------------
 // ONE INVOICE VIEWER, WHEREVER YOU FIND AN INVOICE.
 //
-// The modal and everything it can do used to live inside the queue, so the only
-// place an invoice could be opened was the queue. A cash reward on the Payouts
-// tab therefore got a button reading "On invoice Tryp.com 003" that navigated
-// you to a different tab and left you to find the row again - Ethan: "that
-// button just doesn't really make sense". It does not: a payout row IS an
-// invoice, and clicking it should show you the invoice.
+// The modal and everything it can do used to live inside the queue, so the only place an invoice could be opened was the
+// queue. A cash reward on the Payouts tab therefore got a button reading "On invoice Tryp.com 003" that navigated you to
+// a different tab and left you to find the row again - It does not: a payout row IS an invoice, and clicking it should
+// show you the invoice.
 //
 // Mount `viewer.modal` once, call `viewer.open(row)` from wherever, and pass
 // `onChanged` if the page around it counts invoices.

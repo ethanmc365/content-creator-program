@@ -1,16 +1,17 @@
 import { useLayoutEffect, useRef, useState } from 'react'
 
-// A REAL IPHONE TO PREVIEW ON (4 Oct 2026). 393 x 852 points (the 15 / 16 Pro), drawn at that size with its dynamic island and a clock and
-// signal in the status bar, and scaled down as one piece when the column is narrower, so what is inside is laid out exactly as it is on a phone.
-// The survey preview built this first; the VIP announcement preview uses it too, so both read as the same device. `children` is the app's
-// screen, below the status bar.
+// A REAL IPHONE TO PREVIEW ON. 393 x 852 points (the 15 / 16 Pro), drawn at that size with its dynamic island and a
+// clock and signal in the status bar, and scaled down as one piece when the column is narrower, so what is inside is
+// laid out exactly as it is on a phone. The survey preview built this first; the VIP announcement preview uses it too,
+// so both read as the same device. `children` is the app's screen, below the status bar.
 export const PHONE = { w: 393, h: 852 }
 
 export default function PhoneFrame({ children, maxH, bare = false, dark = false }) {
   const ref = useRef(null)
   const [room, setRoom] = useState(null)
-  // MEASURED BEFORE THE FIRST PAINT (5 Oct 2026). It used to draw once at full size and then shrink to fit, which flashed a giant phone across
-  // the screen whenever the preview was switched. Now it is measured in a layout effect and stays invisible until it knows its size.
+  // MEASURED BEFORE THE FIRST PAINT. It used to draw once at full size and then shrink to fit, which flashed a giant
+  // phone across the screen whenever the preview was switched. Now it is measured in a layout effect and stays invisible
+  // until it knows its size.
   useLayoutEffect(() => {
     const el = ref.current
     if (!el) return undefined

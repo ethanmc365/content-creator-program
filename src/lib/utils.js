@@ -15,9 +15,9 @@ import { getLocale, t } from './i18n'
 // naming it would mean importing a second locale bundle to say what it already
 // does.
 //
-// ALL FOUR, NOT JUST SPANISH (1 Oct 2026). Only `es` was listed, so a Portuguese, German or
-// Romanian reader got "September", "Mon" and "4 days ago" in English on every page; Ethan found
-// it on the calendar in Romanian. Exported so a page that calls date-fns itself can pass it too.
+// ALL FOUR, NOT JUST SPANISH. Only `es` was listed, so a Portuguese, German or Romanian reader got "September", "Mon"
+// and "4 days ago" in English on every page; the team found it on the calendar in Romanian. Exported so a page that
+// calls date-fns itself can pass it too.
 const DATE_LOCALES = { es, pt, de, ro }
 // The BCP 47 tag for `toLocaleDateString` / `Intl.DateTimeFormat`, for code that formats dates
 // without date-fns: month and weekday names in the reader's language.
@@ -29,7 +29,7 @@ export function dateLocale() {
   return DATE_LOCALES[getLocale()]
 }
 
-/** "12 Jun 2026" */
+/* "12 Jun 2026" */
 export function formatDate(date) {
   if (!date) return '-'
   return format(new Date(date), 'd MMM yyyy', { locale: dateLocale() })
@@ -118,12 +118,9 @@ export function formatChatTime(date) {
 /** "3 days ago" */
 // "3 days ago" up to three days, then a plain date.
 //
-// Ethan: "rather than 9 days ago, or 1 month ago, if it was over 3 days ago
-// always just show the date in date format dd/mm/yyyy." He is right about where
-// the line is. Relative time is useful exactly while it is still a mental
-// shortcut - today, yesterday, a couple of days - and past that it becomes work:
-// "1 month ago" is a number you have to convert back into a date before it
-// means anything, and it is wrong by up to a month while you do it.
+// they are right about where the line is. Relative time is useful exactly while it is still a mental shortcut - today,
+// yesterday, a couple of days - and past that it becomes work: "1 month ago" is a number you have to convert back into a
+// date before it means anything, and it is wrong by up to a month while you do it.
 export function postedOn(date) {
   if (!date) return ''
   const d = new Date(date)
@@ -164,16 +161,14 @@ export function shortAgo(date) {
 }
 
 /**
- * A view count, the way every leaderboard and card prints it (5 Oct 2026).
+ * A view count, the way every leaderboard and card prints it.
  *
  *   under 1,000        as it is                     842
  *   1,000 - 9,999      one decimal                  4.3k
  *   10,000 - 999,999   NEAREST THOUSAND, no decimal 48k, 638k
  *   a million or more  one decimal                  1.3M
  *
- * Ethan: "Noelia has 638.5k ... if it's over 10k it should just be rounded to the
- * nearest thousand: 638k, Anna 48.3k should be 48k." A decimal on a figure that
- * large is false precision, and it made the board harder to scan.
+ * A decimal on a figure that large is false precision, and it made the board harder to scan.
  */
 export function formatViews(n) {
   if (n == null) return '-'
@@ -187,9 +182,8 @@ export function formatViews(n) {
 }
 
 /**
- * A TOTAL, to the nearest thousand at any size. A headline total of 3,422,000 views printed
- * as "3.4M" hides 22,000 of them (Ethan: "it shows 3.4 million, but I wanted it rounded to the
- * thousand - 420k or 422k, not just 0.4"). So a million or more keeps three decimals: 3.422M.
+ * A TOTAL, to the nearest thousand at any size. A headline total of 3,422,000 views printed as "3.4M" hides 22,000 of
+ * them ( ). So a million or more keeps three decimals: 3.422M.
  */
 export function formatViewsTotal(n) {
   if (n == null) return '-'
@@ -206,12 +200,10 @@ export function formatViewsTotal(n) {
 /** "£150" for whole amounts, "£12.50" when there are pennies. */
 // EUROS BY DEFAULT, because that is what the programme reports in.
 //
-// THE BUG THIS FIXES: the default was GBP, and half a dozen surfaces called
-// this with no currency at all over figures that had ALREADY been converted
-// into euros - so the admin panel's "Cash prizes paid" showed €190 of spend
-// wearing a pound sign. Ethan: "rewards/invoices payouts are in pounds and
-// should be euros." Anything that genuinely is pounds passes 'GBP' and always
-// did; nothing that is actually a per-row amount relies on this default.
+// THE BUG THIS FIXES: the default was GBP, and half a dozen surfaces called this with no currency at all over figures
+// that had ALREADY been converted into euros - so the admin panel's "Cash prizes paid" showed €190 of spend wearing a
+// pound sign. Anything that genuinely is pounds passes 'GBP' and always did; nothing that is actually a per-row amount
+// relies on this default.
 export function formatMoney(amount, currency = 'EUR') {
   const whole = Number.isInteger(Number(amount))
   return new Intl.NumberFormat('en-GB', {
@@ -236,11 +228,10 @@ export function detectPlatform(url = '') {
 
 // WHY AN EXPORT LOOKED "VERY MESSY" WHEN IT OPENED.
 //
-// Ethan opened an admin export in Excel and got a mess. It was not the data -
-// it was three things this function did not do, and all three are invisible
-// until a spreadsheet reads the file:
+// The team opened an admin export in Excel and got a mess. It was not the data - it was three things this function did
+// not do, and all three are invisible until a spreadsheet reads the file:
 //
-//   1. NO BYTE ORDER MARK. Excel opens a .csv as the system codepage, not
+//   1. NO BYTE ORDER MARK. Excel opens a.csv as the system codepage, not
 //      UTF-8, unless the file starts with a BOM. So "Denisa Hadarau" with its
 //      real diacritics, every Spanish and Romanian name, and every emoji in a
 //      market column arrived as mojibake.
@@ -301,7 +292,7 @@ export function downloadCsv(filename, rows, columns) {
 
 // ---- Date of birth (typed as DD/MM/YYYY, stored as an ISO date) ----
 
-/** "25/01/2005" → "2005-01-25" for storage. Returns null if invalid/incomplete. */
+/* "25/01/2005" → "2005-01-25" for storage. Returns null if invalid/incomplete. */
 export function parseDob(input = '') {
   const m = input.trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/)
   if (!m) return null
@@ -313,7 +304,7 @@ export function parseDob(input = '') {
   return `${m[3]}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`
 }
 
-/** "2005-01-25" → "25/01/2005" for showing in the edit field. */
+/* "2005-01-25" → "25/01/2005" for showing in the edit field. */
 export function formatDobInput(iso) {
   if (!iso) return ''
   const [y, mo, d] = iso.split('-')
@@ -322,11 +313,11 @@ export function formatDobInput(iso) {
 
 // THE PROGRAMME'S MINIMUM AGE, IN ONE PLACE.
 //
-// EIGHTEEN since 12 Oct 2026 (Ethan: "ensure the sign up is now limited to creators aged 18 or more"). The database
-// enforces it too (`trg_zz_adults_only`, migration 388): an under-18 date of birth, finishing onboarding or being
-// approved under 18 is refused, except for the few members who were already in aged 16 or 17 (`age_exceptions`) -
-// they stay with a parent or guardian's confirmation (lib/guardianConsent). The Community Terms, the fallback Terms
-// page and the Privacy Policy all say 18. `profiles_age_check` still says 16 only because those members exist.
+// EIGHTEEN ( ). The database enforces it too (`trg_zz_adults_only`, migration 388): an under-18 date of birth, finishing
+// onboarding or being approved under 18 is refused, except for the few members who were already in aged 16 or 17
+// (`age_exceptions`) - they stay with a parent or guardian's confirmation (lib/guardianConsent). The Community Terms,
+// the fallback Terms page and the Privacy Policy all say 18. `profiles_age_check` still says 16 only because those
+// members exist.
 export const MIN_AGE = 18
 
 /** Whole years between a dob (ISO date) and today. Null if no dob. */
@@ -356,7 +347,7 @@ export function challengeDeadline(endDate) {
 
 // ---- Typed date + time (no calendar picker) ----
 
-/** "25/01/2026" + "14:30" -> ISO string, or null if invalid/incomplete. */
+/* "25/01/2026" + "14:30" -> ISO string, or null if invalid/incomplete. */
 export function parseDateTime(dateStr = '', timeStr = '') {
   const d = dateStr.trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/)
   const t = timeStr.trim().match(/^(\d{1,2}):(\d{2})$/)
@@ -368,7 +359,7 @@ export function parseDateTime(dateStr = '', timeStr = '') {
   return dt.toISOString()
 }
 
-/** ISO -> "25/01/2026" */
+/* ISO -> "25/01/2026" */
 export function isoToDateInput(iso) {
   if (!iso) return ''
   const d = new Date(iso)

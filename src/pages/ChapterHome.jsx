@@ -141,15 +141,11 @@ export default function ChapterHome() {
         // NO `.filter(s => !s.profiles.is_test)` HERE, AND THAT LINE IS WHY
         // THIS PAGE NEVER LOADED FOR THE UK.
         //
-        // `views_leaderboard` returns FLAT columns - creator_id, name,
-        // photo_url, views, posts, wins, markets. There is no `profiles`
-        // object on a row, so reading `s.profiles.is_test` threw a TypeError,
-        // the whole `load()` rejected, `setLoading(false)` never ran, and the
-        // page sat on its skeletons forever. Ethan: "for the overview page,
-        // absolutely nothing loads" - and only for the UK, because every other
-        // market returns ZERO rows today, so `.filter` never invoked the
-        // callback and the bug stayed invisible. Spain would have hit it the
-        // day its first creator posted a video.
+        // `views_leaderboard` returns FLAT columns - creator_id, name, photo_url, views, posts, wins, markets. There is
+        // no `profiles` object on a row, so reading `s.profiles.is_test` threw a TypeError, the whole `load()` rejected,
+        // `setLoading(false)` never ran, and the page sat on its skeletons forever. - and only for the UK, because every
+        // other market returns ZERO rows today, so `.filter` never invoked the callback and the bug stayed invisible.
+        // Spain would have hit it the day its first creator posted a video.
         //
         // The filter was also redundant: the RPC already excludes test and
         // admin accounts, which is why it returns 44 for a market of 44.
@@ -199,13 +195,11 @@ export default function ChapterHome() {
 
   // THE RAIL'S CARDS, NAMED, SO THE PHONE CAN PUT THEM WHERE THEY BELONG.
   //
-  // On a desktop these are the right-hand rail. On a phone `NetworkLayout`
-  // renders the rail BELOW the article - which is several screens down, past a
-  // map - so the market's standings, the faces of the people in it and the team
-  // running it all arrived after the least urgent thing on the page. Ethan gave
-  // the order he wants and it interleaves the two columns, which CSS `order`
-  // cannot do across two parents. Same trick as the profile page: name each
-  // block once, then write two running orders over the names.
+  // On a desktop these are the right-hand rail. On a phone `NetworkLayout` renders the rail BELOW the article - which is
+  // several screens down, past a map - so the market's standings, the faces of the people in it and the team running it
+  // all arrived after the least urgent thing on the page. The team gave the order they want and it interleaves the two
+  // columns, which CSS `order` cannot do across two parents. Same trick as the profile page: name each block once, then
+  // write two running orders over the names.
   const standingsCard = (
     <>
       {data?.standings?.some((x) => Number(x.views) > 0) && (
@@ -351,10 +345,9 @@ export default function ChapterHome() {
     </>
   )
 
-  // "YOUR MARKETS" IN PLACE OF THE ROOMS CARD (2 Oct 2026). Ethan: "I still want that card on the right column
-  // on the market page, remove the rooms card from that right column and instead add that one there." The rooms
-  // are the tiles in the left column already; the rail now carries the switcher you arrived by, with this market
-  // picked out, and the VIP communities under it for the people who have them.
+  // "YOUR MARKETS" IN PLACE OF THE ROOMS CARD. The rooms are the tiles in the left column already; the rail now carries
+  // the switcher you arrived by, with this market picked out, and the VIP communities under it for the people who have
+  // them.
   const rail = (
     <>
       <MarketsRailCard current={chapter.id} live={data?.live ? { [chapter.id]: data.live } : null} />
@@ -379,16 +372,14 @@ export default function ChapterHome() {
           <Reveal from="down"><MarketHeader market={chapter} memberCount={loading ? null : data?.members} canManage={canManage} tab="Overview" /></Reveal>
 
           {isMobile ? (
-            /* ---------------- ONE COLUMN, BELOW `lg` ----------------
-               Ethan's order, and every line of it is a removal or a promotion:
-               the live brief leads, then the market's own numbers, then its
-               people, then its team, THEN the map - the most expensive thing
-               on the page and the least urgent - then the recent challenges,
-               and what has happened lately at the very bottom.
-               BOTH Rooms blocks are gone: the Rooms TAB is two centimetres
-               above this, and the rail's copy of the same list sat below the
-               map. `isMobile` and not `hidden`, because a hidden twin still
-               MOUNTS - and this page's map parses a megabyte of atlas. */
+            /*
+             * ---------------- ONE COLUMN, BELOW `lg` ---------------- the team's order, and every line of it is a
+             *  removal or a promotion: the live brief leads, then the market's own numbers, then its people, then its
+             *  team, THEN the map - the most expensive thing on the page and the least urgent - then the recent
+             *  challenges, and what has happened lately at the very bottom. BOTH Rooms blocks are gone: the Rooms TAB is
+             *  two centimetres above this, and the rail's copy of the same list sat below the map. `isMobile` and not
+             *  `hidden`, because a hidden twin still MOUNTS - and this page's map parses a megabyte of atlas.
+             */
             <>
           {/* ---------- Live challenge ---------- */}
           <Reveal from="down" delay={0.06} as="section">
@@ -440,9 +431,8 @@ export default function ChapterHome() {
               <h2 className="flex items-center gap-2 text-lg font-semibold">
                 <Icon name="pin" className="h-5 w-5 text-brand" /> {tr('Where we are in {m}', { m: chapter.name })}
               </h2>
-              {/* NO STRAPLINE. "Every creator here, in the town they filmed
-                  this morning" is a caption for a map that draws exactly that.
-                  Ethan asked for it gone. */}
+              {/* NO STRAPLINE. "Every creator here, in the town they filmed this morning" is a caption for a map that
+                  draws exactly that. The team asked for it gone. */}
             </div>
             {/* Deferred until it is nearly on screen: parsing a megabyte of
                 TopoJSON while the sections above are still sliding is what makes
@@ -545,17 +535,18 @@ export default function ChapterHome() {
             {loading ? (
               <CardGridSkeleton count={3} height="h-20" />
             ) : (
-              /* EVERY TILE THE SAME SIZE (2 Oct 2026). Ethan: "where it shows the rooms, on the left column under
-                 the big card, tidy up the UI, the cards should all be the same size." A room with a hint was taller
-                 than one without, so the grid went ragged. Rows are equal now (`auto-rows-fr`), every tile is a
-                 fixed shape (icon tile, name, one line of hint, chevron), and a missing hint keeps its line. */
+              /*
+               * EVERY TILE THE SAME SIZE. A room with a hint was taller than one without, so the grid went ragged. Rows
+               * are equal now (`auto-rows-fr`), every tile is a fixed shape (icon tile, name, one line of hint,
+               * chevron), and a missing hint keeps its line.
+               */
               <Reveal className="grid auto-rows-fr gap-3 sm:grid-cols-2" stagger={0.06}>
                 {data.channels.map((ch) => (
                   <MotionLink key={ch.id} to={`/c/${chapter.slug}/chat/${ch.key}`}
                     {...cardHover}
-                    // ONE LOOK FOR EVERY ROOM (2 Oct 2026). Ethan did not like the peach background on General or the
-                    // pale icon tiles on the others: every room now carries the gradient icon on a white card, and
-                    // General is told apart by its "Main room" pill alone.
+                    // ONE LOOK FOR EVERY ROOM. The team did not like the peach background on General or the pale icon
+                    // tiles on the others: every room now carries the gradient icon on a white card, and General is told
+                    // apart by its "Main room" pill alone.
                     className="card group flex h-full min-h-[5.25rem] items-center gap-3.5 !p-4 hover:shadow-lift">
                     <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-brand to-brand-light text-white shadow-card transition-transform duration-200 group-hover:scale-105">
                       <Icon name={ch.icon || 'chat'} className="h-5 w-5" />
@@ -590,9 +581,8 @@ export default function ChapterHome() {
               <h2 className="flex items-center gap-2 text-lg font-semibold">
                 <Icon name="pin" className="h-5 w-5 text-brand" /> {tr('Where we are in {m}', { m: chapter.name })}
               </h2>
-              {/* NO STRAPLINE. "Every creator here, in the town they filmed
-                  this morning" is a caption for a map that draws exactly that.
-                  Ethan asked for it gone. */}
+              {/* NO STRAPLINE. "Every creator here, in the town they filmed this morning" is a caption for a map that
+                  draws exactly that. The team asked for it gone. */}
             </div>
             {/* Deferred until it is nearly on screen: parsing a megabyte of
                 TopoJSON while the sections above are still sliding is what makes

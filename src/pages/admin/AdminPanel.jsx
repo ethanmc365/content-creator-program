@@ -20,13 +20,12 @@ import { chatApi } from '../../api/chat'
 
 // The admin hub.
 //
-// WHAT CHANGED, 25 Aug 2026, and why
+// WHAT CHANGED, and why
 //
-// Ethan's brief: keep "on your desk" but make it look like Tryp; the stat boxes
-// belong in Analytics, not here; the live-challenge banner is noise; the Testing
-// Centre does not need a full-width billboard; and "there are too many headings
-// and sub-headings, all similar things but split", with cards of different sizes
-// that make the thing you want hard to find.
+// The team's brief: keep "on your desk" but make it look like Tryp; the stat boxes belong in Analytics, not here; the
+// live-challenge banner is noise; the Testing Centre does not need a full-width billboard; and "there are too many
+// headings and sub-headings, all similar things but split", with cards of different sizes that make the thing you want
+// hard to find.
 //
 // All four are the same complaint. The page had five named groups, each with a
 // heading AND a hint line, plus three coloured full-width bands and a stat row -
@@ -45,13 +44,11 @@ import { chatApi } from '../../api/chat'
 //
 // WHAT CHANGED AGAIN, 26 Aug 2026
 //
-// Two notes from Ethan, and they pull the same direction. The first: the panel
-// had stopped looking like Tryp. Five families meant five hues - sky, brand,
-// emerald, violet, slate - so the grid read as a Google product, not as a page
-// of the platform it administers. It is now five INTENSITIES of the one brand
-// orange (solid #d94407, solid #f5853f, a filled tint, an outline, and a
-// neutral for the things that are not really tools), which sorts the grid
-// exactly as well as five hues did while looking like it belongs here.
+// Two notes from the team, and they pull the same direction. The first: the panel had stopped looking like Tryp. Five
+// families meant five hues - sky, brand, emerald, violet, slate - so the grid read as a Google product, not as a page of
+// the platform it administers. It is now five INTENSITIES of the one brand orange (solid #d94407, solid #f5853f, a
+// filled tint, an outline, and a neutral for the things that are not really tools), which sorts the grid exactly as well
+// as five hues did while looking like it belongs here.
 //
 // The second: bigger titles, and the sentences under them gone. Both halves of
 // that are one idea - the description was never read. "Creators / The full
@@ -60,12 +57,11 @@ import { chatApi } from '../../api/chat'
 // the fourteen words that actually navigate. The names are now 17px and alone.
 // Same for the desk rows' hints and the two preview cards at the bottom.
 //
-// REORDERING IS BACK, AND IT IS PER ADMIN. It was removed once, on the argument
-// that hand-ordering seventeen tiles is a workaround for not being able to find
-// them. That was right about the flat grid it existed to survive and wrong about
-// the need: the person who runs Spain opens Challenges and Rewards every day and
-// Audit log twice a year, and no fixed order I choose is right for both of them
-// and for Ethan. Grab the six dots, drag, and it saves to `profiles.admin_prefs`
+// REORDERING IS BACK, AND IT IS PER ADMIN. It was removed once, on the argument that hand-ordering seventeen tiles is a
+// workaround for not being able to find them. That was right about the flat grid it existed to survive and wrong about
+// the need: the person who runs Spain opens Challenges and Rewards every day and Audit log twice a year, and no fixed
+// order I choose is right for both of them and for the team. Grab the six dots, drag, and it saves to
+// `profiles.admin_prefs`
 // - so it follows the person to their phone rather than living in one browser.
 
 // ---------------------------------------------------------------- the tools
@@ -75,12 +71,10 @@ import { chatApi } from '../../api/chat'
 // that is added appears at the end of everybody's existing arrangement.
 // ONE ORANGE, AND A DIFFERENT ICON FOR EVERY DOOR.
 //
-// The tiles were tinted by family - five hues once, then five INTENSITIES of
-// brand orange. Ethan's read on the second version: the ramp was still five
-// different-looking things, and the one he liked was the solid deep orange on
-// Creators, Applications and Referrals. So there is no ramp. Every tile is
-// `bg-brand text-white`, and the grid reads as one set of controls belonging to
-// one product.
+// The tiles were tinted by family - five hues once, then five INTENSITIES of brand orange. The team's read on the second
+// version: the ramp was still five different-looking things, and the one they liked was the solid deep orange on
+// Creators, Applications and Referrals. So there is no ramp. Every tile is `bg-brand text-white`, and the grid reads as
+// one set of controls belonging to one product.
 //
 // WHICH MAKES THE ICON THE ONLY THING THAT DISTINGUISHES A TILE, and three of
 // them were duplicated: Applications and Tryp.com team both drew a shield,
@@ -107,7 +101,7 @@ const TOOLS = [
   // they get to post when they reach a rung. `star` is free in this grid - see
   // the note above about every icon appearing exactly once.
   { id: 'kit', to: '/admin/creator-kit', icon: 'star', title: 'Creator kit' },
-  // The bank behind "Hook me up" on every challenge (24 Sep 2026).
+  // The bank behind "Hook me up" on every challenge.
   { id: 'hooks', to: '/admin/hooks', icon: 'quote', title: 'Hooks' },
 
   { id: 'rewards', to: '/admin/rewards', icon: 'money', title: 'Money' },
@@ -117,24 +111,22 @@ const TOOLS = [
   // the programme did, the tracker says what to make next. `video` is free -
   // see the note above about every icon in this grid appearing exactly once.
   { id: 'videos', to: '/admin/videos', icon: 'video', title: 'Video tracker' },
-  // NOT INSIDE ANALYTICS. Ethan: "I don't want this built into analytics or
-  // something that's already a bit cluttered, so maybe create a new page."
-  // Analytics is a retrospective; a KPI is a plan checked as the quarter
-  // runs, which is a different question asked at a different moment.
+  // NOT INSIDE ANALYTICS. Analytics is a retrospective; a KPI is a plan checked as the quarter runs, which is a
+  // different question asked at a different moment.
   { id: 'kpis', to: '/admin/kpis', icon: 'trophy', title: 'KPI tracker' },
-  // THE VIP PROGRAMME, ONE DOOR (2 Oct 2026, migration 294): its members, bonus rules, month-end payouts, its own
-  // KPIs and analytics. Not `globalOnly`: a market's own lead runs their VIPs from here too, and the page shows
-  // each person only the programmes they manage.
+  // THE VIP PROGRAMME, ONE DOOR (migration 294): its members, bonus rules, month-end payouts, its own KPIs and
+  // analytics. Not `globalOnly`: a market's own lead runs their VIPs from here too, and the page shows each person only
+  // the programmes they manage.
   { id: 'vip', to: '/vip?mode=tools', icon: 'sparkles', title: 'VIP tools' },
 
   { id: 'email', to: '/admin/email', icon: 'envelope', title: 'Email' },
   { id: 'feedback', to: '/admin/feedback', icon: 'bug', title: 'Bugs & Ideas' },
-  // Surveys the team puts in front of creators (30 Sep 2026, migration 291).
+  // Surveys the team puts in front of creators (migration 291).
   { id: 'surveys', to: '/admin/surveys', icon: 'chartPie', title: 'Surveys' },
-  // The terms creators accept and the agreement VIPs sign, with who has signed (7 Oct 2026, migration 351).
+  // The terms creators accept and the agreement VIPs sign, with who has signed (migration 351).
   { id: 'agreements', to: '/admin/agreements', icon: 'key', title: 'Agreements', globalOnly: true },
-  // (Questions used to have a tile here. 11 Oct 2026, Ethan: it belongs on the desk the moment somebody asks one, so it
-  // is a desk row now; the page itself is still reached from Get help in the profile menu.)
+  // (Questions used to have a tile here., the team: it belongs on the desk the moment somebody asks one, so it is a desk
+  // row now; the page itself is still reached from Get help in the profile menu.)
   { id: 'notes', to: '/admin/notes', icon: 'pencil', title: 'Notes' },
 
   { id: 'testing', to: '/admin/testing', icon: 'device', title: 'Testing Centre' },
@@ -152,12 +144,10 @@ const TOOLS = [
   { id: 'view-as', action: 'creator', icon: 'eye', title: 'View as Creator' },
   // PLATFORM CONNECTIONS IS NOT A CARD ANY MORE, and it is not deleted either.
   //
-  // Ethan is right that it earns no space here: Instagram needs no credential
-  // at all now, and the YouTube key does not expire, so on a good day the page
-  // has nothing to say. But it is the break-glass for the two things that WILL
-  // eventually break - Meta renumbers its saved queries every so often, and a
-  // Google key can be revoked - and without it, the fix for either is a code
-  // change and a deploy instead of pasting a value into a box.
+  // The team is right that it earns no space here: Instagram needs no credential at all now, and the YouTube key does
+  // not expire, so on a good day the page has nothing to say. But it is the break-glass for the two things that WILL
+  // eventually break - Meta renumbers its saved queries every so often, and a Google key can be revoked - and without
+  // it, the fix for either is a code change and a deploy instead of pasting a value into a box.
   //
   // So it keeps its route and loses its tile. The only way in is from the view
   // counts panel on a challenge, which links here when something is actually
@@ -216,24 +206,17 @@ export function reorder(ids, fromId, toId) {
 function ToolCard({ tool, onOpen, onAct, busy, editing, dragging, dropTarget, onGrab }) {
   const body = (
     <>
-      {/* NO TILE. Just the icon.
-          The filled square was doing the work a colour used to do - marking
-          the family - and once every tile was the same orange it was fourteen
-          identical orange squares carrying fourteen different glyphs, which
-          made the glyph harder to read rather than easier. Ethan: "we don't
-          really need that big square box... just the icon in Tryp.com orange,
-          I think this design will look cleaner". It does. */}
+      {/* NO TILE. Just the icon. The filled square was doing the work a colour used to do - marking the family - and
+          once every tile was the same orange it was fourteen identical orange squares carrying fourteen different
+          glyphs, which made the glyph harder to read rather than easier. It does. */}
       <span className="flex h-10 w-10 shrink-0 items-center justify-center text-brand transition-transform duration-200 group-hover:scale-110">
         <Icon name={tool.icon} className="h-[22px] w-[22px]" />
       </span>
 
-      {/* THE NAME IS THE CARD.
-          Every tile used to carry a sentence under its title - "the full
-          roster: details, activity, notes and account actions" - and fourteen
-          of those is forty lines of grey text with the names, the only part
-          anybody scans for, marooned in the middle of it. Ethan asked for the
-          descriptions gone and the titles bigger, which are the same request:
-          he already knows what Creators is, he is looking for the word. */}
+      {/* THE NAME IS THE CARD. Every tile used to carry a sentence under its title - "the full roster: details,
+          activity, notes and account actions" - and fourteen of those is forty lines of grey text with the names, the
+          only part anybody scans for, marooned in the middle of it. The team asked for the descriptions gone and the
+          titles bigger, which are the same request: he already knows what Creators is, they are looking for the word. */}
       <span className="min-w-0 flex-1 truncate text-[17px] font-semibold leading-snug tracking-[-0.01em] transition-colors group-hover:text-brand">
         {busy ? 'Starting preview…' : tool.title}
       </span>
@@ -296,13 +279,10 @@ function GripDots() {
 
 // ------------------------------------------------------------ on your desk
 //
-// THE HUB CARD'S GRADIENT, NOT A TINT OF IT. Two tinted versions came before
-// this (a wash with tinted rows, then a wash with white rows and a brand rule)
-// and Ethan disliked both for the same reason: "I don't like the current light
-// colour." A pale orange box reads as a warning banner; the platform's own
-// accent -> lighter gradient with white type reads as the thing to do first,
-// which is what this card is. Each item is a white row ON the gradient so it is
-// its own object to press, and the count is set big in brand inside it.
+// THE HUB CARD'S GRADIENT, NOT A TINT OF IT. Two tinted versions came before this (a wash with tinted rows, then a wash
+// with white rows and a brand rule) and A pale orange box reads as a warning banner; the platform's own accent ->
+// lighter gradient with white type reads as the thing to do first, which is what this card is. Each item is a white row
+// ON the gradient so it is its own object to press, and the count is set big in brand inside it.
 function DeskRow({ to, icon, count, label, warn }) {
   return (
     <Link
@@ -510,9 +490,9 @@ export default function AdminPanel() {
         chatApi.messageReports().select('id', { count: 'exact', head: true }).in('status', ['new', 'reviewing']),
         contentApi.feedback().select('id', { count: 'exact', head: true }).eq('status', 'new'),
         eventsApi.eventSuggestions().select('id', { count: 'exact', head: true }).eq('status', 'new'),
-        // ROWS, NOT A COUNT (4 Oct 2026). "1 reward still to pay" sent Ethan to Cash & Invoices, where
-        // nothing was owed: the one reward was a VOUCHER waiting for its code, which lives on the
-        // Vouchers tab. A voucher needs a code, cash needs paying, and the desk has to say which.
+        // ROWS, NOT A COUNT. "1 reward still to pay" sent the team to Cash & Invoices, where nothing was owed: the one
+        // reward was a VOUCHER waiting for its code, which lives on the Vouchers tab. A voucher needs a code, cash needs
+        // paying, and the desk has to say which.
         moneyApi.rewards().select('id, reward_type, status, source, voucher_code, issued_via')
           .or('status.eq.pending,and(reward_type.eq.voucher,status.eq.distributed)'),
         moneyApi.invoices().select('id', { count: 'exact', head: true }).eq('stage', 'approved'),
@@ -523,25 +503,21 @@ export default function AdminPanel() {
         // jsonb and PostgREST cannot express "name is a non-empty string" in a
         // head-only count.
         moneyApi.invoices().select('id, payment').eq('stage', 'draft'),
-        // ANYTHING BROKEN IS WORK, AND IT IS THE MOST URGENT KIND (8 Sep 2026).
-        // Ethan: "any error should show up on the On your desk thing on the
-        // admin panel so that I can quickly fix them. And once I click that
-        // they're fixed, then you should take them out of there."
+        // ANYTHING BROKEN IS WORK, AND IT IS THE MOST URGENT KIND.
         //
         // Which is exactly what `resolved_at` already means, so this counts the
         // unresolved ones and the tick-off on the Error monitoring tab removes
         // the row from here. A crash a creator hit and a scheduled job that
         // failed both land in this table - see migrations 204 and 205.
         teamApi.clientErrors().select('fingerprint', { count: 'exact', head: true }).is('resolved_at', null).neq('source', 'ops'),
-        // THE EARLY WARNING (8 Oct 2026, the day after the outage). Ethan: "set up something that will tell me if
-        // anything's near breaking or overloading again". ops_health_check() runs every five minutes and opens one
-        // row per problem (database busy, connections, stuck queries, lock queues, realtime lag, memory, disk); each
-        // closes itself when the reading recovers. Each is its own desk row, in its own words, at the top.
+        // THE EARLY WARNING (the day after the outage). ops_health_check() runs every five minutes and opens one row per
+        // problem (database busy, connections, stuck queries, lock queues, realtime lag, memory, disk); each closes
+        // itself when the reading recovers. Each is its own desk row, in its own words, at the top.
         teamApi.clientErrors().select('fingerprint, message').is('resolved_at', null).eq('source', 'ops'),
         // A member asking to join another market as well (migration 378), answered on Applications > Market requests.
         marketsApi.marketJoinRequests().select('id', { count: 'exact', head: true }).eq('status', 'pending'),
-        // A QUESTION A CREATOR ASKED ON GET HELP (11 Oct 2026). One sat unanswered for two days because the only door to
-        // it was a tile nobody had a reason to open. Now it is on the desk the moment it is asked.
+        // A QUESTION A CREATOR ASKED ON GET HELP. One sat unanswered for two days because the only door to it was a tile
+        // nobody had a reason to open. Now it is on the desk the moment it is asked.
         contentApi.faqQuestions().select('id', { count: 'exact', head: true }).eq('status', 'open'),
       ])
       const [
@@ -671,13 +647,9 @@ export default function AdminPanel() {
 
       <div className="space-y-8">
         {/* ---------- On your desk ---------- */}
-        {/* ALWAYS DRAWN, EMPTY OR NOT (21 Sep 2026). It used to vanish when
-            nothing was waiting, which made an empty desk and a desk that had
-            failed to load look identical. Ethan: "I want 'On your desk' to be
-            permanently shown there at the top. Even if there's nothing on your
-            desk, you can just say that... so I can easily see if something's
-            broken." A clear desk is one white row saying so; a count that
-            could not be read is a row of its own (see `unchecked`). */}
+        {/* ALWAYS DRAWN, EMPTY OR NOT. It used to vanish when nothing was waiting, which made an empty desk and a desk
+            that had failed to load look identical. A clear desk is one white row saying so; a count that could not be
+            read is a row of its own (see `unchecked`). */}
         {!ready ? (
           <Skeleton className="h-36" />
         ) : (
@@ -810,7 +782,7 @@ export default function AdminPanel() {
             <section>
               <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
                 <h2 className="text-xl font-semibold tracking-[-0.01em]">{isGlobal ? 'Markets' : 'Your markets'}</h2>
-                {/* A CHOICE, NOT A DETOUR (2 Oct 2026): a community market or a VIP market. See OpenMarketDialog. */}
+                {/* A CHOICE, NOT A DETOUR: a community market or a VIP market. See OpenMarketDialog. */}
                 {isGlobal && (
                   <button type="button" onClick={() => setOpening(true)}
                     className="inline-flex shrink-0 items-center gap-1 text-sm font-medium text-brand transition-transform duration-200 hover:scale-105">
@@ -848,10 +820,9 @@ export default function AdminPanel() {
                           : !m.is_active && <span className="shrink-0 rounded-full bg-cloud px-2 py-0.5 text-[10px] font-semibold text-smoke">Closed</span>}
                       </span>
                       <span className="mt-0.5 flex items-center gap-2 text-xs text-smoke">
-                        {/* "Members", not "creators". The count now includes the
-                            admins who run the market - Ethan asked to be in his
-                            own market's number and he is right to be, he is in
-                            its rooms - so the word has to cover both. */}
+                        {/* "Members", not "creators". The count now includes the admins who run the market - the team
+                            asked to be in their own market's number and they are right to be, they are in its rooms - so
+                            the word has to cover both. */}
                         <span>{m.members} {m.members === 1 ? 'member' : 'members'}</span>
                         {m.live && (
                           <>

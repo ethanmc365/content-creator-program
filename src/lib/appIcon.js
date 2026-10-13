@@ -69,9 +69,7 @@ export const DEFAULT_APP_ICON = APP_ICONS[0].key
 // self-contained.
 // AND THE INSTALLED APP'S OWN start_url CARRIES IT TOO.
 //
-// THE BUG THIS FIXES. Ethan: "it should show the correct icons - for example
-// I'm currently on the minimal icon, but it's showing that the classic one is
-// selected for me."
+// THE BUG THIS FIXES.
 //
 // The choice lives in localStorage, and an installed home-screen web app gets
 // its OWN storage container - it does not share Safari's. So somebody who

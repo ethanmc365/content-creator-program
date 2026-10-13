@@ -35,11 +35,9 @@ export default function PaymentDetailsFields({ value, onChange, compact = false 
               key={c.code}
               type="button"
               onClick={() => set({ currency: c.code })}
-              // A PICKED OPTION IS SOLID BRAND WITH WHITE ON IT, NEVER A TINT.
-              // `border-brand bg-brand/5 text-brand` is the shape Ethan has
-              // asked to have deleted three times (the challenge form twice,
-              // then the Settings pickers); this was the last one left. The
-              // Settings toggle at Settings.jsx is the pattern being matched.
+              // A PICKED OPTION IS SOLID BRAND WITH WHITE ON IT, NEVER A TINT. `border-brand bg-brand/5 text-brand` is
+              // the shape the team has asked to have deleted three times (the challenge form twice, then the Settings
+              // pickers); this was the last one left. The Settings toggle at Settings.jsx is the pattern being matched.
               className={`flex-1 rounded-xl border px-4 py-3 text-left transition-all hover:-translate-y-0.5 hover:shadow-card ${
                 p.currency === c.code ? 'border-brand bg-brand text-white shadow-card' : 'border-gray-200 bg-white hover:border-brand/40'
               }`}

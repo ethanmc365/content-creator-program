@@ -5,9 +5,6 @@ import process from 'node:process'
 
 // RECHARTS WAS ON EVERY PAGE, FOR EVERY CREATOR, ON EVERY COLD LOAD.
 //
-// Ethan: "I also noticed some issues with the pages loading, taking much longer
-// than usual."
-//
 // `react-dom` had been hoisted into the recharts chunk, which made that chunk a
 // dependency of the ENTRY instead of the admin routes, which put a
 // `modulepreload` for 162kB of gzipped charting library in index.html. Then,

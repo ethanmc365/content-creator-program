@@ -1,11 +1,11 @@
 import { dateTag } from './utils'
 
-// A WINDOW IN WORDS (7 Oct 2026).
+// A WINDOW IN WORDS.
 //
-// Ethan, of the double points boost: rather than "from Thursday 00:01", "just say 'Videos posted on Thursday and
-// Friday', or just Friday, whatever the date I put in". A window that covers whole days is said as the days; one
-// that starts or ends inside a day keeps its times. A start a few minutes after midnight (the boost above was saved
-// for 00:01) and an end a few minutes either side of the next midnight still count as whole days.
+// The team, of the double points boost: rather than "from Thursday 00:01", "just say 'Videos posted on Thursday and
+// Friday', or just Friday, whatever the date I put in". A window that covers whole days is said as the days; one that
+// starts or ends inside a day keeps its times. A start a few minutes after midnight (the boost above was saved for
+// 00:01) and an end a few minutes either side of the next midnight still count as whole days.
 const SLACK_MS = 10 * 60000
 
 const dayName = (d) => d.toLocaleDateString(dateTag(), { weekday: 'long' })

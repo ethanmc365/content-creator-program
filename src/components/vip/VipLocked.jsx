@@ -3,17 +3,12 @@ import Icon from '../Icon'
 import { useT } from '../../lib/i18n'
 import { cx } from '../../lib/utils'
 
-// THE VIP COMMUNITY, SEEN FROM OUTSIDE (7 Oct 2026).
-//
-// Ethan: "I want the general community to be aware that we have this VIP community that shows a really cool animated
-// lock thing (kind of like how we have that recap card with the current locked animation) ... Should we have specific
-// instructions for them to get there? Maybe not specific instructions because it's kind of up to us: performing well
-// in the challenges, participating, being engaged in the community."
+// THE VIP COMMUNITY, SEEN FROM OUTSIDE.
 //
 // So it never promises a threshold. It says what VIPs get, and what the team looks at when it invites somebody, and
 // points at the two things that move it: challenges and ideas. The lock is drawn, not an icon, and it opens the way a
-// real padlock does (Ethan, 11 Oct: the whole arc used to lift off, "this is not how it actually works"): the LONG leg
-// never leaves the body, the short leg springs out, it stays open for a few seconds, then drops back and clicks shut
+// real padlock does (the team, 11 Oct: the whole arc used to lift off, "this is not how it actually works"): the LONG
+// leg never leaves the body, the short leg springs out, it stays open for a few seconds, then drops back and clicks shut
 // (12 Oct 2026: no turn, and no grey socket where the short leg comes out - "that shouldn't be there on the actual
 // padlock"). A light sweeps the body and stars drift round it.
 

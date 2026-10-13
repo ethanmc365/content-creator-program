@@ -4,7 +4,7 @@ import { cx } from '../../lib/utils'
 
 // WHO ELSE IS GOING, AS PEOPLE.
 //
-// Ethan: '"Ana and six others" is the reason to come; "7 going" is a number.'
+// The team: '"Ana and six others" is the reason to come; "7 going" is a number.'
 //
 // That is the whole design brief and it is right. A count is a fact about an
 // event; a face is a fact about somebody you know. The row leads with faces,

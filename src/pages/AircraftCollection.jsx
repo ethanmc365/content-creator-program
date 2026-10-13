@@ -14,11 +14,9 @@ import { flightsApi } from '../api/flights'
 
 // THE AIRCRAFT COLLECTION.
 //
-// A flight log knows which types you have been on and has never once told you,
-// which is a waste of the one fact in it that behaves like a collection: it
-// only grows, it has a finite and knowable end, and the gaps in it are as
-// interesting as the entries. Ethan: "an aircraft collection page showing image
-// of all the aircraft types you've been on."
+// A flight log knows which types you have been on and has never once told you, which is a waste of the one fact in it
+// that behaves like a collection: it only grows, it has a finite and knowable end, and the gaps in it are as interesting
+// as the entries.
 //
 // IT SHOWS THE ONES YOU HAVE NOT FLOWN TOO, and that is the whole design. A
 // page listing only what you have is an inventory; a page that also shows the
@@ -33,11 +31,9 @@ import { flightsApi } from '../api/flights'
 // components/network/AircraftPhoto for how each of the three objections that
 // made them drawings in the first place was actually answered.
 
-// NO HINT LINE ANY MORE. Each of these carried one - "Propellers. Islands and
-// short runways", and three more like it. Ethan: "remove these descriptions, I
-// don't like them." He is right twice over: the drawings underneath say which
-// class this is far better than a sentence can, and four headings with four
-// subtitles turns a wall of pictures into a document.
+// NO HINT LINE ANY MORE. Each of these carried one - "Propellers. Islands and short runways", and three more like it.
+// they are right twice over: the drawings underneath say which class this is far better than a sentence can, and four
+// headings with four subtitles turns a wall of pictures into a document.
 const CLASSES = [
   { key: 'widebody', label: 'Widebodies' },
   { key: 'narrowbody', label: 'Single aisle' },
@@ -59,10 +55,8 @@ function TypeCard({ type, seen, most = false }) {
         'hover:-translate-y-1 hover:shadow-lift',
         // THE CARD CARRIES THE STATE, NOT THE PHOTOGRAPH.
         //
-        // Ethan: "the card should normally be white if it's not collected, and
-        // it should be the bright tryp.com orange if you have collected that
-        // plane." The photographs used to be greyscaled instead, which reads as
-        // a broken image before it reads as a gap - see AircraftPhoto.
+        // The photographs used to be greyscaled instead, which reads as a broken image before it reads as a gap - see
+        // AircraftPhoto.
         //
         // Three states and not two, because "most flown" was already on this
         // wall and deserves to stay: a solid brand card for the favourite, a
@@ -82,11 +76,9 @@ function TypeCard({ type, seen, most = false }) {
           airliner was about eleven pixels of fuselage. */}
       <div className="relative aspect-[16/9] w-full">
         <AircraftPhoto typeKey={type.key} type={type} owned={owned} />
-        {/* THE ONE YOU HAVE FLOWN MOST WINS THE BADGE.
-            Ethan: "highlighting the aircraft you travelled on most." A wall
-            where every flown card looks identical has a fact in it that it is
-            not saying, and this is the only one on the page that is about YOU
-            rather than about the aeroplane.
+        {/* THE ONE YOU HAVE FLOWN MOST WINS THE BADGE. A wall where every flown card looks identical has a fact in it
+            that it is not saying, and this is the only one on the page that is about YOU rather than about the
+            aeroplane.
             NO "FLOWN" TICK ANY MORE - the card being orange says it, and a
             badge repeating the card's own colour is a label on a label. */}
         {most && (
@@ -101,13 +93,9 @@ function TypeCard({ type, seen, most = false }) {
         <p className={cx('min-w-0 truncate text-sm font-semibold leading-snug', most ? 'text-white' : 'text-ink')}>
           {type.name}
         </p>
-        {/* THE YEAR IT ENTERED SERVICE. Ethan: "one piece of good information
-            for each plane would be the year it was manufactured or the year it
-            was released." Entry into service rather than first flight, because
-            it is the date that answers "could I have been on this" - see the
-            note on `year` in lib/airlines. It sits on the title line, where a
-            number reads as an attribute of the name rather than as another
-            statistic in the footer. */}
+        {/* THE YEAR IT ENTERED SERVICE. Entry into service rather than first flight, because it is the date that answers
+            "could I have been on this" - see the note on `year` in lib/airlines. It sits on the title line, where a
+            number reads as an attribute of the name rather than as another statistic in the footer. */}
         {type.year && (
           <span className={cx('shrink-0 text-[11px] font-semibold tabular-nums', most ? 'text-white/70' : 'text-smoke')}>
             {type.year}
@@ -149,13 +137,9 @@ export default function AircraftCollection() {
   const tr = useT()
   const { user } = useAuth()
   const [rows, setRows] = useState(null)
-  // ONLY THE ONES YOU HAVE ACTUALLY BEEN ON.
-  // Ethan: "a button to quickly filter by the ones you've actually been on so
-  // it just shows up them and not all the other aircrafts too." The ghosted
-  // cards are the whole reason this is a collection rather than an inventory
-  // (see the note at the top), so the default stays the full book - but a wall
-  // of thirty-odd types is a lot to scroll past when what you came to look at
-  // is your own eleven.
+  // ONLY THE ONES YOU HAVE ACTUALLY BEEN ON. The ghosted cards are the whole reason this is a collection rather than an
+  // inventory (see the note at the top), so the default stays the full book - but a wall of thirty-odd types is a lot to
+  // scroll past when what you came to look at is your own eleven.
   const [onlyMine, setOnlyMine] = useState(false)
 
   useEffect(() => {
@@ -199,11 +183,8 @@ export default function AircraftCollection() {
 
   return (
     <div className="page">
-      {/* TWO DOORS, NOT ONE ARROW. Ethan: "from the aircraft collection, there
-          should be buttons to go back to the flight log and across to the
-          community rather than just having to press the arrow back." The three
-          flight pages are one feature and this was the only one of them that
-          was a dead end. */}
+      {/* TWO DOORS, NOT ONE ARROW. The three flight pages are one feature and this was the only one of them that was a
+          dead end. */}
       <div className="mb-4 flex flex-wrap gap-2">
         <Link to="/flights" className="inline-flex items-center gap-1.5 rounded-full border border-gray-200 bg-white px-3.5 py-1.5 text-xs font-semibold text-smoke transition-all duration-200 hoverable:hover:-translate-y-0.5 hoverable:hover:scale-[1.03] hover:border-brand hover:text-brand">
           <Icon name="chevronLeft" className="h-3.5 w-3.5" />
@@ -215,18 +196,12 @@ export default function AircraftCollection() {
         </Link>
       </div>
 
-      {/* NO STRAPLINE. It read "Every type in the book, and the ones you have
-          actually been on. It fills in by itself as you log flights with an
-          aircraft on them", which explains a mechanism nobody needs explained -
-          the ghosted cards and the counter say all of it. Ethan asked for it
-          gone. */}
-      {/* NO ACTION BUTTON. It said "Add an aircraft" and it went to
-          `/flights?log=new` - which is the flight log, so the button on the
-          collection page was a link back to the page you just came from. Ethan:
-          "there shouldn't be an add aircraft button because that just takes you
-          back to the flight log, so if we can remove that button." An aircraft
-          is not a thing you add here; it arrives because you logged a flight
-          with one on it, and the two doors above are the way back. */}
+      {/* NO STRAPLINE. It read "Every type in the book, and the ones you have actually been on. It fills in by itself as
+          you log flights with an aircraft on them", which explains a mechanism nobody needs explained - the ghosted
+          cards and the counter say all of it. The team asked for it gone. */}
+      {/* NO ACTION BUTTON. It said "Add an aircraft" and it went to `/flights?log=new` - which is the flight log, so the
+          button on the collection page was a link back to the page you just came from. An aircraft is not a thing you
+          add here; it arrives because you logged a flight with one on it, and the two doors above are the way back. */}
       <PageHeader title={tr("Aircraft collection")} />
 
       {rows === null ? (
@@ -241,25 +216,16 @@ export default function AircraftCollection() {
           <section className="relative overflow-hidden rounded-card bg-gradient-to-br from-brand to-brand-light p-6 text-white shadow-lift sm:p-8">
             <div className="pointer-events-none absolute -right-16 -top-20 h-72 w-72 rounded-full bg-white/10 blur-2xl" />
             <div className="relative flex flex-wrap items-end justify-between gap-6">
-              {/* A NUMBER AND A SENTENCE, NOT A SCORE OUT OF SOMETHING.
-                  It read "11 / 24" over a progress bar. Ethan: "don't have it
-                  as 1/x but rather just like, a number - you've been on 3
-                  different aircraft for example."
-                  He is right, and the reason is that the denominator was never
-                  a real target. It is the size of OUR TABLE, which grew by ten
-                  the day this page was rewritten - so somebody's score went
-                  down overnight without them doing anything, and "11 of 24"
-                  invites a completion nobody is going to reach and nothing is
-                  offering them. The count of what you HAVE is the fact; the
-                  ghosted cards below are the invitation. */}
+              {/* A NUMBER AND A SENTENCE, NOT A SCORE OUT OF SOMETHING. It read "11 / 24" over a progress bar. they are
+                  right, and the reason is that the denominator was never a real target. It is the size of OUR TABLE,
+                  which grew by ten the day this page was rewritten - so somebody's score went down overnight without
+                  them doing anything, and "11 of 24" invites a completion nobody is going to reach and nothing is
+                  offering them. The count of what you HAVE is the fact; the ghosted cards below are the invitation. */}
               <div>
                 <p className="text-[11px] font-semibold uppercase tracking-widest text-white/70">{tr("You have been on")}</p>
-                {/* "AIRCRAFTS", AND NOT "different aircraft". Ethan: "it
-                    shouldn't be 'different aircraft' it should be 'aircrafts'
-                    just right". The old line also had a bug hiding in it - a
-                    ternary whose two branches were the same word - which is
-                    what happens when you try to make an irregular plural agree
-                    and give up halfway. */}
+                {/* "AIRCRAFTS", AND NOT "different aircraft". The old line also had a bug hiding in it - a ternary whose
+                    two branches were the same word - which is what happens when you try to make an irregular plural
+                    agree and give up halfway. */}
                 <p className="mt-1 flex items-baseline gap-3 text-5xl font-bold tabular-nums sm:text-6xl">
                   <CountUp value={flownCount} />
                   <span className="text-lg font-semibold text-white/75 sm:text-xl">
@@ -298,17 +264,13 @@ export default function AircraftCollection() {
               only mine" is never "only my widebodies". */}
           <div className="flex flex-wrap items-center gap-2">
             {[
-              // NOT "The whole book". Ethan asked for it gone, and he is right
-              // that it was the page being pleased with itself: nobody calls a
-              // list of aeroplanes a book, and the pair of labels has to be two
-              // plain descriptions of two sets.
+              // NOT "The whole book". The team asked for it gone, and they are right that it was the page being pleased
+              // with itself: nobody calls a list of aeroplanes a book, and the pair of labels has to be two plain
+              // descriptions of two sets.
               //
-              // AND NOT "FLOWN BY ME" EITHER. Ethan: "I wouldn't call that flown
-              // by me because that could make it seem like you're the pilot.
-              // When actually it's you've been on the plane." He is right, and
-              // it is the same slip the whole feature has to watch for - a
-              // "flight log" is a pilot's document and this one belongs to a
-              // passenger. "Been on board" cannot be read the other way.
+              // AND NOT "FLOWN BY ME" EITHER. they are right, and it is the same slip the whole feature has to watch for
+              // - a "flight log" is a pilot's document and this one belongs to a passenger. "Been on board" cannot be
+              // read the other way.
               { on: !onlyMine, label: `Every aircraft (${total})`, go: () => setOnlyMine(false), icon: 'globe' },
               { on: onlyMine, label: `Been on board (${collected})`, go: () => setOnlyMine(true), icon: 'check' },
             ].map((o) => (
@@ -344,37 +306,21 @@ export default function AircraftCollection() {
                 <section>
                   <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
                     <h2 className="text-lg font-semibold">{cls.label}</h2>
-                    {/* NO "3 of 7". Ethan: "I wouldn't have the one out of
-                        fourteen, I don't think it's necessary." Same reasoning
-                        as the headline, which stopped being a score out of
-                        something for the same reason: the denominator is the
-                        size of OUR table, it grew by thirteen in one commit,
-                        and a fraction invites a completion nobody is being
-                        offered. The orange cards on the wall say how many you
-                        have, and they say it by being orange. */}
+                    {/* NO "3 of 7". Same reasoning as the headline, which stopped being a score out of something for the
+                        same reason: the denominator is the size of OUR table, it grew by thirteen in one commit, and a
+                        fraction invites a completion nobody is being offered. The orange cards on the wall say how many
+                        you have, and they say it by being orange. */}
                   </div>
-                  {/* A WRAP, NOT A GRID - AND IT STARTS AT THE LEFT.
-                      This has been both ways round and the second answer is the
-                      right one, so the argument for the first is worth keeping.
-                      A four-column grid leaves the remainder of every class
-                      hanging on a half-empty final row, and with four sections
-                      stacked the holes all land in the same corner, which reads
-                      as a layout fault rather than as "there are eleven of
-                      these". Ethan: "there's like two blank spaces in the bottom
-                      right, it looks odd." Centring the leftovers hid that.
-                      What it also did was untether every row from the left
-                      margin, and that shows up hardest under "Been on board",
-                      where a section can hold ONE card: a single card in the
-                      middle of the page, lined up with nothing. Ethan: "you have
-                      it so that all the cards are centered, so if there's only
-                      one it's centre. This would be better if they always start
-                      from the left and go to the right, like all the other pages
-                      work."
-                      He is right, and the reason is consistency rather than
-                      geometry: every other card grid in this product starts at
-                      the left margin, and one that does not reads as broken even
-                      when it is tidier. The widths are unchanged 2/3/4 columns;
-                      only where the leftovers sit has moved. */}
+                  {/* A WRAP, NOT A GRID - AND IT STARTS AT THE LEFT. This has been both ways round and the second answer
+                      is the right one, so the argument for the first is worth keeping. A four-column grid leaves the
+                      remainder of every class hanging on a half-empty final row, and with four sections stacked the
+                      holes all land in the same corner, which reads as a layout fault rather than as "there are eleven
+                      of these". Centring the leftovers hid that. What it also did was untether every row from the left
+                      margin, and that shows up hardest under "Been on board", where a section can hold ONE card: a
+                      single card in the middle of the page, lined up with nothing. they are right, and the reason is
+                      consistency rather than geometry: every other card grid in this product starts at the left margin,
+                      and one that does not reads as broken even when it is tidier. The widths are unchanged 2/3/4
+                      columns; only where the leftovers sit has moved. */}
                   {/* The widths go on `itemClassName`, because Reveal wraps
                       every child in its own div and THAT is the flex item. */}
                   <Reveal
@@ -429,8 +375,6 @@ export default function AircraftCollection() {
           )}
 
           {/* THE CREDIT LINE IS A LINE NOW, NOT A CARD.
-              Ethan: "please remove at the bottom where it says photographs by
-              the Wikimedia Commons community. We don't need that."
               IT CANNOT BE DELETED, and this is the one note on this page that
               is not a design opinion. Every photograph here is CC BY, CC BY-SA,
               GFDL or public domain, and the first three of those licences grant
@@ -465,10 +409,9 @@ export default function AircraftCollection() {
                 </a>
               ))}
             </div>
-            {/* The airport data behind every map in the flight log. It used to
-                sit under the maps themselves; Ethan asked for it off those
-                pages, and ODbL requires it to appear somewhere, so it appears
-                here once rather than on two pages twice. */}
+            {/* The airport data behind every map in the flight log. It used to sit under the maps themselves; the team
+                asked for it off those pages, and ODbL requires it to appear somewhere, so it appears here once rather
+                than on two pages twice. */}
             <p className="mt-3 border-t border-gray-100 pt-3 text-[11px] leading-relaxed text-gray-400">
               {tr("Airport locations from OpenFlights, used under the Open Database Licence.")}
             </p>

@@ -15,11 +15,10 @@ import { submissionsApi } from '../../../api/submissions'
 import { profilesApi } from '../../../api/profiles'
 import { settingsApi } from '../../../api/settings'
 
-// REFERRALS, AS A TAB OF ITS OWN (22 Sep 2026).
+// REFERRALS, AS A TAB OF ITS OWN.
 //
-// Ethan: referrals were "only seen as a little piece on the analytics page"
-// when you scrolled the Overview. He wanted a tab that tracks them properly:
-// every step a referred person goes through, who brought them in, and how they
+// The team: referrals were "only seen as a little piece on the analytics page" when you scrolled the Overview. They
+// wanted a tab that tracks them properly: every step a referred person goes through, who brought them in, and how they
 // took part once they arrived.
 //
 // Everything here is read from the same facts the voucher is paid on
@@ -58,9 +57,7 @@ function GrowBar({ value, delay = 0, className = '' }) {
   )
 }
 
-// THE SECOND PASS (22 Sep 2026). Ethan: "there seem to be some issues with the
-// charts there, please work on improving the UI for everything. Improve the
-// referrals UI and functionality." What was wrong, measured on the page:
+// THE SECOND PASS. What was wrong, measured on the page:
 //   - "Referrals by week" was hand-drawn divs with no axis and no tooltip; the
 //     "counted" bar was absolutely positioned and drew BESIDE its week's
 //     sign-up bar rather than inside it; every other week had no label; and a
@@ -90,9 +87,8 @@ export default function Referrals({ market = '', memberRows = [], scopeLabel = '
   const [range, setRange] = useState('all')
   const [byReferrer, setByReferrer] = useState(null)
   const [stageFilter, setStageFilter] = useState('all')
-  // BUILT FOR A LONG LIST (24 Sep 2026). Ethan: "whenever there are more
-  // referrals, it becomes crowded." A search over both ends of a referral, and
-  // the first fifteen rows with the rest one press away.
+  // BUILT FOR A LONG LIST. A search over both ends of a referral, and the first fifteen rows with the rest one press
+  // away.
   const [query, setQuery] = useState('')
   const [showAll, setShowAll] = useState(false)
   const [allReferrers, setAllReferrers] = useState(false)

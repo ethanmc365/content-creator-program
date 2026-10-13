@@ -42,7 +42,7 @@ export function wallKey(a, b) {
   return a < b ? `${a}-${b}` : `${b}-${a}`
 }
 
-// A RANDOM HAMILTONIAN PATH BY BACKBITE, NOT BY BACKTRACKING (16 Sep 2026).
+// A RANDOM HAMILTONIAN PATH BY BACKBITE, NOT BY BACKTRACKING.
 //
 // This used to be a Warnsdorff-ordered DFS with up to forty restarts and a
 // four-thousand-step-per-cell backtracking budget. It was correct, and on the
@@ -125,7 +125,7 @@ function stopPositions(N, count, rng) {
 // path. The generator's route never crosses them, so the puzzle stays solvable
 // while alternative routes get pruned away.
 //
-// SCATTERED WALLS AND GROWN WALLS ARE TWO DIFFERENT PUZZLES (16 Sep 2026).
+// SCATTERED WALLS AND GROWN WALLS ARE TWO DIFFERENT PUZZLES.
 //
 // Every layout until now took its walls by shuffling the legal candidates and
 // slicing off the first N, which spreads them like static. That reads as noise:
@@ -207,7 +207,7 @@ function buildWalls(size, path, count, rng, style = 'scatter') {
 //   366 - 415  legend pack: 50 extra-hard layouts (11-13, a quarter walled)
 //   416 - 735  VOYAGER PACK: 320 layouts spread deliberately across eight
 //              tiers, from a 4x4 short hop you can fly in twenty seconds to a
-//              13x13 maze. Added 16 Sep 2026 because the daily puzzle had
+//              13x13 maze. Added because the daily puzzle had
 //              started to feel same-y - see `zipIndexForDay` for the other
 //              half of that story, which was the bigger half.
 //   736 -1055  CORRIDOR PACK: 320 more, and the only band whose walls are
@@ -233,9 +233,8 @@ export const ZIP_DIFFICULTIES = ['easy', 'medium', 'hard', 'expert', 'extreme', 
 // off; `stopsPer` scales the number of numbered stops with the grid size (more
 // stops = more signposts = an easier route to find).
 //
-// `hop` is NEW and it is the only tier that is genuinely quick: a 4x4 or 5x5
-// with a stop almost every other cell. Ethan asked for "some easier" as well as
-// "some bigger and more complicated", and every existing tier bar `easy`
+// `hop` is NEW and it is the only tier that is genuinely quick: a 4x4 or 5x5 with a stop almost every other cell. The
+// team asked for "some easier" as well as "some bigger and more complicated", and every existing tier bar `easy`
 // answered only the second half.
 export const ZIP_BANDS = {
   hop:     { rank: 0, sizes: [4, 5],       wallFrac: [0, 0],        stopsPer: [0.55, 0.75] },
@@ -395,10 +394,7 @@ export function generateZip(index) {
   return { size, index, difficulty, dots, walls, solution: path, wallStyle: wallStyle || 'scatter' }
 }
 
-// THE DAY PICKS BY SHUFFLE, AND THE OLD MULTIPLY-AND-MOD IS WHY THE PUZZLE
-// FELT REPETITIVE (16 Sep 2026).
-//
-// Ethan: "some of the daily puzzles are a bit repetitive."
+// THE DAY PICKS BY SHUFFLE, AND THE OLD MULTIPLY-AND-MOD IS WHY THE PUZZLE FELT REPETITIVE.
 //
 // It was `(day * 48271) % 416`, which reads like a jump around the set and is
 // not one. Consecutive days differ by `48271 mod 416`, a CONSTANT - and that

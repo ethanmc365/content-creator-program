@@ -164,9 +164,7 @@ describe('bodyProblem', () => {
 describe('28 Sep 2026 redesign', () => {
   it('names the award from the trigger and the place', async () => {
     const { awardKind } = await import('./certificates')
-    // JUST THE ORDINAL (28 Sep 2026). It was "2nd place", on a badge that also
-    // printed PLACE and "of 10" underneath. Ethan: "don't say 'of 10'. Just say
-    // 'first', and you don't even need to say 'place'."
+    // JUST THE ORDINAL. It was "2nd place", on a badge that also printed PLACE and "of 10" underneath.
     expect(awardKind({ award_on: 'challenge_rank' }, { place: 2 }).label).toBe('2nd')
     expect(awardKind({ award_on: 'challenge_rank' }, {}).label).toBe('Prize winner')
     expect(awardKind({ award_on: 'challenge_entry' }).label).toBe('Participant')
@@ -217,9 +215,7 @@ describe('28 Sep 2026 redesign', () => {
   })
   it('every paper is white now, including the ones designs were saved on', async () => {
     const { PAPERS, paperOf, paletteFor } = await import('./certificates')
-    // Ethan: "just have white as the only option and remove those options.
-    // Still keep the accent colours." An old design's paper key has to resolve
-    // rather than break, and it resolves to white, which is the point.
+    // An old design's paper key has to resolve rather than break, and it resolves to white, which is the point.
     expect(PAPERS).toHaveLength(1)
     for (const legacy of ['sunset', 'glow', 'tint', 'ivory', 'mist', 'ink']) {
       expect(paperOf(legacy).kind).toBe('white')

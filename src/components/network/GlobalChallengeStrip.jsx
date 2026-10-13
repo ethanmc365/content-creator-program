@@ -12,13 +12,8 @@ import { useT } from '../../lib/i18n'
 import GlowRing from './GlowRing'
 import { challengesApi } from '../../api/challenges'
 
-// THE GLOBAL CHALLENGE, ON THE COMMUNITY CARD (21 Sep 2026).
+// THE GLOBAL CHALLENGE, ON THE COMMUNITY CARD.
 //
-// Ethan, the evening it launched: "for the Tryp.com content creator community
-// card, we have that big card there that shows the plane. I would extend that
-// for desktop and add in the Global Challenge details there. Don't make it too
-// big, and no bigger than twice the size it currently is... showing the time,
-// the leaderboard, 'Read the brief and submit your video'... and show the title."
 // And: "I wouldn't change the colour. Just keep it the way it currently is."
 //
 // So this is a band at the foot of that card, on the card's own gradient: the
@@ -26,13 +21,10 @@ import { challengesApi } from '../../api/challenges'
 // on the right. It replaces the "Open to everyone" section that sat under the
 // card as a second, full-size copy of the same challenge.
 //
-// IT WEARS THE GLOBAL CHALLENGE'S OWN LOOK NOW (22 Sep 2026). Ethan: "make this
-// global challenge card inside match the style, gradient and animations of the
-// global challenge card, that darker gradient." A translucent white panel on
-// the orange card read as part of the community card; this is the Global
-// Challenge card in miniature - the same deep-to-bright gradient, the same one
-// sweep of light as it arrives, and the same "Global challenge" pill. (The
-// turning Earth was tried here and removed the same day as too much.)
+// IT WEARS THE GLOBAL CHALLENGE'S OWN LOOK NOW. A translucent white panel on the orange card read as part of the
+// community card; this is the Global Challenge card in miniature - the same deep-to-bright gradient, the same one sweep
+// of light as it arrives, and the same "Global challenge" pill. (The turning Earth was tried here and removed the same
+// day as too much.)
 
 // The last top three per challenge, kept across visits so a return to the hub
 // draws the names on the first frame instead of a placeholder.
@@ -40,12 +32,9 @@ const topCache = new Map()
 
 const TOP_SELECT = 'challenge_id, creator_id, rank, final_views, profiles:creator_id(name, photo_url, is_test)'
 
-// THE TOP THREE ARRIVE WITH THE PAGE (26 Sep 2026). Ethan: "the leaderboard
-// still shows in very delayed ... ensure the leaderboard comes in ... the same
-// time the global challenge card comes in." The strip used to ask for its rows
-// when it MOUNTED, which is always one round trip after the card had started
-// arriving. The Worldwide page now calls this inside its own first load, so
-// the cache is full before the strip draws its first frame.
+// THE TOP THREE ARRIVE WITH THE PAGE. The strip used to ask for its rows when it MOUNTED, which is always one round trip
+// after the card had started arriving. The Worldwide page now calls this inside its own first load, so the cache is full
+// before the strip draws its first frame.
 export async function prefetchTopThree(challengeIds) {
   const ids = (challengeIds || []).filter(Boolean)
   if (!ids.length) return
@@ -82,21 +71,16 @@ export default function GlobalChallengeStrip({ challenge, className = '', arrive
   if (!challenge) return null
   const points = challenge.scoring === 'points'
   const firstPrize = Array.isArray(challenge.prize_structure) ? challenge.prize_structure[0]?.prize : null
-  // IT ARRIVES AFTER THE CARD IT SITS ON, wiping in the same way, and its
-  // pieces follow it across (22 Sep 2026).
+  // IT ARRIVES AFTER THE CARD IT SITS ON, wiping in the same way, and its pieces follow it across.
   const at = (s) => ({ animationDelay: `${arriveDelay + s}s` })
 
-  // THE GLOW IS ON A WRAPPER (22 Sep 2026): the card itself clips its
-  // contents (`overflow-hidden`, for the blooms and the sheen), so a light
-  // running round its border has to live one box further out.
+  // THE GLOW IS ON A WRAPPER: the card itself clips its contents (`overflow-hidden`, for the blooms and the sheen), so a
+  // light running round its border has to live one box further out.
   //
-  // NO HOVER MAGNIFY ANY MORE (23 Sep 2026, REMOVED). It used to scale and
-  // lift the whole card AND animate its box-shadow at the same time on
-  // hover - Ethan: "whenever I go over it, it magnifies. It's insanely
-  // laggy." A `box-shadow` transition repaints the card's shadow every
-  // frame for the whole 300ms, on a card that already carries two blurred
-  // blooms, a sheen and a glow ring - the single most expensive thing this
-  // card could have animated on hover, for a flourish nobody asked to keep.
+  // NO HOVER MAGNIFY ANY MORE (REMOVED). It used to scale and lift the whole card AND animate its box-shadow at the same
+  // time on hover - A `box-shadow` transition repaints the card's shadow every frame for the whole 300ms, on a card that
+  // already carries two blurred blooms, a sheen and a glow ring - the single most expensive thing this card could have
+  // animated on hover, for a flourish nobody asked to keep.
   return (
     <div
       className={cx('global-glow mt-7', className)}
@@ -109,10 +93,8 @@ export default function GlobalChallengeStrip({ challenge, className = '', arrive
       {/* Depth: a light bloom top right and a shadow bloom bottom left. */}
       <div aria-hidden className="pointer-events-none absolute -right-10 -top-16 h-56 w-56 rounded-full bg-white/10 blur-2xl" />
       <div aria-hidden className="pointer-events-none absolute -bottom-20 -left-10 h-56 w-56 rounded-full bg-black/20 blur-2xl" />
-      {/* NO GLOBE HERE (22 Sep 2026). Ethan: "I don't think we need the
-          spinning world map on that because it's too much", and the gradient
-          was "almost too dark" - it is the Live now card's gradient now
-          (LiveNowRow), a shade deeper than the orange card it sits on. */}
+      {/* NO GLOBE HERE., and the gradient was "almost too dark" - it is the Live now card's gradient now (LiveNowRow), a
+          shade deeper than the orange card it sits on. */}
       <div aria-hidden className="challenge-sheen pointer-events-none absolute inset-0" style={at(0.45)} />
 
       <div className="relative grid items-center gap-5 xl:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)_auto] lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
@@ -120,15 +102,11 @@ export default function GlobalChallengeStrip({ challenge, className = '', arrive
         <div className="wipe-item min-w-0" style={at(0.1)}>
           <div className="flex flex-wrap items-center gap-2">
             <span className="inline-flex items-center gap-2 rounded-full bg-white/20 px-3 py-1 text-[11px] font-semibold uppercase tracking-wider">
-              {/* JUST THE DOT, NO RING (23 Sep 2026) - see `LiveDot` in
-                  network/Motion.jsx. */}
+              {/* JUST THE DOT, NO RING - see `LiveDot` in network/Motion.jsx. */}
               <span className="inline-flex h-2 w-2 animate-pulse rounded-full bg-white" />
               {tr('Live now')}
             </span>
-            {/* NO "GLOBAL CHALLENGE" PILL (24 Sep 2026). Ethan: "it says Global
-                Challenge as the title and then above Live Now there's another
-                little card saying Global Challenge. We don't need that second
-                card." The title right under it already says so. */}
+            {/* NO "GLOBAL CHALLENGE" PILL. The title right under it already says so. */}
           </div>
           <Link to={`/challenges/${challenge.id}`} className="group mt-2.5 block">
             <h3 className="inline-block origin-left truncate text-2xl font-bold leading-tight tracking-[-0.01em] transition-transform duration-200 group-hover:scale-[1.03]">
@@ -143,17 +121,12 @@ export default function GlobalChallengeStrip({ challenge, className = '', arrive
 
         {/* Who is winning.
 
-            THE BOX NEVER CHANGES SIZE, ONLY ITS CONTENT (23 Sep 2026). Ethan:
-            "whenever the initial animation loads, everything seems to jump,
-            the card expands a bit, and it looks like it jitters." The
-            previous fix mounted a small label-only placeholder and then swapped
-            in a taller, differently-shaded box once `top` arrived - which is
-            itself a discrete layout jump, just moved one step later: the card
-            visibly grew and its background changed colour the instant the
-            rows landed. THE BOX ITSELF is now the same element throughout,
-            sized for three rows from its first frame, so nothing about its
-            footprint or its white panel ever changes - only the rows inside
-            it fade from a skeleton to the real names once `top` resolves. */}
+            THE BOX NEVER CHANGES SIZE, ONLY ITS CONTENT. The previous fix mounted a small label-only placeholder and
+            then swapped in a taller, differently-shaded box once `top` arrived - which is itself a discrete layout jump,
+            just moved one step later: the card visibly grew and its background changed colour the instant the rows
+            landed. THE BOX ITSELF is now the same element throughout, sized for three rows from its first frame, so
+            nothing about its footprint or its white panel ever changes - only the rows inside it fade from a skeleton to
+            the real names once `top` resolves. */}
         <Link
           to={`/challenges/${challenge.id}?tab=leaderboard`}
           className="strip-board block rounded-xl bg-white/95 p-3 text-ink shadow-[0_14px_32px_rgba(40,10,0,0.28)] backdrop-blur transition-transform duration-200 hover:-translate-y-0.5 hover:scale-[1.03]"
@@ -162,12 +135,9 @@ export default function GlobalChallengeStrip({ challenge, className = '', arrive
           <p className="mb-1.5 flex items-center gap-1.5 px-1 text-[10px] font-semibold uppercase tracking-widest text-brand">
             <Icon name="trophy" className="h-3.5 w-3.5" /> {tr('Leaderboard')}
           </p>
-          {/* EXACTLY THREE ROWS TALL, WHATEVER IS IN IT (24 Sep 2026). Ethan:
-              "the leaderboard seems to show up quite delayed, and it makes the
-              card jump bigger." The placeholder avatar was 24px and the real
-              one 28px, so the card grew 12px the moment the names landed; an
-              empty board or a board of two was shorter again. Every row is now
-              a fixed h-9 and the list holds three rows' height regardless. */}
+          {/* EXACTLY THREE ROWS TALL, WHATEVER IS IN IT. The placeholder avatar was 24px and the real one 28px, so the
+              card grew 12px the moment the names landed; an empty board or a board of two was shorter again. Every row
+              is now a fixed h-9 and the list holds three rows' height regardless. */}
           <div className="min-h-[7rem]">
           {top == null ? (
             <ul className="space-y-0.5" aria-hidden>

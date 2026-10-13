@@ -3,25 +3,18 @@ import { useState } from 'react'
 /**
  * THE PAGE YOU WERE JUST LOOKING AT IS STILL THERE WHEN YOU COME BACK.
  *
- * Ethan, for the FIFTH time (4 Sep 2026): "that loading screen shows up every
- * single time between clicks, from worldwide to challenges to DMs. I don't want
- * any loading screen. All I want is the skeleton, placeholder cards that show
- * the content is loading in. There is none for desktop."
- *
  * Four previous rounds all went at the PLACEHOLDER - move the Suspense
  * boundary, delay the fallback, prefetch the chunk, make each page's own
  * placeholder the shape of the page. Every one of them made the grey screen
  * nicer and none of them made it rarer, because they were all answers to "what
  * do we draw while we wait" when the report is "why am I waiting AGAIN".
  *
- * MEASURED ON PRODUCTION, on a phone, signed in, tapping the bottom tabs: the
- * chunk never suspends (it is prefetched) and no plane is drawn anywhere. What
- * happens on every single tap is that the page mounts with empty state, fires
- * its queries, and paints a full screen of grey shapes for 700-1200ms - and it
- * does it on the SECOND visit to a tab exactly as it did on the first, because
- * a page component that unmounts takes its data with it. On a desktop the same
- * queries land in ~150ms over a fixed line and you never see it, which is
- * exactly why he sees this on his phone and not on his laptop.
+ * MEASURED ON PRODUCTION, on a phone, signed in, tapping the bottom tabs: the chunk never suspends (it is prefetched)
+ * and no plane is drawn anywhere. What happens on every single tap is that the page mounts with empty state, fires its
+ * queries, and paints a full screen of grey shapes for 700-1200ms - and it does it on the SECOND visit to a tab exactly
+ * as it did on the first, because a page component that unmounts takes its data with it. On a desktop the same queries
+ * land in ~150ms over a fixed line and you never see it, which is exactly why he sees this on their phone and not on
+ * their laptop.
  *
  * So: keep the data. This is stale-while-revalidate, in about forty lines and
  * with no dependency:

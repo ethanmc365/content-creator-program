@@ -4,10 +4,8 @@ import { km } from './FlightsParts'
 
 // A YEAR, BESIDE ANOTHER YEAR.
 //
-// SIDE BY SIDE AND ON DEMAND, both of which Ethan asked for: "this year vs last
-// year, side by side comparison when asked for". On demand matters as much as
-// the shape - a comparison that is always on screen is a judgement passed on
-// you every time you open the page, and in January it is a very unkind one.
+// SIDE BY SIDE AND ON DEMAND, both of which On demand matters as much as the shape - a comparison that is always on
+// screen is a judgement passed on you every time you open the page, and in January it is a very unkind one.
 export function YearColumn({ title, data, other, lead = false }) {
   const delta = (a, b) => {
     if (!other || b === 0) return null

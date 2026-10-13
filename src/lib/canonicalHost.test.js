@@ -1,13 +1,11 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { goCanonical } from './canonicalHost'
 
-// THE REGRESSION THIS FILE EXISTS FOR (3 Sep 2026).
+// THE REGRESSION THIS FILE EXISTS FOR.
 //
-// Consolidating the two origins with a server-side 308 put every installed app
-// back into Safari: a home-screen app is scoped to the origin it was added
-// from, and a redirect to a different origin is a navigation out of scope, so
-// the OS hands the page to the browser. Ethan photographed the result - address
-// bar on top, share sheet at the bottom.
+// Consolidating the two origins with a server-side 308 put every installed app back into Safari: a home-screen app is
+// scoped to the origin it was added from, and a redirect to a different origin is a navigation out of scope, so the OS
+// hands the page to the browser. The team photographed the result - address bar on top, share sheet at the bottom.
 //
 // So the one rule these tests exist to hold is: AN INSTALLED APP IS NEVER MOVED
 // BETWEEN ORIGINS. A test that only checked "the alias redirects" would have
@@ -64,9 +62,8 @@ describe('goCanonical', () => {
   })
 
   it('leaves an iOS home-screen app alone, which reports it a different way', () => {
-    // iOS Safari answers `navigator.standalone` and nothing else - no
-    // display-mode match at all - so a check that only asked matchMedia would
-    // redirect exactly the platform Ethan was holding.
+    // iOS Safari answers `navigator.standalone` and nothing else - no display-mode match at all - so a check that only
+    // asked matchMedia would redirect exactly the platform the team was holding.
     setDisplayMode(null)
     Object.defineProperty(window.navigator, 'standalone', { configurable: true, value: true })
     const replace = setLocation({ hostname: ALIAS, pathname: '/home' })

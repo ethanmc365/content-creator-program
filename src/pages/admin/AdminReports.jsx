@@ -263,9 +263,6 @@ function MessageReports({ onCount }) {
 // above is built around the snapshot of it. This is a complaint about a person.
 // There is nothing to quote, so the card leads with who they are, and the
 // actions are about the account rather than about a post.
-//
-// Ethan: "this will show up on the report section we already have for the chats
-// on the admin panel, but obviously it'll be split for like report a creator."
 
 const C_TABS = [
   { key: 'open', label: 'To review', match: (r) => r.status === 'new' || r.status === 'reviewing' },

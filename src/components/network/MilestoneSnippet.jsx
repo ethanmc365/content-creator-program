@@ -31,13 +31,10 @@ export default function MilestoneSnippet({ profileId, own = false, className }) 
   if (!rows || rows.length === 0) return null
 
   const { reached, total, next, last, blocked } = routeState(rows)
-  // The "N% of the route so far" line is gone. The dot row directly above it
-  // already draws exactly that fraction, at a glance and without arithmetic,
-  // and "36%" has to be converted back into something meaningful before it
-  // means anything. Ethan: "it's not needed, we can visually see the progress
-  // bar."
-  // How far into the NEXT stop, across all of its requirements rather than the
-  // one metric a milestone used to carry.
+  // The "N% of the route so far" line is gone. The dot row directly above it already draws exactly that fraction, at a
+  // glance and without arithmetic, and "36%" has to be converted back into something meaningful before it means
+  // anything. How far into the NEXT stop, across all of its requirements rather than the one metric a milestone used to
+  // carry.
   const nextPct = next ? Math.round(milestoneFraction(next) * 100) : 100
 
   return (

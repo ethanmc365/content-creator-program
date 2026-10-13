@@ -3,12 +3,12 @@ import { Skeleton } from '../ui'
 import { TargetBar, VipVideoRow } from './parts'
 import { money, perK, useKindT } from '../../lib/vip'
 
-// THE THREE CARDS UNDER "THIS MONTH" (4 Oct 2026).
+// THE THREE CARDS UNDER "THIS MONTH".
 //
-// Ethan, on the VIP page: the target card should say only "No target has been set yet. Ask your market lead if you would like
-// one to aim for."; the "How you are paid" card should say how you are paid and nothing else - the rate per 1,000 views and
-// that it is paid monthly - with both cards smaller; and a creator's own goal (set under Stats) should appear on the target
-// card, next to whatever the team has set.
+// The team, on the VIP page: the target card should say only "No target has been set yet. Ask your market lead if you
+// would like one to aim for."; the "How you are paid" card should say how you are paid and nothing else - the rate per
+// 1,000 views and that it is paid monthly - with both cards smaller; and a creator's own goal (set under Stats) should
+// appear on the target card, next to whatever the team has set.
 
 /** The team's target and the creator's own goal, side by side as bars. Says so, once, when there is neither. */
 export function TargetCard({ member, stats, onSetGoal }) {
@@ -23,7 +23,7 @@ export function TargetCard({ member, stats, onSetGoal }) {
       {none ? (
         <div>
           <p className="text-sm leading-relaxed text-smoke">{tr('No target has been set yet. Ask your market lead if you would like one to aim for.')}</p>
-          {/* A FULL-WIDTH BUTTON UNDER THE SENTENCE (4 Oct 2026). It sat in a thin column to the right of the text, which squeezed
+          {/* A FULL-WIDTH BUTTON UNDER THE SENTENCE. It sat in a thin column to the right of the text, which squeezed
               the sentence into a narrow strip. */}
           {onSetGoal && (
             <button type="button" onClick={onSetGoal} className="mt-3.5 flex w-full items-center justify-center gap-2 rounded-xl border border-brand/25 bg-brand-tint/50 px-4 py-2.5 text-[13px] font-semibold text-brand transition-colors duration-200 hoverable:hover:bg-brand hoverable:hover:text-white">
@@ -45,7 +45,7 @@ export function TargetCard({ member, stats, onSetGoal }) {
 /** How a VIP is paid: the rate per 1,000 views, and that it is monthly. */
 export function HowPaidCard({ stats, cur, member = null }) {
   const tr = useKindT()
-  // A personal deal shows all of itself: the monthly fee and the cap sit beside the rate (11 Oct 2026).
+  // A personal deal shows all of itself: the monthly fee and the cap sit beside the rate.
   const fee = Number(member?.monthly_fee) || 0
   const cap = Number(member?.monthly_cap) || 0
   const tiles = [

@@ -2,12 +2,9 @@ import { useEffect, useState } from 'react'
 import { allRows } from './fetchAll'
 import { challengesApi } from '../api/challenges'
 
-// POINTS PER ENTRY (26 Sep 2026), AND WHAT THEY ARE FOR (28 Sep 2026).
+// POINTS PER ENTRY, AND WHAT THEY ARE FOR.
 //
-// Ethan: "show clearly on each entry how many points I got if it's a points
-// challenge ... so you can see clearly which posts actually brought points."
-// Then: "it shows +1 and some of them +6 ... I think this should show +1 for
-// views and +5 for bonus, etc."
+// Then: "it shows +1 and some of them +6... I think this should show +1 for views and +5 for bonus, etc."
 //
 // Every award tied to a video carries its `submission_id` (view milestones and
 // the bonuses claimed on it); awards for the creator as a whole (posting every

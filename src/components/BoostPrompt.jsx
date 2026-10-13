@@ -11,10 +11,7 @@ import { useT } from '../lib/i18n'
 import { cx } from '../lib/utils'
 import { challengesApi } from '../api/challenges'
 
-// "DOUBLE POINTS ARE LIVE", THE FIRST TIME YOU OPEN THE APP EACH DAY (7 Oct 2026).
-//
-// Ethan: "The creator should get a popup whenever they enter the platform for the first time each day while a 2x thing
-// is live ... We're kind of encouraging them to post, with a quick link to the challenge page."
+// "DOUBLE POINTS ARE LIVE", THE FIRST TIME YOU OPEN THE APP EACH DAY.
 //
 // Once per boost per calendar day on this device, only while the boost is running, only for a challenge the creator
 // can see (RLS hides challenges from VIPs, so they never get it). It joins the one-ask-per-open queue in lib/appNag,

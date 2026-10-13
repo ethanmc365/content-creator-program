@@ -9,17 +9,13 @@ export const TRYP_URL = 'https://www.tryp.com'
 
 // AN ICON, NOT AN ICON IN A BOX.
 //
-// Ethan (9 Sep 2026), about "Real cash prizes" and "Travel vouchers" and then
-// again about "How it works": "rather than having the orange background square,
-// it should just be a full Tryp.com orange icon. No need for the background."
+// The team, about "Real cash prizes" and "Travel vouchers" and then again about "How it works": "rather than having the
+// orange background square, it should just be a full Tryp.com orange icon. No need for the background."
 //
-// He is right, and the reason is worth keeping so nobody puts the tile back. A
-// `bg-brand-tint` rounded square is a BUTTON shape - it is the same 44px
-// affordance the app uses for something you press - so four of them down a
-// marketing page read as four controls that do nothing. It also spent the
-// brand's one colour on a wash: the tint is 8% orange behind a 20px glyph, so
-// the loudest thing in the card was a pale rectangle rather than the mark
-// inside it.
+// they are right, and the reason is worth keeping so nobody puts the tile back. A `bg-brand-tint` rounded square is a
+// BUTTON shape - it is the same 44px affordance the app uses for something you press - so four of them down a marketing
+// page read as four controls that do nothing. It also spent the brand's one colour on a wash: the tint is 8% orange
+// behind a 20px glyph, so the loudest thing in the card was a pale rectangle rather than the mark inside it.
 //
 // Removing the tile means the glyph has to carry the weight the tile was
 // carrying, so it roughly doubles in size (28px on a phone, 32px from `sm`) and
@@ -68,12 +64,10 @@ export function StepIcon({ name, align = 'center' }) {
 // on exactly the frames that have to be smooth.
 // WHAT THE PUBLIC PAGE IS ALLOWED TO SAY ABOUT MONEY.
 //
-// Ethan: "we don't wanna say exactly how much we've given away." The exact
-// total is a real number the platform knows to the cent - it is the sum of
-// every distributed reward plus every prize on the forty-nine challenges the
-// programme ran before this existed - and a stranger reading "€9,295" is
-// reading a company's payout ledger to the euro. So the band shows the
-// THOUSAND BELOW it, with a plus: true, useful, and not a disclosure.
+// The exact total is a real number the platform knows to the cent - it is the sum of every distributed reward plus every
+// prize on the forty-nine challenges the programme ran before this existed - and a stranger reading "€9,295" is reading
+// a company's payout ledger to the euro. So the band shows the THOUSAND BELOW it, with a plus: true, useful, and not a
+// disclosure.
 //
 // ROUNDING DOWN IS THE WHOLE POINT AND IT IS NOT AN AESTHETIC CHOICE. Rounding
 // to nearest could round UP - €9,600 would print "€10,000+", which claims more

@@ -156,11 +156,10 @@ export default function PerCreator({ raw, currency = 'EUR', scopeLabel, target =
         </div>
       </div>
 
-      {/* SPEND AGAINST VIEWS, AS A RANKED LIST (11 Oct 2026). Ethan: "the per-creator spend against view graph looks
-          really confusing". It was a scatter plot - one unlabelled orange dot per creator on two money/views axes - which
-          answers "who is unusual" only for someone who already reads scatter plots, and names nobody. Now each creator
-          is a row: what their videos brought (the bar), what they were paid, and what that cost per 1,000 views,
-          coloured against the programme target. Sort it by what you are asking. */}
+      {/* SPEND AGAINST VIEWS, AS A RANKED LIST. It was a scatter plot - one unlabelled orange dot per creator on two
+          money/views axes - which answers "who is unusual" only for someone who already reads scatter plots, and names
+          nobody. Now each creator is a row: what their videos brought (the bar), what they were paid, and what that cost
+          per 1,000 views, coloured against the programme target. Sort it by what you are asking. */}
       <section className="card">
         <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
           <div>

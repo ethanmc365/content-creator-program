@@ -57,14 +57,11 @@ export default function ReactionPicker({ onPick, onClose, align = 'left', prefer
   const [placement, setPlacement] = useState(prefer)
   // AND HOW FAR SIDEWAYS IT HAS TO MOVE TO STAY ON SCREEN.
   //
-  // THE BUG THIS FIXES. The panel anchored to one edge of the message's action
-  // row and grew from there, and the action row sits on the FREE side of the
-  // message - the right, for anybody else's message. Expanded, the panel is
-  // 17rem wide, so on a 375px phone it started near the right edge and ran a
-  // couple of hundred pixels off the side of the screen: Ethan's "the emoji box
-  // is a bit off the screen on the right". Worse, an element sticking out of a
-  // scroller makes that scroller horizontally scrollable, which is what let a
-  // sideways drag shove the whole conversation to the left.
+  // THE BUG THIS FIXES. The panel anchored to one edge of the message's action row and grew from there, and the action
+  // row sits on the FREE side of the message - the right, for anybody else's message. Expanded, the panel is 17rem wide,
+  // so on a 375px phone it started near the right edge and ran a couple of hundred pixels off the side of the screen:
+  // the team's "the emoji box is a bit off the screen on the right". Worse, an element sticking out of a scroller makes
+  // that scroller horizontally scrollable, which is what let a sideways drag shove the whole conversation to the left.
   //
   // Vertical placement was already measured; this is the same idea for the
   // other axis, and it is a NUDGE rather than a flip because there is no second

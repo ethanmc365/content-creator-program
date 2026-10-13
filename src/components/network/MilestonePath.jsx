@@ -43,12 +43,7 @@ import { useT } from '../../lib/i18n'
 const TOP = 62           // where the first node sits
 
 // THE PHONE SERPENTINES TOO, AND THE OLD REASON IT DID NOT WAS AN ARITHMETIC
-// ONE THAT NO LONGER APPLIES (12 Sep 2026).
-//
-// Ethan: "I think the milestones mobile page can be improved, make it more like
-// desktop - currently the box shows on only one side and there isn't much
-// movement. Similar to desktop, the line should be more wavy and the cards
-// should show up alternating sides and fit nicely."
+// ONE THAT NO LONGER APPLIES.
 //
 // WHAT ACTUALLY WENT WRONG THE FIRST TIME. The phone used to serpentine in a
 // 150-unit-wide box with nodes at x=40 and x=104, and the labels took whatever
@@ -59,13 +54,11 @@ const TOP = 62           // where the first node sits
 // The width was never the problem: the NODES WERE 64 UNITS APART IN THE MIDDLE
 // OF THE BOX, so each card had to fit in the margin beyond them.
 //
-// Put the nodes on the EDGES instead and the arithmetic comes out the other
-// way. A dot is about 20 units across, so a node at x=40 leaves 258 of 320 for
-// its card and a node at x=280 leaves exactly the same on the other side: 80%
-// each, symmetrically. The lane layout it replaced gave 74%. Alternating costs
-// six per cent of the width and buys a route that swings 240 units across the
-// screen instead of 26 - which is the movement he is asking for, and it is the
-// same drawing the desktop makes rather than a second one.
+// Put the nodes on the EDGES instead and the arithmetic comes out the other way. A dot is about 20 units across, so a
+// node at x=40 leaves 258 of 320 for its card and a node at x=280 leaves exactly the same on the other side: 80% each,
+// symmetrically. The lane layout it replaced gave 74%. Alternating costs six per cent of the width and buys a route that
+// swings 240 units across the screen instead of 26 - which is the movement they are asking for, and it is the same
+// drawing the desktop makes rather than a second one.
 const LAYOUT = {
   wide: { W: 340, left: 76, right: 264, gap: 150, wave: 0, labelPct: 38 },
   // `gap` here is only the fallback for the very first paint, before the
@@ -91,14 +84,9 @@ const LAYOUT = {
 // description, a voucher line and three requirements - so this leaves a little
 // air under the worst case rather than being tuned to the average one.
 //
-// 250, NOT 186 (21 Sep 2026). Ethan, on a phone: "the 'Just Joined' card...
-// is actually going through the line, and my profile icon is showing that I'm
-// halfway through to the next one. The next one is covering over that, so
-// everything's just too crowded together. Spread it out." At 186 the midpoint
-// of a leg - where the marker sits for anybody on their first stop - was 93px
-// below a stop whose card is ~100px tall, so the marker landed on the card. At
-// 250 the midpoint is 125px down, clear of every card but the tallest, and the
-// first leg stays hugging its own edge until below the card it starts beside.
+// 250, NOT 186. At 186 the midpoint of a leg - where the marker sits for anybody on their first stop - was 93px below a
+// stop whose card is ~100px tall, so the marker landed on the card. At 250 the midpoint is 125px down, clear of every
+// card but the tallest, and the first leg stays hugging its own edge until below the card it starts beside.
 const NARROW_SLOT_PX = 250
 // The least vertical room a phone leg gets to swing from one edge to the other
 // once it is below its card, in px.
@@ -116,17 +104,12 @@ function nodeY(i, L) {
 // to the next stop. `L.runs[i]` is the run in viewBox units (absent on a
 // desktop, where the cards sit beside a route that never passes them).
 //
-// NO STRAIGHT LINES (21 Sep 2026, evening). The run was a straight vertical
-// line and Ethan: "it's more like straight lines... not like the nice curve we
-// had going, so maybe make the lines more curved, but still keep the same
-// structure... everything's a nice wavy curve." So the run is a curve too: it
-// arrives at the dot still travelling OUTWARD (away from the card), bows out
-// towards the screen edge beside the card, and leaves its foot travelling
-// INWARD - which is the direction the swoop needs to set off in. Every join
-// shares one tangent (`BANK` sideways per unit down, mirrored per side), so
-// the whole route is one unbroken S after S with no corner anywhere. Bowing
-// AWAY from the card is what keeps the structure: the line only ever gets
-// further from the card it is passing, never nearer.
+// NO STRAIGHT LINES. The run was a straight vertical line and So the run is a curve too: it arrives at the dot still
+// travelling OUTWARD (away from the card), bows out towards the screen edge beside the card, and leaves its foot
+// travelling INWARD - which is the direction the swoop needs to set off in. Every join shares one tangent (`BANK`
+// sideways per unit down, mirrored per side), so the whole route is one unbroken S after S with no corner anywhere.
+// Bowing AWAY from the card is what keeps the structure: the line only ever gets further from the card it is passing,
+// never nearer.
 const BANK = 0.36
 function legOf(i, L) {
   const p0 = [nodeX(i, L), nodeY(i, L)]
@@ -255,24 +238,14 @@ function timeAtDistance(y) {
 // not started. The admin editor previews by handing this component a made-up
 // list of stops, which is the honest way to preview a drawing: with fake DATA,
 // not with a flag that makes it lie about the real reader.
-// WHOSE ROUTE THIS IS, RIDING IT (8 Sep 2026).
-//
-// Ethan: "the one thing I noticed is that it's not that clear where you
-// actually are. Although it shows other creators' icons, it should show your
-// icon, like, big somewhere on the card or somewhere, to show that it's
-// actually where you are. I know we have the plane, but just something that
-// makes it even more clear by showing their profile picture. Maybe even on the
-// path - let's say they're in progress of going to the other one, it could
-// actually be on the path."
+// WHOSE ROUTE THIS IS, RIDING IT.
 //
 // The route already drew every OTHER creator as a face - a row of them under
 // each stop they had passed - and drew the viewer as an anonymous aeroplane.
 // So the one person the page is about was the only one on it without a face,
 // and finding yourself meant knowing that the plane was you.
 //
-// AND THEN THE AEROPLANE WENT (8 Sep 2026). Ethan: "the aircraft icon
-// shouldn't be there at all, it looks bad and would look better with just the
-// profile picture moving."
+// AND THEN THE AEROPLANE WENT.
 //
 // For a while both were on the route, the plane 30px ahead of the face along
 // the tangent. That is one object too many: the eye has to decide which of the
@@ -349,7 +322,7 @@ export default function MilestonePath({ milestones = [], standings = [], who = n
   // Solving `slotPx = (box / W) * gap` for the gap instead pins the slot at a
   // constant NARROW_SLOT_PX on every phone, which is the thing that actually
   // has to stay bigger than a card.
-  // THE PHONE'S LEGS ARE AS LONG AS THEIR CARDS NEED (21 Sep 2026).
+  // THE PHONE'S LEGS ARE AS LONG AS THEIR CARDS NEED.
   //
   // Measured after the slot change above: the start card was clear, but the
   // three stops below it carry 140-160px cards and the line still ran under
@@ -473,17 +446,7 @@ export default function MilestonePath({ milestones = [], standings = [], who = n
   const legFraction = next ? milestoneFraction(next) : 1
   const legs = Math.max(1, nodes.length - 1)
 
-  // NOBODY EVER PARKS ON A DOT (8 Sep 2026).
-  //
-  // Ethan: "I would have everyone automatically start a bit on the route. So
-  // the first one should be ticked off and they should be at least halfway onto
-  // the getting started one... And whenever they get to an actual circle it
-  // should be ticked off, and I think they should never actually be stopped on
-  // a circle - it should always look like they're going towards the next one.
-  // So once they actually reach the getting started goals, the plane animation
-  // should go there, tick it off, and then be halfway to the next one, and stop
-  // there with the plane at the front. I think this makes sense and it
-  // motivates creators better."
+  // NOBODY EVER PARKS ON A DOT.
   //
   // It does, and it is a real observation about what the drawing SAYS. Parked
   // on a dot, the marker means "this is where I stopped". Half a leg past it,
@@ -569,13 +532,11 @@ export default function MilestonePath({ milestones = [], standings = [], who = n
 
   // THE FLIGHT IS SILENT, ON PURPOSE.
   //
-  // It used to carry an ascending pass at take-off, the games' coin at every
-  // milestone the creator had actually reached, and the Flight Path propeller
-  // held open under the whole eight-second flight. Ethan: no sound effects on
-  // this page at all, just the clean animation. Removed rather than muted -
-  // a silent code path that still schedules four timers and an interval is a
-  // propeller waiting to be left running again, which is exactly the bug the
-  // old comment here spent a paragraph describing.
+  // It used to carry an ascending pass at take-off, the games' coin at every milestone the creator had actually reached,
+  // and the Flight Path propeller held open under the whole eight-second flight. The team: no sound effects on this page
+  // at all, just the clean animation. Removed rather than muted - a silent code path that still schedules four timers
+  // and an interval is a propeller waiting to be left running again, which is exactly the bug the old comment here spent
+  // a paragraph describing.
   //
   // The route still lights up stop by stop: `arrivalDelay` drives the LIGHT,
   // which is what it was always for. Nothing about the animation changed.
@@ -596,11 +557,9 @@ export default function MilestonePath({ milestones = [], standings = [], who = n
   // stop - so that is the one that survives, and it is now clickable.
 
   return (
-    // THE LAST CARD NO LONGER HANGS OUT OF THE DRAWING (12 Oct 2026). Ethan:
-    // "the Senior Creator card is inside the card that shows where you are."
-    // The drawing ends TOP units under the last dot, and the last card (top 20
-    // units above its dot) is often taller than that, so it spilled into the
-    // section below. The measured overhang becomes a bottom margin.
+    // THE LAST CARD NO LONGER HANGS OUT OF THE DRAWING. The drawing ends TOP units under the last dot, and the last card
+    // (top 20 units above its dot) is often taller than that, so it spilled into the section below. The measured
+    // overhang becomes a bottom margin.
     <div ref={setBox0} className="relative w-full" style={{ aspectRatio: `${L.W} / ${H}`, marginBottom: lastOverhang > 0 ? lastOverhang + 16 : undefined }}>
       <svg viewBox={`0 0 ${L.W} ${H}`} className="absolute inset-0 h-full w-full" aria-hidden>
         <defs>
@@ -614,8 +573,7 @@ export default function MilestonePath({ milestones = [], standings = [], who = n
           fill="none"
           stroke="currentColor"
           className="text-gray-200"
-          // BIGGER DOTS ON A PHONE. 3 units at 1 in 12 read as a hairline
-          // at 375px; Ethan asked for "bigger circles".
+          // BIGGER DOTS ON A PHONE. 3 units at 1 in 12 read as a hairline at 375px; the team asked for "bigger circles".
           strokeWidth={narrow ? 5.5 : 3}
           strokeLinecap="round"
           strokeDasharray={narrow ? '0.5 15' : '1 12'}
@@ -685,10 +643,9 @@ export default function MilestonePath({ milestones = [], standings = [], who = n
             </motion.g>
           )
         })}
-        {/* THE MARKER IS DRAWN LAST, OVER THE STOPS (8 Sep 2026).
-            It used to be drawn before them, which was right when it was an
-            aeroplane 15px across and wrong the moment it became a face: a
-            creator at zero progress sits exactly ON the first dot, and the dot
+        {/* THE MARKER IS DRAWN LAST, OVER THE STOPS. It used to be drawn before them, which was right when it was an
+            aeroplane 15px across and wrong the moment it became a face: a creator at zero progress sits exactly ON the
+            first dot, and the dot
             - a filled orange circle with a white tick - was painted on top of
             their photograph. What you saw was a halo round a tick.
 
@@ -729,25 +686,21 @@ export default function MilestonePath({ milestones = [], standings = [], who = n
             </g>
           )
           : (
-            /* THE MARKER IS THE FACE, AND ONLY THE FACE (8 Sep 2026).
-               Ethan: "for milestones the aircraft icon shouldn't be there at
-               all, it looks bad and would look better with just the profile
-               picture moving."
-
-               He is right, and the reason is worth writing down so nobody puts
-               it back. The aeroplane was doing two jobs badly. It was a SECOND
-               object travelling the same path 30px ahead of the face, so the
-               eye had to decide which of the two was "you" - and on a curve the
-               two separated visibly, because one rotated to the tangent and the
-               other deliberately did not. And it was a duplicate metaphor: the
-               route is already drawn as a flight path, the stops are already
-               airport dots, and the aircraft restated in a 15px glyph what the
-               whole drawing already says.
-
-               One object, and it is the creator's own photograph. `rotate` is
-               deliberately absent - a face that banks through every curve is a
-               face upside down on half of them - so this is a plain
-               `animateMotion` along the path and nothing else. */
+            /*
+             * THE MARKER IS THE FACE, AND ONLY THE FACE.
+             *
+             * they are right, and the reason is worth writing down so nobody puts it back. The aeroplane was doing two
+             * jobs badly. It was a SECOND object travelling the same path 30px ahead of the face, so the eye had to
+             * decide which of the two was "you" - and on a curve the two separated visibly, because one rotated to the
+             * tangent and the other deliberately did not. And it was a duplicate metaphor: the route is already drawn as
+             * a flight path, the stops are already airport dots, and the aircraft restated in a 15px glyph what the
+             * whole drawing already says.
+             *
+             * One object, and it is the creator's own photograph. `rotate` is
+             * deliberately absent - a face that banks through every curve is a
+             * face upside down on half of them - so this is a plain
+             * `animateMotion` along the path and nothing else.
+             */
             <g>
               <RouteFace who={who} />
               <animateMotion
@@ -763,14 +716,11 @@ export default function MilestonePath({ milestones = [], standings = [], who = n
       </svg>
 
       {/* ---------- Stop cards ---------- */}
-      {/* THEY ARE CARDS NOW, AND THEY ARE ALWAYS LEFT-ALIGNED.
-          The old label was loose text that inherited `text-right` on every
-          other stop, so half the route was ragged-left prose wrapping under a
-          full-width reward pill - which is the screenshot Ethan sent: squashed,
-          off-centre, and with the reward shouting over the title. A card gives
-          the block an edge to sit against, one alignment for every stop
-          whichever side of the line it is on, and somewhere for the description
-          to go. */}
+      {/* THEY ARE CARDS NOW, AND THEY ARE ALWAYS LEFT-ALIGNED. The old label was loose text that inherited `text-right`
+          on every other stop, so half the route was ragged-left prose wrapping under a full-width reward pill - which is
+          the screenshot the team sent: squashed, off-centre, and with the reward shouting over the title. A card gives
+          the block an edge to sit against, one alignment for every stop whichever side of the line it is on, and
+          somewhere for the description to go. */}
       {nodes.map((n, i) => {
         const done = n.start || n.reached
         const isNext = !done && i === reached + 1
@@ -854,10 +804,9 @@ export default function MilestonePath({ milestones = [], standings = [], who = n
                 className={cx(
                   'group block w-full rounded-2xl px-3 py-2.5 text-left transition-all duration-200',
                   'hover:-translate-y-0.5 hover:shadow-lift focus-visible:-translate-y-0.5',
-                  // ONE OUTLINE THAT STAYS PUT (12 Oct 2026). Ethan: "There's this orange border around just the left side,
-                  // but whenever I click on it, that border disappears." The left bar was an inset box-shadow, and the
-                  // hover shadow REPLACED it. Now the state is a ring (Tailwind composes rings and shadows, so hover can
-                  // never wipe it) and a small chip at the top that says where you are: Next stop, Reached, or Ahead.
+                  // ONE OUTLINE THAT STAYS PUT. The left bar was an inset box-shadow, and the hover shadow REPLACED it.
+                  // Now the state is a ring (Tailwind composes rings and shadows, so hover can never wipe it) and a
+                  // small chip at the top that says where you are: Next stop, Reached, or Ahead.
                   done
                     ? 'border border-gray-100 bg-white shadow-card'
                     : isNext
@@ -881,10 +830,9 @@ export default function MilestonePath({ milestones = [], standings = [], who = n
                   {n.title}
                 </p>
 
-                {/* THE DESCRIPTION, which the admin has been able to write since
-                    the beginning and which appeared nowhere at all. Ethan's
-                    report was that he seemed to need to write several and never
-                    saw any of them. */}
+                {/* THE DESCRIPTION, which the admin has been able to write since the beginning and which appeared
+                    nowhere at all. The team's report was that he seemed to need to write several and never saw any of
+                    them. */}
                 {n.description && (
                   <p className="mt-0.5 text-[11px] leading-snug text-smoke">{n.description}</p>
                 )}
@@ -896,13 +844,10 @@ export default function MilestonePath({ milestones = [], standings = [], who = n
                     happened. A pill is the wrong shape for a sentence, so a
                     long one becomes a rounded block over two lines and a short
                     one still reads as a chip. */}
-                {/* THE REWARD, IN TRYP ORANGE, NEVER IN BLACK.
-                    Reward kinds used to pick their own colour and `role` drew
-                    solid ink - so "You are officially a Tryp.com Creator,
-                    welcome to the team!" arrived as a black slab in the middle
-                    of an orange drawing, which is the one Ethan flagged. A
-                    reward is a reward: one treatment, the brand's, and the KIND
-                    is said in a word rather than in a colour nobody can decode.
+                {/* THE REWARD, IN TRYP ORANGE, NEVER IN BLACK. Reward kinds used to pick their own colour and `role`
+                    drew solid ink - so "You are officially a Tryp.com Creator, welcome to the team!" arrived as a black
+                    slab in the middle of an orange drawing, which is the one the team flagged. A reward is a reward: one
+                    treatment, the brand's, and the KIND is said in a word rather than in a colour nobody can decode.
                     Unreached stays grey, because it has not happened yet. */}
                 {n.reward && (
                   <span className={cx(

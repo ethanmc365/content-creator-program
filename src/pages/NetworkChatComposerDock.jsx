@@ -46,14 +46,10 @@ export default function NetworkChatComposerDock({
 }) {
   return (
     <div ref={dockRef} className="shrink-0">
-    {/* THE COMPOSER IS NOT ON SCREEN WHILE YOU ARE SEARCHING.
-        Ethan: "it shows up the messaging bar which it shouldn't in that case
-        because I would be typing into the search bar, not the message box."
-        Two text fields on one phone screen, one of them focused and the other
-        holding a keyboard's worth of chrome under the results you are trying
-        to read. `stripSearch` is the phone's search - the desktop bar is a
-        different control and does not do this - so this only ever applies
-        where the space is actually contested. */}
+    {/* THE COMPOSER IS NOT ON SCREEN WHILE YOU ARE SEARCHING. Two text fields on one phone screen, one of them focused
+        and the other holding a keyboard's worth of chrome under the results you are trying to read. `stripSearch` is the
+        phone's search - the desktop bar is a different control and does not do this - so this only ever applies where
+        the space is actually contested. */}
     {stripSearch ? (
       <div className="shrink-0 border-t border-gray-100 px-3 py-2.5 lg:hidden">
         <ComposerSearch value={search} onChange={setSearch} count={visible.length} total={messages.length}

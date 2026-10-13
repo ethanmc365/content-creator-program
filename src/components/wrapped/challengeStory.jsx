@@ -5,17 +5,17 @@ import { ordinalFor, podiumTier } from '../../lib/podiumTiers'
 import { formatDate } from '../../lib/utils'
 import { getLocale, useT } from '../../lib/i18n'
 
-// THE END-OF-CHALLENGE RECAP: THE CARDS (24 Sep 2026, rewritten 28 Sep 2026).
+// THE END-OF-CHALLENGE RECAP: THE CARDS (rewritten).
 //
 // The Year in Review's primitives, palettes and runner, told about ONE
 // challenge. Every card is dropped when it has nothing true to say.
 //
-// THE 28 SEP PASS, from Ethan's notes on the Testing Centre preview:
+// THE 28 SEP PASS, from the team's notes on the Testing Centre preview:
 //   - The cover read "Jacob, that was Global Challenge." The challenge is the
 //     headline now, and the person is who it is for.
 //   - "20 days, 29 creators. Here is how yours went." is a stat strip that
 //     counts up, and one line that says what comes next.
-//   - "For the top three, have them come up big, one by one ... long enough so
+//   - "For the top three, have them come up big, one by one... long enough so
 //     you can see it. Then, together." A card each, counting down 3, 2, 1,
 //     then the three side by side.
 //   - "For the prize pool, it should also include any Tryp.com vouchers."
@@ -46,10 +46,7 @@ function Poster({ video, rank, size = 'md', anim = 'zoom', delay, fit = 'height'
           </span>
         )}
       <span aria-hidden="true" className="absolute inset-x-0 bottom-0 h-1/2" style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.85), rgba(0,0,0,0))' }} />
-      {/* A PLACE BADGE, NOT A BARE NUMBER (28 Sep 2026, evening). Ethan: "it
-          shows 1 through 3, which looks a bit odd ... use an actual badge
-          showing 2nd, 3rd, to make it easier to understand." The ordinal, in
-          the podium's own tones: Tryp.com orange, light orange, peach. */}
+      {/* A PLACE BADGE, NOT A BARE NUMBER. The ordinal, in the podium's own tones: Tryp.com orange, light orange, peach. */}
       {rank != null && (
         <span
           className={`absolute left-2 top-2 inline-flex items-center gap-1 rounded-full font-extrabold shadow-lg ${big ? 'px-2.5 py-1 text-[13px]' : 'px-1.5 py-0.5 text-[10px]'}`}
@@ -59,8 +56,7 @@ function Poster({ video, rank, size = 'md', anim = 'zoom', delay, fit = 'height'
           {ordinalFor(rank)}
         </span>
       )}
-      {/* THE PLATFORM, SMALL (28 Sep 2026): "we don't necessarily need it to
-          be that big." Its own colours, in the corner. */}
+      {/* THE PLATFORM, SMALL: "we don't necessarily need it to be that big." Its own colours, in the corner. */}
       {video.platform && SOCIAL[video.platform] && (
         <span className={`absolute right-2 top-2 block overflow-hidden rounded-md shadow ${big ? 'h-5 w-5' : 'h-4 w-4'}`}>
           <SocialMark brand={SOCIAL[video.platform]} tile className="h-full w-full" />
@@ -238,11 +234,9 @@ export function buildChallengeCards(data, tr = (s, v) => String(s).replace(/\{(\
                   )
                 })}
               </div>
-              {/* TWO EQUAL CELLS ON ONE LINE (28 Sep 2026, evening). Ethan: the
-                  "189.5k across these" and "20.9k average video" pair was
-                  "misaligned" - a wrapping flex row puts each figure wherever
-                  its own width lands it. A two-column grid, centred, with a
-                  hairline between, lines them up whatever the digits. */}
+              {/* TWO EQUAL CELLS ON ONE LINE. The team: the "189.5k across these" and "20.9k average video" pair was
+                  "misaligned" - a wrapping flex row puts each figure wherever its own width lands it. A two-column grid,
+                  centred, with a hairline between, lines them up whatever the digits. */}
               <div data-anim="rise" data-delay="700" className="mx-auto grid w-full max-w-[18rem] grid-cols-2 overflow-hidden rounded-2xl text-center" style={{ background: 'rgba(255,255,255,0.08)' }}>
                 <span className="px-3 py-3">
                   <span className="block text-2xl font-extrabold tabular-nums leading-none">{formatViews(ranked.reduce((n, v) => n + v.views, 0))}</span>
@@ -260,16 +254,12 @@ export function buildChallengeCards(data, tr = (s, v) => String(s).replace(/\{(\
     }
   }
 
-  // "YOUR CHALLENGE IN NUMBERS" IS GONE (28 Sep 2026). Ethan, reviewing the
-  // recap in the Testing Centre: "I like it all except for the Your Challenge
-  // and Numbers page. I think we don't need that page at all. It's unnecessary
-  // because you already kind of mentioned those things."
+  // "YOUR CHALLENGE IN NUMBERS" IS GONE.
   //
-  // He is right: every fact on it had already been said. The entries count and
-  // the view total are the "What you made" card, the placing is "Where you
-  // finished", and the strongest platform is implied by the posters. A recap
-  // that repeats itself in a different layout is longer without being fuller.
-  // The card and the figures it alone computed have gone with it.
+  // they are right: every fact on it had already been said. The entries count and the view total are the "What you made"
+  // card, the placing is "Where you finished", and the strongest platform is implied by the posters. A recap that
+  // repeats itself in a different layout is longer without being fuller. The card and the figures it alone computed have
+  // gone with it.
 
   // ----------------------------------------------------------------- prizes
   if (won.length > 0) {
@@ -319,8 +309,7 @@ export function buildChallengeCards(data, tr = (s, v) => String(s).replace(/\{(\
                 {tr('Including {amount} in Tryp.com vouchers', { amount: wholeMoney(prizes.vouchers, challenge.currency) })}
               </span>
             )}
-            {/* Just the one line (28 Sep 2026): "Don't say, 'The biggest single
-                video reached 143k.' Just keep that first line." */}
+            {/* Just the one line: "Don't say, 'The biggest single video reached 143k.' Just keep that first line." */}
             <Line palette="ember">{tr('What {n} creators made together.', { n: nf(community.creators) })}</Line>
           </div>
         </>
@@ -343,12 +332,9 @@ export function ChallengeShareCard({ data, className = '', style, flush = false 
   const tr = useT()
   const { me, challenge, placing, totals, top, points } = data
   const best = top[0]?.views > 0 ? top[0] : null
-  // THE PLACE IS A BADGE BY THE NAME; THE NUMBERS DO NOT REPEAT IT (28 Sep
-  // 2026, evening). Ethan: "for the 3rd, 2nd, and 1st, maybe have it in a
-  // different colour or use an actual badge", and "you're kind of repeating
-  // some information." The place was a stat AND the footer line restated a
-  // ranking; now it is said once, as a badge in the podium's own tone, and the
-  // grid holds only numbers said nowhere else on the card.
+  // THE PLACE IS A BADGE BY THE NAME; THE NUMBERS DO NOT REPEAT IT., and "you're kind of repeating some information."
+  // The place was a stat AND the footer line restated a ranking; now it is said once, as a badge in the podium's own
+  // tone, and the grid holds only numbers said nowhere else on the card.
   const stats = [
     points != null && points > 0 && { label: tr('Points'), value: nf(points) },
     totals.views > 0 && { label: tr('Views'), value: formatViews(totals.views) },
@@ -359,10 +345,8 @@ export function ChallengeShareCard({ data, className = '', style, flush = false 
   const badge = placing?.kind === 'podium'
     ? { text: tr('{place} place', { place: ordinalFor(placing.rank) }), tier: podiumTier(placing.rank) }
     : placing?.kind === 'top' ? { text: tr('Top {n}%', { n: placing.pct }), tier: null } : null
-  // NO SUMMING-UP LINE ALONG THE BOTTOM (28 Sep 2026). This read "1st of 28
-  // creators overall, 4.8× the average video" under the Tryp mark. Ethan, on
-  // the final card: "I wouldn't show that at all. I think the other stats on
-  // this page are all we need."
+  // NO SUMMING-UP LINE ALONG THE BOTTOM. This read "1st of 28 creators overall, 4.8× the average video" under the Tryp
+  // mark.
   //
   // It was the third time the placing appeared on one card - the badge beside
   // the name says it, the stat tiles say the numbers, and this said both again

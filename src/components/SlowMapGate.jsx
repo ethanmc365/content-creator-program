@@ -5,10 +5,7 @@ import { atlasReady } from '../lib/mapCountries'
 import { cx } from '../lib/utils'
 import { useT } from '../lib/i18n'
 
-// ON A WEAK SIGNAL THE MAP WAITS (2 Oct 2026).
-//
-// Ethan: "if the creator map takes a long time to load and causes lag then saying something like 'will show when
-// wifi signal improves' and not loading it to reduce lag could be useful on really bad wifi."
+// ON A WEAK SIGNAL THE MAP WAITS.
 //
 // A world map is ~170kB of geometry to download and parse, then hundreds of paths to lay out - the single most
 // expensive thing on any page that has one, and the least urgent. When lib/netQuality has measured the connection

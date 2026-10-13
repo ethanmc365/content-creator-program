@@ -1,13 +1,13 @@
 import { useMemo } from 'react'
 import { DEFAULT_LOCALE, useLocale } from './i18n'
 
-// COUNTRY AND LANGUAGE NAMES, IN THE READER'S LANGUAGE (2 Oct 2026).
+// COUNTRY AND LANGUAGE NAMES, IN THE READER'S LANGUAGE.
 //
-// Ethan: creators must be able to "sign up in their own language, everything works correctly, and it is
-// translated". The country list, the languages-you-speak picker and the travel map all print English
-// names ("Spain", "Portuguese"), and a hand-typed dictionary of two hundred countries and every language
-// in four languages is exactly the kind of table that is wrong somewhere. The browser already knows
-// every one of them, correctly, in every language we ship: `Intl.DisplayNames`.
+// The team: creators must be able to "sign up in their own language, everything works correctly, and it is translated".
+// The country list, the languages-you-speak picker and the travel map all print English names ("Spain", "Portuguese"),
+// and a hand-typed dictionary of two hundred countries and every language in four languages is exactly the kind of table
+// that is wrong somewhere. The browser already knows every one of them, correctly, in every language we ship:
+// `Intl.DisplayNames`.
 //
 // WHAT IS STORED IS NEVER TRANSLATED. `profiles.country`, `profiles.languages` and
 // `countries_visited` keep the ENGLISH name - it is the key the map, the market rules and the filters

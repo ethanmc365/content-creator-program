@@ -19,13 +19,6 @@ import { teamApi } from '../../../api/team'
 
 // THE YEAR IN REVIEW, BEFORE ANY CREATOR CAN SEE IT.
 //
-// Ethan: "obviously the creators won't have access to this yet but I want to
-// have access immediately to test it, add it in a new page on the testing
-// centre... build on exactly how it will look and appear to me and the
-// creators, show their profile, name, make it custom, nice design, Tryp.com
-// logo. It should act like it's September but just use the current data so far
-// from the community."
-//
 // WHY THIS LAB READS REAL DATA WHEN EVERY OTHER ONE IS INVENTED.
 //
 // The other labs demonstrate a MECHANISM - an invoice raising itself, a
@@ -178,8 +171,8 @@ export default function WrappedLab() {
       ? buildYearInReview({
         year: YEAR,
         meId,
-        // ACTING LIKE IT IS SEPTEMBER, which is what Ethan asked for: the recap
-        // covers the year to date rather than pretending December has happened.
+        // ACTING LIKE IT IS SEPTEMBER, which is what the team asked for: the recap covers the year to date rather than
+        // pretending December has happened.
         today: `${YEAR}-09-30`,
         ...raw,
       })

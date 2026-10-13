@@ -40,9 +40,9 @@ export default function Signup() {
   // page says, and the fact that the token is kept for `claim_team_invite` once
   // there is a session to claim it with.
   const teamToken = searchParams.get('team')
-  // A VIP LINK (2 Oct 2026, migration 294): /vip/join/<token>, sent by the team straight to a creator. It is the
-  // same sign-up and gathers the same profile; the token is kept until there is a session to spend it on, and
-  // makes them a VIP as they finish (Onboarding claims it). Nothing here grants anything by itself.
+  // A VIP LINK (migration 294): /vip/join/<token>, sent by the team straight to a creator. It is the same sign-up and
+  // gathers the same profile; the token is kept until there is a session to spend it on, and makes them a VIP as they
+  // finish (Onboarding claims it). Nothing here grants anything by itself.
   const { token: vipToken } = useParams()
   const [vipInvite, setVipInvite] = useState(null)
   const [teamInvite, setTeamInvite] = useState(null)
@@ -66,9 +66,9 @@ export default function Signup() {
       if (!alive) return
       setVipInvite(row?.valid ? row : { valid: false })
       if (row?.valid) {
-        // ONLY FOR SOMEBODY SIGNING UP (7 Oct 2026). Kept for a signed-in visitor too, the token waited on the device and
-        // the next visit to /onboarding spent it on whoever was signed in: Ethan opened a VIP link, then the team link,
-        // and became a VIP Worldwide creator. A signed-in visitor joins only by pressing "Join with this account".
+        // ONLY FOR SOMEBODY SIGNING UP. Kept for a signed-in visitor too, the token waited on the device and the next
+        // visit to /onboarding spent it on whoever was signed in: the team opened a VIP link, then the team link, and
+        // became a VIP Worldwide creator. A signed-in visitor joins only by pressing "Join with this account".
         const { data: { session } } = await supabase.auth.getSession()
         if (!session) { try { localStorage.setItem('tryp_vip_invite', vipToken) } catch { /* private mode */ } }
         let chosen = false
@@ -121,9 +121,9 @@ export default function Signup() {
   useEffect(() => {
     if (demoAsked) return
     if (!user) return
-    // SOMEBODY ALREADY SIGNED IN IS ASKED, NOT SWITCHED (1 Oct 2026). Opening the link used to make whoever was signed
-    // in a VIP the moment the page loaded ("it just automatically logged me in with my other account"). The page now
-    // says who is signed in and lets them choose; see the card below.
+    // SOMEBODY ALREADY SIGNED IN IS ASKED, NOT SWITCHED. Opening the link used to make whoever was signed in a VIP the
+    // moment the page loaded ("it just automatically logged me in with my other account"). The page now says who is
+    // signed in and lets them choose; see the card below.
     if (vipToken && vipInvite?.valid && !signedUpHere) return
     if (vipToken && vipInvite === null && !signedUpHere) return
     navigate('/onboarding', { replace: true })
@@ -136,10 +136,10 @@ export default function Signup() {
     try { localStorage.removeItem('tryp_vip_invite') } catch { /* nothing to do */ }
     navigate('/vip', { replace: true })
   }
-  // ...or to start again as somebody else: sign out, keep the link, and the sign-up form below is what is left.
-  // A NEW ACCOUNT MADE ON THIS PAGE IS NOT ASKED "JOIN WITH THIS ACCOUNT?" (1 Oct 2026). Ethan: after "Sign out and
-  // use another" and signing up, the same card came back naming the account he had just created. An account made
-  // here goes straight on to the profile, where the link is claimed (Onboarding reads `tryp_vip_invite`).
+  // ...or to start again as somebody else: sign out, keep the link, and the sign-up form below is what is left. A NEW
+  // ACCOUNT MADE ON THIS PAGE IS NOT ASKED "JOIN WITH THIS ACCOUNT?". The team: after "Sign out and use another" and
+  // signing up, the same card came back naming the account he had just created. An account made here goes straight on to
+  // the profile, where the link is claimed (Onboarding reads `tryp_vip_invite`).
   async function useAnotherAccount() {
     try { await signOut() } catch { /* the form below still works */ }
   }
@@ -169,7 +169,7 @@ export default function Signup() {
       setBusy(false)
       setSignedUpHere(false)
       // "CAN THEY STILL USE THAT EMAIL TO SIGN UP NORMALLY?" - THE ANSWER IS
-      // NO, AND THE SCREEN HAS TO SAY WHICH DOOR IS THEIRS (7 Sep 2026).
+      // NO, AND THE SCREEN HAS TO SAY WHICH DOOR IS THEIRS.
       //
       // One address is one account. Somebody who joined with Google and then
       // comes back and fills this form in gets GoTrue's "User already
@@ -213,8 +213,7 @@ export default function Signup() {
           <div className="brand-drift relative mb-6 overflow-hidden rounded-2xl p-5 text-white shadow-card sm:p-6">
             <span aria-hidden className="survey-orb pointer-events-none absolute -right-10 -top-14 h-44 w-44 rounded-full bg-white/15 blur-2xl" />
             <p className="relative text-[11px] font-bold uppercase tracking-[0.16em] text-white/85">{tr('By invitation')}</p>
-            {/* SHORTER (1 Oct 2026). Ethan: "just say 'Paid for every view.' Don't say 'your own page, your own rooms,
-                pay per every month'". The three steps say the rest. */}
+            {/* SHORTER. The three steps say the rest. */}
             <p className="relative mt-1 text-xl font-bold leading-snug sm:text-[22px]">{tr('Paid for every view')}</p>
             <ol className="relative mt-4 grid grid-cols-3 gap-2 text-center">
               {[tr('Make your account'), tr('Tell us about you'), tr('Your VIP page opens')].map((label, i) => (
@@ -250,12 +249,9 @@ export default function Signup() {
         </p>
       )}
 
-      {/* THE PAGE SAYS WHAT YOU ARE APPLYING FOR, AND NOT WHICH JOB (29 Sep 2026).
-          Ethan: "don't say sign up as market manager, just say sign up to join the
-          Tryp.com team, as we might have people signing up that are not necessarily
-          on the Tryp.com team." The invite can carry a role title, but that is a
-          note for whoever approves it - the person following the link is told only
-          that they are signing up to join the team, in three plain steps. */}
+      {/* THE PAGE SAYS WHAT YOU ARE APPLYING FOR, AND NOT WHICH JOB. The invite can carry a role title, but that is a
+          note for whoever approves it - the person following the link is told only that they are signing up to join the
+          team, in three plain steps. */}
       {teamToken && teamInvite && (
         teamInvite.valid ? (
           <div className="mb-6 overflow-hidden rounded-2xl border border-brand/20 bg-gradient-to-br from-brand-tint to-white p-4 sm:p-5">
@@ -288,14 +284,9 @@ export default function Signup() {
       <form onSubmit={handleSubmit} className="space-y-5">
         <div>
           <label htmlFor="name" className="label">{tr("Your name")}</label>
-          {/* NO INVENTED PERSON IN THE BOX (3 Sep 2026). Ethan: "when you click
-              to sign up it shows an example name, Amelia Hart. I wouldn't put
-              this in, it seems a bit of a weird example - just put in your name
-              or something instead."
-              A made-up full name in a field labelled "Your name" is the one
-              placeholder that can be misread as content, and it made the form
-              feel like a demo of itself. The field is asking for a name and
-              says so in its label; the hint only needs to say which name. */}
+          {/* NO INVENTED PERSON IN THE BOX. A made-up full name in a field labelled "Your name" is the one placeholder
+              that can be misread as content, and it made the form feel like a demo of itself. The field is asking for a
+              name and says so in its label; the hint only needs to say which name. */}
           <input id="name" type="text" required className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder={tr("Your full name")} />
         </div>
         <div>
@@ -334,9 +325,7 @@ export default function Signup() {
         </button>
       </form>
 
-      {/* CONTINUE WITH GOOGLE, UNDER THE FORM (7 Sep 2026).
-          Ethan: "it is currently at the top but I think usually it's at the
-          bottom somewhere and would make more sense there."
+      {/* CONTINUE WITH GOOGLE, UNDER THE FORM.
 
           It began above the form and that was the wrong way round: the email
           form is the primary path and the one this page's heading is about, so

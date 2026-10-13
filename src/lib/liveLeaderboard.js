@@ -4,7 +4,7 @@ import { prizeForGroup } from './challengeGroups'
 import { onResume } from './resume'
 import { challengesApi } from '../api/challenges'
 
-// ONE LIVE BOARD PER CHALLENGE, HOWEVER MANY CARDS ARE SHOWING IT (22 Sep 2026).
+// ONE LIVE BOARD PER CHALLENGE, HOWEVER MANY CARDS ARE SHOWING IT.
 //
 // A leaderboard shared into a room is the board itself (migration 251), and a
 // busy room can hold the same challenge's card five times over a month of
@@ -40,8 +40,7 @@ async function read(challengeId, groupId) {
     })(),
   ])
   if (chErr || rowErr) throw chErr || rowErr
-  // ONE GROUP'S BOARD PLAYS FOR THAT GROUP'S PRIZES (1 Oct 2026), not the
-  // challenge's - which on a split challenge are usually empty.
+  // ONE GROUP'S BOARD PLAYS FOR THAT GROUP'S PRIZES, not the challenge's - which on a split challenge are usually empty.
   if (groupId && challenge) {
     const { data: group } = await challengesApi.challengeGroups().select('*').eq('id', groupId).maybeSingle()
     if (group) return { challenge: { ...challenge, ...prizeForGroup(group, challenge), group_name: group.name }, rows: rows ?? [] }

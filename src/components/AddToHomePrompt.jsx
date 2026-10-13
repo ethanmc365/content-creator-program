@@ -14,18 +14,6 @@ import { cx } from '../lib/utils'
 
 // PUT IT ON YOUR HOME SCREEN, AND THEN TURN NOTIFICATIONS ON.
 //
-// Ethan: "we need to identify whenever someone opens the website on Safari or
-// whether it's an app. If they open it on Safari, viewing the landing page,
-// that's fine - but once they have finished signing up and their application is
-// accepted, they'll probably first open it in Safari, and from then we want a
-// prompt with instructions on how to add it to the home screen, a visual little
-// thing for Apple, and also a button they can click to show the Android way to
-// do it. Once they add it to the home screen and open it, obviously it will
-// know and it will work properly... Also ensure that notifications are enabled.
-// Any time they fully close the app, next time they open it there should be
-// that pop up if their notifications aren't done. Remember that for desktop
-// this isn't the case, they can always view it as a web app."
-//
 // SO THIS IS TWO ASKS AND EXACTLY ONE OF THEM SHOWS AT A TIME:
 //
 //   install       a phone, in a BROWSER, not yet installed
@@ -36,33 +24,29 @@ import { cx } from '../lib/utils'
 // notifications first on an iPhone is asking for something the browser cannot
 // give. Home screen first, notifications once it is there.
 //
-// DESKTOP IS EXPLICITLY EXEMPT from the install half, exactly as Ethan says: a
-// laptop is a perfectly good way to use this and there is nothing to install.
-// It still gets the notifications ask, because a browser notification on a
-// desktop works fine and is the whole point of the feature.
+// DESKTOP IS EXPLICITLY EXEMPT from the install half, exactly as the team says: a laptop is a perfectly good way to use
+// this and there is nothing to install. It still gets the notifications ask, because a browser notification on a desktop
+// works fine and is the whole point of the feature.
 //
-// THE INSTALL HALF IS A WALL; THE NOTIFICATIONS HALF IS STILL AN ASK
-// (4 Sep 2026, and the wall was made absolute on 9 Sep). Ethan: "there should
-// be no not-now button, this pop up is persistent even if they click out of it
+// THE INSTALL HALF IS A WALL; THE NOTIFICATIONS HALF IS STILL AN ASK (and the wall was made absolute on 9 Sep). The
+// team: "there should be no not-now button, this pop up is persistent even if they click out of it
 // - they should not be able to use the mobile view on the website." So on a
 // phone, in a browser, there is no close button, no scrim press, no Escape and
 // no per-session memory: it is there on EVERY app open, for everybody,
 // creators and the team alike, and the only way past it is doing the thing.
 // The notifications ask is unchanged: dismissible, once per app open,
 // coordinated through `lib/appNag` so nobody meets three dialogs in a row.
-// THIS IS THE ONLY ONE. There used to be a second implementation, `InstallGate`,
-// behind an `install_gate_enabled` flag that was never switched on - and a note
-// saying "the wall is built, nobody is behind it" that was therefore true about
-// the dead copy and wrong about the product. Both are deleted (10 Sep 2026).
+// THIS IS THE ONLY ONE. There used to be a second implementation, `InstallGate`, behind an `install_gate_enabled` flag
+// that was never switched on - and a note saying "the wall is built, nobody is behind it" that was therefore true about
+// the dead copy and wrong about the product. Both are deleted.
 //
 // WHY IT WAITS FOR `status === 'active'`: a pending applicant has nothing to be
 // notified about and no reason to install anything - they are waiting on a
 // person. The moment they are approved, this is the first thing that matters.
 
 const NAG = 'home-screen'
-// Dismissed for this app open only. The next open asks again, which is what
-// Ethan asked for, and it is why there is no "never show me this" - the two
-// things being asked for are the two things the product does not work without.
+// Dismissed for this app open only. The next open asks again, which is what the team asked for, and it is why there is
+// no "never show me this" - the two things being asked for are the two things the product does not work without.
 const DISMISSED = 'tryp_home_prompt_dismissed'
 
 export default function AddToHomePrompt() {
@@ -99,7 +83,7 @@ export default function AddToHomePrompt() {
     if (!profile) return
 
     const installed = isStandalone()
-    // ASKABLE, NOT MERELY UNGRANTED (18 Sep 2026).
+    // ASKABLE, NOT MERELY UNGRANTED.
     //
     // THE BUG THIS FIXES. This read `!== 'granted'`, which is true for `denied`
     // as well - and `denied` is the one state the browser will never let us out
@@ -116,8 +100,8 @@ export default function AddToHomePrompt() {
                       // nothing to ask for until it is installed.
                       && (installed || !isIOS())
 
-    // THE WHOLE DECISION IS ONE PURE FUNCTION NOW (9 Sep 2026), and it is
-    // tested. It used to be six conditions written inline here, and one of them
+    // THE WHOLE DECISION IS ONE PURE FUNCTION NOW, and it is tested. It used to be six conditions written inline here,
+    // and one of them
     // - `if (profile.is_admin) return` - switched the entire feature off for
     // both of the people who would ever check that it still worked. See
     // lib/install.installPromptFor for the forensics.
@@ -131,27 +115,21 @@ export default function AddToHomePrompt() {
       status: profile.status,
     })
     if (!next) return
-    // NOTIFICATIONS ARE A BANNER NOW, NOT THIS MODAL (11 Oct 2026, components/PushBanner). Ethan wanted the ask on every
-    // app open without a pop-up in the way, so this component only does the install wall.
+    // NOTIFICATIONS ARE A BANNER NOW, NOT THIS MODAL (components/PushBanner). The team wanted the ask on every app open
+    // without a pop-up in the way, so this component only does the install wall.
     if (next === 'push') return
 
     // THE INSTALL WALL COMES BEFORE THE WALKTHROUGH, AND THE WALKTHROUGH THEN
-    // HAPPENS INSIDE THE APP. Ethan described the good path himself: "if the
-    // first thing you do is enter on the mobile website, then it prompts you to
-    // open it on the app, and then once you're on the app the interactive
-    // tutorial shows up." Walking somebody round the mobile WEBSITE and then
-    // telling them the website is not the product wastes the one walkthrough
-    // they get. The NOTIFICATIONS ask still waits for it, because the
-    // walkthrough asks for notifications itself.
+    // HAPPENS INSIDE THE APP. Walking somebody round the mobile WEBSITE and then telling them the website is not the
+    // product wastes the one walkthrough they get. The NOTIFICATIONS ask still waits for it, because the walkthrough
+    // asks for notifications itself.
     if (next === 'push' && !profile.tour_completed_at) return
 
     // A DISMISSIBLE ASK IS ASKED ONCE PER APP OPEN AND THEN HANDS THE QUEUE ON.
     //
-    // DISMISSED IS CHECKED BEFORE THE CLAIM, NOT AFTER IT (7 Sep 2026).
-    // lib/appNag's own rule says why: "a prompt that decides not to show must
-    // NOT claim, or it blocks the next one for the rest of the session." This
-    // one claimed the slot and THEN discovered it had already been dismissed
-    // this app open, so it walked away holding the queue.
+    // DISMISSED IS CHECKED BEFORE THE CLAIM, NOT AFTER IT. lib/appNag's own rule says why: "a prompt that decides not to
+    // show must NOT claim, or it blocks the next one for the rest of the session." This one claimed the slot and THEN
+    // discovered it had already been dismissed this app open, so it walked away holding the queue.
     //
     // A WALL DOES NOT QUEUE - it IS the screen, and there is nothing after it.
     if (dismissible) {
@@ -263,13 +241,10 @@ export default function AddToHomePrompt() {
     )
   }
 
-  // CHROME (OR ANY NON-SAFARI BROWSER) ON AN IPHONE is the same screen with
-  // the iPhone steps swapped for "go to Safari first". Its "Add to Home Screen"
-  // makes a shortcut that reopens Chrome, so the ordinary steps can be followed
-  // perfectly and this wall still returns on every launch (Daniela, 24 Sep
-  // 2026). The iPhone / Android toggle stays on top either way (Ethan, 24 Sep:
-  // "there should always be that toggle at the top between iPhone and
-  // Android"), because the person reading may be doing it on the other phone.
+  // CHROME (OR ANY NON-SAFARI BROWSER) ON AN IPHONE is the same screen with the iPhone steps swapped for "go to Safari
+  // first". Its "Add to Home Screen" makes a shortcut that reopens Chrome, so the ordinary steps can be followed
+  // perfectly and this wall still returns on every launch (Daniela). The iPhone / Android toggle stays on top either way
+  // ( ), because the person reading may be doing it on the other phone.
   const viaSafari = mode === 'safari'
   const iosList = viaSafari ? SAFARI_STEPS : IOS_STEPS
 
@@ -278,24 +253,16 @@ export default function AddToHomePrompt() {
     // phone the app IS the product, and this is the one screen between the two.
     <Modal open onClose={canClose ? dismiss : () => {}} dismissible={canClose} title={tr('Add Tryp.com to your home screen')}>
       <div className="space-y-5">
-        {/* A SOLID BRAND CARD, AND SHORTER (4 Sep 2026). Ethan: "the card that
-            says it opens full screen and loads instantly and is the only way to
-            get notified the moment a challenge goes live - I would shorten
-            that, and also change the colour of that card. I like the design."
-            Tint-on-white was the same weight as everything else on the screen,
-            so the one sentence that says WHY read as a footnote. Solid brand is
-            the loudest thing the palette has and this is the loudest thing on
-            the screen. */}
+        {/* A SOLID BRAND CARD, AND SHORTER. Tint-on-white was the same weight as everything else on the screen, so the
+            one sentence that says WHY read as a footnote. Solid brand is the loudest thing the palette has and this is
+            the loudest thing on the screen. */}
         {/* THE TOGGLE LEADS, so the platform is the first choice on the card
             and everything under it (the one-line why, the steps, the buttons)
             belongs to whichever phone is picked. */}
-        {/* TWO SETS OF STEPS, ONE SHOWING, AND THE CARD DOES NOT RESIZE.
-            Ethan: "when clicking from Android to iPhone the card jumps in size
-            a bit - I would have it always the same size." iOS is five steps and
-            Android is four, so the list reserves the height of the taller one
-            and the shorter one simply has a gap at the bottom. A dialog that
-            grows and shrinks under your thumb while you are reading it is the
-            thing being complained about; a little white space is not. */}
+        {/* TWO SETS OF STEPS, ONE SHOWING, AND THE CARD DOES NOT RESIZE. iOS is five steps and Android is four, so the
+            list reserves the height of the taller one and the shorter one simply has a gap at the bottom. A dialog that
+            grows and shrinks under your thumb while you are reading it is the thing being complained about; a little
+            white space is not. */}
         <div>
           <div className="mb-4 flex gap-1.5 rounded-full bg-cloud p-1">
             {[['ios', 'iPhone'], ['android', 'Android']].map(([key, label]) => (
@@ -368,9 +335,7 @@ export default function AddToHomePrompt() {
           </div>
         )}
 
-        {/* NOT A WAY OUT - A WAY IN. Ethan: "maybe someone opens it on the
-            website but they already have the app, so there'd be a button to
-            just open the app."
+        {/* NOT A WAY OUT - A WAY IN.
             THERE IS NO WEB API THAT LAUNCHES AN INSTALLED PWA FROM A TAB, on
             any platform, and there is no way to fake one: the OS owns app
             launching and a link to our own origin opens in this same browser.
@@ -392,10 +357,7 @@ export default function AddToHomePrompt() {
           </p>
         )}
 
-        {/* THERE IS NO WAY PAST THIS SCREEN AND THERE IS NO LONGER ONE FOR THE
-            TEAM EITHER (9 Sep 2026). Ethan: "remove the x at the top and remove
-            the 'not now, keep me in the browser'. We want that pop up to be
-            persistent... we want them to only use that."
+        {/* THERE IS NO WAY PAST THIS SCREEN AND THERE IS NO LONGER ONE FOR THE TEAM EITHER.
 
             The button that stood here was the admin escape hatch, added the
             same day on the worry that an admin opening a link to /admin on
@@ -420,10 +382,7 @@ function Blurb({ icon, children }) {
 }
 
 // One numbered step, with the glyph the button it names actually wears.
-// ONE STEP, AND EVERY STEP IS THE SAME HEIGHT (4 Sep 2026).
-//
-// Ethan: "the UI was weird, especially for the Android one, because some
-// numbers were closer together than the others."
+// ONE STEP, AND EVERY STEP IS THE SAME HEIGHT.
 //
 // Exactly right, and it was not a spacing value. The rows were `items-start`
 // with a flat `space-y` between them, so the pitch of the numbered discs was

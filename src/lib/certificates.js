@@ -1,16 +1,11 @@
 // ============================================================================
 // REDESIGNED 28 SEP 2026, AND STILL HIDDEN UNTIL ETHAN SAYS GO.
 //
-// Ethan asked for a proper redesign rather than doing it himself: "you
-// actually have the right idea. You just need better design skills." The six
-// layouts were rebuilt on one grid and one type scale, decoration was moved
-// out of the text's way, a place medal was added so 1st, 2nd, 3rd... each
-// look different, and the tier gave way to the award trigger. Poppins 400/700
-// only (the two weights `domSnapshot` embeds, so the download matches the
-// screen). Creators still cannot see certificates until
-// `app_settings.certificates_live` is switched on (migration 237); every award
-// made meanwhile appears the moment it is.
-// ============================================================================
+// The six layouts were rebuilt on one grid and one type scale, decoration was moved out of the text's way, a place medal
+// was added so 1st, 2nd, 3rd... each look different, and the tier gave way to the award trigger. Poppins 400/700 only
+// (the two weights `domSnapshot` embeds, so the download matches the screen). Creators still cannot see certificates
+// until `app_settings.certificates_live` is switched on (migration 237); every award made meanwhile appears the moment
+// it is. ============================================================================
 
 // WHAT A CERTIFICATE SAYS, AND WHO GETS ONE.
 //
@@ -73,8 +68,7 @@ function factText(key, facts) {
   // zero-view certificate as though the number were unknown.
   if (raw === null || raw === undefined || raw === '') return ''
   if (key === 'views') return Number(raw).toLocaleString()
-  // A certificate drawn in another language passes its own "1.º" / date (12 Oct 2026): a Spanish card read
-  // "por quedar 1st en ...".
+  // A certificate drawn in another language passes its own "1.º" / date: a Spanish card read "por quedar 1st en...".
   if (key === 'place') return facts.placeText || ordinal(Number(raw))
   if (key === 'date') return facts.dateText || formatAwardDate(raw)
   return String(raw)
@@ -98,16 +92,11 @@ export function formatAwardDate(value) {
 // ---------------------------------------------------------------------------
 // THE DESIGN SYSTEM A CERTIFICATE IS BUILT FROM
 //
-// Three axes - LAYOUT, ACCENT, PAPER - and they are three because of what was
-// wrong with having one. The first version was a single centred composition
-// with a colour wash behind it, and Ethan's verdict was not about the colour:
-// "it's really like AI style, really bad... I want it completely, completely,
-// utterly redesigned. Like instead of just changing how it currently looks
-// like, I want it completely redesigned."
+// Three axes - LAYOUT, ACCENT, PAPER - and they are three because of what was wrong with having one. The first version
+// was a single centred composition with a colour wash behind it, and
 //
-// He is right about the diagnosis. What made it look generated was the SHAPE -
-// kicker, centred title, rule, centred name, centred paragraph, three things
-// along the bottom - which is the shape of every certificate any tool has ever
+// they are right about the diagnosis. What made it look generated was the SHAPE - kicker, centred title, rule, centred
+// name, centred paragraph, three things along the bottom - which is the shape of every certificate any tool has ever
 // produced. No palette fixes that, so the palette was never the thing to fix.
 //
 // So: six layouts that are genuinely different objects, ten accents, five
@@ -188,16 +177,13 @@ export function readableOn(hex) {
 // Tryp orange is first and is the default, because the common case is a
 // Tryp.com certificate and the common case should be one press.
 //
-// WHAT IS NOT HERE: anything pale, anything neon, and gold. Pale cannot hold
-// white type, neon is not this brand, and gold is the colour that made the old
-// ones look like a template - it is also what Ethan was describing as the
+// WHAT IS NOT HERE: anything pale, anything neon, and gold. Pale cannot hold white type, neon is not this brand, and
+// gold is the colour that made the old ones look like a template - it is also what the team was describing as the
 // "goldeny, orangey glow" he did not like.
 //
-// FOURTEEN NOW, AND ONE OF THEM IS YELLOW (28 Sep 2026). Ethan: "for those
-// accent colors as well, adding some new ones like we don't have a yellow".
-// A yellow cannot carry white type, so every layout now sets the words on an
-// accent block in `readableOn(accent)` rather than always white - which is
-// what makes a pale accent safe to offer at all.
+// FOURTEEN NOW, AND ONE OF THEM IS YELLOW. A yellow cannot carry white type, so every layout now sets the words on an
+// accent block in `readableOn(accent)` rather than always white - which is what makes a pale accent safe to offer at
+// all.
 export const ACCENTS = [
   { key: 'tryp', label: 'Tryp orange', hex: '#D94407' },
   { key: 'tangerine', label: 'Tangerine', hex: '#F07C1B' },
@@ -217,13 +203,10 @@ export const ACCENTS = [
 
 export const DEFAULT_ACCENT = ACCENTS[0].hex
 
-// FIVE PAPERS, AND NOW SOME OF THEM ARE GRADIENTS (21 Sep 2026).
+// FIVE PAPERS, AND NOW SOME OF THEM ARE GRADIENTS.
 //
-// Ethan: "the paper colour etc, kind of like different gradients there or just
-// plain white... the gradients that we have on the platform for behind the
-// cards." So the choice is the platform's own grounds: plain white, a warm
-// white, a soft glow of the accent, a stronger wash of it, and the full Tryp
-// gradient - the hub card - with the type turned white on it.
+// So the choice is the platform's own grounds: plain white, a warm white, a soft glow of the accent, a stronger wash of
+// it, and the full Tryp gradient - the hub card - with the type turned white on it.
 //
 // Every gradient runs from the accent to a LIGHTER tone of it (for Tryp orange
 // that is exactly brand -> brand-light), never towards black: "a really dark
@@ -232,13 +215,9 @@ export const DEFAULT_ACCENT = ACCENTS[0].hex
 // Saved designs keep working: `mist` reads as White, `ink` as the Tryp
 // gradient (the other "different character" option), and `tint` is still a
 // key - it is now the wash.
-// ONE PAPER: WHITE (28 Sep 2026).
+// ONE PAPER: WHITE.
 //
-// There were five - white, warm white, soft glow, wash and the full Tryp
-// gradient. Ethan, reviewing the set: "I think I would remove the paper style
-// and just always have it as white. I think the soft glow wash and Tryp gradient
-// isn't necessary. Just have white as the only option and remove those options.
-// Still keep the accent colours."
+// There were five - white, warm white, soft glow, wash and the full Tryp gradient.
 //
 // Which is the right call for a certificate: the ground is not where a
 // certificate gets its character - the layout and the accent are - and four of
@@ -311,14 +290,11 @@ export function paletteFor({ paper, accent } = {}) {
   }
 }
 
-// SIX LAYOUTS, SIX DIFFERENT OBJECTS (21 Sep 2026).
+// SIX LAYOUTS, SIX DIFFERENT OBJECTS.
 //
-// Ethan, on the last set: "they're all quite similar and none of them I like
-// at all." They were six arrangements of the same parts - kicker, title, rule,
-// name, paragraph, footer - which is why they read as one design six times.
-// These are six THINGS a travel brand would hand you, each built from the
-// platform's parts (the hub gradient, the dotted route, the Tryp plane, the
-// wordmark, Poppins):
+// They were six arrangements of the same parts - kicker, title, rule, name, paragraph, footer - which is why they read
+// as one design six times. These are six THINGS a travel brand would hand you, each built from the platform's parts (the
+// hub gradient, the dotted route, the Tryp plane, the wordmark, Poppins):
 export const LAYOUTS = [
   { key: 'horizon', label: 'Horizon', hint: 'The hub card down the left with the Tryp plane on its route; your words beside it.' },
   { key: 'boarding', label: 'Boarding pass', hint: 'A real pass: passenger, route, gate and seat, with a perforated stub.' },
@@ -358,20 +334,16 @@ export function designStyle(design = {}) {
 // LinkedIn feed, without reading the words. Each tier gets its own accent and
 // its own default emblem, and `rank` is what sorts a creator's wall so the rare
 // one is at the top of it.
-// EVERY TIER IS TRYP ORANGE NOW (20 Sep 2026).
+// EVERY TIER IS TRYP ORANGE NOW.
 //
-// These were orange, gold (#b8860b), teal (#0f766e) and slate (#475569), so the
-// ladder could be read across a feed without reading the words. Ethan, looking
-// at four of them: "I don't like the different colors... the tryp.com orange
-// for me, the nice gradient."
+// These were orange, gold (#b8860b), teal (#0f766e) and slate (#475569), so the ladder could be read across a feed
+// without reading the words.
 //
-// He is right and the original reasoning was answering the wrong question. A
-// certificate's job is not to rank its holder against other holders - it is to
-// be posted, by one person, showing that TRYP.COM gave them something. Four
-// colour schemes make four different-looking companies; a gold one next to a
-// teal one on LinkedIn reads as a template pack somebody bought. The tier is
-// still named in the subtitle, which is where a reader actually learns it, and
-// `rank` still sorts the wall so the rare one is on top.
+// they are right and the original reasoning was answering the wrong question. A certificate's job is not to rank its
+// holder against other holders - it is to be posted, by one person, showing that TRYP.COM gave them something. Four
+// colour schemes make four different-looking companies; a gold one next to a teal one on LinkedIn reads as a template
+// pack somebody bought. The tier is still named in the subtitle, which is where a reader actually learns it, and `rank`
+// still sorts the wall so the rare one is on top.
 //
 // `emblem` is kept because it is stored on existing designs and the studio can
 // still set it, but CertificateCard no longer draws it - see the note there.
@@ -401,15 +373,11 @@ export const TIERS = [
 
 export const tierOf = (key) => TIERS.find((t) => t.key === key) || TIERS[0]
 
-// THE TIER IS NOW DERIVED FROM WHEN IT IS GIVEN (28 Sep 2026).
+// THE TIER IS NOW DERIVED FROM WHEN IT IS GIVEN.
 //
-// Ethan: "I noticed that achievement tier and milestone of participation
-// doesn't really change anything ... I think the tier is not necessary because
-// we have the when is it given, which I think is what we need." He is right:
-// the tier only changed one word on the card, and it could contradict the
-// trigger (a "Participation" tier on a podium award). The studio no longer
-// asks. The tier column is still written - it sorts a creator's wall, rarest
-// first - but from the trigger, so the two can never disagree.
+// they are right: the tier only changed one word on the card, and it could contradict the trigger (a "Participation"
+// tier on a podium award). The studio no longer asks. The tier column is still written - it sorts a creator's wall,
+// rarest first - but from the trigger, so the two can never disagree.
 export const TIER_FOR_AWARD = {
   challenge_rank: 'achievement',
   manual: 'honour',
@@ -425,25 +393,17 @@ export const tierForAward = (awardOn) => TIER_FOR_AWARD[awardOn] || 'honour'
  * Old designs with no trigger on the row (the verify page before 269) fall
  * back to their stored tier.
  */
-// THE BADGE DOES NOT NAME ITS OWN CATEGORY (28 Sep 2026). Ethan, going through
-// the set: "I don't think you need to say participant on the actual badge. Same
-// with milestone shouldn't show that, and also by hand it shouldn't show honour,
-// just a star."
+// THE BADGE DOES NOT NAME ITS OWN CATEGORY.
 //
-// He is right, and it generalises. The certificate already SAYS what it is, in
-// the sentence the whole page is built around ("for taking part in...", "for
-// reaching..."). A disc in the corner stamped PARTICIPANT is the page labelling
-// itself, and it reads as a category filed against the person rather than a
-// thing they were given. `badgeLabel` is what the badge prints, and it is empty
-// for those three; `label` stays the plain English name of the kind, because the
-// studio, the passport's "Class" field and the machine-readable line all need a
-// word for it.
+// they are right, and it generalises. The certificate already SAYS what it is, in the sentence the whole page is built
+// around ("for taking part in...", "for reaching..."). A disc in the corner stamped PARTICIPANT is the page labelling
+// itself, and it reads as a category filed against the person rather than a thing they were given. `badgeLabel` is what
+// the badge prints, and it is empty for those three; `label` stays the plain English name of the kind, because the
+// studio, the passport's "Class" field and the machine-readable line all need a word for it.
 export function awardKind(design = {}, facts = {}) {
   const place = Number(facts?.place)
-  // JUST THE ORDINAL. It was "1st place", under a badge that also printed the
-  // word PLACE and "of 10" beneath it - the same fact three times on one disc.
-  // Ethan: "don't say 'of 10'. Just say 'first', and you don't even need to say
-  // 'place'."
+  // JUST THE ORDINAL. It was "1st place", under a badge that also printed the word PLACE and "of 10" beneath it - the
+  // same fact three times on one disc.
   if (Number.isFinite(place) && place > 0) {
     return { key: 'place', label: ordinal(place), badgeLabel: '', place, icon: 'trophy' }
   }
@@ -452,8 +412,7 @@ export function awardKind(design = {}, facts = {}) {
   if (on === 'challenge_entry') return { key: 'entry', label: 'Participant', badgeLabel: '', icon: 'check' }
   // JOINING (migration 290): every creator gets one the day they are approved.
   if (on === 'creator_joined') return { key: 'joined', label: 'Official creator', badgeLabel: '', icon: 'star' }
-  // A FLAG IS NOT A MILESTONE. Ethan: "I don't like the current milestone icon.
-  // Maybe change it to something else, like a trophy."
+  // A FLAG IS NOT A MILESTONE.
   if (on === 'milestone') return { key: 'milestone', label: 'Milestone', badgeLabel: '', icon: 'trophy' }
   return { key: 'honour', label: 'Honour', badgeLabel: '', icon: 'star' }
 }
@@ -588,12 +547,9 @@ const BODY_FOR_AWARD = {
  * The body a design should carry once its trigger changes to `next`, or null to
  * leave the wording alone.
  *
- * THE WARNING WAS RIGHT AND STILL USELESS (28 Sep 2026). `bodyProblem` correctly
- * reported that a body written for a challenge ("for finishing {place} in
- * {challenge}") fills nothing on a milestone certificate - but it reported it
- * AFTER the admin had switched the trigger and left them to fix it by hand.
- * Ethan: "if I click from reaching a milestone, by hand, entering a challenge,
- * everything updates correctly."
+ * THE WARNING WAS RIGHT AND STILL USELESS. `bodyProblem` correctly reported that a body written for a challenge ("for
+ * finishing {place} in {challenge}") fills nothing on a milestone certificate - but it reported it AFTER the admin had
+ * switched the trigger and left them to fix it by hand.
  *
  * So the switch brings its own sentence. The test is not "was this the default
  * before" - which would need us to remember every starter - but the honest one:

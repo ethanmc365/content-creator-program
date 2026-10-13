@@ -4,13 +4,9 @@ import { mdToHtml } from '../lib/richEditor'
 import { cx } from '../lib/utils'
 import { useT } from '../lib/i18n'
 
-// A BRIEF THAT OPENS ON ITS FIRST PARAGRAPH (21 Sep 2026).
+// A BRIEF THAT OPENS ON ITS FIRST PARAGRAPH.
 //
-// Ethan, of the Global Challenge: "I would have this collapsible so it only
-// shows the first paragraph and then has an arrow to extend it to read it all
-// ... and then you can collapse it again to hide it so it's not taking up so
-// much space. Same for rules." The points table and the leaderboard sit under
-// the brief, and a long brief pushed them a screen away.
+// The points table and the leaderboard sit under the brief, and a long brief pushed them a screen away.
 //
 // The whole text is rendered once (so nothing re-parses on toggle) and the box
 // is clipped to the bottom of the first block of prose - the heading above it

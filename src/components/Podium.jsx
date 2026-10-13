@@ -7,11 +7,6 @@ import { cx } from '../lib/utils'
 
 // ONE PODIUM. TWO PAGES DREW IT, SO IT IS A COMPONENT NOW.
 //
-// Ethan: "looking at the archive leaderboard for the UK challenge, I like the
-// new colour structure for it - although I want this structure to be the same
-// as the one on the leaderboard page, the global all-time leaderboard. Make
-// them the same."
-//
 // They were two hand-written podiums. The all-time board had ring-4 faces, a
 // name, the number under it and a tall solid block carrying the PLACE NUMBER;
 // the challenge podium had a 3px collar, gradient blocks half the height and
@@ -28,9 +23,8 @@ import { cx } from '../lib/utils'
 
 // The tallest block is in the MIDDLE, which is what makes it read as a podium
 // rather than as a descending bar chart.
-// FIVE STEPS WHEN FIVE ARE GIVEN (21 Sep 2026). Ethan: "You can show a visual
-// of the top 5 spots here rather than just 3." Fourth and fifth stand on the
-// outside, lower and smaller, so the middle three still read as the podium.
+// FIVE STEPS WHEN FIVE ARE GIVEN. Fourth and fifth stand on the outside, lower and smaller, so the middle three still
+// read as the podium.
 const ORDER = [4, 2, 1, 3, 5]
 const HEIGHT = { 1: 'h-28', 2: 'h-20', 3: 'h-16', 4: 'h-12', 5: 'h-9' }
 
@@ -89,12 +83,10 @@ export default function Podium({ places = [], meId = null, animate = true, class
                   className="block rounded-full p-1 transition-transform duration-200 group-hover:scale-105"
                   style={{ background: tier.disc }}
                 >
-                  {/* `max-w-none` KEEPS IT A CIRCLE (22 Sep 2026). Ethan, on a
-                      phone: the number one's "profile photo is distorted, it's
-                      not a circle." Five steps across 375px leave the middle
-                      column ~70px, and preflight's `img { max-width: 100% }`
-                      squeezed the 80px photo's WIDTH and not its height - an
-                      oval. The photo is sized to fit the column instead. */}
+                  {/* `max-w-none` KEEPS IT A CIRCLE. The team, on a phone: the number one's "profile photo is distorted,
+                      it's not a circle." Five steps across 375px leave the middle column ~70px, and preflight's `img {
+                      max-width: 100% }` squeezed the 80px photo's WIDTH and not its height - an oval. The photo is sized
+                      to fit the column instead. */}
                   <Avatar
                     src={p.photo_url}
                     name={p.name}
@@ -103,14 +95,11 @@ export default function Podium({ places = [], meId = null, animate = true, class
                   />
                 </span>
               )}
-              {/* "UP FOR GRABS" WRAPS, A NAME TRUNCATES (1 Oct 2026). Ethan, on a
-                  phone: the "up for grabs" text was "going through each other".
-                  Five steps at 375px leave the outer columns ~60px, and the face
-                  wrapper was sized to its content rather than its column, so
-                  `truncate` had no width to cut at and each label ran into the
-                  next step. The wrapper is the column's width now, a name
-                  ellipsises inside it, and the open-place words break onto two
-                  short lines instead of being cut to "Up fo...". */}
+              {/* "UP FOR GRABS" WRAPS, A NAME TRUNCATES. The team, on a phone: the "up for grabs" text was "going
+                  through each other". Five steps at 375px leave the outer columns ~60px, and the face wrapper was sized
+                  to its content rather than its column, so `truncate` had no width to cut at and each label ran into the
+                  next step. The wrapper is the column's width now, a name ellipsises inside it, and the open-place words
+                  break onto two short lines instead of being cut to "Up fo...". */}
               <p className={cx(
                 'mt-2 w-full max-w-full text-center font-semibold transition-colors group-hover:text-brand',
                 p.empty ? 'line-clamp-2 break-words leading-tight' : 'truncate',
@@ -128,12 +117,9 @@ export default function Podium({ places = [], meId = null, animate = true, class
                 {p.score}{p.unit ? ` ${p.unit}` : ''}
               </p>
             )}
-            {/* THE VIEWS, NEXT TO THE POINTS (3 Sep 2026).
-                Ethan: "on the podium as well as the points, it should still
-                show the views beside it as well because that's also important."
-                A points total answers "who is winning"; it does not answer "did
-                this challenge reach anybody", which is the number the programme
-                is actually for. Both, or the board only tells half the story. */}
+            {/* THE VIEWS, NEXT TO THE POINTS. A points total answers "who is winning"; it does not answer "did this
+                challenge reach anybody", which is the number the programme is actually for. Both, or the board only
+                tells half the story. */}
             {p.sub && (
               <p className="text-[11px] font-medium tabular-nums text-smoke">{p.sub}</p>
             )}

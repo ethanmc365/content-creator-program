@@ -1,15 +1,10 @@
 // HOW FAR UP IS FAR ENOUGH TO OFFER A WAY BACK DOWN.
 //
-// Every message scroller had one number doing two jobs: `scrollHeight -
-// scrollTop - clientHeight < 90` decided both "should new messages follow the
-// reader down" and "should the jump-to-latest pill appear". Ninety pixels is
-// about right for the first - it is roughly one line of chat, so nudging the
-// list a fraction does not stop it tracking - and far too eager for the second.
-// Ethan: "if you scroll up just one message it shouldn't immediately show up
-// Jump to. It should only show up after scrolling past more than five
-// messages." Scrolling back one message to re-read it is the single most common
-// thing anybody does in a chat, and being handed a pill for it made the pill
-// mean nothing.
+// Every message scroller had one number doing two jobs: `scrollHeight - scrollTop - clientHeight < 90` decided both
+// "should new messages follow the reader down" and "should the jump-to-latest pill appear". Ninety pixels is about right
+// for the first - it is roughly one line of chat, so nudging the list a fraction does not stop it tracking - and far too
+// eager for the second. Scrolling back one message to re-read it is the single most common thing anybody does in a chat,
+// and being handed a pill for it made the pill mean nothing.
 //
 // So the two decisions are separated. `atBottom` keeps its 90px and keeps
 // driving the auto-follow. The pill gets this: the summed height of the last

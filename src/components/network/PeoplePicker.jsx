@@ -40,10 +40,7 @@ export default function PeoplePicker({
   const isPhone = useIsPhone()
   // THE SHEET IS LAID OUT AGAINST THE VISIBLE AREA, NOT THE LAYOUT VIEWPORT.
   //
-  // THE BUG THIS FIXES (8 Sep 2026). Ethan: "issue on mobile with the Tryp.com
-  // team admin panel page - when you add someone and type a name, the pop-up
-  // list goes below the keyboard and can't select. Also it doesn't seem to
-  // actually let me select someone at all."
+  // THE BUG THIS FIXES.
   //
   // Both halves are one fault. `position: fixed` anchors to the LAYOUT viewport,
   // which on iOS does not shrink when the keyboard opens - only the VISUAL one
@@ -111,8 +108,8 @@ export default function PeoplePicker({
 
   if (!open) return null
 
-  // PORTALLED (1 Oct 2026): inside a page it was trapped in the page's own layer, so the app
-  // header and the page title painted on top of the dimmed backdrop.
+  // PORTALLED: inside a page it was trapped in the page's own layer, so the app header and the page title painted on top
+  // of the dimmed backdrop.
   return createPortal((
     <AnimatePresence>
       <div

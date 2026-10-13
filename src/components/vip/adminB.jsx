@@ -16,14 +16,12 @@ import { safeUrl } from '../../lib/safeUrl'
 import { vipApi } from '../../api/vip'
 import { settingsApi } from '../../api/settings'
 
-// THE TEAM'S SIDE OF THE VIP PROGRAMME, PART TWO: the rules, the close, the goals, the numbers (2 Oct 2026).
+// THE TEAM'S SIDE OF THE VIP PROGRAMME, PART TWO: the rules, the close, the goals, the numbers.
 
-// ------------------------------------------------------------------------------------ bonuses
-// SIMPLER BONUSES (3 Oct 2026). Ethan: "the bonuses ... I'd really want to improve the layout of all this ... make it
-// super simple ... I don't get where it says raise the views rate ... I should have the option to click future months as
-// well to actually prepare this." So: no rate multiplier and no "% on views pay" (a bonus is an amount, cash or a
-// voucher), one dialog that keeps its size whichever kind is picked, and "When it runs" offers every month, this month
-// or any of the next five, which the close matches by calendar month (migration 318).
+// ------------------------------------------------------------------------------------ bonuses SIMPLER BONUSES. So: no
+//  rate multiplier and no "% on views pay" (a bonus is an amount, cash or a voucher), one dialog that keeps its size
+//  whichever kind is picked, and "When it runs" offers every month, this month or any of the next five, which the close
+//  matches by calendar month (migration 318).
 const blankRule = (kind = 'target') => ({
   kind, label: '', reward: 'cash', scope: kind === 'target' || kind === 'streak' || kind === 'milestone' ? 'creator' : 'market',
   amount: '', places: [{ place: 1, amount: '', reward: 'cash' }, { place: 2, amount: '', reward: 'cash' }, { place: 3, amount: '', reward: 'cash' }], when: 'every', active: true,
@@ -131,8 +129,8 @@ function RuleModal({ rule, programme, month, onClose, onSaved, onLadder }) {
             </div>
           </div>
         )}
-        {/* ONE HEIGHT FOR EVERY KIND (3 Oct 2026): "clicking from hit a target to top of the month changes the size of
-            the card." The body below keeps a minimum height, so switching kinds does not make the dialog jump. */}
+        {/* ONE HEIGHT FOR EVERY KIND: "clicking from hit a target to top of the month changes the size of the card." The
+            body below keeps a minimum height, so switching kinds does not make the dialog jump. */}
         <div key={r.kind} className="min-h-[27rem] space-y-5 animate-tab-in">
           <p className="rounded-xl bg-cloud/60 px-3.5 py-2.5 text-[13px] text-smoke"><Icon name={kind.icon} className="mr-1.5 inline h-4 w-4 text-brand" />{tr(kind.hint)}</p>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -146,8 +144,8 @@ function RuleModal({ rule, programme, month, onClose, onSaved, onLadder }) {
             </div>
           </div>
 
-          {/* WHO GETS IT (6 Oct 2026). VIP Worldwide is shared by every market, so a bonus set there can be for every VIP creator or only for
-              the Worldwide creators who are in no other VIP market. */}
+          {/* WHO GETS IT. VIP Worldwide is shared by every market, so a bonus set there can be for every VIP creator or
+              only for the Worldwide creators who are in no other VIP market. */}
           {programme.is_default && (
             <div>
               <p className="label">{tr('Who gets it')}</p>
@@ -275,8 +273,8 @@ function costNow(rule, members, claims = []) {
   return null
 }
 
-// A SET OF PERSONAL MILESTONES IN ONE GO (1 Oct 2026). One row per milestone (what total, what it pays), saved as one
-// rule each; the close works each out once per creator.
+// A SET OF PERSONAL MILESTONES IN ONE GO. One row per milestone (what total, what it pays), saved as one rule each; the
+// close works each out once per creator.
 function MilestoneLadder({ programme, onClose, onSaved }) {
   const tr = useKindT()
   const { profile } = useAuth()
@@ -334,11 +332,12 @@ function MilestoneLadder({ programme, onClose, onSaved }) {
   )
 }
 
-// WHERE A BONUS STARTS (4 Oct 2026). Ethan: the ready-made bonuses "should show up as options at the top because we have the 'Add a
-// bonus' button anyway." They were a row of cards above the list; now they are the first thing in the Add dialog. Each one fills the
-// form with sensible numbers to change, and everything here is worked out by itself when the month closes.
-// "Consistency streak" and "Post a lot" are gone from the list (4 Oct 2026): posting steadily is what a VIP is expected to do (the stay-in
-// rule asks for it), so it is not something to pay a bonus for. A streak rule that already exists still shows and still pays.
+// WHERE A BONUS STARTS. The team: the ready-made bonuses "should show up as options at the top because we have the 'Add
+// a bonus' button anyway." They were a row of cards above the list; now they are the first thing in the Add dialog. Each
+// one fills the form with sensible numbers to change, and everything here is worked out by itself when the month closes.
+// "Consistency streak" and "Post a lot" are gone from the list: posting steadily is what a VIP is expected to do (the
+// stay-in rule asks for it), so it is not something to pay a bonus for. A streak rule that already exists still shows
+// and still pays.
 const TEMPLATES = [
   { key: 'podium', icon: 'trophy', label: 'Monthly podium', hint: 'Prizes for the top three on views', rule: { kind: 'top_n', label: 'Most views of the month', scope: 'market', reward: 'cash', places: [{ place: 1, amount: '100', reward: 'cash' }, { place: 2, amount: '50', reward: 'cash' }, { place: 3, amount: '25', reward: 'cash' }] } },
   { key: 'target', icon: 'flag', label: 'Hit your target', hint: 'Reach the monthly target you set for them', rule: { kind: 'target', label: 'Monthly target hit', scope: 'creator', reward: 'cash', amount: '25', conditions: { own: true } } },
@@ -350,9 +349,10 @@ const TEMPLATES = [
   { key: 'ladder', icon: 'chart', label: 'A ladder of milestones', hint: '100k, 500k, 1M views and so on, in one go', ladder: true },
 ]
 
-// MILESTONES, PERKS AND TRIPS LIVE WITH THE BONUSES (4 Oct 2026). Ethan: they "seem very similar and overlapping ... combine this, milestone
-// perks and trips, into the bonuses section under money, and remove it from content." Both are rewards a VIP earns, and both pay by
-// themselves, so there is one place for them: a switch at the top of Bonuses between the monthly bonuses and the goals VIPs unlock.
+// MILESTONES, PERKS AND TRIPS LIVE WITH THE BONUSES. The team: they "seem very similar and overlapping... combine this,
+// milestone perks and trips, into the bonuses section under money, and remove it from content." Both are rewards a VIP
+// earns, and both pay by themselves, so there is one place for them: a switch at the top of Bonuses between the monthly
+// bonuses and the goals VIPs unlock.
 export function VipBonusesTab({ programme, isOwner = false, initialPart = 'monthly' }) {
   const tr = useKindT()
   const [part, setPart] = useState(initialPart === 'perks' ? 'perks' : 'monthly')
@@ -363,7 +363,7 @@ export function VipBonusesTab({ programme, isOwner = false, initialPart = 'month
         label={tr('Kind of reward')}
         value={part}
         onChange={setPart}
-        // Two equal halves that fit a phone (12 Oct 2026): the long label ran off a 375px screen.
+        // Two equal halves that fit a phone: the long label ran off a 375px screen.
         className="!grid w-full grid-cols-2 sm:!inline-flex sm:w-auto [&>button>span]:justify-center [&>button>span]:whitespace-normal [&>button>span]:text-center"
         options={[{ value: 'monthly', label: tr('Monthly bonuses') }, { value: 'perks', label: tr('Perks and trips') }]}
       />
@@ -461,10 +461,10 @@ function MonthlyBonuses({ programme }) {
   )
 }
 
-// THE ANSWERS TO CHECK (10 Oct 2026, migration 377). Ethan: creators mark a video as fitting the challenge "and Marta will have the
-// ability to decide this". Every yes this month, the unchecked ones first, each with the video to open or copy and three answers:
-// confirm (it fits), reject (it does not; the creator is told, their views pay is not touched) or undo. A yes counts until rejected,
-// so the board is live from the first video.
+// THE ANSWERS TO CHECK (migration 377). The team: creators mark a video as fitting the challenge "and Marta will have
+// the ability to decide this". Every yes this month, the unchecked ones first, each with the video to open or copy and
+// three answers: confirm (it fits), reject (it does not; the creator is told, their views pay is not touched) or undo. A
+// yes counts until rejected, so the board is live from the first video.
 function ClaimsReview({ claims }) {
   const tr = useKindT()
   const [show, setShow] = useState('open')
@@ -668,8 +668,8 @@ export function VipCloseTab({ programme }) {
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-center gap-3">
-        {/* THE HOUSE DROPDOWN, NOT THE OS ONE (2 Oct 2026). Ethan: under Month end "the arrow is outside the button,
-            also for that dropdown it's an Apple UI not a custom UI." */}
+        {/* THE HOUSE DROPDOWN, NOT THE OS ONE. The team: under Month end "the arrow is outside the button, also for that
+            dropdown it's an Apple UI not a custom UI." */}
         <div className="flex items-center gap-2 text-sm font-semibold text-ink">
           <Icon name="calendar" className="h-4 w-4 text-brand" />
           <Select
@@ -691,10 +691,9 @@ export function VipCloseTab({ programme }) {
         </div>
       </div>
 
-      {/* ONE STATUS, NOT THREE NUMBERED STEPS (4 Oct 2026). Ethan: "I chose 1, 2, 3, because currently it doesn't make sense, and it looks
-          like buttons, but they aren't even buttons ... I guess it should be added automatically, though, right? Only if they request
-          something, it should show up." So: a month closes by itself, every statement with nothing flagged goes straight into the
-          creator's balance, and this page only asks for a person where one is actually needed. One colour. */}
+      {/* ONE STATUS, NOT THREE NUMBERED STEPS. So: a month closes by itself, every statement with nothing flagged goes
+          straight into the creator's balance, and this page only asks for a person where one is actually needed. One
+          colour. */}
       {month && (
         <section className="rounded-card border border-gray-100 bg-white p-4 shadow-card sm:p-5">
           <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3">
@@ -769,9 +768,11 @@ export function VipCloseTab({ programme }) {
 }
 
 // ------------------------------------------------------------------------------------- settings
-/** How often every VIP video's views are read (app_settings `vip_sync`). A new video is read the moment it is added.
- *  A card of its own in the right column of Setup (3 Oct 2026): "the reviews you can put to the right for the space and
- *  that should obviously be every six hours for now." */
+/**
+ * How often every VIP video's views are read (app_settings `vip_sync`). A new video is read the moment it is added. A
+ * card of its own in the right column of Setup: "the reviews you can put to the right for the space and that should
+ * obviously be every six hours for now."
+ */
 export function SyncEvery() {
   const tr = useKindT()
   const [hours, setHours] = useState('')
@@ -804,10 +805,9 @@ export function SyncEvery() {
   )
 }
 
-// SETUP, IN TWO COLUMNS (3 Oct 2026). Ethan: "improve the UI of it ... there's like a lot of space on the right column".
-// Left: what a VIP is paid and what they read. Right (in VipTools): payouts, the stay-in rule and how often views are
-// read. The monthly budget is gone ("unnecessary because obviously it's just depending on the view rate"), and so is
-// closing a programme ("we don't want that function"). Every number is typed; no spinner arrows.
+// SETUP, IN TWO COLUMNS. Left: what a VIP is paid and what they read. Right (in VipTools): payouts, the stay-in rule and
+// how often views are read. The monthly budget is gone ("unnecessary because obviously it's just depending on the view
+// rate"), and so is closing a programme ("we don't want that function"). Every number is typed; no spinner arrows.
 export function VipSettingsTab({ programme, onSaved }) {
   const tr = useKindT()
   const sym = curSym(programme.currency)
@@ -853,9 +853,8 @@ export function VipSettingsTab({ programme, onSaved }) {
           <label className="block"><span className="label">{tr('Monthly cap per VIP (optional)')}</span>{money$(f.monthly_cap, (v) => set({ monthly_cap: v }), tr('No cap'))}<span className="mt-1 block text-[11px] text-smoke">{tr('The most one VIP\'s views can earn in a month.')}</span></label>
         </div>
 
-        {/* "HIGHER RATES AT HIGHER VIEWS", SAID PLAINLY (3 Oct 2026). Ethan: "I don't really get this ... is this like, if
-            they reach over a million views, it jumps to 0.35?" Yes - and now the screen says it in those words, with
-            the step written out as a sentence beside the fields. */}
+        {/* "HIGHER RATES AT HIGHER VIEWS", SAID PLAINLY. Yes - and now the screen says it in those words, with the step
+            written out as a sentence beside the fields. */}
         <div className="mt-5 rounded-xl border border-gray-100 bg-cloud/40 p-4">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <span className="text-sm font-semibold text-ink">{tr('Pay more once a VIP passes a number of views (optional)')}</span>
@@ -888,9 +887,9 @@ export function VipSettingsTab({ programme, onSaved }) {
         <label className="block"><span className="label">{tr('Welcome note, shown to every new VIP')}</span><textarea className="input min-h-[5rem] resize-y" maxLength={1000} value={f.welcome_message} disabled={dis} onChange={(e) => set({ welcome_message: e.target.value })} placeholder={tr('Leave empty for the standard welcome.')} /></label>
       </section>
 
-      {/* THE VIP TERMS LIVE ON ADMIN > AGREEMENTS NOW (7 Oct 2026). This box edited `vip_programmes.terms`, which a
-          sheet on the VIP page asked VIPs to accept. Ethan: only the agreement from Admin > Agreements should be shown, once
-          it is switched on - so the old sheet is gone and this points at the one place the VIP agreement is written. */}
+      {/* THE VIP TERMS LIVE ON ADMIN > AGREEMENTS NOW. This box edited `vip_programmes.terms`, which a sheet on the VIP
+          page asked VIPs to accept. The team: only the agreement from Admin > Agreements should be shown, once it is
+          switched on - so the old sheet is gone and this points at the one place the VIP agreement is written. */}
       <Link to="/admin/agreements" className="group flex items-center gap-3 rounded-card border border-gray-100 bg-white p-5 shadow-card transition-all duration-200 animate-rise [animation-delay:120ms] hoverable:hover:-translate-y-0.5 hoverable:hover:shadow-lift">
         <Icon name="book" className="h-5 w-5 shrink-0 text-brand" />
         <span className="min-w-0 flex-1">

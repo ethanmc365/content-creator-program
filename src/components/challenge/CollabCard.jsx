@@ -5,13 +5,12 @@ import { useT } from '../../lib/i18n'
 import { challengesApi } from '../../api/challenges'
 import { profilesApi } from '../../api/profiles'
 
-// THE COLLAB BONUS: BOTH CREATORS ENTER THE POST (rebuilt 5 Oct 2026, migration 337).
+// THE COLLAB BONUS: BOTH CREATORS ENTER THE POST (rebuilt, migration 337).
 //
-// Ethan: "I think it would be better if they both submit it rather than just one. You can tell if both of them submit it and verify it that way
-// ... if it's a collab post, you only count the views once." So there is nothing to ask or confirm any more. Two creators publish ONE Instagram
-// collab post; each enters its link as an entry. When the second one goes in, the database sees it is the same post, links the two entries,
-// records the pair, and both earn the collab points. The views count once (on the first entry), and a post can only have one partner.
-// This card explains it, and lists the posts that have been matched for the viewer.
+// So there is nothing to ask or confirm any more. Two creators publish ONE Instagram collab post; each enters its link
+// as an entry. When the second one goes in, the database sees it is the same post, links the two entries, records the
+// pair, and both earn the collab points. The views count once (on the first entry), and a post can only have one
+// partner. This card explains it, and lists the posts that have been matched for the viewer.
 export default function CollabCard({ challenge, rule, meId }) {
   const tr = useT()
   const [rows, setRows] = useState(undefined)

@@ -95,12 +95,7 @@ function localPlayed(day) {
 
 export function useDailyPuzzles(userId) {
   const [today] = useState(() => ukDayIndex())
-  // THE FIRST PAINT ALREADY KNOWS WHAT YOU PLAYED (12 Sep 2026).
-  //
-  // Ethan: "when the worldwide page first loads, the daily puzzles, even if I
-  // played them, they show up as orange and not played, then suddenly change to
-  // green showing I played. It should immediately be green when it loads in if
-  // it was played."
+  // THE FIRST PAINT ALREADY KNOWS WHAT YOU PLAYED.
   //
   // This was `useState(() => new Set())` with the localStorage read in a
   // `useEffect` underneath it. An effect runs AFTER the commit, so the browser
@@ -138,13 +133,10 @@ export function useDailyPuzzles(userId) {
   /**
    * A PUZZLE JUST FINISHED. TICK IT NOW.
    *
-   * THE BUG THIS FIXES. Both effects here run on mount and never again, which
-   * is correct for a page you arrive at and wrong for the games menu, where the
-   * puzzle is played WITHOUT leaving the page: the board is a screen swap, not
-   * a navigation, so the hook kept the set it built when the menu first opened.
-   * Play Flight Path, come back, and the card still says "Play today's puzzle".
-   * Ethan: "after I played for example flight path, it didn't immediately
-   * update and show that I played it."
+   * THE BUG THIS FIXES. Both effects here run on mount and never again, which is correct for a page you arrive at and
+   * wrong for the games menu, where the puzzle is played WITHOUT leaving the page: the board is a screen swap, not a
+   * navigation, so the hook kept the set it built when the menu first opened. Play Flight Path, come back, and the card
+   * still says "Play today's puzzle".
    *
    * Optimistic and then verified, in that order and for the usual reason: the
    * tick has to be on the card in the frame the menu comes back, and the truth

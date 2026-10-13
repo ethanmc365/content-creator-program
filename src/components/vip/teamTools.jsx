@@ -10,10 +10,10 @@ import { cx, downloadCsv, formatDate } from '../../lib/utils'
 import { curSym, money, monthLabel, nf, perK, vipRpc, useKindT } from '../../lib/vip'
 import { vipApi } from '../../api/vip'
 
-// THE TEAM'S VIP TOOLS FOR MONEY AND MEMBERSHIP (2 Oct 2026, migration 312).
+// THE TEAM'S VIP TOOLS FOR MONEY AND MEMBERSHIP (migration 312).
 //
 //   Balances  - every VIP's balance against the cash threshold, who asked for what, and the voucher codes still owed.
-//   Stay-in   - the monthly rule (5 videos AND 20,000 views, 4 Oct 2026): live for this month, and for a closed month
+//   Stay-in - the monthly rule (5 videos AND 20,000 views): live for this month, and for a closed month
 //               the list written down at close, with keep / warn / pause / remove.
 //   CPM sheet - the Spanish manager's spreadsheet, generated: creators down the side, months across, views and money.
 
@@ -101,8 +101,7 @@ export function VipWalletsTab({ programme }) {
           <ul className="divide-y divide-gray-50">
             {data.requests.slice(0, 12).map((q, i) => (
               <li key={q.id} className="flex items-center gap-3 py-2.5 animate-rise" style={{ animationDelay: `${i * 35}ms` }}>
-                {/* CASH OR VOUCHER, AT A GLANCE (3 Oct 2026). Ethan: "make it more clear if it's cash or Tryp.com
-                    voucher. There's not much difference there." Each request leads with what it is. */}
+                {/* CASH OR VOUCHER, AT A GLANCE. Each request leads with what it is. */}
                 <span className={cx('flex h-10 w-10 shrink-0 items-center justify-center rounded-xl', q.kind === 'voucher' ? 'text-brand' : 'text-ink')}><Icon name={q.kind === 'voucher' ? 'ticket' : 'cash'} className="h-5 w-5" /></span>
                 <span className="min-w-0 flex-1">
                   <span className="flex items-center gap-2 text-sm font-semibold text-ink"><span className="truncate">{q.name}</span>
@@ -164,9 +163,7 @@ export function VipWalletsTab({ programme }) {
   )
 }
 
-// ONE VIP'S MONEY (3 Oct 2026). Ethan: "clicking on a person here should also show more info on them ... their all-time
-// earnings, their monthly earnings, what they currently have, and what they can withdraw." The four figures, then the
-// months, then every movement of the balance.
+// ONE VIP'S MONEY. The four figures, then the months, then every movement of the balance.
 function PersonMoney({ r, data, programme, onClose, onAdjust }) {
   const tr = useKindT()
   const cur = data.currency
@@ -383,9 +380,9 @@ export function VipSheetTab({ programme }) {
   const [query, setQuery] = useState('')
   const [sort, setSort] = useState('views')
   const cols = useMemo(() => [...(data?.months || [])].reverse(), [data])
-  // THE SHEET, REDRAWN (6 Oct 2026). Ethan: "for the CPM sheet improve the UI and ensure it shows creator profile etc." Each creator is
-  // their face and name (a link to their profile), their rate and status; every month's cell is shaded by how big it is next to the
-  // biggest, so the busy months read at a glance; and the cost per 1,000 each creator has actually come to sits beside their total.
+  // THE SHEET, REDRAWN. Each creator is their face and name (a link to their profile), their rate and status; every
+  // month's cell is shaded by how big it is next to the biggest, so the busy months read at a glance; and the cost per
+  // 1,000 each creator has actually come to sits beside their total.
   const rows = useMemo(() => {
     const q = query.trim().toLowerCase()
     const list = (data?.rows || []).filter((r) => !q || r.name.toLowerCase().includes(q))
@@ -523,8 +520,8 @@ export function VipSheetTab({ programme }) {
   )
 }
 
-// PAST MONTHS, PASTED (2 Oct 2026). The Spanish sheet goes back to December 2025; those months were never on the
-// platform. One line per creator per month - "Name, 2026-08, 481437, 120.36" - straight out of a spreadsheet.
+// PAST MONTHS, PASTED. The Spanish sheet goes back to December 2025; those months were never on the platform. One line
+// per creator per month - "Name, 2026-08, 481437, 120.36" - straight out of a spreadsheet.
 const MONTHS_ES = { ene: 1, feb: 2, mar: 3, abr: 4, may: 5, jun: 6, jul: 7, ago: 8, sep: 9, oct: 10, nov: 11, dic: 12 }
 const MONTHS_EN = { jan: 1, feb: 2, mar: 3, apr: 4, may: 5, jun: 6, jul: 7, aug: 8, sep: 9, oct: 10, nov: 11, dec: 12 }
 export function parseHistory(text) {
@@ -607,9 +604,9 @@ export function VipRulesCard({ programme, onSaved }) {
     } catch (e) { notice(e.message) } finally { setBusy(false) }
   }
   const dis = !programme.can_manage
-  // EVERY BOX THE SAME, THE UNIT INSIDE IT (4 Oct 2026). Ethan: "the UI is a bit weird, and things are misaligned." The payout boxes
-  // had a prefix, the stay-in boxes had a label above and a unit under, and the two rows did not line up. Now one field shape: a
-  // label above, the number typed in a box that carries its unit (EUR, videos, views) on the right or left, all one height.
+  // EVERY BOX THE SAME, THE UNIT INSIDE IT. The payout boxes had a prefix, the stay-in boxes had a label above and a
+  // unit under, and the two rows did not line up. Now one field shape: a label above, the number typed in a box that
+  // carries its unit (EUR, videos, views) on the right or left, all one height.
   const field = (label, value, onChange, { prefix, suffix, off } = {}) => (
     <label className="block min-w-0">
       <span className="label">{label}</span>
@@ -651,9 +648,8 @@ export function VipRulesCard({ programme, onSaved }) {
 }
 
 // ======================================================================== the team overview's top row
-// THE TEAM OVERVIEW, IMPROVED (2 Oct 2026). Ethan: "improve the team overview page". What a lead opens it to find out:
-// who is falling behind the stay-in rule, what is sitting in balances and what is waiting on the team. Each card opens
-// the tool that deals with it.
+// THE TEAM OVERVIEW, IMPROVED. What a lead opens it to find out: who is falling behind the stay-in rule, what is sitting
+// in balances and what is waiting on the team. Each card opens the tool that deals with it.
 export function TeamPulse({ programme, onTool }) {
   const tr = useKindT()
   const official = programme.kind === 'official'
@@ -666,8 +662,8 @@ export function TeamPulse({ programme, onTool }) {
   const codes = (wal.data?.requests || []).filter((q) => q.kind === 'voucher' && !q.voucher_code).length
   const ready = (wal.data?.rows || []).filter((r) => Number(r.balance) >= Number(wal.data?.threshold) && Number(r.balance) > 0).length
   const onTrackPct = rows.length ? (rows.length - behind.length) / rows.length : 0
-  // THE STAY-IN RULE CAN BE SWITCHED OFF PER MARKET (11 Oct 2026). Ethan: when it is off for a market, nothing about it
-  // should show there - so the card goes and the other two share the row.
+  // THE STAY-IN RULE CAN BE SWITCHED OFF PER MARKET. The team: when it is off for a market, nothing about it should show
+  // there - so the card goes and the other two share the row.
   const stayOff = !official && (req.data?.rule?.on === false || programme.req_on === false)
 
   const card = 'group flex flex-col rounded-card border border-gray-100 bg-white p-4 text-left shadow-card transition-all duration-200 animate-rise hoverable:hover:-translate-y-0.5 hoverable:hover:shadow-lift'
@@ -722,9 +718,9 @@ export function TeamPulse({ programme, onTool }) {
   )
 }
 
-// THE OFFICIAL CREATORS' FEES, AT A GLANCE (10 Oct 2026, migration 376). Their contract is a monthly fee plus views pay, and
-// there is no stay-in rule, so the first card is the fees: what this month's fees add up to, and who has posted enough to
-// earn theirs. Paula and Julia (their own invoice) are counted apart, because nothing is drafted for them here.
+// THE OFFICIAL CREATORS' FEES, AT A GLANCE (migration 376). Their contract is a monthly fee plus views pay, and there is
+// no stay-in rule, so the first card is the fees: what this month's fees add up to, and who has posted enough to earn
+// theirs. Paula and Julia (their own invoice) are counted apart, because nothing is drafted for them here.
 function OfficialFeesCard({ programme, className, onOpen }) {
   const tr = useKindT()
   const ov = useRpc('vip_admin_overview', { p_programme: programme.id })

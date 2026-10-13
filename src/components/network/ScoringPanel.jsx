@@ -14,19 +14,14 @@ import { challengesApi } from '../../api/challenges'
 // them. Somebody posting eight short videos into a best-video challenge is
 // wasting their month, and nothing told them.
 //
-// IT DOES NOT CARRY A LEADERBOARD (2 Sep 2026).
+// IT DOES NOT CARRY A LEADERBOARD.
 //
-// It used to end with "Where it stands right now" - a provisional top ten off
-// the logged view counts. Ethan: "I don't get why it's showing the standings
-// here. It seems to be just a bigger burden, and it doesn't make sense for it
-// to show when you already have a dedicated leaderboard tab, so remove that
-// from there."
+// It used to end with "Where it stands right now" - a provisional top ten off the logged view counts.
 //
-// He is right, and it was worse than redundant: the tab next door lays every
-// paid place out from the prize structure, ranks WITHIN a creator's own group
-// on a split challenge, and marks the participation vouchers. This panel's copy
-// did none of that, so the two disagreed on a page where they sat two clicks
-// apart. One board, on the tab called Leaderboard.
+// they are right, and it was worse than redundant: the tab next door lays every paid place out from the prize structure,
+// ranks WITHIN a creator's own group on a split challenge, and marks the participation vouchers. This panel's copy did
+// none of that, so the two disagreed on a page where they sat two clicks apart. One board, on the tab called
+// Leaderboard.
 
 // THE RULES, FETCHED ONCE FOR THE WHOLE PAGE. The challenge page draws them in
 // two places now (the view milestones here, the bonuses in their own card in
@@ -47,12 +42,7 @@ export function usePointRules(challenge) {
   return rules
 }
 
-// VIEWS ON THE LEFT, EVERYTHING ELSE IN ITS OWN CARD (24 Sep 2026).
-// Ethan: "the points leaderboard looks quite cluttered and hard to understand.
-// Anything related to bonus points... should have a separate column on the
-// right, just below Platforms you can post on... The regular points board
-// should only be for the view-related points, because there are a lot of
-// them, and the other ones can stand out."
+// VIEWS ON THE LEFT, EVERYTHING ELSE IN ITS OWN CARD.
 export const VIEW_KINDS = new Set(['views_threshold', 'total_views_threshold'])
 export const isBonusKind = (r) => !VIEW_KINDS.has(r?.kind)
 
@@ -63,13 +53,10 @@ const compact = (n) => {
   return String(v)
 }
 
-// A SOLID LADDER, NOT A FADING ONE (28 Sep 2026). Ethan: "improve the colour
-// grading ... always ensure there's a more solid gradient." The steps used to
-// be the brand orange at rising OPACITY from 7%, so the first few were
-// near-white on white, and how pale they started depended on how many rules
-// the challenge had. Every step is now an opaque colour on one ramp: pale
-// peach -> Tryp.com light orange -> Tryp.com orange. The count only decides
-// how finely the ramp is sliced, never how washed out the bottom looks.
+// A SOLID LADDER, NOT A FADING ONE. The steps used to be the brand orange at rising OPACITY from 7%, so the first few
+// were near-white on white, and how pale they started depended on how many rules the challenge had. Every step is now an
+// opaque colour on one ramp: pale peach -> Tryp.com light orange -> Tryp.com orange. The count only decides how finely
+// the ramp is sliced, never how washed out the bottom looks.
 const LADDER_STOPS = [
   [0, [253, 221, 199]], // #fdddc7
   [0.5, [245, 133, 63]], // #f5853f BRAND_LIGHT
@@ -109,37 +96,30 @@ export default function ScoringPanel({ challenge, rules: given }) {
   return (
     <section className="rounded-card border border-gray-100 bg-white p-5 shadow-card sm:p-6">
       <div className="flex items-start gap-3">
-        {/* SOLID TRYP.COM ORANGE, NOT A PALE TILE (21 Sep 2026, Ethan). */}
+        {/* SOLID TRYP.COM ORANGE, NOT A PALE TILE. */}
         <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand text-white shadow-card">
           <Icon name={mode.icon} className="h-5 w-5" />
         </span>
         <div className="min-w-0">
-          {/* THE RULE IS THE TITLE (28 Sep 2026). Ethan: "I wouldn't call it a
-              leaderboard ... just say 'most points at the deadline wins' as the
-              title and remove 'points leaderboard' altogether." */}
+          {/* THE RULE IS THE TITLE. */}
           <p className="text-xs font-semibold uppercase tracking-widest text-brand">{tr("How this is won")}</p>
           <p className="mt-0.5 text-xl font-bold leading-snug tracking-tight">{tr(mode.winner.replace(/\.$/, ''))}</p>
         </div>
       </div>
 
-      {/* THE VIEW LADDER, AS A GRID OF STEPS (24 Sep 2026). Eleven full-width
-          rows reading "Passed 1,000 views ... +1" were most of the clutter
-          Ethan reported. Each milestone is one small tile now - the view count
-          big, its points under it - so the whole ladder fits in the space two
-          rows used to take, and the eye reads it left to right as it climbs. */}
+      {/* THE VIEW LADDER, AS A GRID OF STEPS. Eleven full-width rows reading "Passed 1,000 views... +1" were most of the
+          clutter the team reported. Each milestone is one small tile now - the view count big, its points under it - so
+          the whole ladder fits in the space two rows used to take, and the eye reads it left to right as it climbs. */}
       {challenge.scoring === 'points' && rules.length > 0 && (
         <div className="mt-5 space-y-4">
           {perVideo.length > 0 && (
             <div>
               <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-smoke">{tr("Views on one video")}</p>
-              {/* A LADDER THAT WARMS AS IT CLIMBS (26 Sep 2026). Ethan liked the
-                  tiles and asked for "that UI even more" without the sentence
-                  under them. Each step is a shade deeper than the last, so the
-                  top of the ladder reads as the prize it is; the step number
-                  in the corner says the order without a line of copy. */}
-              {/* THE GRID FOLLOWS THE LADDER (28 Sep 2026): two steps sit side
-                  by side, three in a row, and a long ladder wraps four or five
-                  across, so any number of milestones fills the width. */}
+              {/* A LADDER THAT WARMS AS IT CLIMBS. The team liked the tiles and asked for "that UI even more" without
+                  the sentence under them. Each step is a shade deeper than the last, so the top of the ladder reads as
+                  the prize it is; the step number in the corner says the order without a line of copy. */}
+              {/* THE GRID FOLLOWS THE LADDER: two steps sit side by side, three in a row, and a long ladder wraps four
+                  or five across, so any number of milestones fills the width. */}
               <ul className={cx('grid gap-2', ladderCols(perVideo.length))}>
                 {perVideo.map((r, i) => {
                   const heat = perVideo.length > 1 ? i / (perVideo.length - 1) : 1

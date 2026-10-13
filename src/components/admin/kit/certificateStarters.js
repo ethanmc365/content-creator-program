@@ -1,19 +1,14 @@
 // SIX CERTIFICATES THAT COVER MOST OF WHAT THIS PROGRAMME GIVES OUT.
 //
-// Ethan: "you can start by creating some generic ones I can choose from as
-// examples."
-//
 // AN EXAMPLE IS ONLY USEFUL IF IT IS THE THING YOU WOULD HAVE MADE. These are
 // not lorem: each one is a real award with its trigger already set, so an admin
 // can pick one, change three words, and be finished.
 //
-// ONE PER LAYOUT, AND THAT IS THE SECOND JOB THEY DO (20 Sep 2026). The studio
-// can now make six genuinely different objects, and a list of six starters that
-// all used the same one would quietly teach an admin that it cannot. So each
-// starter is on a different layout, a different accent and a different paper -
-// open the gallery and the range is the first thing you see, without reading a
-// word about it. That is also why the accents here are spread rather than all
-// orange: "I want a lot of different colors."
+// ONE PER LAYOUT, AND THAT IS THE SECOND JOB THEY DO. The studio can now make six genuinely different objects, and a
+// list of six starters that all used the same one would quietly teach an admin that it cannot. So each starter is on a
+// different layout, a different accent and a different paper - open the gallery and the range is the first thing you
+// see, without reading a word about it. That is also why the accents here are spread rather than all orange: "I want a
+// lot of different colors."
 //
 // THE BODY NEVER REPEATS THE NAME. The card already prints it, large, under
 // "This certifies that" - so a body of "awarded to {name} for winning X" puts
@@ -26,18 +21,14 @@
 // EVERY creator who entered, so turning it on is a decision about how common a
 // certificate should be. "Milestone reached" has no milestone chosen, because
 // only the admin knows which one - the studio says so in the panel.
-// THE TWO DRAFTS SWAPPED LOOKS (1 Oct 2026), at Ethan's request before he puts them live:
-// "Milestone reached" is now the minimal one and "Took part" the boarding pass.
-// WHAT GIVES EACH ONE OUT (30 Sep 2026). Ethan: "use the podium finish one for now. It will do first
-// place to tenth place ... The prize winner one can just be something else for now ... given by hand",
-// "Official creator ... given to every creator that joins", "Took part ... everyone that takes part",
-// and the milestone and creator-of-the-month ones "wired up by hand for now". All six were created in
-// production as DRAFTS that day; nothing is awarded until each is switched on and `certificates_live`
-// is turned on.
+// THE TWO DRAFTS SWAPPED LOOKS, at is now the minimal one and "Took part" the boarding pass.
+// WHAT GIVES EACH ONE OUT., "Official creator... given to every creator that joins", "Took part... everyone that takes
+// part", and the milestone and creator-of-the-month ones "wired up by hand for now". All six were created in production
+// as DRAFTS that day; nothing is awarded until each is switched on and `certificates_live` is turned on.
 export const STARTERS = [
   {
-    // ONE DESIGN FOR EVERY PAID PLACE (28 Sep 2026): each place gets its own
-    // medal, and a 3-place challenge makes three while a 10-place one makes ten.
+    // ONE DESIGN FOR EVERY PAID PLACE: each place gets its own medal, and a 3-place challenge makes three while a
+    // 10-place one makes ten.
     name: 'Prize winner',
     tier: 'achievement',
     title: 'Certificate of Achievement',

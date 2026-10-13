@@ -3,23 +3,19 @@ import Icon from '../Icon'
 import { cx, formatViews } from '../../lib/utils'
 import { describePointParts } from '../../lib/entryPoints'
 
-// THE NUMBERS ON THE PICTURE (26 Sep 2026), SMALLER (28 Sep 2026).
+// THE NUMBERS ON THE PICTURE, SMALLER.
 //
-// Ethan: "add the views, for example, on a nice UI or card that's actually
-// getting displayed over the preview ... show clearly on each entry how many
-// points I got if it's a points challenge." It was made bigger on the morning
-// of the 28th ("slightly bigger"), and that evening: "the points thing seems
-// slightly too big on those cards on the thumbnails ... make it smaller and
-// make the design better." So: one clear chip between the two sizes.
+// It was made bigger on the morning of the 28th ("slightly bigger"), and that evening: "the points thing seems slightly
+// too big on those cards on the thumbnails... make it smaller and make the design better." So: one clear chip between
+// the two sizes.
 //
 // So the cover carries two quiet facts - the points total in one small chip,
 // the views along the foot - and WHAT the points were for moves off the
 // picture into `PointParts`, under it, where there is room to say "+1 views ·
 // +5 bonus" in words.
 //
-// `bare` is the admin results page: Ethan wanted the cover left clean there
-// ("you don't need the views or the points over the thumbnail, because you have
-// that all on the right side"), platform mark included, since the row names the
+// `bare` is the admin results page: the team wanted the cover left clean there ("you don't need the views or the points
+// over the thumbnail, because you have that all on the right side"), platform mark included, since the row names the
 // platform with its own colour logo.
 export default function EntryPreview({
   submission: s,
@@ -79,10 +75,8 @@ export default function EntryPreview({
   )
 }
 
-// WHAT THE POINTS WERE FOR. Ethan: "it shows +1 and some of them +6 ... I think
-// this should show +1 for views and +5 for bonus, etc." One chip per bucket,
-// the views one quiet and the bonus one in the brand, so a bonus - the part a
-// creator did something extra for - is the one that stands out.
+// WHAT THE POINTS WERE FOR. One chip per bucket, the views one quiet and the bonus one in the brand, so a bonus - the
+// part a creator did something extra for - is the one that stands out.
 export function PointParts({ points, className }) {
   const parts = typeof points === 'object' ? describePointParts(points) : []
   if (!parts.length) return null

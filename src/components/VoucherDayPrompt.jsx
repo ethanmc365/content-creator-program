@@ -10,13 +10,12 @@ import { cx, formatMoney } from '../lib/utils'
 import { challengesApi } from '../api/challenges'
 import { submissionsApi } from '../api/submissions'
 
-// "A VOUCHER DAY IS ON", THE FIRST TIME YOU OPEN THE APP THAT DAY (12 Oct 2026).
+// "A VOUCHER DAY IS ON", THE FIRST TIME YOU OPEN THE APP THAT DAY.
 //
-// Ethan: "anyone that takes part gets a 5 euro Tryp.com voucher for achieving over 5,000 views ... There should be a pop-up
-// for the creators as well ... to really motivate the creators to join." The sibling of BoostPrompt: once per voucher day on
-// this device, only while the day is open, only for a challenge the creator can see (RLS keeps VIPs out). A creator who has
-// not entered that challenge yet is told about the joining bonus on the same card. It waits its turn in lib/appNag and for
-// the walkthrough, and is never drawn on a challenge page, which already shows the day.
+// The sibling of BoostPrompt: once per voucher day on this device, only while the day is open, only for a challenge the
+// creator can see (RLS keeps VIPs out). A creator who has not entered that challenge yet is told about the joining bonus
+// on the same card. It waits its turn in lib/appNag and for the walkthrough, and is never drawn on a challenge page,
+// which already shows the day.
 const KEY = (id) => `tryp_vday_prompt_${id}`
 const shown = (id) => { try { return !!localStorage.getItem(KEY(id)) } catch { return true } }
 const markShown = (id) => { try { localStorage.setItem(KEY(id), '1') } catch { /* private mode */ } }

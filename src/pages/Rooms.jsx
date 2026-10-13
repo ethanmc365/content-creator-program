@@ -66,7 +66,7 @@ const scopedKey = scopedChannel
 //    `bg-brand text-white` while every other room's was a pale tint - not
 //    because you were in it, but because its key is the string 'general'. On a
 //    page listing eight rooms across two markets that is two solid orange
-//    badges saying "you are here" about rooms you are not in. Ethan: "for some
+//    badges saying "you are here" about rooms you are not in.
 //    reason it always shows like you're clicked in in General even if you're
 //    not, that one's orange and all the rest are a lighter colour." Nothing on
 //    this page is ever the current room - it is an index, and you are on it
@@ -87,19 +87,14 @@ function RoomRow({ to, room, last, unread, dark = false, place = null }) {
   return (
     <Link
       to={to}
-      // 12 Oct 2026 (Ethan: "really improve the UI of the rooms picker on mobile"): a press shrinks the row a touch,
-      // like a native list, and rows are split by hairlines (the card draws them) rather than floating in space.
+      // 12 Oct 2026 ( ): a press shrinks the row a touch, like a native list, and rows are split by hairlines (the card
+      // draws them) rather than floating in space.
       className={cx('group flex items-center gap-3 rounded-2xl px-2 py-3 transition-[background-color,transform] duration-150 active:scale-[0.985]', dark ? 'hover:bg-white/10 active:bg-white/10' : 'hover:bg-cloud/70 active:bg-cloud')}
     >
-      {/* THE GLYPH IS ORANGE. THERE IS NO TILE BEHIND IT.
-          It was a solid 40px brand square with a white icon in it, and eight of
-          those down a page is eight blocks of the loudest colour on the
-          platform doing the work of a bullet point. Ethan: "rather than having
-          an orange square with the white icon, I was thinking of just having
-          the orange icon instead of the big orange square, because a big orange
-          square seems to be taking away my eyes too much."
-          The column keeps its 40px, so every name still starts on the same
-          vertical line and nothing else in the row moved.
+      {/* THE GLYPH IS ORANGE. THERE IS NO TILE BEHIND IT. It was a solid 40px brand square with a white icon in it, and
+          eight of those down a page is eight blocks of the loudest colour on the platform doing the work of a bullet
+          point. The column keeps its 40px, so every name still starts on the same vertical line and nothing else in the
+          row moved.
 
           THE STAFF ROOM IS THE ONE THAT LOOKS DIFFERENT. Only admins can open
           it, and in a list of otherwise identical rows there was nothing but a
@@ -118,11 +113,7 @@ function RoomRow({ to, room, last, unread, dark = false, place = null }) {
       </span>
       <span className="min-w-0 flex-1">
         <span className="flex items-baseline gap-2">
-          {/* UNREAD IS BOLDER TEXT AND ONE ORANGE DOT (8 Sep 2026).
-              Ethan: "we want to make sure a little orange dot icon shows up on
-              the right of the chat if there's new messages... and maybe on
-              mobile it would just be highlighted or something, because there's
-              not much space for a dot."
+          {/* UNREAD IS BOLDER TEXT AND ONE ORANGE DOT.
 
               It is both, because they do different jobs. The DOT is the thing
               you find when you are looking for it - one saturated pixel-cluster
@@ -139,9 +130,8 @@ function RoomRow({ to, room, last, unread, dark = false, place = null }) {
               a word had been posted, so nobody opened it. */}
           <span className={cx('min-w-0 flex-1 truncate text-[15px] leading-tight',
             dark ? (unread ? 'font-bold text-white' : 'font-semibold text-white/90') : unread ? 'font-bold text-ink' : 'font-semibold')}>{tr(room.label)}</span>
-          {/* NO BLACK "VIP" PILL BESIDE A VIP ROOM (5 Oct 2026). Ethan: "rather than showing the VIP in a black button beside each of those
-              rooms ... just a small grey line, a split between them, to show that there is a split there." The split is drawn in the list
-              (a hairline between the everyday rooms and the VIP ones), not stamped on every row. */}
+          {/* NO BLACK "VIP" PILL BESIDE A VIP ROOM. The split is drawn in the list (a hairline between the everyday
+              rooms and the VIP ones), not stamped on every row. */}
           {room.visibility === 'staff' && (
             <span className="shrink-0 rounded-full bg-ink/[0.07] px-1.5 py-0.5 text-[10px] font-semibold text-ink/70">{tr("Staff")}</span>
           )}
@@ -160,7 +150,7 @@ function RoomRow({ to, room, last, unread, dark = false, place = null }) {
             An empty room that explains itself is an invitation; an empty room
             that says nothing is a dead end. */}
         {place && <span className="mt-0.5 block truncate text-[11px] font-bold uppercase tracking-wide text-gray-400">{place}</span>}
-        {/* WHO SAID IT, WITH THEIR FACE, AND NEVER AN EMPTY "Ethan:" (12 Oct 2026): a photo or a video says so. */}
+        {/* WHO SAID IT, WITH THEIR FACE, AND NEVER AN EMPTY "the team:": a photo or a video says so. */}
         <span className={cx('mt-1 flex min-w-0 items-center gap-1.5 text-[13px] leading-snug', dark ? 'text-white/60' : unread ? 'font-medium text-ink/80' : 'text-smoke')}>
           {last ? (
             <>
@@ -185,32 +175,31 @@ function PlaceCard({ place, rooms, lastByChannel, unreadKeys, isNetwork, handleP
   const base = isNetwork ? '/global/chat' : `/c/${place.slug}/chat`
   const unreadCount = rooms.filter((r) => unreadKeys.has(scopedKey(place, r.key))).length
   return (
-    /* THE PLACE IS A HEADING WITH A FLAG ON IT. NO TINTED BAND (12 Sep 2026).
-       Ethan: "I don't like the current way it looks on mobile with the light
-       orange background behind the country names, improve it too."
-
-       The band was the previous answer to a real problem - the market name used
-       to be the same 14px semibold ink as the room names under it, so five
-       stacked cards read as one long list of Generals and Announcements - and
-       it solved that by painting `bg-brand-tint` across the card's top edge.
-       Five of those down a phone screen is five orange stripes, which is the
-       same mistake the orange icon tiles made on this very page: the loudest
-       colour on the platform used as a divider rather than as an accent.
-
-       What separates the places now is TYPE and a FLAG, not a fill. The name
-       steps up to 17px bold ink - bigger than anything under it by a clear
-       margin - and the flag gets a real 34px tile instead of being an emoji
-       floating at 14px beside it, so a glance down the page reads as flag,
-       flag, flag rather than as a wall of text. The card's own edge is the
-       only rule; the hairline under the header is a hairline, not a band.
-       That is the platform rule about orange applied honestly: it is spent on
-       the unread dot, which is information, and on nothing decorative. */
+    /*
+     * THE PLACE IS A HEADING WITH A FLAG ON IT. NO TINTED BAND.
+     *
+     * The band was the previous answer to a real problem - the market name used
+     * to be the same 14px semibold ink as the room names under it, so five
+     * stacked cards read as one long list of Generals and Announcements - and
+     * it solved that by painting `bg-brand-tint` across the card's top edge.
+     * Five of those down a phone screen is five orange stripes, which is the
+     * same mistake the orange icon tiles made on this very page: the loudest
+     * colour on the platform used as a divider rather than as an accent.
+     *
+     * What separates the places now is TYPE and a FLAG, not a fill. The name
+     * steps up to 17px bold ink - bigger than anything under it by a clear
+     * margin - and the flag gets a real 34px tile instead of being an emoji
+     * floating at 14px beside it, so a glance down the page reads as flag,
+     * flag, flag rather than as a wall of text. The card's own edge is the
+     * only rule; the hairline under the header is a hairline, not a band.
+     * That is the platform rule about orange applied honestly: it is spent on
+     * the unread dot, which is information, and on nothing decorative.
+     */
     <section data-place={vip ? `vip-${isNetwork ? 'network' : place.slug}` : isNetwork ? 'network' : place.slug} className={cx(
       'overflow-hidden rounded-card p-4 transition-all duration-200',
-      // THE VIP ROOMS ARE THEIR OWN MATERIAL (2 Oct 2026): the dark `.vip-surface`, not the pale orange wash Ethan
-      // did not like ("I want it to be more different").
-      // Ethan, 4 Oct 2026: "make the cards the same colour ... just have them the same white".
-      // One quiet edge for every card (12 Oct 2026): what is new is said by the count and the dots, not an orange border.
+      // THE VIP ROOMS ARE THEIR OWN MATERIAL: the dark `.vip-surface`, not the pale orange wash the team did not like
+      // ("I want it to be more different"). One quiet edge for every card: what is new is said by the count and the
+      // dots, not an orange border.
       'border border-gray-100 bg-white',
       dragging ? 'shadow-lift' : 'shadow-card',
     )}>
@@ -220,12 +209,10 @@ function PlaceCard({ place, rooms, lastByChannel, unreadKeys, isNetwork, handleP
             notification settings use, so all three surfaces agree about what a
             place looks like.
 
-            IT GROWS SIDEWAYS FOR A MARKET WITH MORE THAN ONE COUNTRY and keeps
-            its height, which is the fix for Ethan's 15 Sep report: this slot
-            used to be a hard 34px SQUARE with `FlagStack` inside it, so UK &
-            Ireland put two double-width emoji in a box that fits one and the
-            Nordics put two plus a "+2" chip in it. See FlagTile - the arithmetic
-            never worked and the square was never the thing that mattered. */}
+            IT GROWS SIDEWAYS FOR A MARKET WITH MORE THAN ONE COUNTRY and keeps its height, which is the fix for the
+            team's 15 Sep report: this slot used to be a hard 34px SQUARE with `FlagStack` inside it, so UK & Ireland put
+            two double-width emoji in a box that fits one and the Nordics put two plus a "+2" chip in it. See FlagTile -
+            the arithmetic never worked and the square was never the thing that mattered. */}
         <FlagTile
           codes={place.country_codes}
           kind={isNetwork ? 'network' : 'chapter'}
@@ -344,7 +331,7 @@ export default function Rooms() {
   const places = useMemo(() => {
     if (!rooms) return []
     return myCommunities
-      // The VIP lounge is one of Worldwide's rooms, last (2 Oct 2026); market VIP rooms stay apart.
+      // The VIP lounge is one of Worldwide's rooms, last; market VIP rooms stay apart.
       .map((c) => ({
         place: c,
         rooms: rooms
@@ -373,10 +360,10 @@ export default function Rooms() {
     (a, b) => (rank.has(a.place.id) ? rank.get(a.place.id) : 1e9) - (rank.has(b.place.id) ? rank.get(b.place.id) : 1e9),
   )
 
-  // THE FILTERS ACROSS THE TOP (2 Oct 2026). Ethan asked for the phone's rooms to be rebuilt after looking at how
-  // the popular chats do it. WhatsApp's answer to "too many conversations" is a row of filters over the list (All,
-  // Unread, Groups); Slack's is to bubble what needs you to the top. Both are here: the chips filter to Unread, to one
-  // place, or to the VIP rooms, and "All" leads with the rooms that have something new before the places.
+  // THE FILTERS ACROSS THE TOP. The team asked for the phone's rooms to be rebuilt after looking at how the popular
+  // chats do it. WhatsApp's answer to "too many conversations" is a row of filters over the list (All, Unread, Groups);
+  // Slack's is to bubble what needs you to the top. Both are here: the chips filter to Unread, to one place, or to the
+  // VIP rooms, and "All" leads with the rooms that have something new before the places.
   const [filter, setFilter] = useState('all')
   const unreadRooms = useMemo(() => {
     const out = []
@@ -397,10 +384,8 @@ export default function Rooms() {
   const shownPlaces = filter === 'all' ? orderedPlaces : orderedPlaces.filter((g) => g.place.id === filter)
   const showVip = filter === 'all' || filter === 'vip'
 
-  // THE MARKET YOU WERE JUST IN IS WHERE THIS PAGE OPENS (1 Oct 2026). Ethan: "I go to Worldwide, click on a market
-  // (Spain), and then click on Rooms. I'm on the Spain one, but it's still scrolled up at the top. It should be
-  // scrolled down to wherever the Spain one actually is." AppLayout notes the last /c/<slug> page in
-  // sessionStorage; the first time the cards are on screen the page moves that market's card to the top, once.
+  // THE MARKET YOU WERE JUST IN IS WHERE THIS PAGE OPENS. AppLayout notes the last /c/<slug> page in sessionStorage; the
+  // first time the cards are on screen the page moves that market's card to the top, once.
   useEffect(() => {
     if (!isMobile || ctxLoading || rooms === null || places.length === 0) return undefined
     let slug = null
@@ -465,13 +450,12 @@ export default function Rooms() {
               exactly the thing to wait for; `[]` means "answered, and there are
               none". */}
           {ctxLoading || rooms === null ? (
-            /* TWO GREY SLABS IS NOT A SKELETON OF ANYTHING (4 Sep 2026).
-               Measured on production, tapping this tab on a phone: the page
-               drew TWO placeholder elements on an otherwise empty screen. That
-               is a blank page with a couple of bars on it, and it is what
-               Ethan has been calling "the loading screen" for four rounds.
-               The shape now matches what lands - a market switcher and a list
-               of rooms. See components/PageSkeleton. */
+            /*
+             * TWO GREY SLABS IS NOT A SKELETON OF ANYTHING. Measured on production, tapping this tab on a phone: the
+             * page drew TWO placeholder elements on an otherwise empty screen. That is a blank page with a couple of
+             * bars on it, and it is what the team has been calling "the loading screen" for four rounds. The shape now
+             * matches what lands - a market switcher and a list of rooms. See components/PageSkeleton.
+             */
             <PageSkeleton shape="rooms" />
           ) : places.length === 0 ? (
             <EmptyState
@@ -492,10 +476,10 @@ export default function Rooms() {
                       type="button"
                       onClick={() => setFilter(c.key)}
                       aria-pressed={on}
-                      // THE PICKED CHIP (2 Oct 2026). Ethan: tapping "Unread" showed the text black for a moment and the
-                      // change was not smooth. `transition-all` eased the label from ink to white while the gradient (a
-                      // background-image, which cannot transition) snapped in, so for ~100ms dark text sat on white.
-                      // Now the label flips at once and ONE shared gradient slides under it (Segmented's layoutId trick).
+                      // THE PICKED CHIP. The team: tapping "Unread" showed the text black for a moment and the change
+                      // was not smooth. `transition-all` eased the label from ink to white while the gradient (a
+                      // background-image, which cannot transition) snapped in, so for ~100ms dark text sat on white. Now
+                      // the label flips at once and ONE shared gradient slides under it (Segmented's layoutId trick).
                       className={cx(
                         'relative flex shrink-0 items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-[13px] font-semibold transition-transform duration-150 active:scale-95',
                         on ? 'z-10 border-transparent text-white' : 'border-gray-200 bg-white text-ink/80',

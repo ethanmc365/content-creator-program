@@ -89,9 +89,8 @@ describe('creator_private mapping', () => {
 
 // SENDING AN INVOICE TO TWO PEOPLE.
 //
-// Ethan asked to send to Andre and Francesco. Both fields took exactly one
-// address, so the second person got it forwarded by hand - which is how a paper
-// trail stops being one. Commas, semicolons and newlines all mean "and",
+// The team asked to send to Andre and Francesco. Both fields took exactly one address, so the second person got it
+// forwarded by hand - which is how a paper trail stops being one. Commas, semicolons and newlines all mean "and",
 // because those are the three separators a person actually pastes.
 describe('more than one recipient', () => {
   it('splits on a comma, a semicolon or a newline', () => {

@@ -94,11 +94,10 @@ export default function AdminJobs() {
   function dm(app) {
     const creatorId = app.creator_id
     if (app.status === 'new' || app.status === 'reviewing') setAppStatus(app, 'contacted')
-    // A DM IS OPENED, NOT CREATED (9 Sep 2026). This used to look for a
-    // conversation and INSERT one when it found none, so pressing Message and
-    // then changing your mind left an empty thread in two inboxes. Three such
-    // rows exist in production. `/messages?to=` opens the thread either way and
-    // Messages.jsx creates the row on the first send. See `ensureConversation`.
+    // A DM IS OPENED, NOT CREATED. This used to look for a conversation and INSERT one when it found none, so pressing
+    // Message and then changing your mind left an empty thread in two inboxes. Three such rows exist in production.
+    // `/messages?to=` opens the thread either way and Messages.jsx creates the row on the first send. See
+    // `ensureConversation`.
     navigate(`/messages?to=${creatorId}`)
   }
 

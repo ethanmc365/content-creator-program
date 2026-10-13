@@ -99,14 +99,11 @@ export function tierAt(zoom) {
 //
 // IT IS EXACTLY `base / zoom` NOW: A CONSTANT SIZE ON SCREEN.
 //
-// This was `base / z^0.85` - which is an apparent `base * z^0.15`, so a dot
-// grew from about 1.5px across at world zoom to 2.6px at maximum. The argument
-// for that growth was that zoomed right in you are looking at a position rather
-// than a marker, and it is a decent argument; it is not what was asked for.
-// Ethan, on zooming in and out quickly: "fix this so it's just a constant
-// scale." A dot that is quietly resizing throughout every gesture is the other
-// half of what made this layer feel unstable, and the tier ramp above is only
-// worth having if the thing being ramped is not also breathing.
+// This was `base / z^0.85` - which is an apparent `base * z^0.15`, so a dot grew from about 1.5px across at world zoom
+// to 2.6px at maximum. The argument for that growth was that zoomed right in you are looking at a position rather than a
+// marker, and it is a decent argument; it is not what was asked for. A dot that is quietly resizing throughout every
+// gesture is the other half of what made this layer feel unstable, and the tier ramp above is only worth having if the
+// thing being ramped is not also breathing.
 //
 // A falloff of exactly 1 cancels the group's scale, so the radius is fixed in
 // SCREEN pixels at every magnification. The tier hierarchy stays - a tier-3

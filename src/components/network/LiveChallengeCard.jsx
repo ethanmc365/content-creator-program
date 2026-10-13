@@ -38,13 +38,7 @@ function Pulse() {
   )
 }
 
-// WHO IS WINNING, IN THE CORNER THE PLANE USED TO PARK IN (2 Sep 2026).
-//
-// Ethan: "when there's a live challenge for Spain, remove the animated Tryp.com
-// plane from the top right and instead add the top three or top six - there's
-// more space here - showing who's there, who's got them, or just that no one's
-// got them yet, and show the prize along with it. That would encourage creators
-// more than the Tryp.com plane."
+// WHO IS WINNING, IN THE CORNER THE PLANE USED TO PARK IN.
 //
 // The plane was decoration in the one place on the card with room for a fact.
 // This is the same never-empty board the challenge page and the /challenges
@@ -62,10 +56,9 @@ function Pulse() {
 const MAX_PLACES = 6
 const PREVIEW_PLACES = 3
 
-// IT READS THE BOARD, `results`, NOT ITS OWN SUM OF VIEWS (1 Oct 2026). It used
-// to add up each creator's views, which is a different contest on a points
-// challenge and a nonsense one on a split challenge - two boards ranked as one.
-// Now: the saved ranks, per board, plus the groups and which one is mine.
+// IT READS THE BOARD, `results`, NOT ITS OWN SUM OF VIEWS. It used to add up each creator's views, which is a different
+// contest on a points challenge and a nonsense one on a split challenge - two boards ranked as one. Now: the saved
+// ranks, per board, plus the groups and which one is mine.
 function useBoard(challengeId, userId) {
   const [board, setBoard] = useState({ rows: [], groups: [], mine: null })
   useEffect(() => {
@@ -122,10 +115,9 @@ function LiveBoard({ challenge, className }) {
       .map((p, i) => [placeNumber(p?.place) ?? i + 1, p?.prize])
       .filter(([n, prize]) => n != null && prize),
   )
-  // THREE PLACES ON THE CARD (2 Oct 2026). Ethan: "Spain's challenge card is much bigger than the size it should
-  // be, I think this is because it's showing 6 on the preview leaderboard, maybe just show 3." The board sets the
-  // card's height, so a brief paying six places made the card six rows tall. The podium is the preview; the rest is
-  // one line that says how many more places pay, and the whole board is a press away on the challenge page.
+  // THREE PLACES ON THE CARD. The board sets the card's height, so a brief paying six places made the card six rows
+  // tall. The podium is the preview; the rest is one line that says how many more places pay, and the whole board is a
+  // press away on the challenge page.
   const deepest = PREVIEW_PLACES
   const morePaid = [...prizeAt.keys()].filter((n) => n > PREVIEW_PLACES).length
   const rows = Array.from({ length: deepest }, (_, i) => ({
@@ -247,8 +239,8 @@ export default function LiveChallengeCard({
       >
         <div className="pointer-events-none absolute -right-16 -top-20 h-72 w-72 rounded-full bg-white/10 blur-2xl" />
         <div className="pointer-events-none absolute -bottom-24 -left-10 h-72 w-72 rounded-full bg-black/5 blur-2xl" />
-        {/* THE MARKET'S OWN COUNTRY, highlighted on a zoomed map behind the words (1 Oct 2026, see MarketMap). It
-            replaces the flag that sat in the pill: the same fact, drawn where it can be seen. */}
+        {/* THE MARKET'S OWN COUNTRY, highlighted on a zoomed map behind the words (see MarketMap). It replaces the flag
+            that sat in the pill: the same fact, drawn where it can be seen. */}
         {!isGlobal && codes?.length > 0 && (
           <MarketMap codes={codes} className="absolute inset-0 h-full w-full opacity-90 [mask-image:linear-gradient(to_right,transparent_0%,rgba(0,0,0,0.35)_22%,black_55%)]" />
         )}
@@ -329,9 +321,9 @@ export default function LiveChallengeCard({
             'mt-6 flex flex-col gap-2.5',
             !compact && 'lg:col-start-2 lg:row-start-3 lg:mt-7 lg:items-end lg:self-end',
           )}>
-            {/* THE TWO BUTTONS ARE ONE SIZE (2 Oct 2026). Ethan: "View all details" was smaller than "Submit your
-                video" - each was as wide as its own words. Two equal grid columns, the label centred in each, and the
-                outline drawn with an inset shadow so the border adds no height either. */}
+            {/* THE TWO BUTTONS ARE ONE SIZE. was smaller than "Submit your video" - each was as wide as its own words.
+                Two equal grid columns, the label centred in each, and the outline drawn with an inset shadow so the
+                border adds no height either. */}
             <div className="grid grid-cols-2 gap-3 lg:w-full">
               <Link to={`/challenges/${challenge.id}`} className="btn justify-center whitespace-nowrap !px-4 text-white shadow-[inset_0_0_0_1px_rgba(255,255,255,0.45)] hover:bg-white/10">
                 {tr("View all details")}
@@ -360,19 +352,14 @@ export default function LiveChallengeCard({
   )
 }
 
-// What a market shows when nothing is running. Deliberately not an apology: an
-// empty board is the normal state between challenges, so it points at what the
-// creator can do meanwhile instead of just saying "none".
-// `title` OVERRIDES THE MARKET SENTENCE, because the same panel is now used on
-// the platform-wide board (pages/Challenges) where there is no market to name.
-// Ethan: "use that same copy, but obviously say just no challenge - you don't
-// say the market name."
+// What a market shows when nothing is running. Deliberately not an apology: an empty board is the normal state between
+// challenges, so it points at what the creator can do meanwhile instead of just saying "none". `title` OVERRIDES THE
+// MARKET SENTENCE, because the same panel is now used on the platform-wide board (pages/Challenges) where there is no
+// market to name.
 //
-// AND THE PLANE IS BIGGER HERE THAN IT WAS. It is the only thing on the panel
-// and it is the brand mark: at 224px on a phone it read as an illustration
-// tucked into a notice, which is the opposite of what an empty board wants to
-// feel like. Ethan: "that nice Tryp.com animated plane, you can have nice and
-// big there."
+// AND THE PLANE IS BIGGER HERE THAN IT WAS. It is the only thing on the panel and it is the brand mark: at 224px on a
+// phone it read as an illustration tucked into a notice, which is the opposite of what an empty board wants to feel
+// like.
 export function NoLiveChallenge({ market, canCreate = false, slug, hint, title }) {
   return (
     <div className="relative overflow-hidden rounded-card border border-dashed border-brand/25 bg-brand-tint/25 px-6 py-12 text-center sm:py-16">

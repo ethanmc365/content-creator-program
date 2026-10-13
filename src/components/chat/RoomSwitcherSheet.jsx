@@ -10,10 +10,7 @@ import { stripMarkup } from '../../lib/richText'
 import { cx, shortAgo } from '../../lib/utils'
 import { useT } from '../../lib/i18n'
 
-// EVERY ROOM, ONE TAP FROM ANY ROOM, ON A PHONE (2 Oct 2026).
-//
-// Ethan: "this set up with rooms looks good on desktop but on mobile it can be hard to navigate, especially if in
-// multiple rooms ... research how other popular chats work and rebuild the mobile version."
+// EVERY ROOM, ONE TAP FROM ANY ROOM, ON A PHONE.
 //
 // Inside a room a phone had one way across: a sideways strip of the CURRENT market's tabs. Getting from Spain's
 // General to Worldwide's Announcements meant backing out to the Rooms tab and scrolling for it. The chat apps that
@@ -148,16 +145,17 @@ export default function RoomSwitcherSheet({ open, onClose, places, vipPlaces = [
                   )}
                 </section>
               )}
-              {/* EACH PLACE ITS OWN CARD (12 Oct 2026). Ethan: switching from Worldwide to UK & Ireland, "they're all
-                  combined together. They should still be a bit split." Every place is a card of its own with its flag
-                  and name on a tinted band, so Worldwide's rooms and a market's rooms never run into each other. */}
+              {/* EACH PLACE ITS OWN CARD. The team: switching from Worldwide to UK & Ireland, "they're all combined
+                  together. They should still be a bit split." Every place is a card of its own with its flag and name on
+                  a tinted band, so Worldwide's rooms and a market's rooms never run into each other. */}
               {places.map((p) => (
                 <section key={p.id} className="overflow-hidden rounded-3xl border border-gray-100 bg-white shadow-card">
                   <div className="border-b border-gray-100 bg-cloud/50 px-1.5 pb-1 pt-1.5">{placeHead(p)}</div>
                   <div className="space-y-0.5 p-1.5">
                     {p.rooms.map((r, i) => (
                       <div key={r.id}>
-                        {/* The split between the everyday rooms and the VIP ones: one quiet grey line, not a pill on every row (5 Oct 2026). */}
+                        {/* The split between the everyday rooms and the VIP ones: one quiet grey line, not a pill on
+                            every row. */}
                         {r.visibility === 'vip' && i > 0 && p.rooms[i - 1].visibility !== 'vip' && <div role="separator" aria-hidden className="mx-3 my-1.5 h-px bg-gray-200" />}
                         {row(p, r)}
                       </div>

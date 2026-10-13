@@ -142,13 +142,10 @@ export default function MessagesInbox({
               </p>
             </div>
 
-            {/* THE SAME SIX PEOPLE THE BIG PANE OFFERS, AND THE SAME
-                HEADING RULE (7 Sep 2026). This list used to be
-                `emptyStatePeople` - your own connections - which meant a
-                phone, where the big pane never renders, offered a different
-                answer to the same question from the one a laptop gave. Two
-                lists is how the two screens drift; `discover` is the one
-                definition of "who should I talk to". */}
+            {/* THE SAME SIX PEOPLE THE BIG PANE OFFERS, AND THE SAME HEADING RULE. This list used to be
+                `emptyStatePeople` - your own connections - which meant a phone, where the big pane never renders,
+                offered a different answer to the same question from the one a laptop gave. Two lists is how the two
+                screens drift; `discover` is the one definition of "who should I talk to". */}
             {!discover.loading && discoverPeople.length > 0 && (
               <div className="mt-4">
                 <p className="px-3 pb-1 text-[11px] font-semibold uppercase tracking-wide text-gray-400">
@@ -177,12 +174,10 @@ export default function MessagesInbox({
           </div>
         )}
 
-        {/* THE INBOX ARRIVES, AND THIS TIME IT ACTUALLY DOES.
-            Every other list in the app rises into view one row after
-            another. There was already a `Reveal` here and it did nothing,
-            which is Ethan's "all the open messages and people you've
-            messaged just flash up on the left hand side rather than
-            smoothly load and animate in from top to bottom".
+        {/* THE INBOX ARRIVES, AND THIS TIME IT ACTUALLY DOES. Every other list in the app rises into view one row after
+            another. There was already a `Reveal` here and it did nothing, which is the team's "all the open messages and
+            people you've messaged just flash up on the left hand side rather than smoothly load and animate in from top
+            to bottom".
 
             WHY IT DID NOTHING. `Reveal` marks itself `is-in` the moment its
             container is on screen - and the sidebar is at the top of the
@@ -220,25 +215,17 @@ export default function MessagesInbox({
             onContextMenu={(e) => { e.preventDefault(); openConvMenu(c, e.currentTarget) }}
             className={cx(
               // `hoverable:` - A ROW WITH A `:hover` RULE COSTS YOU THE
-              // FIRST TAP ON iOS. Safari treats the first tap on an element
-              // whose appearance changes on hover as the hover, and only
-              // the second one as the click; the row lights up grey and
-              // nothing opens. Ethan: "on the first click on mobile it
-              // doesn't seem to open - I clicked on Shannon's chat and it
-              // just highlighted it in grey and didn't actually open the
-              // chat." The same rule is why the grey then STAYS: there is
-              // no pointer to move away.
-              // The `hoverable` variant is `(hover: hover) and (pointer:
-              // fine)`, so the style simply does not exist on a phone.
+              // FIRST TAP ON iOS. Safari treats the first tap on an element whose appearance changes on hover as the
+              // hover, and only the second one as the click; the row lights up grey and nothing opens. The same rule is
+              // why the grey then STAYS: there is no pointer to move away. The `hoverable` variant is `(hover: hover)
+              // and (pointer: fine)`, so the style simply does not exist on a phone.
               'group/conv relative flex w-full cursor-pointer select-none items-center gap-3 px-5 py-4 text-left transition-colors hoverable:hover:bg-cloud',
               // A press still gives feedback on touch - it is just tied to
               // the finger being down rather than to a hover that never
               // ends.
               'active:bg-cloud/70',
               c.id === conversationId && 'bg-brand-tint/50',
-              // ROUNDED WHEN HELD (28 Sep 2026). Ethan: "the corners are
-              // really square ... should be rounded". The orange hold state
-              // is a rounded tile, not a full-bleed square band.
+              // ROUNDED WHEN HELD. The orange hold state is a rounded tile, not a full-bleed square band.
               convSheet?.id === c.id && '!bg-brand-tint rounded-2xl ring-2 ring-inset ring-brand/40',
             )}
           >
@@ -280,11 +267,6 @@ export default function MessagesInbox({
                   // does not exist on a phone.
                   ? 'text-brand opacity-100'
                   // AND THIS IS WHY THE FIRST TAP ON A DM DID NOTHING.
-                  //
-                  // Ethan: "whenever i click on a dm it just highlights it
-                  // and i have to click again for it to open, i figure the
-                  // reason for this is because the first time i click it
-                  // shows up the pin icon."
                   //
                   // Exactly that. The row itself was already careful to put
                   // its hover behind `hoverable:` for this precise reason -

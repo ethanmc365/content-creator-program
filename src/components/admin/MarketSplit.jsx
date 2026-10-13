@@ -7,12 +7,10 @@ import FlagTile from '../network/FlagTile'
 import { Skeleton } from '../ui'
 import { marketsApi } from '../../api/markets'
 
-// PARTICIPATION BY MARKET (22 Sep 2026).
+// PARTICIPATION BY MARKET.
 //
-// Ethan: "I want to see the participation split between the markets, for
-// example a graph and numbers like how many submitted from the UK market and
-// from Spain." A worldwide challenge is only worth running worldwide if every
-// market shows up; this is the card that says which ones did.
+// A worldwide challenge is only worth running worldwide if every market shows up; this is the card that says which ones
+// did.
 //
 // ONE HUE, ONE AXIS. The bars compare a single measure across markets (a
 // magnitude job), so every bar is the brand orange and the market is named on
@@ -124,7 +122,8 @@ export default function MarketSplit({ subs = [], results = [], markets = [], sco
               <span className="flex min-w-0 items-center gap-2">
                 {r.codes.length > 0
                   ? <FlagTile codes={r.codes} size="h-6 w-6" />
-                  // A creator with no home market is somebody everywhere and nowhere: the globe, not an empty square (Ethan, 4 Oct 2026).
+                  // A creator with no home market is somebody everywhere and nowhere: the globe, not an empty square
+                  // (the team).
                   : <span className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-cloud text-sm leading-none" aria-hidden>🌍</span>}
                 <span className={cx('truncate text-sm font-medium', none ? 'text-smoke' : 'text-ink')}>{r.name}</span>
               </span>

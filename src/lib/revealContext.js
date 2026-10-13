@@ -1,11 +1,8 @@
 import { createContext, useContext } from 'react'
 
-// ONE CLOCK FOR A CARD AND EVERYTHING INSIDE IT (19 Sep 2026).
+// ONE CLOCK FOR A CARD AND EVERYTHING INSIDE IT.
 //
-// THE BUG. Ethan, on the worldwide page: "most of the time they don't seem to
-// work... sometimes it shows the numbers counting up in the animated format,
-// other times it shows 0 and counts up a few seconds later, and other times the
-// numbers just immediately show."
+// THE BUG.
 //
 // Three different outcomes from one page, and they are three different orderings
 // of three timers that had nothing to do with each other:

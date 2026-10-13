@@ -7,12 +7,7 @@ import { formatDate } from '../../../lib/utils'
 import { challengesApi } from '../../../api/challenges'
 import { submissionsApi } from '../../../api/submissions'
 
-// THE CHALLENGE RECAP, BEFORE ANY CREATOR SEES IT (26 Sep 2026).
-//
-// Ethan: "We have the recap that you built in, which will be at the end of the
-// challenge for anyone who entered. See the 'Your recap ready' banner. Where
-// exactly will this show up? ... build it into the test centre. Exactly how it
-// will look, I can test it and then make any changes to it."
+// THE CHALLENGE RECAP, BEFORE ANY CREATOR SEES IT.
 //
 // Like the Year in Review lab this runs over REAL data, read-only: pick a
 // challenge and anybody who entered it, and the frame below loads the actual

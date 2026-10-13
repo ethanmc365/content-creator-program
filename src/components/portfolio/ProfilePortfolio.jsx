@@ -17,11 +17,6 @@ import { certificatesApi } from '../../api/certificates'
 
 // SOMEBODY'S PORTFOLIO, ON THEIR PROFILE.
 //
-// Ethan: "giving the ability for creators to choose for their portfolio to also
-// appear on their profile that all the creators can see. This would need to fit
-// nicely into the profile page, and have a clean design and functionally to
-// scroll between the pages etc, be interactive."
-//
 // A HORIZONTAL PAGER, NOT THE VERTICAL STACK. On `/portfolio` the deck is the
 // whole screen and scrolling down through five A4 pages is the right gesture -
 // it is a document, and that is how you read one. On a PROFILE it is one
@@ -40,9 +35,7 @@ export default function ProfilePortfolio({ profileId }) {
   const mine = user?.id === profileId
   const [data, setData] = useState(null)
   const [holder, width] = useFluidWidth(260)
-  // THE SAME DECK, FULL SCREEN. Ethan: "whenever you click on this, it should
-  // actually open up on like the big screen, like a big pop-up that you can go
-  // through and see it bigger rather than just that small screen."
+  // THE SAME DECK, FULL SCREEN.
   //
   // The embed is deliberately small - it is one section of a profile among nine
   // and five full pages stacked would bury everything under it - but small is
@@ -65,11 +58,9 @@ export default function ProfilePortfolio({ profileId }) {
       // their community profile. Two switches, two decisions - see migration
       // 223. Without this check the second one would be doing nothing.
       //
-      // ON BY DEFAULT (3 Oct 2026). Ethan: "the portfolios are no longer showing on the profile pages ... they can
-      // still turn this off in settings, right? ... it should all be on automatically already." Somebody who never
-      // opened the portfolio page has no row at all, so a missing row now means "on, with the defaults" (migration
-      // 317 makes `show_on_profile` default true and turns it on for the rows that had never been switched).
-      // Only a row that says false keeps it off.
+      // ON BY DEFAULT. Somebody who never opened the portfolio page has no row at all, so a missing row now means "on,
+      // with the defaults" (migration 317 makes `show_on_profile` default true and turns it on for the rows that had
+      // never been switched). Only a row that says false keeps it off.
       if (port && !port.show_on_profile) { setData(false); return }
       const [{ data: subs }, { data: certs }, { data: creator }] = await Promise.all([
         submissionsApi.submissions()
@@ -112,9 +103,8 @@ export default function ProfilePortfolio({ profileId }) {
   return (
     <section className="rounded-card border border-gray-100 bg-white p-4 shadow-card">
       <div className="mb-3 flex items-center gap-3">
-        {/* THE BARE ICON, IN BRAND ORANGE - NO TINTED SQUARE BEHIND IT (5 Oct 2026). Ethan: "a book with a weird square, light-coloured orange
-            around it ... I just want it to be the icon in orange. This has been a recurring issue." Every other section on the profile heads
-            itself with a plain brand glyph; so does this one. */}
+        {/* THE BARE ICON, IN BRAND ORANGE - NO TINTED SQUARE BEHIND IT. Every other section on the profile heads itself
+            with a plain brand glyph; so does this one. */}
         <Icon name="book" className="h-5 w-5 shrink-0 text-brand" />
         <div className="min-w-0 flex-1">
           <h2 className="truncate text-sm font-bold text-ink">{tr('Portfolio')}</h2>
@@ -126,10 +116,10 @@ export default function ProfilePortfolio({ profileId }) {
         </div>
       </div>
 
-      {/* ONLY THE COVER, AS A PICTURE (5 Oct 2026). Ethan: "I wanted to just show the first card there." The embed used to be a
-          five-page pager squeezed into one section of a profile; it is now the cover alone, and pressing it opens the whole
-          document full size. One press target over the whole card (a click on a still picture cannot be mistaken for a swipe
-          any more) with the small "Full size" badge kept as the label. */}
+      {/* ONLY THE COVER, AS A PICTURE. The embed used to be a five-page pager squeezed into one section of a profile; it
+          is now the cover alone, and pressing it opens the whole document full size. One press target over the whole
+          card (a click on a still picture cannot be mistaken for a swipe any more) with the small "Full size" badge kept
+          as the label. */}
       <div ref={holder} className="group/deck relative">
         <div className="overflow-hidden rounded-[14px]">
           <PortfolioDeck
@@ -141,7 +131,7 @@ export default function ProfilePortfolio({ profileId }) {
             only={1}
           />
         </div>
-        {/* YOUR OWN OPENS THE EDITOR, ANYBODY ELSE'S OPENS FULL SIZE (3 Oct 2026, Ethan). */}
+        {/* YOUR OWN OPENS THE EDITOR, ANYBODY ELSE'S OPENS FULL SIZE. */}
         <button
           type="button"
           onClick={() => (mine ? navigate('/portfolio') : setBig(0))}
@@ -208,9 +198,9 @@ export default function ProfilePortfolio({ profileId }) {
  */
 function BigDeck({ creator, portfolio, videos, certificates, startAt, onClose, tr }) {
   const isMobile = useIsMobile()
-  // ON A DESKTOP IT IS THE WHOLE SCREEN (5 Oct 2026). Ethan: "I like how it opens up on mobile when you click into full screen, but on desktop it
-  // has the ability to fill up the screen even more." The pages are 16:9, so the biggest one that fits is bounded by the width of the window AND by
-  // its height (less room for the title above and the pager below) - whichever runs out first. A phone keeps the sheet it already had.
+  // ON A DESKTOP IT IS THE WHOLE SCREEN. The pages are 16:9, so the biggest one that fits is bounded by the width of the
+  // window AND by its height (less room for the title above and the pager below) - whichever runs out first. A phone
+  // keeps the sheet it already had.
   const [deskW, setDeskW] = useState(() => (typeof window === 'undefined' ? 960 : fitDeck()))
   useEffect(() => {
     const on = () => setDeskW(fitDeck())

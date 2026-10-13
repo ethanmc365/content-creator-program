@@ -6,9 +6,6 @@ import { resetPageSettled } from '../../lib/pageSettled'
 
 // THE ANIMATION THAT WAS RUNNING IN THE WRONG PLACE.
 //
-// Ethan (9 Sep 2026), about the landing page on a phone: "it is terrible,
-// doesn't have any of those clean animations."
-//
 // `Reveal` observes the CONTAINER, which is right while the container fits on a
 // screen and wrong the moment the same grid stacks into one column: the
 // landing page's three-step grid measured 1,322px inside an 812px viewport, so
@@ -142,11 +139,9 @@ describe('Reveal', () => {
   // written as `' is-in is-done'` - both in one commit, the original fault
   // exactly, with no timer at all.
   //
-  // And per-item IS the phone: it engages whenever a container is taller than
-  // 1.25 viewports, which is what a stacked single-column section is. So the
-  // branch that exists to make mobile animate properly was cancelling the hint
-  // on the starting frame of every card it governed. Ethan: "the sections just
-  // seem to flash and appear in."
+  // And per-item IS the phone: it engages whenever a container is taller than 1.25 viewports, which is what a stacked
+  // single-column section is. So the branch that exists to make mobile animate properly was cancelling the hint on the
+  // starting frame of every card it governed.
   it('does not withdraw a child\'s layer hint on the frame it starts moving', () => {
     vi.useFakeTimers()
     try {
@@ -208,13 +203,11 @@ describe('Reveal', () => {
     expect(b.classList.contains('is-in')).toBe(false)
   })
 
-  // MOTION SPENT BEHIND A DIALOG IS MOTION NOBODY SEES (18 Sep 2026).
+  // MOTION SPENT BEHIND A DIALOG IS MOTION NOBODY SEES.
   //
-  // Ethan, on a phone: "when the worldwide page loads on mobile there is no
-  // animations." The notifications ask opens on app open and freezes the page
-  // (lib/scrollLock); an IntersectionObserver cannot see a scrim, so the whole
-  // top of the hub ran its entrance behind one and was already finished by the
-  // time the reader could look at it.
+  // The notifications ask opens on app open and freezes the page (lib/scrollLock); an IntersectionObserver cannot see a
+  // scrim, so the whole top of the hub ran its entrance behind one and was already finished by the time the reader could
+  // look at it.
   it('holds its motion while an overlay has the page frozen, and takes it back on release', () => {
     setHeights({ container: 300, viewport: 800 })
     const release = lockScroll()
@@ -250,12 +243,10 @@ describe('Reveal', () => {
     act(() => { release() })
   })
 
-  // AN ENTRANCE SPENT ON AN EMPTY BOX IS AN ENTRANCE NOBODY SEES (19 Sep 2026).
+  // AN ENTRANCE SPENT ON AN EMPTY BOX IS AN ENTRANCE NOBODY SEES.
   //
-  // Ethan: "for mobile there is still no real visible animations... the latest
-  // announcements, today's puzzles and everyone right now [don't]". Measured on
-  // the hub: a section sat at offsetHeight 0 for a second while its query ran,
-  // and its 720ms ran against nothing.
+  // Measured on the hub: a section sat at offsetHeight 0 for a second while its query ran, and its 720ms ran against
+  // nothing.
   it('will not begin while the container has nothing in it yet', () => {
     const grow = setHeights({ container: 0, viewport: 800 })
     const view = render(<Cards />)
@@ -291,13 +282,10 @@ describe('Reveal', () => {
     expect(grid.classList.contains('is-in')).toBe(true)
   })
 
-  // THE LOAD RACE, WHICH IS WHAT MADE IT WORK "MOST OF THE TIME" (19 Sep 2026).
+  // THE LOAD RACE, WHICH IS WHAT MADE IT WORK "MOST OF THE TIME".
   //
-  // Ethan: "most of the time they don't seem to work, I think it depends on how
-  // long it takes for the page to load." The observer used to fire on the frame
-  // the sections committed, which is the frame the browser is busiest, so
-  // whether a 720ms entrance was smooth, juddered, or was dropped to its last
-  // frame depended on the connection.
+  // The observer used to fire on the frame the sections committed, which is the frame the browser is busiest, so whether
+  // a 720ms entrance was smooth, juddered, or was dropped to its last frame depended on the connection.
   it('does not decide anything while the page is still changing height', () => {
     setHeights({ container: 300, viewport: 800 })
     const view = render(<Cards />)
@@ -309,8 +297,7 @@ describe('Reveal', () => {
     expect(io.has(grid)).toBe(true)
   })
 
-  // Ethan: "it shows a white screen for a second first." A section already on
-  // the first screen must not wait for the rest of the page to stop growing.
+  // A section already on the first screen must not wait for the rest of the page to stop growing.
   it('starts a section that is on the first screen without waiting for the page to settle', () => {
     setHeights({ container: 300, viewport: 800 })
     const orig = HTMLElement.prototype.getBoundingClientRect

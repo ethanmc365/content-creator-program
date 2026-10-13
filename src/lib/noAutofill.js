@@ -1,11 +1,7 @@
 // STOP THE PHONE OFFERING SOMEBODY'S HOME ADDRESS.
 //
-// THE BUG. Typing into the airport field on an iPhone put a bar above the
-// keyboard offering "Home - 14 Somewhere Road" and "Work - ...". Ethan, logging
-// a flight: "it's showing up suggestions just above my keyboard saying home and
-// my home address and work and my work address, and it shouldn't be showing up
-// out of full contact because this is not something you're auto filling your
-// contact for."
+// THE BUG. Typing into the airport field on an iPhone put a bar above the keyboard offering "Home - 14 Somewhere Road"
+// and "Work -...".
 //
 // WHY `autocomplete="off"` ON ITS OWN DID NOT DO IT. The airport field already
 // had it. WebKit treats `off` as advice rather than instruction on any field its

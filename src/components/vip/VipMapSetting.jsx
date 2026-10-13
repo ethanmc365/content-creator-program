@@ -22,8 +22,8 @@ export default function VipMapSetting({ publicOn = true }) {
     return () => { alive = false }
   }, [user?.id, profile?.is_vip])
   if (!profile?.is_vip || !me) return null
-  // ONE SWITCH, TWO FLAGS (4 Oct 2026). The public-pages switch above governs this map too (the map hides anyone whose profile
-  // is off the maps), so when that one is off THIS one has to read off as well - it stayed on, which said the opposite of what
+  // ONE SWITCH, TWO FLAGS. The public-pages switch above governs this map too (the map hides anyone whose profile is off
+  // the maps), so when that one is off THIS one has to read off as well - it stayed on, which said the opposite of what
   // the map did. It keeps its own saved choice underneath, and comes back to it when the public switch goes back on.
   const saved = me.show_on_map !== false
   const on = saved && publicOn

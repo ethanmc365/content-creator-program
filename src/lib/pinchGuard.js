@@ -1,12 +1,5 @@
 // NO ACCIDENTAL ZOOM, ANYWHERE, EXCEPT WHERE ZOOM IS THE POINT.
 //
-// Ethan: "even while scrolling through messages or on the worldwide page, I can
-// accidentally pinch slightly with two fingers and it will zoom in, this
-// shouldn't be the case here. Zoom in feature on mobile should not happen
-// across the platform, only for certain things such as zooming in on the maps,
-// zooming in on photos and that, everything else it should be disabled so no
-// accidental zooming."
-//
 // This reverses an earlier decision, deliberately. The note in index.css says
 // page zoom "cannot be turned off with a viewport `maximum-scale` (that also
 // breaks pinch-to-zoom, which is an accessibility control)" - and that is true

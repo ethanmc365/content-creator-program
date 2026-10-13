@@ -9,11 +9,7 @@ import { cx } from '../../lib/utils'
 import { fetchAll } from '../../lib/fetchAll'
 import { contentApi } from '../../api/content'
 
-// THE HOOK BANK, FOR THE TEAM (24 Sep 2026).
-//
-// Ethan: "There should be a new admin page called Hooks where I can add in
-// other hooks... or just see all the hooks that are in. You can group them by
-// families."
+// THE HOOK BANK, FOR THE TEAM.
 //
 // Everything the creator's "Hook me up" button deals from is here: grouped by
 // the formula it follows, the most-used families first, and inside a family the
@@ -21,9 +17,7 @@ import { contentApi } from '../../api/content'
 // is never dealt. The tier chip is the one hint of how proven a hook is - the
 // creator's button shows none of this.
 
-// NO TIER CHIPS (28 Sep 2026). Ethan: "I don't like the 'Validated',
-// 'Promising' new headings ... it just adds more clutter." The order still
-// puts the most-used hooks first; nothing is labelled with it.
+// NO TIER CHIPS. The order still puts the most-used hooks first; nothing is labelled with it.
 
 export default function AdminHooks() {
   const { profile } = useAuth()
@@ -34,9 +28,7 @@ export default function AdminHooks() {
   const [text, setText] = useState('')
   const [family, setFamily] = useState('')
   const [saving, setSaving] = useState(false)
-  // EDITED IN PLACE, IN A BOX THAT GROWS (28 Sep 2026). Ethan: "if a hook is
-  // a bit longer, it's hard to write it because it doesn't really fit in the
-  // box." The one-line prompt dialog is gone; the row itself opens.
+  // EDITED IN PLACE, IN A BOX THAT GROWS. The one-line prompt dialog is gone; the row itself opens.
   const [editingId, setEditingId] = useState(null)
   const [draft, setDraft] = useState('')
 
@@ -62,10 +54,8 @@ export default function AdminHooks() {
     return [...by.values()].sort((a, b) => (a.name === 'More ideas') - (b.name === 'More ideas') || b.uses - a.uses)
   }, [rows])
 
-  // ONE LIST, FILTERED (26 Sep 2026). Ethan: "just have a big, huge list ...
-  // Or actually, perhaps keep it in these filters ... but really improve it."
-  // So the groups are chips over a single list rather than thirteen closed
-  // drawers, and the search narrows whatever group is picked.
+  // ONE LIST, FILTERED. So the groups are chips over a single list rather than thirteen closed drawers, and the search
+  // narrows whatever group is picked.
   const q = query.trim().toLowerCase()
   const shown = useMemo(() => {
     let list = rows || []
@@ -230,10 +220,7 @@ export default function AdminHooks() {
         </div>
       </div>
 
-      {/* ONE LINE OF TABS THAT SCROLLS SIDEWAYS, at every width (28 Sep
-          2026). Ethan: "I want it all in one line, like tabs, and then I can
-          scroll horizontally ... rather than just having a bunch of buttons
-          everywhere." The picked tab slides itself into view. */}
+      {/* ONE LINE OF TABS THAT SCROLLS SIDEWAYS, at every width. The picked tab slides itself into view. */}
       <div className="relative mb-5">
       <div className="-mx-4 flex gap-1 overflow-x-auto scroll-smooth border-b border-gray-100 px-4 sm:mx-0 sm:px-0" role="tablist" aria-label="Hook groups">
         {[{ name: 'all', label: 'All', count: (rows || []).length }, ...families.map((f) => ({ name: f.name, label: f.name, count: f.hooks.length }))].map((g, i) => {

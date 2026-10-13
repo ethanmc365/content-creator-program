@@ -136,14 +136,11 @@ export function syncTheme(profileDark) {
   matchLaunchStatusBar(dark)
 }
 
-// AN INSTALLED IPHONE APP ONLY READS THE BAR STYLE AS A PAGE LOADS
-// (21 Sep 2026). Ethan switched back to light and kept a black bar until he
-// closed and reopened the app: "Can't it automatically work?" A reload is the
-// page loading, so when this launch's style is not the one the creator's theme
-// now needs, the page reloads itself - once, because index.html picks the
-// reloaded page's style from the preference `syncTheme` has just stored, and
-// then they match. Only from here: `applyTheme(false)` also runs when a page
-// outside the community shell mounts, and that is not a change of preference.
+// AN INSTALLED IPHONE APP ONLY READS THE BAR STYLE AS A PAGE LOADS. The team switched back to light and kept a black bar
+// until he closed and reopened the app: "Can't it automatically work?" A reload is the page loading, so when this
+// launch's style is not the one the creator's theme now needs, the page reloads itself - once, because index.html picks
+// the reloaded page's style from the preference `syncTheme` has just stored, and then they match. Only from here:
+// `applyTheme(false)` also runs when a page outside the community shell mounts, and that is not a change of preference.
 function matchLaunchStatusBar(dark) {
   try {
     const style = statusBarStyle(dark)

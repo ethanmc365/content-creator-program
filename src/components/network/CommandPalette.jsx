@@ -233,12 +233,10 @@ export default function CommandPalette({ open, onClose }) {
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               onKeyDown={onKeyDown}
-              /* FOUR NOUNS DO NOT FIT ON A PHONE. Ethan: "if I click on the
-                 header it says search markets rooms challenges, and then the
-                 next word is cut off. I would just have search there as well
-                 for mobile, because that will fit in nicely." A placeholder
-                 clipped mid-word is worse than a short one: it reads as a
-                 layout fault rather than as a hint. */
+              /*
+               * FOUR NOUNS DO NOT FIT ON A PHONE. A placeholder clipped mid-word is worse than a short one: it reads as
+               * a layout fault rather than as a hint.
+               */
               placeholder={phone ? tr('Search') : tr('Search markets, rooms, challenges, creators')}
               aria-label={tr('Search')}
               className="min-w-0 flex-1 border-0 bg-transparent py-4 text-base outline-none placeholder:text-gray-400 focus:outline-none focus-visible:ring-0 focus-visible:ring-offset-0"

@@ -1,9 +1,4 @@
-// THE OPENING OF A BRIEF, AS PLAIN WORDS (21 Sep 2026).
-//
-// Ethan, of the challenge cards: "it's showing all the text, and it's showing
-// the text incorrectly. Some of it is a title, and some of it is bold, but
-// rather than actually showing that, it's just showing hashtags and stars...
-// Maybe just show the first paragraph."
+// THE OPENING OF A BRIEF, AS PLAIN WORDS.
 //
 // A brief is markdown (lib/richEditor). A card has room for a few lines, not
 // for headings and lists, so this takes the FIRST PARAGRAPH of prose - skipping

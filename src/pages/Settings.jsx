@@ -44,20 +44,13 @@ const SECTIONS = [
   { key: 'notifications', label: 'Notifications', icon: 'bell', hint: 'Alerts and reminders' },
   { key: 'account', label: 'Account', icon: 'users', hint: 'Profile, privacy, password, your data' },
   { key: 'payment', label: 'Payment details', icon: 'wallet', hint: 'Where your prizes get paid' },
-  // LANGUAGE IS ITS OWN SECTION, not a row inside Display. Ethan: "there should
-  // be a different settings page, or you can incorporate it under a certain
-  // place - maybe just a new languages page would work best." He is right that
-  // it is not a display preference: Display is about how this DEVICE looks
-  // (theme, motion, timezone) and is per device, while the language is a fact
-  // about the person and follows their account between devices.
+  // LANGUAGE IS ITS OWN SECTION, not a row inside Display. they are right that it is not a display preference: Display
+  // is about how this DEVICE looks (theme, motion, timezone) and is per device, while the language is a fact about the
+  // person and follows their account between devices.
   { key: 'language', label: 'Language', icon: 'globe', hint: 'The language the app is in' },
-  // GET HELP IS A SECTION, NOT A LINK TO A FORM (7 Sep 2026). Ethan: "maybe an
-  // actual help section where we have the whole Tryp.com team listed, and they
-  // can specifically click to DM them, and my email at the top... in case
-  // anyone's struggling with anything and doesn't want to ask in the chat."
-  // It sits LAST because it is the thing you reach for when the others have not
-  // answered, and it is in Settings rather than on a route of its own because
-  // it is one screen and every other one-screen destination already lives here.
+  // GET HELP IS A SECTION, NOT A LINK TO A FORM. It sits LAST because it is the thing you reach for when the others have
+  // not answered, and it is in Settings rather than on a route of its own because it is one screen and every other
+  // one-screen destination already lives here.
   { key: 'help', label: 'Get help', icon: 'lifebuoy', hint: 'Reach the Tryp.com team directly' },
 ]
 
@@ -72,7 +65,7 @@ export default function Settings() {
   const [langCode, setLangCode] = useState(getLocale)
   const navigate = useNavigate()
   const [params, setParams] = useSearchParams()
-  // WHICH SECTION IS OPEN, AND IT IS IN THE URL (3 Sep 2026).
+  // WHICH SECTION IS OPEN, AND IT IS IN THE URL.
   //
   // It was local state only, so `/settings?section=notifications` landed on the
   // menu - which is what the guided walkthrough had been linking to for its one
@@ -80,14 +73,10 @@ export default function Settings() {
   // able to link to at all. A section you cannot address is a section nothing
   // else in the product can send somebody to.
   //
-  // The URL is the source of truth and `setSection` writes to it, so Back comes
-  // out of a section to the menu rather than off the page, and a link into one
-  // survives a reload.
-  // 'admin' IS A SECTION TOO (22 Sep 2026). It is drawn outside SECTIONS
-  // because only admins see it, and this test only accepted keys IN that list -
-  // so pressing "Admin settings" wrote ?section=admin, read it back as nothing
-  // and stayed on the menu. Ethan: "I clicked on admin settings and it's not
-  // showing the page."
+  // The URL is the source of truth and `setSection` writes to it, so Back comes out of a section to the menu rather than
+  // off the page, and a link into one survives a reload. 'admin' IS A SECTION TOO. It is drawn outside SECTIONS because
+  // only admins see it, and this test only accepted keys IN that list - so pressing "Admin settings" wrote
+  // ?section=admin, read it back as nothing and stayed on the menu.
   const wanted = params.get('section')
   const section = SECTIONS.some((x) => x.key === wanted) || (wanted === 'admin' && isAdmin) ? wanted : null
   const setSection = (key) => {
@@ -284,13 +273,10 @@ export default function Settings() {
 
   // NO CARD AND NO SECOND HEADING, HERE OR IN ANY SECTION BELOW.
   //
-  // The settings page is a MENU now: you press "Display" and land on a page
-  // whose own heading is "Display". Every section then drew a card with a
-  // brand icon and an <h2> saying "Display" again, plus a line explaining what
-  // Display means - a title, a subtitle and a border, all restating the button
-  // you had just pressed. Ethan: "we now have specific buttons for display,
-  // sound etc, we don't need to have a card inside them or another heading."
-  // What is left is the settings themselves, on the page, with air around them.
+  // The settings page is a MENU now: you press "Display" and land on a page whose own heading is "Display". Every
+  // section then drew a card with a brand icon and an <h2> saying "Display" again, plus a line explaining what Display
+  // means - a title, a subtitle and a border, all restating the button you had just pressed. What is left is the
+  // settings themselves, on the page, with air around them.
   // WHAT A PICKED OPTION LOOKS LIKE NOW LIVES IN `lib/pick`, because it was
   // written out by hand in fifteen components and a single dark-mode remap of
   // `border-brand` therefore drew a pale halo around every one of them at once.
@@ -433,16 +419,12 @@ export default function Settings() {
   // pocket and laptop in an office are not the same room.
   const SoundSection = (
     <Panel>
-      {/* NO DESCRIPTIONS ON THIS CARD AT ALL.
-          There were three: one under the heading and one under each switch,
-          the longest of them forty words listing every individual sound the
-          games make. Ethan asked for all of them gone, and a toggle is the one
-          control that genuinely does not need explaining - you turn it on, and
-          within about four seconds you either like what you hear or you turn it
-          off again. Explaining a sound in prose is slower than playing it, and
-          turning one ON plays its own sound, which is the demonstration.
-          Both switches are still per DEVICE rather than per account (phone in a
-          pocket and laptop in an office are not the same room); that is worth
+      {/* NO DESCRIPTIONS ON THIS CARD AT ALL. There were three: one under the heading and one under each switch, the
+          longest of them forty words listing every individual sound the games make. The team asked for all of them gone,
+          and a toggle is the one control that genuinely does not need explaining - you turn it on, and within about four
+          seconds you either like what you hear or you turn it off again. Explaining a sound in prose is slower than
+          playing it, and turning one ON plays its own sound, which is the demonstration. Both switches are still per
+          DEVICE rather than per account (phone in a pocket and laptop in an office are not the same room); that is worth
           knowing and is not worth a paragraph on the page you set it from. */}
       <div className="mt-5 flex items-center gap-4 border-t border-gray-100 pt-5">
         <p className="min-w-0 flex-1 text-sm font-semibold">{tr("Chats and Connections")}</p>
@@ -460,10 +442,6 @@ export default function Settings() {
 
   // THE ACCOUNT PAGE, WHICH WAS THREE MISMATCHED BUTTONS AND A RED BOX.
   //
-  // Ethan: "on account, the change password buttons, view my profile buttons,
-  // edit profile - they're like, really weird the way they are. So just
-  // improving that UI... everything seems a bit clustered there."
-  //
   // What was wrong is that three DIFFERENT kinds of control were drawn in a
   // row as though they were the same kind: two links that go somewhere else, a
   // button that starts a flow ON this page, and all three in three different
@@ -475,10 +453,9 @@ export default function Settings() {
   // name, a line saying what it does, and one control on the right. The page
   // reads down a single column instead of starting with a huddle.
   //
-  // AND IT OPENS WITH WHO YOU ARE. Ethan asked for "the actual email they used
-  // to sign up, so they can view it" - it was nowhere on the platform, and it
-  // is the one fact that makes "change password" and "sign out everywhere"
-  // mean anything.
+  // AND IT OPENS WITH WHO YOU ARE. The team asked for "the actual email they used to sign up, so they can view it" - it
+  // was nowhere on the platform, and it is the one fact that makes "change password" and "sign out everywhere" mean
+  // anything.
   const accountRow = (title, hint, control, key) => (
     <div key={key} className="flex flex-wrap items-center gap-3 border-t border-gray-100 pt-5 first:border-t-0 first:pt-0">
       <div className="min-w-0 flex-1">
@@ -579,14 +556,11 @@ export default function Settings() {
         <h2 className="mb-4 text-base font-semibold">{tr('Privacy')}</h2>
         <div className="flex items-center gap-4">
           <div className="min-w-0 flex-1">
-            {/* ONE FLAG, ONE MEANING (29 Sep 2026). This toggle was written
-                when the public page had one thing on it - the map - and it has
-                since grown a featured strip and a wall of fame. `show_on_map`
-                governs all three now (see migration 278; the strip never
-                honoured it at all, which meant somebody who had switched
-                themselves off the map was still on the front page beside it).
-                So the toggle says what it actually does rather than naming one
-                of the three places it acts on. */}
+            {/* ONE FLAG, ONE MEANING. This toggle was written when the public page had one thing on it - the map - and
+                it has since grown a featured strip and a wall of fame. `show_on_map` governs all three now (see
+                migration 278; the strip never honoured it at all, which meant somebody who had switched themselves off
+                the map was still on the front page beside it). So the toggle says what it actually does rather than
+                naming one of the three places it acts on. */}
             <p className="text-sm font-semibold">{tr('Show me on the public Tryp.com pages')}</p>
             <p className="text-xs text-smoke">
               {tr("Your city, your photo and any challenge you have won can appear on the public sign-up and login pages: the community map, the creators strip and the wall of fame. Turn this off to be left out of all three. Fellow creators can still find you inside the app.")}
@@ -600,24 +574,16 @@ export default function Settings() {
             {tr("You are left out of the public map, the creators strip and the wall of fame. Fellow creators can still find you in the app.")}
           </p>
         )}
-        {/* VIPs: the VIP map's switch lives here now, not on the map (2 Oct 2026). Draws nothing for anybody else. */}
+        {/* VIPs: the VIP map's switch lives here now, not on the map. Draws nothing for anybody else. */}
         <div className="mt-4 border-t border-gray-50 pt-4 empty:hidden"><VipMapSetting publicOn={showOnMap} /></div>
       </Panel>
 
-      {/* DELETING YOUR ACCOUNT IS ITS OWN CARD, AT THE VERY BOTTOM.
-          Ethan: "the delete account section, I would move it to a card at the
-          very bottom below the privacy thing. And I don't really like the way
-          it's a red colour, which is still not matched to the Tryp.com
-          platform."
-          Both are right. It was a red inset box in the MIDDLE of the account
-          card, above Privacy - so the most destructive thing on the platform
-          sat between "download my data" and a toggle about a map, shouting.
-          Last is where an ending belongs, and a card of its own is what stops
-          it reading as one more account setting.
-          NOT RED. Red is nowhere else in this product's palette, and a warning
-          colour used for a thing nobody has done yet is an alarm with no event
-          behind it. The weight comes from the words and from the confirmation
-          that follows; the button is quiet until you mean it. */}
+      {/* DELETING YOUR ACCOUNT IS ITS OWN CARD, AT THE VERY BOTTOM. Both are right. It was a red inset box in the MIDDLE
+          of the account card, above Privacy - so the most destructive thing on the platform sat between "download my
+          data" and a toggle about a map, shouting. Last is where an ending belongs, and a card of its own is what stops
+          it reading as one more account setting. NOT RED. Red is nowhere else in this product's palette, and a warning
+          colour used for a thing nobody has done yet is an alarm with no event behind it. The weight comes from the
+          words and from the confirmation that follows; the button is quiet until you mean it. */}
       <Panel>
         <h2 className="mb-1 text-base font-semibold">{tr('Delete account')}</h2>
         <p className="mb-4 text-xs leading-relaxed text-smoke">
@@ -701,19 +667,17 @@ export default function Settings() {
     if (await saved(profilesApi.profiles().update({ locale: code }).eq('id', user.id))) refreshProfile?.()
   }
 
-  // JUST THE CHOICE (1 Sep 2026).
+  // JUST THE CHOICE.
   //
-  // Ethan: "on the actual language settings page, remove this copy 'Anything a
-  // person wrote stays exactly as they wrote it: messages, captions, challenge
-  // briefs and names' and this copy 'The language the app is in. Your own words
+  // The team: "on the actual language settings page, remove this copy 'Anything a person wrote stays exactly as they
+  // wrote it: messages, captions, challenge briefs and names' and this copy 'The language the app is in. Your own words
   // - messages, captions and names - are never translated.' It's not needed, we
   // just need the simple ui to choose the language."
   //
-  // He is right and the reason is worth keeping: both lines explained a rule
-  // nobody is going to be surprised by. Two sentences of caveat around two
-  // buttons is a page that reads as an apology for a feature. The rule itself
-  // has not changed - `t()` is only ever called on literals in this repository,
-  // and never on anything a person wrote - it just does not need announcing.
+  // they are right and the reason is worth keeping: both lines explained a rule nobody is going to be surprised by. Two
+  // sentences of caveat around two buttons is a page that reads as an apology for a feature. The rule itself has not
+  // changed - `t()` is only ever called on literals in this repository, and never on anything a person wrote - it just
+  // does not need announcing.
   const LanguageSection = (
     <Panel>
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-2" role="radiogroup" aria-label={tr('Language')}>
@@ -765,25 +729,20 @@ export default function Settings() {
 
   // ---------------- ONE SETTINGS PAGE, AT EVERY WIDTH ---------------------
   //
-  // This used to be two: a menu of section cards that opened one section at a
-  // time on a phone, and a three-column wall of every card at once on a desktop.
-  // Ethan: "I prefer the design on mobile where it shows an initial page of the
-  // settings and you click in for what you actually want, build this for the
-  // desktop view too."
+  // This used to be two: a menu of section cards that opened one section at a time on a phone, and a three-column wall
+  // of every card at once on a desktop.
   //
-  // He is right, and the reason is not screen size. A settings page is not read,
-  // it is VISITED - you arrive knowing the one thing you came to change. Six
-  // cards side by side makes you scan all six to find it; a menu names all six
-  // in one glance and then gets out of the way. The width a desktop has spare is
-  // better spent on breathing room around the thing you actually opened than on
-  // showing you five things you did not.
+  // they are right, and the reason is not screen size. A settings page is not read, it is VISITED - you arrive knowing
+  // the one thing you came to change. Six cards side by side makes you scan all six to find it; a menu names all six in
+  // one glance and then gets out of the way. The width a desktop has spare is better spent on breathing room around the
+  // thing you actually opened than on showing you five things you did not.
   //
   // It also deletes the second implementation, which is the real prize: every
   // setting added from here on is added once.
   const open = section ? (SECTIONS.find((s) => s.key === section) || { key: 'admin', label: 'Admin settings' }) : null
 
-  // GET HELP IS ONE PAGE NOW (8 Oct 2026): the answers, the team and "ask a question" together at /help. The
-  // menu row stays where people know it is and simply goes there.
+  // GET HELP IS ONE PAGE NOW: the answers, the team and "ask a question" together at /help. The menu row stays where
+  // people know it is and simply goes there.
   if (section === 'help') return <Navigate to="/help" replace />
 
   if (open) {
@@ -834,11 +793,7 @@ export default function Settings() {
             onClick={() => setSection(s.key)}
             className="card flex w-full items-center gap-4 !p-5 text-left transition-all duration-200 hover:-translate-y-0.5 hover:border-brand/30 hover:shadow-lift active:translate-y-0"
           >
-            {/* THE ICON, NOT AN ICON IN A BOX (9 Sep 2026).
-                Ethan: "for this settings page, I don't like how the current
-                icons look - the weird orange background and then the icon. I
-                think it's better to remove that background completely and just
-                have the icon in the Tryp.com orange."
+            {/* THE ICON, NOT AN ICON IN A BOX.
 
                 Same change and the same reason as the landing page's cards: a
                 44px tinted rounded square is the app's own shape for something
@@ -868,7 +823,7 @@ export default function Settings() {
             <Icon name="chevronRight" className="h-4 w-4 shrink-0 text-gray-300" />
           </button>
         ))}
-        {/* THE TERMS YOU AGREED TO (7 Oct 2026): every version you accepted or signed, to read again whenever you like. */}
+        {/* THE TERMS YOU AGREED TO: every version you accepted or signed, to read again whenever you like. */}
         <Link to="/agreements" className="card flex w-full items-center gap-4 !p-5 text-left transition-all duration-200 hover:-translate-y-0.5 hover:border-brand/30 hover:shadow-lift active:translate-y-0">
           <span className="flex w-11 shrink-0 items-center justify-center text-brand"><Icon name="shield" className="h-6 w-6" /></span>
           <span className="min-w-0 flex-1">
@@ -893,9 +848,8 @@ export default function Settings() {
           </button>
         )}
       </Reveal>
-      {/* THE FOOTNOTE ARRIVES LAST (22 Sep 2026). It sat outside the reveal,
-          so it was on screen before the cards above it had animated in. It now
-          waits for the stagger to finish: one step per card, plus a beat. */}
+      {/* THE FOOTNOTE ARRIVES LAST. It sat outside the reveal, so it was on screen before the cards above it had
+          animated in. It now waits for the stagger to finish: one step per card, plus a beat. */}
       <Reveal from="down" delay={0.06 + (SECTIONS.length + (isAdmin ? 1 : 0)) * 0.05 + 0.12}>
         <p className="mt-6 text-xs text-smoke">
           {tr('Have an idea for another setting? Let us know via')}{' '}

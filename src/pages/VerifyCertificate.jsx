@@ -31,13 +31,7 @@ import { certificatesApi } from '../api/certificates'
 // them this page answered with a different-looking certificate, which answers
 // "no".)
 //
-// ---------------------------------------------------------------------------
-// THE REDESIGN (20 Sep 2026)
-//
-// Ethan: "we also have the certificate check page. I think that's good, but you
-// need to improve the design of it. Currently, the design is really bad. The
-// logo shows, but it's squished. And just improve the overall design, matching
-// the platform, have clean animations there."
+// --------------------------------------------------------------------------- THE REDESIGN
 //
 // The squish was real and it is the same bug three other surfaces had: the logo
 // asset is a 1200x630 card and it was drawn in an `h-8 w-8` box, so a wide
@@ -123,10 +117,9 @@ export default function VerifyCertificate() {
 /**
  * THE LOGO AT ITS OWN SHAPE.
  *
- * It was `h-8 w-8 rounded-lg` on a 1200x630 asset - Ethan: "the logo shows, but
- * it's squished". A fixed HEIGHT and an automatic width is the only treatment
- * that is correct for a lockup, and it is what the certificate, the portfolio
- * cover and the kit strip all had to be fixed to do as well.
+ * It was `h-8 w-8 rounded-lg` on a 1200x630 asset - A fixed HEIGHT and an automatic width is the only treatment that is
+ * correct for a lockup, and it is what the certificate, the portfolio cover and the kit strip all had to be fixed to do
+ * as well.
  */
 function Header() {
   const tr = useT()
@@ -251,9 +244,7 @@ function Found({ data, holder, scale }) {
   const forWhat = fillTemplate(data.body, facts).split('\n').filter(Boolean).join(' · ')
   const link = typeof window !== 'undefined' ? `${window.location.origin}/verify/${data.serial}` : ''
 
-  // THE ANSWER ARRIVES IN THE ORDER IT IS READ (28 Sep 2026). Ethan: "I would
-  // improve the certificate check page. Currently it doesn't seem to match the
-  // style of the platform, where there are no clean animations."
+  // THE ANSWER ARRIVES IN THE ORDER IT IS READ.
   //
   // The whole panel faded up as one block, so the verdict, the certificate and
   // the facts all landed on the same frame - which is not an animation, it is a

@@ -1,15 +1,9 @@
 // WHAT THE PERSON WAS DOING WHEN IT BROKE.
 //
-// Ethan, of the error monitoring panel: "I'm not sure what these errors are,
-// the information provided doesn't really help me... can you provide more info
-// for these and in future so I can really understand exactly what the issue is."
-//
-// He is right, and the reason a row is unreadable is not that too little is
-// stored - it is that what IS stored is the wrong thing. A production stack
-// trace reads `Fa@.../ui-BaIenqY-.js:4:29678`, and the React component stack
-// reads `Fa / button / div / md / div / Nd`. Both are minified, both name
-// nothing, and neither can be de-minified without source maps uploaded to
-// Sentry with an auth token this build does not have.
+// they are right, and the reason a row is unreadable is not that too little is stored - it is that what IS stored is the
+// wrong thing. A production stack trace reads `Fa@.../ui-BaIenqY-.js:4:29678`, and the React component stack reads `Fa /
+// button / div / md / div / Nd`. Both are minified, both name nothing, and neither can be de-minified without source
+// maps uploaded to Sentry with an auth token this build does not have.
 //
 // So this stores the thing that does not minify: THE ROUTE THE PERSON WAS ON,
 // WHAT THEY PRESSED, AND IN WHAT ORDER. "Opened /onboarding, pressed Continue,

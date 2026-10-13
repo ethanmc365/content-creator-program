@@ -1,11 +1,9 @@
 import { useT } from '../../lib/i18n'
 import { cx } from '../../lib/utils'
 
-// ONE PROGRESS BAR FOR EVERY KPI (30 Sep 2026). The card and the detail view
-// used to colour the same bar differently (orange on the card, a flat green in
-// the detail), and the copy under it - "98% through · a steady pace would be at
-// 49 today" - made you do the sums. Ethan: "Current pace 50% and Steady pace
-// 45%, making it easy to see if you're ahead or behind."
+// ONE PROGRESS BAR FOR EVERY KPI. The card and the detail view used to colour the same bar differently (orange on the
+// card, a flat green in the detail), and the copy under it - "98% through · a steady pace would be at 49 today" - made
+// you do the sums.
 //
 // So: the fill is `Current` (actual / target), a tick on the track is `Steady
 // pace` (how far through the period we are, which is where a straight line to
@@ -16,8 +14,7 @@ import { cx } from '../../lib/utils'
 // red only when the period ended short. Every gradient runs light to dark
 // left to right so the leading edge is the brightest part.
 export const BAR_TONES = {
-  // Lighter, fresher tones (1 Oct 2026, Ethan: "The green is very dark ... Nicer colours, brighter
-  // colours, match the style of the platform").
+  // Lighter, fresher tones ().
   green: { fill: 'from-emerald-300 to-emerald-500', text: 'text-emerald-600' },
   orange: { fill: 'from-brand-light to-brand', text: 'text-brand' },
   amber: { fill: 'from-amber-200 to-amber-400', text: 'text-amber-600' },
@@ -33,16 +30,14 @@ export function barTone(status, pct) {
   return status === 'behind' ? 'amber' : 'orange'
 }
 
-// THE PACE MARKER, EXPLAINED (1 Oct 2026). Ethan saw "a weird line at the end of the progress
-// bar" on Challenges run and not on Videos entered. It is the recommended pace: where a straight
-// line to the goal would be by today. Late in a quarter it sits at 99%, right on the end of the
-// bar, which is why it read as a glitch; and it was hidden once a goal was met, which is why one
-// card had it and the next did not. Now every running total shows it for as long as its period is
-// running (met or not), it is drawn as a labelled notch rather than a stray hairline, and an
-// average never shows it, because an average has no straight line to be ahead of.
-// THE PACE MARKER IS A PLAIN LINE (30 Sep 2026). Ethan: "I don't really like the coloured bar for
-// recommended pace ... maybe just a black bar or grey ... just a line, more simple." A thin dark-grey
-// tick across the track, no ring, no glow; the legend under the bar uses the same tick.
+// THE PACE MARKER, EXPLAINED. The team saw "a weird line at the end of the progress bar" on Challenges run and not on
+// Videos entered. It is the recommended pace: where a straight line to the goal would be by today. Late in a quarter it
+// sits at 99%, right on the end of the bar, which is why it read as a glitch; and it was hidden once a goal was met,
+// which is why one card had it and the next did not. Now every running total shows it for as long as its period is
+// running (met or not), it is drawn as a labelled notch rather than a stray hairline, and an average never shows it,
+// because an average has no straight line to be ahead of.
+// THE PACE MARKER IS A PLAIN LINE. A thin dark-grey tick across the track, no ring, no glow; the legend under the bar
+// uses the same tick.
 //
 // A PERIOD THAT HAS NOT STARTED draws an empty, dashed track and says when it starts, instead of a
 // bar and "on track" for goals nobody has had a chance at yet.

@@ -17,31 +17,24 @@ import { getLocale, useLocale, useT } from '../lib/i18n'
 import { safeUrl } from '../lib/safeUrl'
 import { contentApi } from '../api/content'
 
-// VIDEO IDEAS (7 Oct 2026).
-//
-// Ethan: "we currently have the video tracker admin tool, but I want to create a space ... that shows the top videos
-// that the general community members have access to and that the VIP creators have access to, so they can view the
-// top videos and get ideas from them ... It can scroll. I think they should scroll maybe horizontally and see the
-// hooks for the creators and how many views it got ... only show videos that have got 50k or more."
+// VIDEO IDEAS.
 //
 // The rows come from the tracker the team already curates (`video_ideas`, migration 351: tracked videos with 50,000
 // views or more). Each row scrolls sideways with snap points; a card is the cover, the views, the hook in big type and
 // who made it. Pressing it plays the video here.
 //
-// NO CAPTION "HOOKS" (8 Oct 2026). Ethan: "The Hooks That Work is showing up at the bottom, but these are not really
-// hooks. These are just the descriptions they put in ... The actual hook is the text on the video." The tracker only
-// ever sees the caption (in whatever language the creator wrote it); the words burned into the first second of the
-// video are pixels, and reading them would mean downloading and OCR-ing every video, which the scrapers cannot do.
-// So the cards are the videos and their numbers, and the page leads with the two buttons that DO give a real hook
-// ("Hook me up", from the curated English bank) and a deal to film, side by side as on the VIP guides page.
-// The header is a white card like every other page header (the black one with an orange glow was "not the normal
-// style"), and a card magnifies under the pointer instead of drawing a play button over the cover.
+// NO CAPTION "HOOKS". The tracker only ever sees the caption (in whatever language the creator wrote it); the words
+// burned into the first second of the video are pixels, and reading them would mean downloading and OCR-ing every video,
+// which the scrapers cannot do. So the cards are the videos and their numbers, and the page leads with the two buttons
+// that DO give a real hook ("Hook me up", from the curated English bank) and a deal to film, side by side as on the VIP
+// guides page. The header is a white card like every other page header (the black one with an orange glow was "not the
+// normal style"), and a card magnifies under the pointer instead of drawing a play button over the cover.
 //
-// 100,000 AND THE WORDS ON THE VIDEO (9 Oct 2026). Ethan: "record videos over 100k here, because currently it's just over 50k",
-// and "you have pulled the hooks from all these videos because they're visibly on the screen, but they're in a different
-// language ... translate it to any language". The hook is the text the creator typed onto the video (TikTok keeps it as a
-// text sticker, read by view-sync with the view count at no extra cost); it is shown in the READER'S language, from the
-// shared translation cache, with the original one press away. Spanish stays Spanish for a Spanish reader.
+// 100,000 AND THE WORDS ON THE VIDEO., and "you have pulled the hooks from all these videos because they're visibly on
+// the screen, but they're in a different language... translate it to any language". The hook is the text the creator
+// typed onto the video (TikTok keeps it as a text sticker, read by view-sync with the view count at no extra cost); it
+// is shown in the READER'S language, from the shared translation cache, with the original one press away. Spanish stays
+// Spanish for a Spanish reader.
 export const IDEAS_MIN_VIEWS = 100000
 
 export function useVideoIdeas() {
@@ -107,17 +100,16 @@ export default function VideoIdeasBoard({ compact = false }) {
   const tr = useT()
   const { isAdmin } = useAuth()
   const fetched = useVideoIdeas()
-  // HOOKS TYPED BY THE TEAM (12 Oct 2026). Ethan: "Admins on the video page can manually type in a hook if you're unable to
-  // register it. Is that right?" It was only possible in the video tracker. Now a team member playing a video here can
-  // type (or correct) the words on it; it is saved on the video and every creator sees it on the card at once.
+  // HOOKS TYPED BY THE TEAM. It was only possible in the video tracker. Now a team member playing a video here can type
+  // (or correct) the words on it; it is saved on the video and every creator sees it on the card at once.
   const [typed, setTyped] = useState({})
   const rows = useMemo(() => (fetched ? fetched.map((r) => (r.id in typed ? { ...r, screen_text: typed[r.id] } : r)) : fetched), [fetched, typed])
   const [playingId, setPlayingId] = useState(null)
   const playing = (rows || []).find((r) => r.id === playingId) || null
   const setPlaying = (v) => setPlayingId(v ? v.id : null)
-  // READ OFF THE PICTURE FIRST (13 Oct 2026). Ethan: Jacob's Paris Christmas markets post and Noa's "End goal." never got
-  // a hook - both are photo posts, whose words are drawn into the image, so the scraper has nothing to read. With no hook
-  // yet, the editor first reads the cover in this browser (lib/ocrHook, nothing runs on the server) and opens with what it
+  // READ OFF THE PICTURE FIRST. The team: Jacob's Paris Christmas markets post and Noa's "End goal." never got a hook -
+  // both are photo posts, whose words are drawn into the image, so the scraper has nothing to read. With no hook yet,
+  // the editor first reads the cover in this browser (lib/ocrHook, nothing runs on the server) and opens with what it
   // found, for the team member to check and save. `reading` is the card being read, for its spinner.
   const [reading, setReading] = useState(null)
   async function typeHook(v, { auto = false } = {}) {
@@ -158,7 +150,7 @@ export default function VideoIdeasBoard({ compact = false }) {
   return (
     <div className="space-y-8">
       <IdeasHero count={rows?.length} total={total} compact={compact} />
-      {/* SIDE BY SIDE ON A PHONE TOO (12 Oct 2026, Ethan). */}
+      {/* SIDE BY SIDE ON A PHONE TOO. */}
       <section className="grid grid-cols-2 gap-2.5 sm:gap-3">
         <div className="animate-rise [animation-delay:80ms]"><HookButton variant="big" /></div>
         <div className="animate-rise [animation-delay:150ms]"><DealFinder variant="big" /></div>
@@ -207,9 +199,8 @@ function IdeasHero({ count, total, compact }) {
   const tr = useT()
   return (
     <section className={cx('ideas-hero animate-rise relative overflow-hidden rounded-[28px] text-white shadow-card', compact ? 'px-5 py-6' : 'px-6 py-8 sm:px-10 sm:py-10')}>
-      {/* A CONSTELLATION OF BULBS (9 Oct 2026). Ethan: "more vibrant, kind of like the get help icon, and have multiple of them
-          there, animating a bulb." One faint bulb became five of different sizes, each bobbing on its own beat with a glow
-          that breathes, on the same orange as Get Help. */}
+      {/* A CONSTELLATION OF BULBS. One faint bulb became five of different sizes, each bobbing on its own beat with a
+          glow that breathes, on the same orange as Get Help. */}
       <Icon name="bulb" aria-hidden className="ideas-bulb ideas-bulb-a pointer-events-none absolute" />
       <Icon name="bulb" aria-hidden className="ideas-bulb ideas-bulb-b pointer-events-none absolute" />
       <Icon name="bulb" aria-hidden className="ideas-bulb ideas-bulb-c pointer-events-none absolute" />
@@ -240,15 +231,12 @@ function IdeasHero({ count, total, compact }) {
 
 function Shelf({ shelf, index, onPlay, hooks, lead = false, onAddHook = null, reading = null }) {
   const tr = useT()
-  // NO ARROWS (9 Oct 2026): "we can just scroll on mobile with our finger or on desktop with the trackpad." The row scrolls
-  // sideways with snap points and a soft fade on the right edge says there is more.
+  // NO ARROWS: "we can just scroll on mobile with our finger or on desktop with the trackpad." The row scrolls sideways
+  // with snap points and a soft fade on the right edge says there is more.
   return (
     <section className="animate-rise" style={{ animationDelay: `${Math.min(index, 5) * 70}ms` }}>
-      {/* THE TRANSLATE SWITCH SITS ON THE FIRST SHELF'S TITLE ROW (12 Oct 2026).
-          Ethan: "Hooks in your language... it's above, which doesn't really
-          make sense. I'll put it beside the Working Right Now title... maybe
-          just a quick translate button." Hooks still arrive translated; this
-          one pill swaps every card back to the words as written and again. */}
+      {/* THE TRANSLATE SWITCH SITS ON THE FIRST SHELF'S TITLE ROW. Hooks still arrive translated; this one pill swaps
+          every card back to the words as written and again. */}
       <div className="mb-3 flex min-w-0 items-start justify-between gap-3">
         <div className="min-w-0">
           <h2 className="flex items-center gap-2 text-lg font-bold text-ink">
@@ -350,13 +338,11 @@ function IdeaCard({ v, rank, delay, onPlay, hook, onAddHook = null, reading = fa
       </button>
       {/* THE HOOK: the words on the video, in the reader's language. Cards with none (Instagram, YouTube, a video with no
           text on it) simply have no line, rather than a caption pretending to be one. */}
-      {/* NAMED AND NEVER CUT OFF (9 Oct 2026). Ethan: "improve the UI and identify that it is the hook ... some of the longer ones are
-          cut off." It is a labelled block now, shown in full, and pressing it plays the video with the hook under it. */}
-      {/* THE HOOK, AND ONE PRESS TO COPY IT (12 Oct 2026). Ethan: "I don't
-          really like the colours" of the orange wash, and "whenever you hold
-          down on the hook, there should be a quick button to copy the entire
-          hook." White block with a hairline and a brand quote rule; a copy
-          button that is always there, and holding the block copies too. */}
+      {/* NAMED AND NEVER CUT OFF. It is a labelled block now, shown in full, and pressing it plays the video with the
+          hook under it. */}
+      {/* THE HOOK, AND ONE PRESS TO COPY IT. of the orange wash, and "whenever you hold down on the hook, there should
+          be a quick button to copy the entire hook." White block with a hairline and a brand quote rule; a copy button
+          that is always there, and holding the block copies too. */}
       {hook && <HookBlock hook={hook} onPlay={onPlay} />}
       {/* The team's way in when the hook is missing: read it off the picture, then check and save. */}
       {!hook && onAddHook && (
@@ -418,10 +404,9 @@ export function HookPanel({ text, hooks }) {
  * The door into /ideas from other pages: the Worldwide rail (below Your markets), the main column on a phone (below the latest
  * announcements) and the Resource library.
  *
- * 9 Oct 2026. Ethan: "I would like 10 videos here so it is scrollable to the right, and clicking on that will open up the
- * actual ideas page." So it is a strip of up to ten covers that scrolls sideways under a finger or a trackpad (no arrows),
- * each with its views and, where the video has one, its hook in the reader's language; the whole card is the link. Nothing
- * on it moves when the pointer is over it except the card's own lift, like every other card in the rail.
+ * 9 Oct 2026. So it is a strip of up to ten covers that scrolls sideways under a finger or a trackpad (no arrows), each
+ * with its views and, where the video has one, its hook in the reader's language; the whole card is the link. Nothing on
+ * it moves when the pointer is over it except the card's own lift, like every other card in the rail.
  */
 export function IdeasTeaser({ className }) {
   const tr = useT()
@@ -439,14 +424,13 @@ export function IdeasTeaser({ className }) {
         </span>
         <Icon name="chevronRight" className="h-4 w-4 shrink-0 text-gray-300" />
       </div>
-      {/* THE SAME GAP ON THE OUTSIDE AS BETWEEN THE VIDEOS (11 Oct 2026). A snap point ignores the strip's padding unless
+      {/* THE SAME GAP ON THE OUTSIDE AS BETWEEN THE VIDEOS. A snap point ignores the strip's padding unless
           scroll-padding says so, and the end padding of a flex scroller is dropped by Safari, so the first and last
           covers sat flush against the card's edge. `scroll-pl-4` keeps the start gap after a snap and the spacer at the
           end makes the trailing gap (2.5 gap + 1.5 spacer = the 4 on the left). */}
-      {/* THREE FIT THE FIRST VIEW, WITH THE SAME GAP AT THE LEFT AS BETWEEN
-          THEM (12 Oct 2026, Ethan). The strip no longer bleeds to the card's
-          edge: it starts on the card's own padding line, each cover is a third
-          of it less the gaps, and the rest are a swipe away. */}
+      {/* THREE FIT THE FIRST VIEW, WITH THE SAME GAP AT THE LEFT AS BETWEEN THEM. The strip no longer bleeds to the
+          card's edge: it starts on the card's own padding line, each cover is a third of it less the gaps, and the rest
+          are a swipe away. */}
       <div className="scrollbar-none mt-3 flex snap-x snap-mandatory gap-2.5 overflow-x-auto pb-1">
         {rows === undefined
           ? [0, 1, 2].map((i) => <Skeleton key={i} className="aspect-[9/14] w-[calc((100%-1.25rem)/3)] shrink-0 rounded-xl" />)

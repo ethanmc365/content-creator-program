@@ -19,13 +19,11 @@ import { VipCertificatesTab } from './certificates'
 import { VipRequirementsTab, VipRulesCard, VipSheetTab, VipWalletsTab } from './teamTools'
 import { vipApi } from '../../api/vip'
 
-// THE VIP TOOLS, INSIDE THE VIP PAGE (2 Oct 2026).
+// THE VIP TOOLS, INSIDE THE VIP PAGE.
 //
-// Ethan: "we could build all those admin tools into that VIP page for admins rather than having a separate page ...
-// ensure it's also accessible on mobile for admins via a button at the top beside 'Admin'." So /admin/vip is gone as
-// a page of its own (it redirects here) and the tools are the third view of the team's VIP page: As a creator, Team
-// overview, VIP tools. The market is the page's own switch at the top, so the tools always show the market the rest of
-// the page is showing.
+// So /admin/vip is gone as a page of its own (it redirects here) and the tools are the third view of the team's VIP
+// page: As a creator, Team overview, VIP tools. The market is the page's own switch at the top, so the tools always show
+// the market the rest of the page is showing.
 //
 // The tools are grouped the way a month runs - People, Money, Content, Numbers, Setup - so fourteen tabs read as five
 // short rows instead of one strip you scroll sideways on a phone. Once a tool is opened it stays mounted (hidden) for
@@ -38,17 +36,17 @@ const GROUPS = [
   { key: 'setup', label: 'Setup', icon: 'key', tabs: [['settings', 'Settings'], ['markets', 'Markets'], ['access', 'Access']] },
 ]
 const ALL = GROUPS.flatMap((g) => g.tabs.map(([k]) => k))
-// WHAT AN OFFICIAL PROGRAMME DOES NOT HAVE (11 Oct 2026): no stay-in rule (their contract sets what they post) and no VIP
-// markets to open, so those two tools are not offered there at all rather than shown switched off.
+// WHAT AN OFFICIAL PROGRAMME DOES NOT HAVE: no stay-in rule (their contract sets what they post) and no VIP markets to
+// open, so those two tools are not offered there at all rather than shown switched off.
 const NOT_FOR_OFFICIAL = new Set(['requirements', 'markets'])
-// A market whose stay-in rule is switched off has no stay-in check to look at (11 Oct 2026); the switch itself is in Settings.
+// A market whose stay-in rule is switched off has no stay-in check to look at; the switch itself is in Settings.
 const offered = (k, p, isOwner) => (k !== 'access' || isOwner) && !(p?.kind === 'official' && NOT_FOR_OFFICIAL.has(k))
   && !(k === 'requirements' && p?.req_on === false)
 
-// THE MARKETS ARE ASKED FOR ONCE A SESSION (7 Oct 2026). Ethan: going from the VIP page to VIP tools "the screen just
-// appears, and it's really flashy. Everything loads in." The list of markets (and which ones you can manage) is one
-// query plus one per market, and it was asked again on every switch, behind a grey block. It is kept here, and the
-// VIP page warms it (and this file) while the team is still looking at the page, so the switch has nothing to wait for.
+// THE MARKETS ARE ASKED FOR ONCE A SESSION. The team: going from the VIP page to VIP tools "the screen just appears, and
+// it's really flashy. Everything loads in." The list of markets (and which ones you can manage) is one query plus one
+// per market, and it was asked again on every switch, behind a grey block. It is kept here, and the VIP page warms it
+// (and this file) while the team is still looking at the page, so the switch has nothing to wait for.
 let programmesCache = null
 let programmesInflight = null
 async function fetchProgrammes(isOwner) {
@@ -85,16 +83,16 @@ export default function VipTools({ programmeId }) {
   // The tool names follow the programme on screen: "See as a VIP" reads "See as an official creator" there.
   const tr = useKindT((programmes || []).find((p) => p.id === programmeId)?.kind || programmes?.[0]?.kind)
   const [seen, setSeen] = useState(() => new Set())
-  // THE TAB IS LOCAL STATE FIRST, THE URL SECOND (3 Oct 2026). Ethan: "a bit of delay and lag when clicking between
-  // members, overview, etc." The press used to wait for a router update (inside a transition, which React is free to
-  // put off) before anything moved. Now the pill and the panel change on the press, and the URL follows.
+  // THE TAB IS LOCAL STATE FIRST, THE URL SECOND. The press used to wait for a router update (inside a transition, which
+  // React is free to put off) before anything moved. Now the pill and the panel change on the press, and the URL
+  // follows.
   const fromUrl = params.get('tab')
   const [picked, setPicked] = useState(fromUrl)
   const [urlSeen, setUrlSeen] = useState(fromUrl)
   if (urlSeen !== fromUrl) { setUrlSeen(fromUrl); setPicked(fromUrl) }
   // The three old content links (?tab=content&part=perks) land on the tab that now holds each one.
   const asked0 = picked === 'content' ? ({ briefs: 'challenges', perks: 'perks', guides: 'guides' }[params.get('part')] || 'challenges') : picked
-  // Milestones, perks and trips moved into Bonuses (4 Oct 2026); an old link to them lands there, on the perks side.
+  // Milestones, perks and trips moved into Bonuses; an old link to them lands there, on the perks side.
   const asked = asked0 === 'perks' ? 'bonuses' : asked0
   const bonusPart = asked0 === 'perks' || params.get('part') === 'perks' ? 'perks' : 'monthly'
 
@@ -117,8 +115,8 @@ export default function VipTools({ programmeId }) {
   const programme = programmes.find((p) => p.id === programmeId) || programmes[0]
   const tab = ALL.includes(asked) && offered(asked, programme, isOwner) ? asked : 'overview'
   const group = GROUPS.find((g) => g.tabs.some(([k]) => k === tab)) || GROUPS[0]
-  // THE OTHER MARKETS OF THE SAME KIND (10 Oct 2026, migration 376): analytics, KPIs and "post to every market" compare VIP
-  // markets with VIP markets and official programmes with official programmes, never the two together.
+  // THE OTHER MARKETS OF THE SAME KIND (migration 376): analytics, KPIs and "post to every market" compare VIP markets
+  // with VIP markets and official programmes with official programmes, never the two together.
   const sameKind = (p) => programmes.filter((x) => (x.kind || 'vip') === (p.kind || 'vip'))
   const seenKey = `${programme.id}:${tab}`
   if (!seen.has(seenKey)) setSeen((s) => new Set(s).add(seenKey))

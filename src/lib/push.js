@@ -52,15 +52,12 @@ export async function enablePush(userId) {
   }
 }
 
-// KEEP THIS DEVICE'S REGISTRATION CURRENT, ON EVERY OPEN (21 Sep 2026).
+// KEEP THIS DEVICE'S REGISTRATION CURRENT, ON EVERY OPEN.
 //
-// A subscription used to be written only when somebody pressed "turn on
-// notifications". Browsers rotate push subscriptions (iOS after an update or a
-// long sleep, Chrome when its FCM token is refreshed), and notify-dispatch
-// deletes one the push service reports gone - and in all three cases nothing
-// ever wrote the new one, so a creator who had said yes once stopped getting
-// pushes for good while every setting still read "on". Ethan: "I haven't been
-// getting notifications recently."
+// A subscription used to be written only when somebody pressed "turn on notifications". Browsers rotate push
+// subscriptions (iOS after an update or a long sleep, Chrome when its FCM token is refreshed), and notify-dispatch
+// deletes one the push service reports gone - and in all three cases nothing ever wrote the new one, so a creator who
+// had said yes once stopped getting pushes for good while every setting still read "on".
 //
 // So when permission is already granted, the app re-reads the live
 // subscription (making one if the browser has none) and upserts it. It never

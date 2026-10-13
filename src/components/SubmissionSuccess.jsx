@@ -58,8 +58,8 @@ export default function SubmissionSuccess({
 
   if (!open) return null
 
-  // PORTALLED (1 Oct 2026): inside a page it was trapped in the page's own layer, so the app
-  // header and the page title painted on top of the dimmed backdrop.
+  // PORTALLED: inside a page it was trapped in the page's own layer, so the app header and the page title painted on top
+  // of the dimmed backdrop.
   return createPortal((
     <div
       className="fixed inset-0 z-[70] flex items-end justify-center px-4 pb-[calc(5rem+env(safe-area-inset-bottom))] sm:items-center sm:p-6"

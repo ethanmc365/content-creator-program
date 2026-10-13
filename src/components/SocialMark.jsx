@@ -39,9 +39,7 @@ export function brandForUrl(url) {
   return 'link'
 }
 
-// THE BRAND COLOURS, for the surfaces that want the real logo rather than a
-// line icon. Ethan: "the links should have better UI and the actual colourful
-// social media logos, not greyed."
+// THE BRAND COLOURS, for the surfaces that want the real logo rather than a line icon.
 //
 // One colour per platform, except Instagram, which nobody recognises in a flat
 // colour - its whole identity is the gradient, so it gets one. The gradient id

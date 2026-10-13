@@ -91,11 +91,7 @@ export default function ChallengeDetailLeaderboard({
           a leaderboard row means "this creator earned the reward", and on
           another group's tab that reward is that group's - so is the prize
           on each place, which is why `boardPrizes` and not `prizes`. */}
-      {/* THE PODIUM LEADS THE BOARD, AND IT MOVES ON ITS OWN (2 Sep 2026).
-
-          Ethan: "whenever I click on the leaderboard tab I want the visual
-          podium at the top that's automatically updating, and then the rest
-          of the leaderboard as the list below."
+      {/* THE PODIUM LEADS THE BOARD, AND IT MOVES ON ITS OWN.
 
           It is built from the SAME rows the list is built from, so there is
           nothing to keep in step: view counts are read off each entry's
@@ -105,10 +101,7 @@ export default function ChallengeDetailLeaderboard({
           are drawn as open steps carrying their prize rather than left out,
           which is the promise the rows below already make.
 
-          THE LIST UNDER IT HOLDS EVERYBODY, FIRST PLACE INCLUDED
-          (4 Sep 2026). Ethan: "even though we have the podium, it should
-          still show everyone in the actual leaderboard below in the
-          leaderboard view, but still have the podium visual at the top."
+          THE LIST UNDER IT HOLDS EVERYBODY, FIRST PLACE INCLUDED.
 
           It started at FOURTH, on the reasoning that drawing the top three
           twice was a duplicate. That reasoning was wrong about what a

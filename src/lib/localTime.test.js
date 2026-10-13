@@ -90,7 +90,7 @@ describe('typing a time in a market from anywhere', () => {
 
   // The day the clocks go back is where a one-pass conversion breaks.
   it('survives the day a zone changes its offset', () => {
-    // Europe/London returns to UTC at 02:00 on 25 Oct 2026.
+    // Europe/London returns to UTC at 02:00.
     expect(zonedTimeToUtc('2026-10-25', '09:00', 'Europe/London').toISOString())
       .toBe('2026-10-25T09:00:00.000Z')
     expect(zonedTimeToUtc('2026-10-24', '09:00', 'Europe/London').toISOString())

@@ -5,10 +5,6 @@ import process from 'node:process'
 
 // THE PROFILE PAGE'S WHITE GAPS, PINNED IN THE STYLESHEET.
 //
-// Ethan: "the profile pages are completely broken, the layout is all messed up
-// and there's white spaces between each card... I refreshed on the tab and it's
-// still not fixed, although on another tab it is working correctly."
-//
 // `.reveal-item { height: 100% }`. Profile's desktop layout drops a `Reveal`
 // straight into a `grid`, a grid item is stretched to its track and therefore
 // has a DEFINITE height, and a definite height is exactly what makes a child's

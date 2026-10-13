@@ -15,13 +15,11 @@ import { contentApi } from '../api/content'
 // The three things the team can drop into a conversation: a poll, a game
 // challenge, a resource from the library.
 //
-// WHY THEY LIVE HERE AND NOT IN A PAGE. They were built inside the legacy
-// Chat.jsx, which meant the market rooms - every room in Spain, Portugal,
-// Germany, Romania and the Nordics, and every room opened next year - simply
-// did not have them, and the poll was locked to #announcements even in the one
-// place it existed. Ethan's rule is that an admin can do all three in ANY chat,
-// and the only way that stays true for a room nobody has created yet is if the
-// room inherits it rather than reimplements it.
+// WHY THEY LIVE HERE AND NOT IN A PAGE. They were built inside the legacy Chat.jsx, which meant the market rooms - every
+// room in Spain, Portugal, Germany, Romania and the Nordics, and every room opened next year - simply did not have them,
+// and the poll was locked to #announcements even in the one place it existed. The team's rule is that an admin can do
+// all three in ANY chat, and the only way that stays true for a room nobody has created yet is if the room inherits it
+// rather than reimplements it.
 //
 // The caller owns posting. `postCard({ poll_id })` is whatever "put a message
 // in this room" means where you are - the legacy chat writes a bare `channel`,
@@ -204,24 +202,14 @@ export default function ChatAdminTools({ tool, onClose, postCard, roomLabel = 't
             />
           </div>
 
-          {/* TYPED, NOT PICKED FROM THE OPERATING SYSTEM.
-              These were `<input type="date">` and `<input type="time">`, the
-              last two native pickers on this form. Ethan: "if I click on
-              schedule and then click on the date, it's showing up the weird
-              Apple calendar pop up thing instead of me just typing in the
-              actual date with my keyboard. And whenever I press the clock,
-              it's showing up a pop up that's cut off because it's outside the
-              main card."
-              Both halves of that are the same fault. A native picker is UA
-              shadow DOM: it opens a panel the page does not own, positioned
-              against the VIEWPORT rather than against the dialog, so inside a
-              modal it lands half off the card and nothing here can move it or
-              clip it properly. And the calendar is the wrong instrument
-              anyway - somebody scheduling Monday's post knows the date and
-              wants to type six digits, not paginate a month grid.
-              `DateField` and `TimeField` are the platform's own typed
-              segments, already used by the flight log and the challenge form:
-              real inputs, painted separators, no panel to be cut off. */}
+          {/* TYPED, NOT PICKED FROM THE OPERATING SYSTEM. These were `<input type="date">` and `<input type="time">`,
+              the last two native pickers on this form. Both halves of that are the same fault. A native picker is UA
+              shadow DOM: it opens a panel the page does not own, positioned against the VIEWPORT rather than against the
+              dialog, so inside a modal it lands half off the card and nothing here can move it or clip it properly. And
+              the calendar is the wrong instrument anyway - somebody scheduling Monday's post knows the date and wants to
+              type six digits, not paginate a month grid. `DateField` and `TimeField` are the platform's own typed
+              segments, already used by the flight log and the challenge form: real inputs, painted separators, no panel
+              to be cut off. */}
           <div className="grid grid-cols-2 gap-4">
             <DateField
               id="sched-date"

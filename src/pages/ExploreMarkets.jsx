@@ -211,8 +211,8 @@ export default function ExploreMarkets() {
     return () => { alive = false }
   }, [user])
 
-  // ASKING GOES THROUGH THE ONE SHEET (10 Oct 2026): pick the market, say why in a line, send - the same sheet the avatar
-  // menu and the Worldwide column open, so a request always carries its reason and lands highlighted in Applications.
+  // ASKING GOES THROUGH THE ONE SHEET: pick the market, say why in a line, send - the same sheet the avatar menu and the
+  // Worldwide column open, so a request always carries its reason and lands highlighted in Applications.
   function requestJoin(market) {
     if (!user?.id) return
     if (profile?.is_vip) { notice(tr('Your market is set by the team. Message them if you want to change it.')); return }

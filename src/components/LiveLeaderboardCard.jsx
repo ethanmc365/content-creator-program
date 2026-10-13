@@ -10,12 +10,9 @@ import { useAuth } from '../context/AuthContext'
 import { formatViews, shortAgo, cx } from '../lib/utils'
 import { useT } from '../lib/i18n'
 
-// THE LEADERBOARD ITSELF, IN A CHAT (22 Sep 2026, migration 251).
+// THE LEADERBOARD ITSELF, IN A CHAT (migration 251).
 //
-// Ethan: "embed the actual leaderboard in the chats, so it looks really nice,
-// it has animations and it would obviously update live when the views are
-// synced." A picture of a board is out of date the hour after it is posted;
-// this is the board, and it moves when the board moves:
+// A picture of a board is out of date the hour after it is posted; this is the board, and it moves when the board moves:
 //   - it arrives row by row;
 //   - after a sync, rows SLIDE to their new places (a shared layout animation,
 //     so an overtake is visible as an overtake) and a row that moved says by
@@ -87,10 +84,9 @@ function Movement({ from, to }) {
   )
 }
 
-// THE PODIUM, LIVE (12 Oct 2026). Ethan: "We also have the podium image and the board image ... you could even make them
-// dynamic, kind of like how the live leaderboard works." The top three stand on their steps, second-first-third, and when
-// a sync swaps two of them the people MOVE to their new step (a shared layout animation keyed on the creator) rather than
-// the names changing under still pictures. Used at the head of the live board and, larger, as the live podium card.
+// THE PODIUM, LIVE. The top three stand on their steps, second-first-third, and when a sync swaps two of them the people
+// MOVE to their new step (a shared layout animation keyed on the creator) rather than the names changing under still
+// pictures. Used at the head of the live board and, larger, as the live podium card.
 const STEP_H = { 1: [64, 84], 2: [44, 60], 3: [30, 42] }
 function LivePodium({ rows, points, big = false, prizeAt, userId }) {
   const tr = useT()
@@ -155,8 +151,8 @@ export default function LiveLeaderboardCard({ challengeId, groupId = null, compa
     return () => clearInterval(t)
   }, [])
 
-  // THE BOX MOUNTS ONCE AND NEVER AGAIN, WHATEVER `status` DOES NEXT (23 Sep 2026): loading, ready and gone are three
-  // things the same box can say, so the spring fires once, on its own first mount.
+  // THE BOX MOUNTS ONCE AND NEVER AGAIN, WHATEVER `status` DOES NEXT: loading, ready and gone are three things the same
+  // box can say, so the spring fires once, on its own first mount.
   if (status !== 'ready' && status !== 'loading') {
     return (
       <div className="w-full max-w-md rounded-2xl border border-dashed border-gray-200 bg-white px-4 py-5 text-center text-sm text-smoke">
@@ -187,7 +183,7 @@ export default function LiveLeaderboardCard({ challengeId, groupId = null, compa
       transition={{ type: 'spring', stiffness: 260, damping: 26 }}
       className="relative w-full max-w-md overflow-hidden rounded-2xl border border-gray-100 bg-white text-ink shadow-card"
     >
-      {/* ---------- The head (12 Oct 2026): white, the brand as a band and a glyph, not a whole orange card. ---------- */}
+      {/* ---------- The head: white, the brand as a band and a glyph, not a whole orange card. ---------- */}
       <div className="relative px-4 pb-1 pt-4">
         <div className="flex items-start gap-3">
           <Icon name={podiumOnly ? 'trophy' : 'chart'} className="mt-0.5 h-6 w-6 shrink-0 text-brand" />

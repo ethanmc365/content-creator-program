@@ -88,10 +88,9 @@ export default function NetworkChat() {
   const { bySlug, network, manages, myCommunities, loading: ctxLoading } = useCommunity()
 
   const community = slug ? bySlug(slug) : network
-  // BACK FROM A PROFILE, THE ROOM IS STILL THERE (12 Oct 2026). Ethan: "if I click on a creator ... and then go back to
-  // the chat, the whole thing has to refresh. Couldn't it just be saved?" The room's list, the sidebar and the last
-  // messages read are kept for the session (ROOM_CACHE), drawn at once on the way back, and refreshed quietly behind.
-  // Another account (a sign-in, or "view as creator") never sees what the last one read.
+  // BACK FROM A PROFILE, THE ROOM IS STILL THERE. The room's list, the sidebar and the last messages read are kept for
+  // the session (ROOM_CACHE), drawn at once on the way back, and refreshed quietly behind. Another account (a sign-in,
+  // or "view as creator") never sees what the last one read.
   const cacheFor = roomCacheFor(user?.id)
   const cachedKey = community && channelKey ? scopedKey(community, channelKey) : null
   const [channels, setChannels] = useState(() => (community && cacheFor.channels.get(community.id)) || [])
@@ -111,7 +110,7 @@ export default function NetworkChat() {
   // Which message has its actions revealed by a TAP. On a phone there is no
   // hover, so `group-hover` alone meant the reaction button was permanently
   // invisible and market rooms simply had no reactions on mobile.
-  // TRANSLATE A MESSAGE (2 Oct 2026): only for a reader on another language, original first.
+  // TRANSLATE A MESSAGE: only for a reader on another language, original first.
   const mt = useMessageTranslations()
   const [actionsFor, setActionsFor] = useState(null)
   const [editingId, setEditingId] = useState(null)
@@ -257,11 +256,8 @@ export default function NetworkChat() {
         top: topGone ? 0 : 'calc(4rem + env(safe-area-inset-top))',
         // One px height for both states, glided on keyboard changes (useChatOverlayHeight).
         height: `${overlayH}px`,
-        // `transform` is written frame by frame by useViewportPin (12 Oct 2026), not here.
-        // THE OVERLAY SNAPS. ONLY THE HEADER ANIMATES. (1 Sep 2026.)
-        //
-        // Ethan: "on the rooms, please make the header disappearing animation
-        // even more smooth, its still a bit juddery."
+        // `transform` is written frame by frame by useViewportPin, not here.
+        // THE OVERLAY SNAPS. ONLY THE HEADER ANIMATES.
         //
         // This box used to animate `top` and `height` over the same 280ms as
         // the header's slide, so that the two read as one movement. They are
@@ -298,10 +294,9 @@ export default function NetworkChat() {
     [channels, channelKey],
   )
 
-  // THE INTRODUCTIONS ROOM DRAWS CARDS (24 Sep 2026). A new intro carries
-  // `intro` (migration 262); an old one is read back out of its text with
-  // parseLegacyIntro, so the whole room looks the same. Each card ends in a
-  // Connect button, so the reader's relationships are loaded once, here.
+  // THE INTRODUCTIONS ROOM DRAWS CARDS. A new intro carries `intro` (migration 262); an old one is read back out of its
+  // text with parseLegacyIntro, so the whole room looks the same. Each card ends in a Connect button, so the reader's
+  // relationships are loaded once, here.
   const isIntroRoom = active?.key === 'introductions'
   const [relations, setRelations] = useState(() => new Map())
   useEffect(() => {
@@ -347,15 +342,11 @@ export default function NetworkChat() {
 
   // WHO CAN POST HERE. Two rules and no third.
   //
-  // THE THIRD RULE WAS THE BUG. There used to be an `isLiveWorldwide` guard
-  // that made Worldwide's General, Announcements and Content tips READ ONLY,
-  // with a panel explaining that "this is a room every creator is already in
-  // today, so it is read only here in case a test message reaches all of them".
-  // That was correct while the network was an admin-only preview sitting
-  // underneath a live UK chat. The network IS the app now, those three rooms
-  // are the main conversation, and the guard was locking everybody out of the
-  // busiest rooms on the platform. Ethan: "I'm unable to actually post in the
-  // worldwide rooms."
+  // THE THIRD RULE WAS THE BUG. There used to be an `isLiveWorldwide` guard that made Worldwide's General, Announcements
+  // and Content tips READ ONLY, with a panel explaining that "this is a room every creator is already in today, so it is
+  // read only here in case a test message reaches all of them". That was correct while the network was an admin-only
+  // preview sitting underneath a live UK chat. The network IS the app now, those three rooms are the main conversation,
+  // and the guard was locking everybody out of the busiest rooms on the platform.
   //
   // What is left is the room's own `post_policy`: 'all' means everybody,
   // 'staff' means the people who manage this community. Announcements is
@@ -383,12 +374,9 @@ export default function NetworkChat() {
   //
   // IT INCLUDES THE CURRENT PLACE ON PURPOSE, AND THAT IS THE WHOLE FIX.
   //
-  // THE BUG THIS FIXES. The sidebar used to be two things: a card for where you
-  // ARE, pinned at the top, and a reorderable list of everywhere else under it.
-  // So opening Portugal's General re-sorted the entire column - Portugal leapt
-  // to the top and whatever you had been reading dropped into the list below.
-  // Ethan: "when I click on for example General in Portugal, it then jumps to
-  // the top, I want the rooms sidebar to always remain as it is set."
+  // THE BUG THIS FIXES. The sidebar used to be two things: a card for where you ARE, pinned at the top, and a
+  // reorderable list of everywhere else under it. So opening Portugal's General re-sorted the entire column - Portugal
+  // leapt to the top and whatever you had been reading dropped into the list below.
   //
   // A navigation whose order depends on where the navigation has taken you is
   // not a navigation, it is a moving target: the muscle memory you build on
@@ -525,10 +513,8 @@ export default function NetworkChat() {
 
   // A ROOM DOES NOT OPEN HALFWAY UP ITSELF AND THEN CORRECT ITSELF.
   //
-  // Ethan, twice: "it'll show up the messages in like a different layer or
-  // scrolled up, and then suddenly load or fix itself and jump to the bottom",
-  // and later "it flashes, glitches and then shows the current chats, sometimes
-  // it's scrolled up a bit, its inconsistent, sometimes it jutters more."
+  // , and later "it flashes, glitches and then shows the current chats, sometimes it's scrolled up a bit, its
+  // inconsistent, sometimes it jutters more."
   //
   // The corrections were on a FIXED SCHEDULE - 60, 200, 500 and 1200ms - which
   // is a guess at when a thread stops growing, and a guess is wrong in both
@@ -545,11 +531,11 @@ export default function NetworkChat() {
   // `settled` gates OPACITY only - the messages are laid out and measured the
   // whole time, which is what the pinning needs - so this costs no geometry.
 
-  // NO FLASH WHEN THE MESSAGES ARE ALREADY HERE (13 Oct 2026). Ethan: "when i click on a room the messages seem to
-  // flash". Every open hid the thread for a few frames behind a skeleton and faded it in, even when the room's messages
-  // were in hand from the cache and could be pinned to the bottom before the first paint. Now: messages for THIS room
-  // present -> pin here (a layout effect, so before paint) and show at once; the pin loop below still follows anything
-  // that grows late. Only a room still loading, or still showing the previous room's messages, is hidden.
+  // NO FLASH WHEN THE MESSAGES ARE ALREADY HERE. Every open hid the thread for a few frames behind a skeleton and faded
+  // it in, even when the room's messages were in hand from the cache and could be pinned to the bottom before the first
+  // paint. Now: messages for THIS room present -> pin here (a layout effect, so before paint) and show at once; the pin
+  // loop below still follows anything that grows late. Only a room still loading, or still showing the previous room's
+  // messages, is hidden.
   const readyKey = community && active ? scopedKey(community, active.key) : null
   const ready = !loading && readyKey != null && messagesKey === readyKey
   // Starts true when the room is ready on mount: the thread is never painted hidden, so nothing fades in.
@@ -590,7 +576,7 @@ export default function NetworkChat() {
   // The titles behind any poll / game / resource cards in this room. One query
   // per kind, only for the kinds actually present, and only when the set of ids
   // changes - a room with no cards in it issues nothing.
-  // THE TITLE PREFETCH IS GONE WITH THE LINK STRIPS (3 Sep 2026).
+  // THE TITLE PREFETCH IS GONE WITH THE LINK STRIPS.
   //
   // It ran one query per card kind present in the room, purely to write a title
   // into a strip that said "Poll: which destination next?" and linked away.
@@ -631,10 +617,9 @@ export default function NetworkChat() {
   // moment the room is on screen. The write is throttled: a room you scroll
   // through for a minute should not be a minute of upserts.
   const roomKey = community && active ? scopedKey(community, active.key) : null
-  // THE ROOM'S MESSAGES FLOAT IN WHEN IT OPENS (3 Oct 2026). Ethan: "clicking on rooms in the chat opens straight away,
-  // there are no animations like the clean-in animations where the text bubbles appear really nicely. It's just
-  // everything flat once it loads." For the first moment after a room's messages arrive, the last dozen or so rise in
-  // one after another from the top of the screen down; older ones off screen and messages arriving later are not held.
+  // THE ROOM'S MESSAGES FLOAT IN WHEN IT OPENS. For the first moment after a room's messages arrive, the last dozen or
+  // so rise in one after another from the top of the screen down; older ones off screen and messages arriving later are
+  // not held.
   const [introRoom, setIntroRoom] = useState(null)
   const [introOver, setIntroOver] = useState(null)
   const hasMessages = messages.length > 0
@@ -657,9 +642,8 @@ export default function NetworkChat() {
   // upsert has been acknowledged, which is the difference between a signal you
   // trust and one that lingers on the thing you are reading.
   const { unread, markRead, readAt } = useUnread()
-  // WHERE THE NEW MESSAGES START (12 Oct 2026). Ethan, on chat on a desktop: "a few controls at the top to go to unread
-  // messages". The room's read watermark as it was the moment it was opened - taken DURING RENDER, before the effect
-  // below moves it to now - so the thread can draw a "New messages" line and the bar can jump to it.
+  // WHERE THE NEW MESSAGES START. The room's read watermark as it was the moment it was opened - taken DURING RENDER,
+  // before the effect below moves it to now - so the thread can draw a "New messages" line and the bar can jump to it.
   const [openedRead, setOpenedRead] = useState({})
   if (roomKey && readAt && !(roomKey in openedRead)) setOpenedRead((o) => ({ ...o, [roomKey]: readAt.get(roomKey) || null }))
   const openedReadAt = roomKey ? openedRead[roomKey] ?? null : null
@@ -730,10 +714,10 @@ export default function NetworkChat() {
     return () => { alive = false; supabase.removeChannel(ch) }
   }, [roomKey])
 
-  // WRITING "I HAVE READ THIS ROOM" (22 Sep 2026, migration 250).
+  // WRITING "I HAVE READ THIS ROOM" (migration 250).
   //
-  // Ethan: rooms showed a dot for messages he had already read, after a
-  // refresh, another tab or the phone. This write was the cause three ways:
+  // The team: rooms showed a dot for messages he had already read, after a refresh, another tab or the phone. This write
+  // was the cause three ways:
   //   - a LEADING-EDGE throttle with no trailing call: a message that arrived
   //     inside 2.5s of the last write was never recorded at all, so it was
   //     "unread" again on the next load;
@@ -800,11 +784,11 @@ export default function NetworkChat() {
     })
   }, [members, reads, user?.id])
 
-  // CLOSING A SEARCH PUTS YOU BACK WHERE YOU WERE (13 Oct 2026). Ethan: pressing the X on the room's search "seems to
-  // reload the entire page ... it should just bring it back to wherever I was". Every message the search had hidden
-  // mounted again with its entrance animation, all at once, and the list landed somewhere else. So the frame a search is
-  // cleared mounts them still (`quietMount`), and the scroller goes back to the distance from the bottom it had before
-  // the search began (kept by the scroll listener below while no search is typed).
+  // CLOSING A SEARCH PUTS YOU BACK WHERE YOU WERE. The team: pressing the X on the room's search "seems to reload the
+  // entire page... it should just bring it back to wherever I was". Every message the search had hidden mounted again
+  // with its entrance animation, all at once, and the list landed somewhere else. So the frame a search is cleared
+  // mounts them still (`quietMount`), and the scroller goes back to the distance from the bottom it had before the
+  // search began (kept by the scroll listener below while no search is typed).
   const [searchWas, setSearchWas] = useState(search)
   const [quietMount, setQuietMount] = useState(false)
   if (searchWas !== search) {
@@ -892,12 +876,10 @@ export default function NetworkChat() {
 
   function onScroll(e) {
     const el = e.currentTarget
-    // WHILE A PIN IS IN FLIGHT, THIS EVENT IS NOT THE READER (3 Sep 2026).
-    // See lib/chatScroll's 3 Sep note: a scroll event fired by the pin itself,
-    // or by content growing under it, was being read as "they scrolled up" and
-    // it switched the pin off for the rest of the room's life. The thread is at
-    // opacity-0 for the whole of that window - there is nothing on screen for
-    // anybody to have scrolled.
+    // WHILE A PIN IS IN FLIGHT, THIS EVENT IS NOT THE READER. See lib/chatScroll's 3 Sep note: a scroll event fired by
+    // the pin itself, or by content growing under it, was being read as "they scrolled up" and it switched the pin off
+    // for the rest of the room's life. The thread is at opacity-0 for the whole of that window - there is nothing on
+    // screen for anybody to have scrolled.
     if (!isPinning(el)) {
       atBottomRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80
       const far = el.scrollHeight - el.scrollTop - el.clientHeight > 600
@@ -907,10 +889,10 @@ export default function NetworkChat() {
     // back, because that is the moment you are looking for something else.
     // Only for a scroll the reader made - see lib/chatChrome (the translate shake).
     if (!readerMovedChrome()) { lastTopRef.current = el.scrollTop; return }
-    // HYSTERESIS (13 Oct 2026). Ethan: scrolling up, "I don't get to the top ... and the header jumps up. Everything
-    // sort of jitters there". It flipped on a single 12px line: the header coming in changes the overlay's height, the
-    // list moves under the finger, the line is crossed again, and it flips back. Now it comes back only at the very top
-    // while moving up, and goes away only after a real scroll down (40px past the top, moving down).
+    // HYSTERESIS. The team: scrolling up, "I don't get to the top... and the header jumps up. Everything sort of jitters
+    // there". It flipped on a single 12px line: the header coming in changes the overlay's height, the list moves under
+    // the finger, the line is crossed again, and it flips back. Now it comes back only at the very top while moving up,
+    // and goes away only after a real scroll down (40px past the top, moving down).
     const top = el.scrollTop
     const dy = top - lastTopRef.current
     lastTopRef.current = top
@@ -1070,18 +1052,16 @@ export default function NetworkChat() {
     .map((c) => ({
       ...c,
       flags: (c.country_codes || []).map(flagFromIso).join(''),
-      // THE VIP LOUNGE IS A WORLDWIDE ROOM (2 Oct 2026). Ethan: "the vip lounge should be a chat attached to the
-      // bottom of the other worldwide rooms rather than a separate card." A network room with visibility 'vip' stays
-      // in Worldwide's card, last; only the market VIP rooms get cards of their own.
+      // THE VIP LOUNGE IS A WORLDWIDE ROOM. A network room with visibility 'vip' stays in Worldwide's card, last; only
+      // the market VIP rooms get cards of their own.
       rooms: sidebarRooms
         .filter((r) => r.community_id === c.id && (r.visibility !== 'vip' || c.kind === 'network'))
         .sort((a, b) => (a.visibility === 'vip') - (b.visibility === 'vip')),
     }))
     .filter((c) => c.rooms.length > 0)
     .sort((a, b) => (b.kind === 'network') - (a.kind === 'network') || a.name.localeCompare(b.name))
-  // THE VIP ROOMS, APART (1 Oct 2026). Ethan: "I don't see the specific VIP rooms. I just see it on the bottom of the
-  // Spanish one, but I said I wanted it to be separate." Each VIP market (and the lounge) is its own card under a
-  // "VIP rooms" heading, below the markets for the team and at the top for a VIP creator.
+  // THE VIP ROOMS, APART. Each VIP market (and the lounge) is its own card under a "VIP rooms" heading, below the
+  // markets for the team and at the top for a VIP creator.
   const vipFirst = !!profile?.is_vip && !isAdmin
   const vipPlaces = allPlaces
     .filter((c) => c.kind !== 'network')
@@ -1115,37 +1095,28 @@ export default function NetworkChat() {
           conversation pushes the conversation off the screen. */}
       {/* THE NOTCH INSET, AS A REAL ELEMENT. With the header away the overlay
           starts at y=0, and this is what keeps the tabs clear of the notch.
-          IT IS NO LONGER A BUTTON: it used to restore the header, and Ethan
-          asked for that to stop - see the tab strip below. It snaps rather than
-          animating for the same reason the overlay does. */}
+          IT IS NO LONGER A BUTTON: it used to restore the header, and the team asked for that to stop - see the tab
+          strip below. It snaps rather than animating for the same reason the overlay does. */}
       <div
         aria-hidden
         className="relative z-10 shrink-0 bg-white lg:hidden"
-        // THE NOTCH AND NOTHING MORE (12 Oct 2026). It had a 12px floor, which
-        // on top of the header's own padding read as "extra white space above"
-        // General (Ethan). The inset alone clears the status bar.
+        // THE NOTCH AND NOTHING MORE. It had a 12px floor, which on top of the header's own padding read as "extra white
+        // space above" General (the team). The inset alone clears the status bar.
         style={{ height: topGone ? 'env(safe-area-inset-top)' : 0 }}
       />
 
-      {/* SEARCH LIVES AT THE HEAD OF THE STRIP AND TAKES THE WHOLE STRIP OVER.
-          Ethan: "because we no longer have the search bar, you could add to the
-          left of General a little search icon, and clicking it shows the search
-          bar across - it takes over general, introductions, announcements -
-          where you can type and search for something. This is for all the
-          chats."
-          A magnifier at the head of the tabs is where a thumb already is, and
-          it costs one tab's worth of width; opening it replaces the tabs
-          entirely, because a search field squeezed in beside four room names is
-          the "very cramped" bar this strip already had removed once. It writes
-          the same `search` state the desktop bar and the header field do, so
-          there is one filter and three ways to reach it. */}
-      {/* THE PHONE'S ROOM HEADER (2 Oct 2026). Ethan: on mobile the rooms are "hard to navigate, especially if in
-          multiple rooms ... research how other popular chats work and rebuild the mobile version." The sideways
-          strip of one market's tabs is gone: it only ever reached the rooms of the place you were already in, and
-          on a 375px screen half of those were off the end of it. Now it is the header every chat app converged on:
-          back to your rooms, the room's name with where it is (tap it and every room you are in opens in a sheet,
-          the ones with something new first), and search. Nothing here brings the app header back - that still only
-          happens on the way out of the room (1 Sep 2026). */}
+      {/* SEARCH LIVES AT THE HEAD OF THE STRIP AND TAKES THE WHOLE STRIP OVER. A magnifier at the head of the tabs is
+          where a thumb already is, and it costs one tab's worth of width; opening it replaces the tabs entirely, because
+          a search field squeezed in beside four room names is the "very cramped" bar this strip already had removed
+          once. It writes the same `search` state the desktop bar and the header field do, so there is one filter and
+          three ways to reach it. */}
+      {/* THE PHONE'S ROOM HEADER. The team: on mobile the rooms are "hard to navigate, especially if in multiple
+          rooms... research how other popular chats work and rebuild the mobile version." The sideways strip of one
+          market's tabs is gone: it only ever reached the rooms of the place you were already in, and on a 375px screen
+          half of those were off the end of it. Now it is the header every chat app converged on: back to your rooms, the
+          room's name with where it is (tap it and every room you are in opens in a sheet, the ones with something new
+          first), and search. Nothing here brings the app header back - that still only happens on the way out of the
+          room. */}
       {/* Above the mover (relative z-10, opaque): the thread slides under it as the keyboard comes and goes. */}
       <div className="relative z-10 flex shrink-0 items-center gap-1 border-b border-gray-100 bg-white px-1 py-1 lg:hidden">
         <Link
@@ -1155,14 +1126,10 @@ export default function NetworkChat() {
         >
           <Icon name="chevronLeft" className="h-5 w-5" />
         </Link>
-        {/* The search field lives in the composer's slot now (12 Oct 2026), so the room's name stays here. */}
+        {/* The search field lives in the composer's slot now, so the room's name stays here. */}
         {(
-          // ONE LINE: THE ROOM, THEN WHERE IT IS (12 Oct 2026). Ethan: "we don't
-          // need to show the icon there... it should show the worldwide option
-          // that's currently below general to the right of general, to swap to
-          // another one." The room's name leads; the place is a pill beside it
-          // that opens the switcher, with the unread count of the other rooms on
-          // it. The whole row still opens the switcher too.
+          // ONE LINE: THE ROOM, THEN WHERE IT IS. The room's name leads; the place is a pill beside it that opens the
+          // switcher, with the unread count of the other rooms on it. The whole row still opens the switcher too.
           <div className="flex min-w-0 flex-1 items-center gap-2 pl-0.5">
             <button
               type="button"
@@ -1223,20 +1190,16 @@ export default function NetworkChat() {
           thread header gives its search real height and reads properly, so this
           matches it: enough room for a 36px field with air round it, and the
           hint text steps up to the same size. */}
-      {/* DESKTOP ONLY. On a phone this bar was ~40px of permanent chrome saying
-          the room's name - which the highlighted tab directly above it already
-          says - with a search field in it. Ethan: "it shouldn't show up the
-          second bar below the tabs saying announcements or general with the
-          search bar, this takes up too much space, we should be able to see
-          messages here." Search moved into the header's own search button,
-          which points at whichever chat is open (see lib/chatSearch). */}
+      {/* DESKTOP ONLY. On a phone this bar was ~40px of permanent chrome saying the room's name - which the highlighted
+          tab directly above it already says - with a search field in it. Search moved into the header's own search
+          button, which points at whichever chat is open (see lib/chatSearch). */}
       {active && (
         <div className={cx(
           'hidden shrink-0 items-center gap-2.5 px-3 py-1.5 text-xs sm:px-4 sm:py-2 lg:flex',
           active.key === 'announcements' ? 'bg-brand-tint font-medium text-brand' : 'bg-cloud/60 text-smoke',
         )}>
           <RoomSearch value={search} onChange={setSearch} count={visible.length} total={messages.length} />
-          {/* THE ROOM'S OWN CONTROLS, ON THE RIGHT (12 Oct 2026). */}
+          {/* THE ROOM'S OWN CONTROLS, ON THE RIGHT. */}
           {!search && (firstUnread || farFromEnd) && (
             <span className="order-last ml-auto flex shrink-0 items-center gap-1.5">
               {firstUnread && (
@@ -1262,9 +1225,7 @@ export default function NetworkChat() {
         </div>
       )}
 
-      {/* THE THREAD NEVER SHOWS A BLANK ROOM (2 Sep 2026).
-
-          Ethan: "the text is like flashing for the first split second."
+      {/* THE THREAD NEVER SHOWS A BLANK ROOM.
 
           `settled` hides the scroller with `opacity-0` while lib/chatScroll
           pins it, which is right - the rows have to be LAID OUT for there to be
@@ -1372,12 +1333,10 @@ export default function NetworkChat() {
           {flags && <span aria-hidden>{flags}</span>}
           {community.name}
         </h1>
-        {/* THE SCOPE LINE IS GONE. Every market page carried "Only Spain.
-            Nothing posted here reaches another market." under its own title,
-            which is a disclaimer where a room name should be: it repeats what
-            the flag, the market name and the place switcher directly above it
-            all already say, and it reads as a warning about something that has
-            not happened. Ethan asked for it off. */}
+        {/* THE SCOPE LINE IS GONE. Every market page carried "Only Spain. Nothing posted here reaches another market."
+            under its own title, which is a disclaimer where a room name should be: it repeats what the flag, the market
+            name and the place switcher directly above it all already say, and it reads as a warning about something that
+            has not happened. The team asked for it off. */}
       </div>
 
       <div
@@ -1455,11 +1414,8 @@ export default function NetworkChat() {
         tool={adminTool}
         onClose={() => setAdminTool(null)}
         postCard={(fields) => postMessage({ body: '', ...fields })}
-        // THE ROOM'S NAME, NOT A SLUG. Ethan: "I don't know why it's
-        // showing up like hashtag general. It should just show up like
-        // general, the actual chat name." The hash and the lowercasing were
-        // borrowed from Slack; nothing else in this product writes a room
-        // that way, and the tab the admin just pressed says "General".
+        // THE ROOM'S NAME, NOT A SLUG. The hash and the lowercasing were borrowed from Slack; nothing else in this
+        // product writes a room that way, and the tab the admin just pressed says "General".
         roomLabel={active?.label || 'this room'}
       />
       )}

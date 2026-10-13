@@ -157,14 +157,10 @@ export function dateFromDayOfYear(dayOfYear, now) {
  *
  * THE AIRLINE WAS BEING READ AND THROWN AWAY.
  *
- * `parseBoardingPass` has pulled the operating carrier out of the flight
- * designator since the day it was written - it has to, because the flight
- * number is the carrier code plus the digits - and this function then built a
- * form without it. So a scan filled in four fields, and the fifth, which is the
- * only REQUIRED one it could have filled, was left for the reader to pick by
- * hand off a list. Ethan, after scanning an Aer Lingus pass: "should I not be
- * able to automatically select the airline? It's not filled in. It literally
- * says Aer Lingus on the top of the screenshot I gave."
+ * `parseBoardingPass` has pulled the operating carrier out of the flight designator since the day it was written - it
+ * has to, because the flight number is the carrier code plus the digits - and this function then built a form without
+ * it. So a scan filled in four fields, and the fifth, which is the only REQUIRED one it could have filled, was left for
+ * the reader to pick by hand off a list.
  *
  * The barcode says `EI`; the form wants `Aer Lingus`, because that is what the
  * picker's chips are keyed on. `airlineByCode` is the table that already maps
@@ -172,13 +168,11 @@ export function dateFromDayOfYear(dayOfYear, now) {
  * a charter) simply leaves the field blank rather than writing a two-letter
  * code into a field that displays airline names.
  *
- * THE AIRCRAFT CANNOT BE FILLED IN AND THAT IS NOT AN OVERSIGHT. Ethan asked
- * for it in the same breath. BCBP has no aircraft field - Resolution 792 defines
- * the passenger, the itinerary and the sequence number, and the tail that turns
- * up on the day is not known when the pass is issued. What DOES help is that
- * filling the airline in narrows the aircraft shortlist from "everything with
- * the range" to that airline's own fleet, which is the next best thing and
- * happens automatically.
+ * THE AIRCRAFT CANNOT BE FILLED IN AND THAT IS NOT AN OVERSIGHT. The team asked for it in the same breath. BCBP has no
+ * aircraft field - Resolution 792 defines the passenger, the itinerary and the sequence number, and the tail that turns
+ * up on the day is not known when the pass is issued. What DOES help is that filling the airline in narrows the aircraft
+ * shortlist from "everything with the range" to that airline's own fleet, which is the next best thing and happens
+ * automatically.
  */
 export function boardingPassToForm(raw, now) {
   const p = parseBoardingPass(raw)

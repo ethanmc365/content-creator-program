@@ -47,11 +47,11 @@ import { eventsApi } from '../api/events'
 //   scoped to one person BY THE QUERY, not by a filter afterwards.
 //
 //   IT KNOWS WHAT IS ON RIGHT NOW. An event whose start has passed and whose
-//   end has not gets a pulsing chip and goes to the top. Ethan: "The single
+//   end has not gets a pulsing chip and goes to the top.
 //   highest-value state a calendar can show and the one it currently cannot."
 //   It needed `events.ends_at`, which did not exist until migration 107.
 //
-//   THE TYPE FILTER IS GONE. Ethan: "ive found those buttons above the calendar
+//   THE TYPE FILTER IS GONE. The team: "ive found those buttons above the calendar
 //   useless so you can remove them, it should constantly be showing everything."
 //   A filter row over a calendar can only ever hide something you were about to
 //   be told about, and every type already carries its own tile and chip.
@@ -388,11 +388,9 @@ export default function Events() {
 
   const loading = data === null
   const raw = useMemo(() => data?.items ?? [], [data])
-  // EVENTS IN THE READER'S LANGUAGE (1 Oct 2026). Ethan: "The events seem to also not be translated,
-  // so just ensure that everything gets translated automatically for all these languages." What a
-  // person wrote - an event's title and details, a challenge's name - is translated the same way a
-  // brief is (content_translations, one batched lookup for the whole calendar), and falls back to
-  // the words as written if no translation can be had.
+  // EVENTS IN THE READER'S LANGUAGE. What a person wrote - an event's title and details, a challenge's name - is
+  // translated the same way a brief is (content_translations, one batched lookup for the whole calendar), and falls back
+  // to the words as written if no translation can be had.
   const locale = useLocale()
   const [tx, setTx] = useState({})
   const txKey = useMemo(() => [...new Set(raw.flatMap((i) => (
@@ -546,26 +544,24 @@ export default function Events() {
       <PageHeader
         title={tr("Calendar")}
         action={
-          /* THREE EQUAL ACTIONS ON ONE ROW, AT EVERY WIDTH.
-             "Suggest an event" used to live at the foot of the page under its
-             own heading; it is a primary action and it belongs with the other
-             two. On a phone the three share the row equally (`flex-1
-             basis-0`), so nothing wraps and no space is wasted, and the labels
-             shorten rather than the buttons shrinking.
-             MANAGE IS ONE ELEMENT THAT WRAPS, NOT TWO THAT HIDE. It is
-             `basis-full` on a phone, so it takes a row of its own and fills it
-             (a fourth column there would leave four cramped buttons); from
-             `sm` it is `basis-auto` and sits on the end of the row, to the
-             right of "Suggest an event", because a lone button on a second row
-             of a wide header reads as a mistake.
-             IT SITS ABOVE THE OTHER THREE, NOT BELOW. Ethan: "for the calendar
-             for admins on mobile, I want the manage button to actually be the
-             big button that appears above personal sync and suggest rather than
-             below." It is the primary action and it is the widest thing in the
-             row, so hanging it off the bottom made the header read as a list
-             that had run out of space. `max-sm:order-first` moves it without
-             moving it in the markup, so the desktop row is untouched - the same
-             rule `ActionRow` applies everywhere else. */
+          /*
+           * THREE EQUAL ACTIONS ON ONE ROW, AT EVERY WIDTH.
+           * "Suggest an event" used to live at the foot of the page under its
+           * own heading; it is a primary action and it belongs with the other
+           * two. On a phone the three share the row equally (`flex-1
+           * basis-0`), so nothing wraps and no space is wasted, and the labels
+           * shorten rather than the buttons shrinking.
+           * MANAGE IS ONE ELEMENT THAT WRAPS, NOT TWO THAT HIDE. It is
+           * `basis-full` on a phone, so it takes a row of its own and fills it
+           * (a fourth column there would leave four cramped buttons); from
+           * `sm` it is `basis-auto` and sits on the end of the row, to the
+           * right of "Suggest an event", because a lone button on a second row
+           * of a wide header reads as a mistake.
+           * IT SITS ABOVE THE OTHER THREE, NOT BELOW. It is the primary action and it is the widest thing in the row, so
+           * hanging it off the bottom made the header read as a list that had run out of space. `max-sm:order-first`
+           * moves it without moving it in the markup, so the desktop row is untouched - the same rule `ActionRow`
+           * applies everywhere else.
+           */
           <div className="flex w-full flex-wrap gap-2 sm:w-auto">
             <button onClick={() => { setEditingPersonal(null); setPersonalOpen(true) }} className="btn-secondary !px-3 !py-2.5 flex-1 basis-0 justify-center whitespace-nowrap text-sm sm:flex-none sm:basis-auto sm:!px-4">
               <Icon name="plus" className="h-4 w-4 shrink-0" />
@@ -597,17 +593,11 @@ export default function Events() {
         <PageSkeleton shape="calendar" />
       ) : (
         <>
-          {/* THE PAGE ASSEMBLES, LIKE EVERY OTHER ONE (12 Sep 2026).
-              Ethan: "on desktop I noticed the calendar page doesn't have any
-              nice clean animations like the others, please build this in."
-              It was the odd page out - it drew itself in a single frame while
-              the hub, the markets, the challenges and the flight log all arrive
-              through `Reveal`. Section by section, top to bottom, with the
-              increasing `delay` the hub uses so the three above the fold do not
-              all fire on the same frame and read as one block. It is CSS, which
-              matters here more than most places: this route already carries
-              date-fns and the whole calendar, and an entrance is not worth the
-              Motion runtime on top. */}
+          {/* THE PAGE ASSEMBLES, LIKE EVERY OTHER ONE. It was the odd page out - it drew itself in a single frame while
+              the hub, the markets, the challenges and the flight log all arrive through `Reveal`. Section by section,
+              top to bottom, with the increasing `delay` the hub uses so the three above the fold do not all fire on the
+              same frame and read as one block. It is CSS, which matters here more than most places: this route already
+              carries date-fns and the whole calendar, and an entrance is not worth the Motion runtime on top. */}
           {/* ---------- On now ----------
               At the very top, above the next-up strip, because a thing that is
               happening beats a thing that is going to. */}
@@ -625,12 +615,8 @@ export default function Events() {
           )}
 
           {/* ---------- The controls ----------
-              THE VIEW SWITCH SPANS THE WHOLE WIDTH ON A PHONE. Ethan: "rather
-              than have this go across most of the screen, and then suddenly
-              stop, it should be centred and go across it all like the big card
-              above." It is a real segmented control with a sliding highlight,
-              not three buttons that change colour; the slide is what tells you
-              the three are one thing. */}
+              THE VIEW SWITCH SPANS THE WHOLE WIDTH ON A PHONE. It is a real segmented control with a sliding highlight,
+              not three buttons that change colour; the slide is what tells you the three are one thing. */}
           {view !== 'month' && (
           <Reveal className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between" delay={0.12} row>
             {viewSwitch}
@@ -647,13 +633,8 @@ export default function Events() {
                   than merely animated. */}
               <Reveal className="lg:col-span-2" delay={0.12}>
               <div>
-                {/* THE MONTH SITS ON THE CALENDAR (28 Sep 2026, evening). Ethan:
-                    "the month is hard to see because the month is over on the
-                    right. Maybe it should be directly above it ... and then
-                    coming up can just be up on the right there." So the switch
-                    and the month head the calendar's own column, the month in
-                    large type, and Coming up rises to the top of the right
-                    column beside them. */}
+                {/* THE MONTH SITS ON THE CALENDAR. So the switch and the month head the calendar's own column, the month
+                    in large type, and Coming up rises to the top of the right column beside them. */}
                 <div className="mb-3">{viewSwitch}</div>
                 <div className="mb-3 flex items-center justify-between gap-2">
                   <h2 key={monthKey} className="cal-label-in whitespace-nowrap text-[22px] font-bold tracking-tight tabular-nums sm:text-[28px]">
@@ -703,12 +684,9 @@ export default function Events() {
                   <span className="text-gray-400 sm:hidden">{tr("Swipe to change month")}</span>
                 </p>
 
-                {/* THE DAY OPENS AS A CARD OVER THE PAGE (26 Sep 2026). Ethan:
-                    "When you click on it, it only shows something at the bottom,
-                    so you can barely even notice it." It grew open under the
-                    grid, below the fold on most screens. Now it is a modal: on
-                    a phone a sheet from the bottom, on a desktop a centred
-                    card, and the grid stays exactly where it was. */}
+                {/* THE DAY OPENS AS A CARD OVER THE PAGE. It grew open under the grid, below the fold on most screens.
+                    Now it is a modal: on a phone a sheet from the bottom, on a desktop a centred card, and the grid
+                    stays exactly where it was. */}
                 <Modal open={!!selectedDay} onClose={() => setSelectedDay(null)} title={selectedDay ? format(selectedDay, 'EEEE d MMMM') : ''}>
                   {selectedDay && (
                     <div className="space-y-4">
@@ -817,13 +795,10 @@ export default function Events() {
 
 // THE NEXT THING, AND HOW LONG YOU HAVE.
 //
-// ON A PHONE IT IS A STRIP, NOT A POSTER. Ethan: "currently its taking up a lot
-// of space and actually have to scroll down a lot to see the actual calendar."
-// It was a 9-rem gradient panel with a description, a button row and an RSVP
-// control inside it, which on a 375px screen is most of the first viewport
-// spent on one event. The phone version keeps the two facts that earn their
-// place - what it is and how soon - and everything else is one tap away in the
-// day panel. The desktop card is unchanged, because there the space is free.
+// ON A PHONE IT IS A STRIP, NOT A POSTER. It was a 9-rem gradient panel with a description, a button row and an RSVP
+// control inside it, which on a 375px screen is most of the first viewport spent on one event. The phone version keeps
+// the two facts that earn their place - what it is and how soon - and everything else is one tap away in the day panel.
+// The desktop card is unchanged, because there the space is free.
 function NextUp({ e, now, zone, rsvps, myId, connectedIds }) {
   const tr = useT()
   const meta = metaFor(e.type)
@@ -898,37 +873,21 @@ function NextUp({ e, now, zone, rsvps, myId, connectedIds }) {
 // THE GRID. Every cell is a button that lifts, every day with something on it
 // carries one dot per event COLOURED BY TYPE, and today is a filled disc.
 //
-// TRAVEL DAYS ARE A WASH, NOT AN ENTRY. Ethan: "on the trip days between maybe
-// the calendar boxes or weekly boxes should be highlighted in a light orange
-// colour, showing that theyre travelling those days." A six-day trip written
-// out as six cards buries everything else in the week; a tint says the same
-// thing and leaves the cell free to carry what is actually happening on it.
+// TRAVEL DAYS ARE A WASH, NOT AN ENTRY. A six-day trip written out as six cards buries everything else in the week; a
+// tint says the same thing and leaves the cell free to carry what is actually happening on it.
 //
-// IT TAKES A HORIZONTAL SWIPE. Ethan: "this is the gesture people already try."
-// The arrows stay. The guard is that the gesture must be more horizontal than
-// vertical AND clear 45px, or every attempt to scroll the page past the grid
-// would jump a month.
+// IT TAKES A HORIZONTAL SWIPE. The arrows stay. The guard is that the gesture must be more horizontal than vertical AND
+// clear 45px, or every attempt to scroll the page past the grid would jump a month.
 //
-// AND A TWO-FINGER SWIPE ON A TRACKPAD (28 Sep 2026). Ethan: "whenever I swipe
-// with two fingers on my Mac, I want it to move the calendar to the next
-// month." A trackpad swipe arrives as horizontal `wheel` events. They are added
-// up until they clear a threshold, then the month turns once and the gesture is
-// spent until the fingers stop (a quiet gap), so one swipe is one month however
-// long the momentum tail runs. `overscroll-behavior-x` stops Safari reading the
-// same swipe as "go back a page".
-// ONE SWIPE, ONE MONTH - MEASURED ACROSS THE REMOUNT (28 Sep 2026, evening).
-// Ethan: "the scrolling with two fingers ... should only be able to do one page
-// at a time, but currently, if I do it, it starts scrolling a bunch of pages and
-// is a bit glitchy." The grid is KEYED ON THE MONTH (so the new month slides
-// in), which means turning a month unmounts this component - and the gesture
-// state lived inside it. The fresh grid attached a fresh listener with
-// `spent = false` while the trackpad's momentum was still arriving, so it
-// turned again, remounted again, and cascaded. The state lives out here now,
-// where a remount cannot reset it: a gesture is spent until the wheel has been
-// silent for a beat, whichever grid is on screen.
-// A SECOND SWIPE LANDS WITHOUT WAITING (28 Sep 2026, later). Ethan: "it only
-// moves one page, but whenever I do it and try to do it again, it doesn't work.
-// It's only when I move my mouse that I can then do it a second time."
+// AND A TWO-FINGER SWIPE ON A TRACKPAD. A trackpad swipe arrives as horizontal `wheel` events. They are added up until
+// they clear a threshold, then the month turns once and the gesture is spent until the fingers stop (a quiet gap), so
+// one swipe is one month however long the momentum tail runs. `overscroll-behavior-x` stops Safari reading the same
+// swipe as "go back a page".
+// ONE SWIPE, ONE MONTH - MEASURED ACROSS THE REMOUNT. The grid is KEYED ON THE MONTH (so the new month slides in), which
+// means turning a month unmounts this component - and the gesture state lived inside it. The fresh grid attached a fresh
+// listener with `spent = false` while the trackpad's momentum was still arriving, so it turned again, remounted again,
+// and cascaded. The state lives out here now, where a remount cannot reset it: a gesture is spent until the wheel has
+// been silent for a beat, whichever grid is on screen. A SECOND SWIPE LANDS WITHOUT WAITING.
 //
 // The gesture was released by a QUIET GAP - 240ms with no horizontal wheel
 // event - and macOS's momentum phase keeps firing events for up to a second
@@ -937,12 +896,10 @@ function NextUp({ e, now, zone, rsvps, myId, connectedIds }) {
 // the next swipe was swallowed. Moving the mouse "fixed" it only because it
 // meant waiting: the tail died, the gap opened, the next swipe counted.
 //
-// So the release no longer depends on silence alone: a rise in the deltas means
-// the fingers are back on the glass. That rise has to be measured against the
-// gesture's PEAK rather than against the previous event, which is the second
-// bug and the one Ethan saw next - "it scrolls through 4 months and is really
-// laggy". A swipe ramps up, so every event of a fresh flick is bigger than the
-// one before it. See lib/wheelGesture, where the whole thing is rehearsed.
+// So the release no longer depends on silence alone: a rise in the deltas means the fingers are back on the glass. That
+// rise has to be measured against the gesture's PEAK rather than against the previous event, which is the second bug and
+// the one the team saw next - "it scrolls through 4 months and is really laggy". A swipe ramps up, so every event of a
+// fresh flick is bigger than the one before it. See lib/wheelGesture, where the whole thing is rehearsed.
 const wheelGesture = { sum: 0, spent: false, last: 0, mag: 0, peak: 0, decayed: false }
 const WHEEL_GAP_MS = 240
 
@@ -952,10 +909,9 @@ function MonthGrid({ days, month, eventsOn, travelDays, selectedDay, onSelect, l
   const swipeRef = useRef(onSwipe)
   useEffect(() => { swipeRef.current = onSwipe }, [onSwipe])
 
-  // THE FINGER MOVES THE GRID DIRECTLY, NOT THROUGH STATE. Every touchmove used
-  // to set React state and re-render all 42 day buttons, sixty times a second,
-  // which is the lag Ethan felt swiping on a phone. The offset is written to
-  // the element's own style; React never hears about it.
+  // THE FINGER MOVES THE GRID DIRECTLY, NOT THROUGH STATE. Every touchmove used to set React state and re-render all 42
+  // day buttons, sixty times a second, which is the lag the team felt swiping on a phone. The offset is written to the
+  // element's own style; React never hears about it.
   const setOffset = (px, animate = false) => {
     const el = boxRef.current
     if (!el) return
@@ -1040,7 +996,7 @@ function MonthGrid({ days, month, eventsOn, travelDays, selectedDay, onSelect, l
     >
       <div ref={boxRef} className="will-change-transform">
       <div className="grid grid-cols-7 gap-1 sm:gap-1.5">
-        {/* The weekday names in the reader's language: 5 Jan 2026 is a Monday. */}
+        {/* The weekday names in the reader's language: is a Monday. */}
         {[0, 1, 2, 3, 4, 5, 6].map((i) => format(new Date(2026, 0, 5 + i), 'EEE').replace('.', '')).map((d) => (
           <div key={d} className="py-2 text-center text-[10px] font-bold uppercase tracking-widest text-smoke">
             <span className="hidden sm:inline">{d}</span>
@@ -1048,15 +1004,10 @@ function MonthGrid({ days, month, eventsOn, travelDays, selectedDay, onSelect, l
           </div>
         ))}
       </div>
-      {/* ROUNDED DAY TILES ON A WHITE CARD (28 Sep 2026), not squares on a
-          grey grid. Ethan: "I would round the corners ... for those ones that
-          have events", and on a phone the grid looked "compact, a bit
-          squared". Each day is its own rounded tile with a small gap, so a
-          busy day is an orange rounded tile and the month reads as a set of
-          days rather than a table. */}
-      {/* MORE CONTRAST (28 Sep 2026, evening). Ethan: "maybe the rounded boxes
-          are actually okay. You just need to make it more contrasting or make it
-          stand out better." The empty days were cloud on white - two near-whites
+      {/* ROUNDED DAY TILES ON A WHITE CARD, not squares on a grey grid., and on a phone the grid looked "compact, a bit
+          squared". Each day is its own rounded tile with a small gap, so a busy day is an orange rounded tile and the
+          month reads as a set of days rather than a table. */}
+      {/* MORE CONTRAST. The empty days were cloud on white - two near-whites
           - so the month read as a pale haze. Each day is now a white tile with
           a real edge on a light grey card, the weekend a shade deeper, and
           today ringed in the brand. */}
@@ -1075,12 +1026,8 @@ function MonthGrid({ days, month, eventsOn, travelDays, selectedDay, onSelect, l
               onClick={() => onSelect(selected ? null : day)}
               aria-label={`${format(day, 'd MMMM')}${list.length ? `, ${list.length} events` : ''}${away ? `, travelling` : ''}`}
               aria-pressed={!!selected}
-              // A DAY WITH SOMETHING ON IS AN ORANGE SQUARE (26 Sep 2026). Ethan:
-              // "it only shows a dot and a little preview sentence ... if there's
-              // an event on a day, that whole square should be orange-coloured,
-              // and it should show the preview name on it." Busy days are the
-              // brand gradient with the first title on them at every width;
-              // empty days stay white, travelling days keep their wash.
+              // A DAY WITH SOMETHING ON IS AN ORANGE SQUARE. Busy days are the brand gradient with the first title on
+              // them at every width; empty days stay white, travelling days keep their wash.
               className={cx(
                 'group relative flex min-h-[58px] flex-col items-center gap-0.5 overflow-hidden rounded-xl p-1 transition-all duration-200 sm:min-h-[92px] sm:gap-1.5 sm:rounded-2xl sm:p-2',
                 'hover:z-10 active:scale-[0.96] hoverable:hover:-translate-y-0.5',
@@ -1097,12 +1044,7 @@ function MonthGrid({ days, month, eventsOn, travelDays, selectedDay, onSelect, l
               )}
             >
               {/* THE SELECTED DAY IS A ROUNDED CARD INSIDE THE CELL, NOT THE
-                  CELL PAINTED ORANGE. (1 Sep 2026.)
-
-                  Ethan: "when you click on a square a date on the calendar it
-                  shows up in an ugly orange colour and the corners look very
-                  sharp, improve the design, colour and maybe round the corners
-                  if you can make it look clean."
+                  CELL PAINTED ORANGE.
 
                   Both complaints have the same cause. The grid is `gap-px` over
                   a grey ground, so a cell IS a hard-edged square by
@@ -1127,17 +1069,11 @@ function MonthGrid({ days, month, eventsOn, travelDays, selectedDay, onSelect, l
                   )}
                 />
               )}
-              {/* NO HAIRLINE ON A TRAVELLING DAY (28 Sep 2026). There was a 2px
-                  brand bar pinned to the top of the cell, meant to tie a run of
-                  days together into one stay. It could not: `inset-x-2` held it
-                  8px clear of both edges, so it stopped short at every cell and
-                  read as a stray rule rather than a continuous line. Ethan: "it
-                  shows a light-coloured square because it shows I'm actually in
-                  Oslo there, but then there's this weird orange border at the
-                  very top. It's not around at all, which is weird."
-                  The cell already carries a full brand border and the tint, and
-                  a run of them is already contiguous, so the bar was saying
-                  nothing the wash was not saying better. */}
+              {/* NO HAIRLINE ON A TRAVELLING DAY. There was a 2px brand bar pinned to the top of the cell, meant to tie
+                  a run of days together into one stay. It could not: `inset-x-2` held it 8px clear of both edges, so it
+                  stopped short at every cell and read as a stray rule rather than a continuous line. The cell already
+                  carries a full brand border and the tint, and a run of them is already contiguous, so the bar was
+                  saying nothing the wash was not saying better. */}
               <span className={cx(
                 'relative flex h-6 w-6 items-center justify-center rounded-full text-[11px] font-semibold tabular-nums transition-all duration-200 sm:h-7 sm:w-7 sm:text-xs',
                 busy
@@ -1176,11 +1112,9 @@ function MonthGrid({ days, month, eventsOn, travelDays, selectedDay, onSelect, l
 // that keeps its columns at 375px gives every day 50 pixels, which fits a date
 // and nothing else.
 //
-// THE DAY CARDS ARE TALLER. Ethan: "for weekly view i would make each day card
-// slightly more vertical longer." They were `h-full` inside an auto-height row,
-// so a week with one busy day gave every other column the height of its single
-// line and the row read as a ragged strip. A `min-h` gives the week a shape
-// before anything is in it, which is what a week view is for.
+// THE DAY CARDS ARE TALLER. They were `h-full` inside an auto-height row, so a week with one busy day gave every other
+// column the height of its single line and the row read as a ragged strip. A `min-h` gives the week a shape before
+// anything is in it, which is what a week view is for.
 function WeekView({ days, eventsOn, travelDays, liveIds, cardProps, onShift, onToday }) {
   const tr = useT()
   const weekRows = days.flatMap((d) => eventsOn(d))

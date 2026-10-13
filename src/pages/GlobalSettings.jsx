@@ -40,16 +40,13 @@ import { marketsApi } from '../api/markets'
 
 // TWO CURRENCIES, and the market's own clock chosen from a list.
 //
-// The old form offered nine currencies and a FREE TEXT timezone box. Ethan
-// typed "Europe Berlin" into it when he created France - one missing slash -
-// and the market was saved with a zone no engine recognises, which would have
-// landed every deadline in that market at the wrong hour with nothing on screen
-// to suggest anything was wrong. A control that accepts a typo silently is the
-// bug; the list is the fix.
+// The old form offered nine currencies and a FREE TEXT timezone box. The team typed "Europe Berlin" into it when he
+// created France - one missing slash - and the market was saved with a zone no engine recognises, which would have
+// landed every deadline in that market at the wrong hour with nothing on screen to suggest anything was wrong. A control
+// that accepts a typo silently is the bug; the list is the fix.
 //
-// The presets that used to sit above the name ("start from somewhere: Italy,
-// Poland, France, Benelux") are gone at Ethan's request. They were a shortcut
-// past the two fields that matter, and one of them is why France exists.
+// The presets that used to sit above the name ("start from somewhere: Italy, Poland, France, Benelux") are gone at the
+// team's request. They were a shortcut past the two fields that matter, and one of them is why France exists.
 
 const ROOM_CHOICES = [
   { key: 'general', label: 'General', hint: 'The main room. Always created.', locked: true, icon: 'chat' },
@@ -80,10 +77,9 @@ const BLANK = {
   name: '', slug: '', codes: [], tagline: '',
   currency: 'EUR', tz: 'Europe/Madrid', cpm: '0.50',
   joinPolicy: 'country', openNow: false,
-  // EVERY MARKET STARTS WITH INTRODUCTIONS. Ethan asked for four rooms rather
-  // than three, and introductions is the one that earns its place on day one:
-  // a market with nobody in it yet needs somewhere for the first arrivals to
-  // say hello, and "general" fills up with everything else within a week.
+  // EVERY MARKET STARTS WITH INTRODUCTIONS. The team asked for four rooms rather than three, and introductions is the
+  // one that earns its place on day one: a market with nobody in it yet needs somewhere for the first arrivals to say
+  // hello, and "general" fills up with everything else within a week.
   rooms: ['general', 'announcements', 'meetups', 'introductions'],
   leads: [],
 }
@@ -149,7 +145,7 @@ export default function GlobalSettings() {
   const { chapters, network, isGlobalAdmin, reload } = useCommunity()
   const [form, setForm] = useState(BLANK)
   const [step, setStep] = useState(0)
-  // `?new=market` is the admin panel's "Open another > A community market": straight onto the wizard (2 Oct 2026).
+  // `?new=market` is the admin panel's "Open another > A community market": straight onto the wizard.
   const [params] = useSearchParams()
   const [open, setOpen] = useState(() => params.get('new') === 'market')
   const [busy, setBusy] = useState(false)
@@ -259,11 +255,10 @@ export default function GlobalSettings() {
 
   // DELETE IS NOT RETIRE, and the difference is history.
   //
-  // Retire is for a market that ran and stopped: it keeps its members, its
-  // challenges and its results. Delete is for one that should never have
-  // existed - the France Ethan made to see how the flow worked. The RPC refuses
-  // whenever there is anything worth keeping, so this can be offered without
-  // the confirm being the only thing standing between a slip and a market.
+  // Retire is for a market that ran and stopped: it keeps its members, its challenges and its results. Delete is for one
+  // that should never have existed - the France the team made to see how the flow worked. The RPC refuses whenever there
+  // is anything worth keeping, so this can be offered without the confirm being the only thing standing between a slip
+  // and a market.
   async function removeMarket(c) {
     if (!await confirm(
       `Permanently delete ${c.name}?\n\nThis is for a market created by mistake. Anything with members or challenges is refused - retire those instead.`,
@@ -545,11 +540,8 @@ export default function GlobalSettings() {
       <NetworkLayout>
         <motion.div {...pageFade} className="space-y-9">
           <section>
-            {/* BACK GOES WHERE YOU CAME FROM (24 Sep 2026). Ethan: "if I'm on
-                manage markets in the admin panel and I click the back button,
-                it brings me back to worldwide rather than the admin panel." It
-                was a hard link to /global; this page is opened from the admin
-                panel, so history first and the admin panel as the fallback. */}
+            {/* BACK GOES WHERE YOU CAME FROM. It was a hard link to /global; this page is opened from the admin panel,
+                so history first and the admin panel as the fallback. */}
             <BackLink to="/admin" label={tr("Back")} />
             <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">{tr("Manage markets")}</h1>
           </section>
@@ -660,11 +652,9 @@ export default function GlobalSettings() {
             </section>
           )}
 
-          {/* ---------------- Markets ----------------
-              The whole row opens the settings, because that is what you came
-              here to do. Ethan: "every market clickable straight to its
-              settings". The old row had the name going one place and a small
-              pill going another, so the obvious target was the wrong one. */}
+          {/* ---------------- Markets ---------------- The whole row opens the settings, because that is what you came
+               here to do. The old row had the name going one place and a small pill going another, so the obvious target
+               was the wrong one. */}
           <section>
             <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold">
               <Icon name="flag" className="h-5 w-5 text-brand" /> {tr("Markets")}
@@ -692,12 +682,10 @@ export default function GlobalSettings() {
           </section>
 
           {/* ---------------- Retired ----------------
-              RETIRING WORKED AND LOOKED LIKE IT HAD NOT. `set_market_retired`
-              stamps retired_at and clears is_active - Ethan retired France and
-              the row sat in the list exactly as before, so the only reasonable
-              conclusion was that the button did nothing. A retired market has to
-              LEAVE the list it was in and appear somewhere that says retired,
-              or the act has no visible consequence. */}
+              RETIRING WORKED AND LOOKED LIKE IT HAD NOT. `set_market_retired` stamps retired_at and clears is_active -
+              the team retired France and the row sat in the list exactly as before, so the only reasonable conclusion
+              was that the button did nothing. A retired market has to LEAVE the list it was in and appear somewhere that
+              says retired, or the act has no visible consequence. */}
           {retired.length > 0 && (
             <section>
               <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold text-smoke">

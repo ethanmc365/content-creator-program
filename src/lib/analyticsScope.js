@@ -73,8 +73,8 @@ export function scopeToMarket(raw, marketId, memberRows = []) {
     rewards: (raw.rewards || []).filter((r) => ids.has(r.creator_id)),
     messages: (raw.messages || []).filter((m) => ids.has(m.sender_id)),
     decisions: raw.decisions || [],
-    // The engagement rows carry who did them (2 Oct 2026), so a market's Overview counts its own people's
-    // reactions, votes, games, trips, connections and feedback rather than the whole network's.
+    // The engagement rows carry who did them, so a market's Overview counts its own people's reactions, votes, games,
+    // trips, connections and feedback rather than the whole network's.
     ...(raw.reactionRows ? (() => {
       const reactionRows = raw.reactionRows.filter((r) => ids.has(r.creator_id))
       const pollRows = (raw.pollRows || []).filter((r) => ids.has(r.voter_id))
@@ -213,7 +213,7 @@ export function growthByMonth(profiles = [], { months = 18 } = {}) {
   return months ? withTotals.slice(-months) : withTotals
 }
 
-/** "2026-08" -> "Aug 26", for an axis that has to fit twelve of them. */
+/* "2026-08" -> "Aug 26", for an axis that has to fit twelve of them. */
 export function monthLabel(key) {
   const [y, m] = String(key).split('-')
   const names = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']

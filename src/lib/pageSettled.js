@@ -9,21 +9,14 @@
 // at 375px, polling every 70ms through a load: that section reports
 // `offsetHeight: 0`, then 457, a full second later.
 //
-// Every section under it was asked "are you on screen" while it was sitting 457
-// pixels higher than it belongs, and answered honestly. So they revealed, spent
-// their 720ms against nobody, and were then pushed below the fold - finished.
-// Scroll down and they are simply there. Ethan: "for mobile there is still no
-// real visible animations, the hey Ethan title animates in nicely but the
-// latest announcements, today's puzzles and everyone right now doesn't." The
-// greeting is the exception because nothing ever moves the top of a page.
+// Every section under it was asked "are you on screen" while it was sitting 457 pixels higher than it belongs, and
+// answered honestly. So they revealed, spent their 720ms against nobody, and were then pushed below the fold - finished.
+// Scroll down and they are simply there. The greeting is the exception because nothing ever moves the top of a page.
 //
-// WHY IT IS NOT A TIMER FROM MOUNT. That was the first version - four seconds
-// and hope - and it is the same shape of guess that Ethan's report is actually
-// about: "I think it depends on how long it takes for the page to load." A
-// fixed window is right on a fast connection and closes before the data arrives
-// on a slow one, which is precisely the difference between the times it worked
-// and the times it did not. The honest question is "is the document still
-// changing height", and that is measurable.
+// WHY IT IS NOT A TIMER FROM MOUNT. That was the first version - four seconds and hope - and it is the same shape of
+// guess that A fixed window is right on a fast connection and closes before the data arrives on a slow one, which is
+// precisely the difference between the times it worked and the times it did not. The honest question is "is the document
+// still changing height", and that is measurable.
 //
 // ONE OBSERVER FOR THE WHOLE PAGE. Thirteen Reveals on the hub asking the same
 // question thirteen times is thirteen ResizeObservers on the same element.

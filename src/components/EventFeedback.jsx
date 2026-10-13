@@ -23,9 +23,7 @@ const SUGGESTION_TONE = { new: 'brand', planned: 'green', done: 'grey', declined
 export function SuggestEvent({ open = false, onClose }) {
   const tr = useT()
   const { user, isAdmin } = useAuth()
-  // ONLY THE MARKETS THEY ARE ACTUALLY IN. Ethan: "if theyre just in spanish
-  // market then only options that show for them are global and spain." An admin
-  // sees the lot, because an admin belongs to every market anyway.
+  // ONLY THE MARKETS THEY ARE ACTUALLY IN. An admin sees the lot, because an admin belongs to every market anyway.
   const allMarkets = useMarkets()
   const { ids: scopeIds } = useMyScopes()
   const myMarkets = isAdmin || !scopeIds
@@ -75,11 +73,10 @@ export function SuggestEvent({ open = false, onClose }) {
     // AdminPanel: these used to be visible only by scrolling to the foot of the
     // calendar, which is not somewhere anybody goes looking for work.
     //
-    // THE ASK MOVED INTO THE PAGE HEADER (1 Sep 2026). "Suggest an event" is a
-    // primary action, so it now sits in the same row as Personal event and
-    // Sync; this section is only the list of what has been suggested, and the
-    // heading + explanation that used to sit above it are gone with the button.
-    // `open` is owned by the page, which is what puts the button up there.
+    // THE ASK MOVED INTO THE PAGE HEADER. "Suggest an event" is a primary action, so it now sits in the same row as
+    // Personal event and Sync; this section is only the list of what has been suggested, and the heading + explanation
+    // that used to sit above it are gone with the button. `open` is owned by the page, which is what puts the button up
+    // there.
     <section id="suggestions" className="mt-10 scroll-mt-24">
       {suggestions.length > 0 && (
         <div className="space-y-2">
@@ -145,12 +142,6 @@ export function SuggestEvent({ open = false, onClose }) {
 //
 // "HOW WAS IT", ASKED ONCE, OF THE PEOPLE WHO SAID THEY WERE COMING.
 //
-// Ethan: "if someone RSVP for an event, next time they should get a
-// notification asking them to rate the specific event from 1 to 10 (on
-// clickable stars) with the option to add a comment and then submit, this
-// should open as a popup card on top of the calendar page, ensure it's only for
-// people thats rsvp yes, also give them the ability to skip."
-//
 // THREE THINGS CHANGED FROM THE FIRST VERSION
 //
 //   IT TAKES WORDS NOW. A 7 with no comment tells you the event was fine and
@@ -164,7 +155,7 @@ export function SuggestEvent({ open = false, onClose }) {
 //
 //   IT ONLY APPEARS ON THE CALENDAR. It used to be mounted in AppLayout, so a
 //   creator opening their DMs got a modal about last week'"'"'s Q&A on top of the
-//   thread they came to read. Ethan asked for it "on top of the calendar page",
+//   thread they came to read. The team asked for it "on top of the calendar page",
 //   which is also the only page where the thing being asked about is in view.
 
 export function EventRatingPrompt() {
@@ -240,8 +231,8 @@ export function EventRatingPrompt() {
 
   const shown = hover || rating
 
-  // PORTALLED (1 Oct 2026): inside a page it was trapped in the page's own layer, so the app
-  // header and the page title painted on top of the dimmed backdrop.
+  // PORTALLED: inside a page it was trapped in the page's own layer, so the app header and the page title painted on top
+  // of the dimmed backdrop.
   return createPortal((
     <div className="fixed inset-0 z-[75] flex items-center justify-center bg-ink/40 p-4" role="dialog" aria-label={tr("Rate the event")}>
       <div className="w-full max-w-md rounded-card bg-white p-6 shadow-lift animate-pop-in sm:p-8">

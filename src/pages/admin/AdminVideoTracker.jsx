@@ -21,16 +21,6 @@ import { contentApi } from '../../api/content'
 
 // THE VIDEO TRACKER.
 //
-// Ethan, 9 Sep 2026: "I want you to build into the admin tool another page
-// called Video Tracker. This is going to track all the best videos from the
-// entire community, obviously filtered by market and by the challenges. We want
-// to track the top three videos from every challenge, and also any videos that
-// have got over ten thousand views... And we would want the hooks for this - see
-// if you can pull the hook they used and maybe the description, or their
-// accounts. This is what we're going to share with the whole Tryp.com team so
-// they can take inspiration from the viral videos and the ones that performed
-// well, and we can share them with the other markets."
-//
 // WHAT THIS PAGE IS FOR, WHICH DECIDES ITS SHAPE.
 //
 // It is not analytics. `/admin/analytics` already answers "how did the
@@ -56,12 +46,9 @@ import { contentApi } from '../../api/content'
 // which is how a video from a market that is not on this platform yet gets in,
 // and there are five such markets.
 //
-// NOTHING HERE IS EVER DELETED BY THE MACHINE. A video that drops under the
-// threshold, or is disqualified, stops qualifying and keeps its notes in the
-// database (migration 211) - but this page never shows it again. Ethan, 23
-// Sep 2026: "there's no need to show the retired button and retired videos,
-// they should just be gone from this tracker", so a non-qualifying row is
-// filtered out with no toggle back to it (see `visibleVideos`).
+// NOTHING HERE IS EVER DELETED BY THE MACHINE. A video that drops under the threshold, or is disqualified, stops
+// qualifying and keeps its notes in the database (migration 211) - but this page never shows it again., so a
+// non-qualifying row is filtered out with no toggle back to it (see `visibleVideos`).
 export default function AdminVideoTracker() {
   const tr = useT()
   const { profile } = useAuth()
@@ -73,20 +60,16 @@ export default function AdminVideoTracker() {
   const [syncNote, setSyncNote] = useState('')
   const [editing, setEditing] = useState(null)   // a row, or {} for a new one
 
-  // THE FILTER IS ONE OBJECT, not six pieces of state, because every consumer
-  // of it takes the whole thing (`visibleVideos`) and because that makes
-  // "clear all" one line rather than six.
-  // `q` HAS NO CONTROL AND IS NOT DEAD (10 Sep 2026). The search box was removed
-  // at three videos - see the note on the filter strip - and `visibleVideos`
-  // still reads this and is still tested on it, so putting the input back is one
-  // element. It stays in the shape so that `Clear` and `filtered` keep meaning
-  // the same thing whichever of those two states the page is in.
+  // THE FILTER IS ONE OBJECT, not six pieces of state, because every consumer of it takes the whole thing
+  // (`visibleVideos`) and because that makes "clear all" one line rather than six. `q` HAS NO CONTROL AND IS NOT DEAD.
+  // The search box was removed at three videos - see the note on the filter strip - and `visibleVideos` still reads this
+  // and is still tested on it, so putting the input back is one element. It stays in the shape so that `Clear` and
+  // `filtered` keep meaning the same thing whichever of those two states the page is in.
   const [filter, setFilter] = useState({
     market: '', challenge: '', platform: '', month: '', q: '', sort: 'views', source: '',
   })
-  // THE HOOKS IN ANOTHER LANGUAGE (13 Oct 2026). Ethan: "see the actual hooks that were on screen rather than just the
-  // captions ... also have a translate button so I can translate it to English or whatever language you want." '' is the
-  // words as written; a language code translates every hook on the page through the shared cache, original one press away.
+  // THE HOOKS IN ANOTHER LANGUAGE. '' is the words as written; a language code translates every hook on the page through
+  // the shared cache, original one press away.
   const [hookLang, setHookLang] = useState('')
   const set = useCallback((patch) => setFilter((f) => ({ ...f, ...patch })), [])
 
@@ -127,8 +110,8 @@ export default function AdminVideoTracker() {
   const shown = useMemo(() => visibleVideos(rows || [], filter), [rows, filter])
   const totals = useMemo(() => summarise(shown), [shown])
 
-  // THE MONTH COUNTS FOLLOW THE OTHER FILTERS (30 Sep 2026). They counted every row ever tracked,
-  // retired ones included, so "September 21" sat under "All months 15" - two numbers for one list.
+  // THE MONTH COUNTS FOLLOW THE OTHER FILTERS. They counted every row ever tracked, retired ones included, so "September
+  // 21" sat under "All months 15" - two numbers for one list.
   const months = useMemo(() => monthsOf(visibleVideos(rows || [], { ...filter, month: '' })), [rows, filter])
   const filtered = filter.challenge || filter.platform || filter.q || filter.market || filter.month || filter.source
   const hooks = useTranslatedHooks(shown, hookLang)
@@ -183,13 +166,8 @@ export default function AdminVideoTracker() {
           filters that change it. */}
       <MarketScope markets={markets} value={filter.market} onChange={(m) => set({ market: m })} />
 
-      {/* (The standing "syncing the top 3 of every challenge, plus anything over
-          10k views" line used to sit here as a paragraph of its own. Ethan: "I
-          don't like how it says top three of every challenge plus everything
-          over ten thousand views. This is not necessarily needed there - it
-          could be an actual button somewhere, the Change button. Maybe just
-          build it into the design better, because currently it looks like
-          there's too much going on."
+      {/* (The standing "syncing the top 3 of every challenge, plus anything over 10k views" line used to sit here as a
+          paragraph of its own.
 
           Right, and the reason is that it was answering a question nobody had
           asked yet. It exists for "why isn't my video in here", which is asked
@@ -198,14 +176,9 @@ export default function AdminVideoTracker() {
           six characters and opens the panel that explains them in full. See
           `RulesModal`.) */}
 
-      {/* ONE CARD, NOT A WALL OF TILES AND A LOOSE ROW OF PILLS (9 Sep 2026).
-          Ethan: "improve how this looks - have everything in one card, similar
-          to how Worldwide/Germany/Nordics is in one card, and have the filters
-          inside that, still separated but a cleaner design. The export button
-          can even be just to the right of that." And on the tiles: "some of
-          these metrics are not necessary. Why do we need the views from the
-          best videos? Number of videos you can keep, the other two maybe change
-          them or delete them."
+      {/* ONE CARD, NOT A WALL OF TILES AND A LOOSE ROW OF PILLS. And on the tiles: "some of these metrics are not
+          necessary. Why do we need the views from the best videos? Number of videos you can keep, the other two maybe
+          change them or delete them."
 
           So the four StatCards are gone and what survives of them - how many
           videos, and the best one - is a single line at the top of the same
@@ -215,12 +188,7 @@ export default function AdminVideoTracker() {
           The line still describes WHAT IS ON SCREEN rather than the table: a
           page whose totals ignore its own filter tells you the wrong thing
           every time you use it. */}
-      {/* ONE LINE, THREE FILTERS, AND NO SEARCH BOX (10 Sep 2026).
-          Ethan: "remove the search bar to search for hooks, captions - we don't
-          need that. Instead just have those filters, every challenge, every
-          platform, most views. And I would square them up rather than having
-          them rounded. Then you can put everything on one line, including the
-          3 videos, best is 15.2k, what gets tracked, and the export button."
+      {/* ONE LINE, THREE FILTERS, AND NO SEARCH BOX.
 
           THE SEARCH BOX WENT BECAUSE OF WHAT IT COST, NOT WHAT IT DID. It was
           the widest thing on the line - a flexible 240px - and at three videos
@@ -242,12 +210,11 @@ export default function AdminVideoTracker() {
           a phone and needs no second rule to say so. */}
       <div className="mb-6 animate-fade-up rounded-card border border-gray-100 bg-white p-2 shadow-card [animation-delay:80ms] sm:p-2.5">
         <div className="flex flex-wrap items-center gap-1.5 xl:flex-nowrap">
-          {/* THE SEARCH BOX IS BACK (11 Oct 2026), now that the list is hundreds of videos. Ethan: "a search bar to
-              search for a particular hook, video, or name". It matches the creator, their handle, the hook (typed or
-              read off the video), the caption, the challenge, the market and the link, accents ignored. */}
-          {/* ONE LINE ON A DESKTOP (13 Oct 2026). Ethan: the placeholder was cut off ("Search creator hook or the cap")
-              and the count, best and Export fell to a second line. The box says "Search", and every control is a little
-              narrower so the whole strip fits beside the month rail. */}
+          {/* THE SEARCH BOX IS BACK, now that the list is hundreds of videos. It matches the creator, their handle, the
+              hook (typed or read off the video), the caption, the challenge, the market and the link, accents ignored. */}
+          {/* ONE LINE ON A DESKTOP. The team: the placeholder was cut off ("Search creator hook or the cap") and the
+              count, best and Export fell to a second line. The box says "Search", and every control is a little narrower
+              so the whole strip fits beside the month rail. */}
           <div className="relative w-full sm:w-[10rem] sm:shrink-0">
             <Icon name="magnifier" className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-300" />
             <input
@@ -281,9 +248,8 @@ export default function AdminVideoTracker() {
           <Select
             value={filter.platform}
             onChange={(v) => set({ platform: v })}
-            // WIDE ENOUGH FOR ITS OWN PLACEHOLDER (10 Sep 2026). Ethan: "the
-            // Every platform filter only says 'plat fo'." The padding, the
-            // chevron and its gap take 52px, so the label needs 112 of its own.
+            // WIDE ENOUGH FOR ITS OWN PLACEHOLDER. The padding, the chevron and its gap take 52px, so the label needs
+            // 112 of its own.
             variant="field"
             className="w-[10.5rem] shrink-0"
             ariaLabel={tr('Platform')}
@@ -299,10 +265,7 @@ export default function AdminVideoTracker() {
             options={Object.entries(SORTS).map(([k, s]) => ({ value: k, label: tr(s.label) }))}
           />
 
-          {/* IT IS ALWAYS THERE, AND SOMETIMES INVISIBLE (9 Sep 2026).
-              Ethan: "when I click on July 2026 it changes how the card above
-              looks, because the Clear button appears. I don't like how
-              everything moves."
+          {/* IT IS ALWAYS THERE, AND SOMETIMES INVISIBLE.
 
               A control that appears when it becomes useful is a reasonable
               instinct and it is wrong in a WRAPPING row: adding an item to a
@@ -343,9 +306,7 @@ export default function AdminVideoTracker() {
               <span className="text-smoke">{monthLabel(filter.month)}</span>
             </>
           )}
-          {/* "over 10k" is gone (24 Sep 2026, Ethan: "you don't need to have
-              that copy there"). The threshold is still the rule; it is simply
-              not restated on every visit. */}
+          {/* "over 10k" is gone (). The threshold is still the rule; it is simply not restated on every visit. */}
           <button
             type="button"
             onClick={() => downloadCsv(`tryp-video-tracker-${filter.month || new Date().toISOString().slice(0, 10)}.csv`, toCsvRows(shown), CSV_COLUMNS)}
@@ -362,12 +323,7 @@ export default function AdminVideoTracker() {
 
       {/* --------------------------------------------- the grid + the months --
 
-          A MONTH IS A REPORT, AND A REPORT IS THE GRID WITH ONE MORE FILTER ON
-          IT (9 Sep 2026).
-
-          Ethan: "I would love you to generate a monthly report I can click,
-          maybe on the right side another bar I can go month by month and see
-          the best videos from each month."
+          A MONTH IS A REPORT, AND A REPORT IS THE GRID WITH ONE MORE FILTER ON IT.
 
           The honest version of that is not a second page and a second query -
           the grid already sorts by views, already shows the hook, the account,
@@ -401,10 +357,7 @@ export default function AdminVideoTracker() {
             </div>
           )}
 
-          {/* THE CHALLENGE NAMES ITSELF ONCE, ABOVE ITS OWN VIDEOS (9 Sep 2026).
-              Ethan: "whenever you filter by challenge, just show them up with
-              the challenge name on top of it - the community flag or market,
-              whatever."
+          {/* THE CHALLENGE NAMES ITSELF ONCE, ABOVE ITS OWN VIDEOS.
 
               With a challenge selected, every card in the grid is wearing the
               same challenge badge, which is twenty repetitions of a fact that
@@ -436,12 +389,9 @@ export default function AdminVideoTracker() {
           )}
 
           {rows && shown.length > 0 && (
-            // ONE ENTRANCE FOR THE WHOLE GRID (30 Sep 2026). Ethan: "it takes a little while for the
-            // videos to load in, and the animation does not smooth. Everything should be synced nicely
-            // and flow together rather than be spaced apart." The scroll-triggered, staggered reveal
-            // made cards arrive one by one as each came into view; now the grid rises as one, keyed on
-            // the filter so a change of filter replays it, and each frame fades in over its own
-            // placeholder the moment its picture has loaded.
+            // ONE ENTRANCE FOR THE WHOLE GRID. The scroll-triggered, staggered reveal made cards arrive one by one as
+            // each came into view; now the grid rises as one, keyed on the filter so a change of filter replays it, and
+            // each frame fades in over its own placeholder the moment its picture has loaded.
             <div
               key={JSON.stringify(filter)}
               className="grid animate-fade-up grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3"
@@ -519,9 +469,7 @@ function VideoCard({ v, onOpen, eager = false, hook = null, translated = false }
 
   // A REAL FRAME OF THE VIDEO WHERE ONE CAN BE HAD.
   //
-  // Ethan: "we don't necessarily need the TikTok/Instagram sign there the way
-  // it shows for the other creators", and "maybe actually show a preview of the
-  // video if you can."
+  // , and "maybe actually show a preview of the video if you can."
   //
   // `VideoThumb` paints a 128px orange slab with a giant platform logo on it,
   // which is the right answer on a challenge entry - it is a link somebody is
@@ -530,19 +478,13 @@ function VideoCard({ v, onOpen, eager = false, hook = null, translated = false }
   // a wall of identical orange rectangles is the opposite of a page whose job
   // is to help you tell twenty videos apart.
   //
-  // EVERY PLATFORM GETS A FRAME NOW, INCLUDING INSTAGRAM (9 Sep 2026).
+  // EVERY PLATFORM GETS A FRAME NOW, INCLUDING INSTAGRAM.
   //
-  // Ethan: "for some of them, like the TikTok one, you have the nice preview
-  // that shows up. But for Instagram this doesn't seem to work. Make sure you
-  // can build this preview into all of them."
-  //
-  // He is describing a real asymmetry with a boring cause: TikTok and YouTube
-  // publish tokenless oEmbed endpoints and Instagram does not, so the
-  // browser-side lookup could only ever answer for two of the three. The third
-  // answer has existed since this morning and nothing was asking for it - the
-  // `view-sync` probe reads Instagram server-side for the view count and brings
-  // a `thumbnail` back with it. `resolveThumbnail` is the one place that knows
-  // all three routes and the order to try them in; see lib/videoThumbs.
+  // they are describing a real asymmetry with a boring cause: TikTok and YouTube publish tokenless oEmbed endpoints and
+  // Instagram does not, so the browser-side lookup could only ever answer for two of the three. The third answer has
+  // existed since this morning and nothing was asking for it - the `view-sync` probe reads Instagram server-side for the
+  // view count and brings a `thumbnail` back with it. `resolveThumbnail` is the one place that knows all three routes
+  // and the order to try them in; see lib/videoThumbs.
   //
   // WHAT IS FOUND IS WRITTEN BACK to `tracked_videos.thumbnail_url`, so this
   // costs one lookup per video ever rather than one per page view - and when
@@ -589,9 +531,7 @@ function VideoCard({ v, onOpen, eager = false, hook = null, translated = false }
     >
       {/* The frame doubles as the play control, exactly as it does on a profile
           and on a challenge - one gesture for "watch this" everywhere. */}
-      {/* 4:5, NOT A 144px LETTERBOX (10 Sep 2026). Ethan: "make the preview
-          even bigger - you can see in the second one the whole person's face is
-          cut off. Make the card a little bit longer."
+      {/* 4:5, NOT A 144px LETTERBOX.
 
           Every video here is shot 9:16 and the frame was `h-36` on a card about
           300px wide, so `object-cover` was showing 48% of the picture's height
@@ -599,9 +539,9 @@ function VideoCard({ v, onOpen, eager = false, hook = null, translated = false }
           top half of a vertical frame, which is why it was faces that went. 4:5
           shows 71% of it and is still a card rather than a poster; 3:4 was
           tried and makes a three-column grid two screens tall. */}
-      {/* STRAIGHT TO THE VIDEO (2 Oct 2026). Ethan: the thumbnail showed "This one cannot be played
-          here. Open it on the platform instead." - "clicking on the thumbnail or the card of any of
-          these should just open the link directly in new tab." So the frame is a link now. */}
+      {/* STRAIGHT TO THE VIDEO. The team: the thumbnail showed "This one cannot be played here. Open it on the platform
+          instead." - "clicking on the thumbnail or the card of any of these should just open the link directly in new
+          tab." So the frame is a link now. */}
       <a
         href={v.video_url}
         target="_blank"
@@ -626,13 +566,10 @@ function VideoCard({ v, onOpen, eager = false, hook = null, translated = false }
             )}
           />
         )}
-        {/* NO PLAY MARK. Ethan: "completely remove the play button from the
-            middle and just still have the function there to click anywhere on
-            that." The frame IS the button - this whole block is one - so the
-            triangle was announcing an affordance rather than carrying it, and
-            it landed on the face every time, because a face is what a vertical
-            video puts in the middle. Same change on the challenge board and on
-            a creator's profile; see components/VideoThumb. */}
+        {/* NO PLAY MARK. The frame IS the button - this whole block is one - so the triangle was announcing an
+            affordance rather than carrying it, and it landed on the face every time, because a face is what a vertical
+            video puts in the middle. Same change on the challenge board and on a creator's profile; see
+            components/VideoThumb. */}
         {v.views != null && (
           <span className="absolute bottom-2 right-2 rounded-full bg-ink/70 px-2.5 py-1 text-xs font-bold tabular-nums text-white backdrop-blur-sm">
             {formatViews(v.views)}
@@ -642,12 +579,8 @@ function VideoCard({ v, onOpen, eager = false, hook = null, translated = false }
             is where it came in its CHALLENGE, which is the stronger statement
             and wins; `place` is where it sits in the list you are looking at,
             which is what makes a monthly report read as a chart. */}
-        {/* NO NUMBER IN THE CORNER (30 Sep 2026). Ethan: "you don't need to actually number every
-            video in the top left. It doesn't really make sense numbering them." */}
-        {/* THE PLATFORM AS ITS OWN MARK. Ethan: "change that to the actual
-            social media brand icon, the logo, instead of just general
-            Instagram, TikTok in white and grey." Same marks as the challenge
-            board, imported rather than copied. */}
+        {/* NO NUMBER IN THE CORNER. */}
+        {/* THE PLATFORM AS ITS OWN MARK. Same marks as the challenge board, imported rather than copied. */}
         {v.platform && PLATFORM_MARKS[v.platform] && (
           <span className="absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-full bg-white/95 text-ink shadow-card backdrop-blur-sm">
             <span className="h-4 w-4">{PLATFORM_MARKS[v.platform].icon}</span>
@@ -667,8 +600,8 @@ function VideoCard({ v, onOpen, eager = false, hook = null, translated = false }
             a hook that stops mid-word teaches nothing, and three lines is the
             longest one anybody has actually written. */}
         <p className="text-[15px] font-semibold leading-snug text-ink line-clamp-3">
-          {/* THE WORDS ON THE VIDEO WIN (9 Oct 2026): the text the creator typed onto it (read from TikTok with the view count)
-              is the real hook; the caption's first line is the fallback. */}
+          {/* THE WORDS ON THE VIDEO WIN: the text the creator typed onto it (read from TikTok with the view count) is
+              the real hook; the caption's first line is the fallback. */}
           {hook || v.hook || <span className="text-gray-300">{tr('No hook written yet')}</span>}
         </p>
         {v.screen_text && (
@@ -682,10 +615,7 @@ function VideoCard({ v, onOpen, eager = false, hook = null, translated = false }
           <p className="mt-1.5 line-clamp-2 text-xs leading-snug text-smoke">{v.caption}</p>
         )}
 
-        {/* AND THE REST OF THE CAPTION IS GONE ENTIRELY (10 Sep 2026). Ethan:
-            "condense the bottom a bit - you don't need to show the second
-            caption. All you need is the caption you pulled from it, then the
-            creator, then the link button and the added button."
+        {/* AND THE REST OF THE CAPTION IS GONE ENTIRELY.
 
             `captionRest` was already the fix for printing the hook twice, and
             it was the wrong fix for the right complaint: the remainder of a
@@ -695,11 +625,8 @@ function VideoCard({ v, onOpen, eager = false, hook = null, translated = false }
             row and is still in the edit sheet, which is where somebody who
             wants it goes. */}
 
-        {/* THE PERSON, WITH THEIR FACE. Ethan: "as well as just saying Lisa
-            Burns, I would show the profile photo there with a clickable name to
-            bring it there." One row: portrait, name, handle - and the whole row
-            is the link to their account, so there is one target rather than a
-            name that does nothing beside a handle that does. */}
+        {/* THE PERSON, WITH THEIR FACE. One row: portrait, name, handle - and the whole row is the link to their
+            account, so there is one target rather than a name that does nothing beside a handle that does. */}
         <div className="mt-3 flex items-center gap-2.5">
           <Avatar src={v.creator_photo} name={v.creator_name || handle} size="xs" />
           <span className="min-w-0 flex-1">
@@ -729,16 +656,11 @@ function VideoCard({ v, onOpen, eager = false, hook = null, translated = false }
           </span>
         </div>
 
-        {/* THE "OVER THE VIEW LINE" BADGE IS GONE (23 Sep 2026). Migration 252
-            made the tracker threshold-only - every synced row's reason IS
-            "over the line", always, so a badge repeating that on every single
-            card said nothing. Ethan: "there's no need to add that thing saying
-            'over the view line'... remove it and improve the UI of the whole
-            thing." What survives, `reason === 'manual'`, is a fact that still
-            varies card to card - a video from a market not yet on this
-            platform, added by a person - so it keeps a mark, just a quieter
-            one than a full-width pill. A thin top rule now separates the
-            footer from the card body instead. */}
+        {/* THE "OVER THE VIEW LINE" BADGE IS GONE. Migration 252 made the tracker threshold-only - every synced row's
+            reason IS "over the line", always, so a badge repeating that on every single card said nothing. What
+            survives, `reason === 'manual'`, is a fact that still varies card to card - a video from a market not yet on
+            this platform, added by a person - so it keeps a mark, just a quieter one than a full-width pill. A thin top
+            rule now separates the footer from the card body instead. */}
         <div className="mt-auto flex items-center gap-2 border-t border-gray-100 pt-3">
           <span className="flex min-w-0 items-center gap-1.5 truncate text-xs text-gray-400">
             {v.posted_at && <span className="tabular-nums">{formatDate(v.posted_at)}</span>}
@@ -763,9 +685,9 @@ function VideoCard({ v, onOpen, eager = false, hook = null, translated = false }
           </span>
 
           <span className="ml-auto flex shrink-0 items-center gap-1">
-            {/* ONLY EDIT (30 Sep 2026). Ethan: the card itself opens the video, "so you can remove the
-                link button", and the star "acts as a pin ... we don't need it because we have the pin
-                to top" inside the edit sheet. A pinned video keeps its orange border. */}
+            {/* ONLY EDIT. The team: the card itself opens the video, "so you can remove the link button", and the star
+                "acts as a pin... we don't need it because we have the pin to top" inside the edit sheet. A pinned video
+                keeps its orange border. */}
             <IconButton label={v.source && v.source !== 'community' ? tr('Edit the hook') : tr('Edit')} onClick={onOpen} name="pencil" />
           </span>
         </div>

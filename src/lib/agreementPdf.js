@@ -1,11 +1,11 @@
-// A SIGNED AGREEMENT AS A PDF, FOR BOTH SIDES (10 Oct 2026).
+// A SIGNED AGREEMENT AS A PDF, FOR BOTH SIDES.
 //
-// Ethan: the VIP and official creator agreements "need to be signed and retained, a copy for us and a copy for them in
-// settings etc that they can download, ensure you format it properly." The text in the PDF is exactly what was signed
-// (`agreement_acceptances.rendered_body`, frozen at the moment of signing with its SHA-256), followed by the signature and
-// an evidence block: who, when, how, from which account and device, and the document fingerprint - the same record the
-// database keeps, so either side can show what was agreed. Built in the browser with pdf-lib (lazy, like the invoices),
-// in Poppins, A4, with page numbers.
+// The team: the VIP and official creator agreements "need to be signed and retained, a copy for us and a copy for them
+// in settings etc that they can download, ensure you format it properly." The text in the PDF is exactly what was signed
+// (`agreement_acceptances.rendered_body`, frozen at the moment of signing with its SHA-256), followed by the signature
+// and an evidence block: who, when, how, from which account and device, and the document fingerprint - the same record
+// the database keeps, so either side can show what was agreed. Built in the browser with pdf-lib (lazy, like the
+// invoices), in Poppins, A4, with page numbers.
 import { fontBytes, logoPng } from './invoicePdf'
 import { SIGNATURE_FONT } from '../components/agreements/SignaturePad'
 

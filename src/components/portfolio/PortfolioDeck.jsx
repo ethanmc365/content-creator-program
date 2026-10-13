@@ -6,9 +6,6 @@ import { PAGE_H, PAGE_W, WORK_LIMIT, orderedVideos, workMode } from '../../lib/p
 
 // THE WHOLE DOCUMENT, SCALED TO THE COLUMN IT IS IN.
 //
-// Ethan: "it should show on the screen exactly how the pdf will look... you can
-// scroll vertically down to see each new page."
-//
 // SO IT IS A STACK OF PAGES AND NOT A WEB PAGE. Each one is the fixed A4 node
 // from Slides.jsx, transformed to fit whatever width it is given and wrapped in
 // a box of the SCALED height - a transform does not affect layout, so without
@@ -65,11 +62,10 @@ const PortfolioDeck = forwardRef(function PortfolioDeck(
     total: pages.length,
   }
 
-  // ON SCREEN, EACH PAGE ARRIVES WHEN IT SCROLLS INTO VIEW (30 Sep 2026). The pages below the fold used to play their
-  // entrance on mount, while nobody could see them, so the document simply "appeared" - Ethan: "I noticed there are no
-  // animations for that page." `reveal` hands the stack to Reveal (the house entrance, in view, staggered). The copy
-  // that gets photographed for the PDF never passes it: a hidden, off-screen page would never be "in view" and would
-  // be photographed invisible.
+  // ON SCREEN, EACH PAGE ARRIVES WHEN IT SCROLLS INTO VIEW. The pages below the fold used to play their entrance on
+  // mount, while nobody could see them, so the document simply "appeared" - `reveal` hands the stack to Reveal (the
+  // house entrance, in view, staggered). The copy that gets photographed for the PDF never passes it: a hidden,
+  // off-screen page would never be "in view" and would be photographed invisible.
   const Stack = reveal && !horizontal ? Reveal : 'div'
   const stackProps = reveal && !horizontal ? { stagger: 0.1, delay: 0.18, early: 25, className: 'flex flex-col' } : {}
 
@@ -99,9 +95,8 @@ const PortfolioDeck = forwardRef(function PortfolioDeck(
   )
 })
 
-// EACH PAGE RISES IN, ONE AFTER ANOTHER (2 Oct 2026). Ethan: "there are no animations on that
-// page". The motion is on the outer frame; the ref that gets photographed for the PDF is inside it
-// and never moves.
+// EACH PAGE RISES IN, ONE AFTER ANOTHER. The motion is on the outer frame; the ref that gets photographed for the PDF is
+// inside it and never moves.
 function Sheet({ index = 0, scale, width, snap, still = false, setRef, children }) {
   return (
     <div

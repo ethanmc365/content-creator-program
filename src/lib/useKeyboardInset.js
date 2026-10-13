@@ -34,10 +34,7 @@ function readViewport(focused) {
   // offsetTop: on iOS the page scrolls when the keyboard opens, so offsetTop
   // grows and subtracting it wrongly yields 0.
   //
-  // BROWSER CHROME IS NOT A KEYBOARD, AND THAT IS WHY THE TAB BAR VANISHED
-  // (4 Sep 2026). Ethan, starting the walkthrough on his phone: "the bar at
-  // the bottom just completely disappeared - the worldwide, challenges, rooms,
-  // DMs bar completely disappeared, so obviously I wasn't able to do it."
+  // BROWSER CHROME IS NOT A KEYBOARD, AND THAT IS WHY THE TAB BAR VANISHED.
   //
   // On iOS Safari `window.innerHeight` measures the LAYOUT viewport, which
   // includes the strip behind the collapsing address bar and the strip behind
@@ -68,10 +65,10 @@ function readViewport(focused) {
 
 // Full visual-viewport state, incl. keyboardOpen which is true as soon as an
 // editable field is focused (instant chrome collapse) OR a keyboard is measured.
-// RE-RENDER ONLY ON A REAL CHANGE (8 Oct 2026). iOS fires visualViewport `scroll` on every frame while the
-// keyboard is up and the caret moves, and this used to hand React a new object each time - so AppLayout, which
-// only needs to know WHETHER a keyboard is open, re-rendered the whole shell sixty times a second under somebody
-// typing their About You. `project` picks what the caller needs; an equal answer keeps the old state.
+// RE-RENDER ONLY ON A REAL CHANGE. iOS fires visualViewport `scroll` on every frame while the keyboard is up and the
+// caret moves, and this used to hand React a new object each time - so AppLayout, which only needs to know WHETHER a
+// keyboard is open, re-rendered the whole shell sixty times a second under somebody typing their About You. `project`
+// picks what the caller needs; an equal answer keeps the old state.
 function sameShape(a, b) {
   if (a === b) return true
   if (!a || !b || typeof a !== 'object' || typeof b !== 'object') return false
@@ -115,10 +112,10 @@ export function useVisualViewport(project = asIs) {
       const once = () => {
         cancelAnimationFrame(raf)
         clearTimeout(tick)
-        // THE LIVE ANSWER, NOT THE LAST EVENT (12 Oct 2026). iOS fires no focusout when the focused composer is
-        // REMOVED (swiping back out of a chat with the keyboard up) or when the app goes to the background, so the
-        // flag stayed true: the tab bar stayed hidden and the inbox overlay kept covering the header ("the header and
-        // the footer with the buttons disappear"). Whatever the events said, read what actually has focus.
+        // THE LIVE ANSWER, NOT THE LAST EVENT. iOS fires no focusout when the focused composer is REMOVED (swiping back
+        // out of a chat with the keyboard up) or when the app goes to the background, so the flag stayed true: the tab
+        // bar stayed hidden and the inbox overlay kept covering the header ("the header and the footer with the buttons
+        // disappear"). Whatever the events said, read what actually has focus.
         focused = isEditable(document.activeElement) && document.visibilityState !== 'hidden'
         setVp(readViewport(focused))
       }
@@ -131,9 +128,9 @@ export function useVisualViewport(project = asIs) {
       timers.forEach(clearTimeout)
       timers = [0, 60, 120, 200, 320, 480, 700, 1000].map((t) => setTimeout(apply, t))
     }
-    // WHILE A FIELD HAS FOCUS, CHECK IT IS STILL THERE (12 Oct 2026). Leaving a chat with the composer focused removes
-    // the composer, and removal fires no focusout - so nothing re-measured and the tab bar stayed away on the next
-    // screen. A cheap check twice a second, only while something is focused, catches it.
+    // WHILE A FIELD HAS FOCUS, CHECK IT IS STILL THERE. Leaving a chat with the composer focused removes the composer,
+    // and removal fires no focusout - so nothing re-measured and the tab bar stayed away on the next screen. A cheap
+    // check twice a second, only while something is focused, catches it.
     let watch = 0
     const stopWatch = () => { clearInterval(watch); watch = 0 }
     const startWatch = () => {
@@ -144,11 +141,9 @@ export function useVisualViewport(project = asIs) {
     }
     const onFocusIn = (e) => { if (isEditable(e.target)) { focused = true; startWatch(); poll() } }
     const onFocusOut = () => { focused = false; poll() }
-    // LEAVING THE APP WITH THE KEYBOARD UP (12 Oct 2026). Ethan: "I started typing a message and then exited the app
-    // ... when clicking on the bar the keyboard came up and the type bar didn't appear above as it should ... the bar
-    // below that shows rooms, challenges ... had disappeared". Coming back, iOS had put the keyboard away but the
-    // composer still held focus, so nothing changed when it was tapped again and no focus event ever re-measured.
-    // Let go of the field on the way out (the draft is kept); the next tap is a real focus with a fresh measurement.
+    // LEAVING THE APP WITH THE KEYBOARD UP. Coming back, iOS had put the keyboard away but the composer still held
+    // focus, so nothing changed when it was tapped again and no focus event ever re-measured. Let go of the field on the
+    // way out (the draft is kept); the next tap is a real focus with a fresh measurement.
     const onVisibility = () => {
       if (document.visibilityState === 'hidden') {
         const el = document.activeElement
@@ -234,14 +229,13 @@ export function useIsPhone() {
 }
 
 /**
- * HOLD A FIXED OVERLAY ON THE VISIBLE SCREEN, FRAME BY FRAME (12 Oct 2026).
+ * HOLD A FIXED OVERLAY ON THE VISIBLE SCREEN, FRAME BY FRAME.
  *
- * Ethan: "when I press on the message bar ... the profile pictures at the top and that header reanimates and appears a
- * second time, rather than just staying where it is". When the keyboard opens iOS pans the visual viewport up to keep
- * the field in view, which carries a fixed overlay (and its header) up with it. The overlay's own `translateY(offsetTop)`
- * came through React after a frame and a 48ms timer, so the header visibly left and slid back. This writes the
- * transform straight onto the element, on every frame while the viewport is moving (a short burst after any focus
- * change or viewport event), so the header never leaves. Phones only; React no longer sets `transform` on the overlay.
+ * When the keyboard opens iOS pans the visual viewport up to keep the field in view, which carries a fixed overlay (and
+ * its header) up with it. The overlay's own `translateY(offsetTop)` came through React after a frame and a 48ms timer,
+ * so the header visibly left and slid back. This writes the transform straight onto the element, on every frame while
+ * the viewport is moving (a short burst after any focus change or viewport event), so the header never leaves. Phones
+ * only; React no longer sets `transform` on the overlay.
  */
 export function useViewportPin(ref, enabled) {
   useEffect(() => {
@@ -289,13 +283,12 @@ export function isIOS() {
 }
 
 /**
- * THE CARET STAYS OUT OF THE MOVEMENT (13 Oct 2026).
+ * THE CARET STAYS OUT OF THE MOVEMENT.
  *
- * Ethan: "the blue text bar, the bar that flashes, kind of glitches and doesn't go with the smooth animation". iOS draws
- * the caret natively, on top of the page, and it does not follow a CSS transform: while the thread glides it stays put
- * (or sits where useNoFocusPan briefly lifted the field) and then jumps. So while the chat is moving it is transparent
- * (`[data-kb-moving]` in index.css), and it reappears where the box has come to rest. `ms` is the longest the hold can
- * last if nothing releases it.
+ * iOS draws the caret natively, on top of the page, and it does not follow a CSS transform: while the thread glides it
+ * stays put (or sits where useNoFocusPan briefly lifted the field) and then jumps. So while the chat is moving it is
+ * transparent (`[data-kb-moving]` in index.css), and it reappears where the box has come to rest. `ms` is the longest
+ * the hold can last if nothing releases it.
  */
 function holdCaret(el, ms) {
   if (!el) return
@@ -311,15 +304,13 @@ function releaseCaret(el) {
 }
 
 /**
- * GIVE iOS NOTHING TO PAN (13 Oct 2026).
+ * GIVE iOS NOTHING TO PAN.
  *
- * Ethan: "The top bar showing chat name or dm name and profile picture is still like reloading and animating when
- * keyboard shows, rather than staying in place." When a field near the bottom of the screen takes focus, Safari pans the
- * whole visual viewport up to keep it above the keyboard, carrying the chat header with it; useViewportPin chases that
- * pan a frame behind. Safari decides whether to pan from where the field is AT THE MOMENT IT TAKES FOCUS, and it does
- * not reveal a field it cannot see. So for that moment the field is transparent and lifted out of the way, and it is
- * put back two frames later. With no pan, offsetTop stays 0, the header never moves, and the overlay simply shortens to
- * the keyboard (useVisualViewport polls for it).
+ * When a field near the bottom of the screen takes focus, Safari pans the whole visual viewport up to keep it above the
+ * keyboard, carrying the chat header with it; useViewportPin chases that pan a frame behind. Safari decides whether to
+ * pan from where the field is AT THE MOMENT IT TAKES FOCUS, and it does not reveal a field it cannot see. So for that
+ * moment the field is transparent and lifted out of the way, and it is put back two frames later. With no pan, offsetTop
+ * stays 0, the header never moves, and the overlay simply shortens to the keyboard (useVisualViewport polls for it).
  *
  * Applied only to a field inside `ref` and only on iOS. Replaces the 13 Oct touchstart pre-shrink, which jumped the
  * message bar to the middle of the screen on any stray touch and ran ahead of the keyboard on a real tap.
@@ -401,11 +392,10 @@ const GLIDE_MS = 260
 const glideEase = (p) => 1 - (1 - p) ** 4
 
 /**
- * THE CHAT GLIDES WITH THE KEYBOARD (13 Oct 2026).
+ * THE CHAT GLIDES WITH THE KEYBOARD.
  *
- * Ethan: "when the keyboard moves up and the text box moves up, that animation should be much smoother. currently its
- * juttery." The overlay's height used to follow every reading of the viewport: on focus it first DROPPED to the bottom
- * edge (the tab bar leaves before any keyboard is measured), then snapped up in steps as polled readings came in.
+ * The overlay's height used to follow every reading of the viewport: on focus it first DROPPED to the bottom edge (the
+ * tab bar leaves before any keyboard is measured), then snapped up in steps as polled readings came in.
  *
  * Now the height is computed in px from one target, and a keyboard-caused change of it is played as a glide, with the
  * layout changing once, at whichever end leaves no gap:
@@ -423,9 +413,8 @@ const glideEase = (p) => 1 - (1 - p) ** 4
  * this phone it goes straight to that height, so it rises WITH the keyboard. Changes that are not the keyboard (the app
  * header coming and going) still snap, as they always have.
  */
-// `tuck`: px of the composer's bottom padding to let run behind the top of the keyboard, so the bar sits snug on the keys
-// (Ethan, 13 Oct: "a slight bit of extra space below the message bar and keyboard ... cut that out"). Done with the
-// height rather than the padding so nothing inside the chat moves at the moment of the tap.
+// `tuck`: px of the composer's bottom padding to let run behind the top of the keyboard, so the bar sits snug on the
+// keys ( ). Done with the height rather than the padding so nothing inside the chat moves at the moment of the tap.
 export function useChatOverlayHeight({ enabled, chromeHidden, overlayRef, dockRef, scrollerRef, tuck = 0 }) {
   const { height: vpHeight, keyboardOpen, keyboard } = useVisualViewport()
   const safe = useSafeInsets()

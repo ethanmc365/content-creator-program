@@ -7,13 +7,6 @@ import { chatApi } from '../api/chat'
 
 // WHICH ROOMS HAVE SOMETHING NEW IN THEM, ANSWERED ONCE FOR THE WHOLE APP.
 //
-// Ethan: "for the rooms, when there's new chats, for example the romanian
-// community, it didn't show up that there were new chats, no one can tell
-// there's new messages unless they actually click into it. There should be an
-// orange dot pulsing to show that there is new messages that I have not seen
-// yet... this should go for every chat with new messages, when the messages are
-// read the pulsing orange dot should go away."
-//
 // THE ANSWER EXISTED AND ONLY ONE SCREEN COULD SEE IT. `Rooms.jsx` already
 // computed unread correctly - last message per channel, diffed against the
 // `channel_reads` watermark - but it did it in a `useMemo` inside its own
@@ -119,12 +112,10 @@ export function UnreadProvider({ children }) {
   }, [user?.id])
   useEffect(() => { loadReads() }, [loadReads])
 
-  // BACK IN THE APP, RE-READ BOTH HALVES (22 Sep 2026). Ethan: a dot on a room
-  // he had already read, "maybe because I refreshed or used different tabs or
-  // the mobile app". The realtime feed below keeps an OPEN screen in step, but
-  // a socket that was asleep (phone locked, app swapped out, a background tab)
-  // misses whatever happened meanwhile and never gets it back. So every return
-  // to the app asks again.
+  // BACK IN THE APP, RE-READ BOTH HALVES. The team: a dot on a room he had already read, "maybe because I refreshed or
+  // used different tabs or the mobile app". The realtime feed below keeps an OPEN screen in step, but a socket that was
+  // asleep (phone locked, app swapped out, a background tab) misses whatever happened meanwhile and never gets it back.
+  // So every return to the app asks again.
   useEffect(() => {
     if (!user?.id) return undefined
     return onResume(() => { loadReads(); refresh() })
@@ -170,12 +161,10 @@ export function UnreadProvider({ children }) {
 
   // A ROOM IS UNREAD IF SOMEBODY ELSE SPOKE IN IT AFTER I LAST LOOKED.
   //
-  // Three rules, each of them a state that would otherwise light a dot for
-  // nothing: my own last message never counts (being told a room I just posted
-  // in has something new is the fastest way to teach somebody to ignore the
-  // dot); a room with no messages is empty, not unread; and never having opened
-  // a room that HAS messages IS unread - which is most creators and most rooms,
-  // and is exactly the case Ethan is reporting.
+  // Three rules, each of them a state that would otherwise light a dot for nothing: my own last message never counts
+  // (being told a room I just posted in has something new is the fastest way to teach somebody to ignore the dot); a
+  // room with no messages is empty, not unread; and never having opened a room that HAS messages IS unread - which is
+  // most creators and most rooms, and is exactly the case the team is reporting.
   //
   // Held back entirely until the watermarks land, so nothing ever flashes every
   // room as unread on the way in.

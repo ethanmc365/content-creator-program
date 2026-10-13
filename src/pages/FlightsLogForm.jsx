@@ -50,22 +50,14 @@ export default function FlightsLogForm({
       sheet={false}
     >
       <form onSubmit={save} className="space-y-5">
-        {/* NOBODY IS ASKED WHETHER THEY HAVE ALREADY TAKEN THE FLIGHT.
-            There were two big radio cards at the top of this form, "I have
-            flown this" and "Coming up", and they decided whether the date
-            field would accept a future date. Ethan: "why is it asking I have
-            flown this and coming up, obviously by the dates that goes in
-            you'll be able to tell and then sort it automatically."
-            He is right, and the data model already agreed with him: there is
-            no `is_upcoming` column and there must not be one, because a
-            boolean would be wrong the morning after the flight. Upcoming IS
-            `flown_on > current_date` (migration 104). So the answer was
-            always derivable from a field the form already collects, and
-            asking for it was asking somebody to state a fact twice and then
-            contradict themselves.
-            `upcoming` is now computed from the date as it is typed - it still
-            drives what happens after saving (the offer to post to the collab
-            board) and the wording on the date labels. */}
+        {/* NOBODY IS ASKED WHETHER THEY HAVE ALREADY TAKEN THE FLIGHT. There were two big radio cards at the top of this
+            form, "I have flown this" and "Coming up", and they decided whether the date field would accept a future
+            date. they are right, and the data model already agreed with them: there is no `is_upcoming` column and there
+            must not be one, because a boolean would be wrong the morning after the flight. Upcoming IS `flown_on >
+            current_date` (migration 104). So the answer was always derivable from a field the form already collects, and
+            asking for it was asking somebody to state a fact twice and then contradict themselves. `upcoming` is now
+            computed from the date as it is typed - it still drives what happens after saving (the offer to post to the
+            collab board) and the wording on the date labels. */}
         {/* SCAN IT INSTEAD OF TYPING IT.
             First, because it is the fastest path through this form and the
             one that should be tried before anybody starts typing. It only
@@ -118,18 +110,12 @@ export default function FlightsLogForm({
             distance and folding it into one row would halve everybody's
             totals.
 
-            THE TICK IS A TICK, AND NOTHING ELSE IS ASKED UNTIL IT IS ON.
-            Ethan: "it should just be a tick box, and [then] show the options
-            when you click them... currently it doesn't really make sense."
-            He is right, and the reason it did not make sense is that the box
-            was ANSWERING the question the control under it then asked. It
-            read "Also AMS back to BFS" - a claim about which way the return
-            flies - and the very next control was "which way did you fly
-            first?", which can reverse exactly that. Two controls stating
-            opposite things about the same trip is not a layout problem.
-            So the box now says "Round trip" and means only "there was a
-            flight home". Everything directional - which leg came first, and
-            the two dates it puts in order - lives in the panel that opens
+            THE TICK IS A TICK, AND NOTHING ELSE IS ASKED UNTIL IT IS ON. they are right, and the reason it did not make
+            sense is that the box was ANSWERING the question the control under it then asked. It read "Also AMS back to
+            BFS" - a claim about which way the return flies - and the very next control was "which way did you fly
+            first?", which can reverse exactly that. Two controls stating opposite things about the same trip is not a
+            layout problem. So the box now says "Round trip" and means only "there was a flight home". Everything
+            directional - which leg came first, and the two dates it puts in order - lives in the panel that opens
             underneath, where it can be read as one answer. */}
         {canRoundTrip && (
           <label
@@ -162,21 +148,12 @@ export default function FlightsLogForm({
 
         {canRoundTrip && form.round_trip && (
           <div className="rounded-xl border border-gray-200 p-4">
-            {/* WHICH WAY ROUND THE TRIP ACTUALLY WENT.
-                Ethan: "when asking for round trip I want to select which way
-                the round trip was. If I logged Oslo to Dublin and I want to
-                log it as a round trip, well it would do Dublin back to Oslo,
-                but it was actually the other way, Dublin to Oslo first."
-                A pair of airports does not say which end you started at, and
-                the form was assuming the pair had been typed in flying order.
-                Half the time it has not been - people type the destination
-                they are thinking about first.
-                So the rule is now stated once and holds everywhere: `flown_on`
-                is the FIRST leg's date, `return_on` is the second's, and this
-                control decides which pair of codes goes on which. Both
-                options are drawn in full rather than as a swap button,
-                because "which way round" is a question you answer by reading
-                the two answers, not by toggling something and checking what
+            {/* WHICH WAY ROUND THE TRIP ACTUALLY WENT. A pair of airports does not say which end you started at, and the
+                form was assuming the pair had been typed in flying order. Half the time it has not been - people type
+                the destination they are thinking about first. So the rule is now stated once and holds everywhere:
+                `flown_on` is the FIRST leg's date, `return_on` is the second's, and this control decides which pair of
+                codes goes on which. Both options are drawn in full rather than as a swap button, because "which way
+                round" is a question you answer by reading the two answers, not by toggling something and checking what
                 happened.
                 IT IS ASKED BEFORE THE DATES, because it is what makes the two
                 date labels below it mean anything. */}
@@ -223,11 +200,8 @@ export default function FlightsLogForm({
             are what change, live: as soon as the date crosses today, and
             again once a return has been asked for, so "Date flown" becomes
             the date of a named leg rather than of an unspecified one.
-            NO HINT UNDER THE RETURN. It said "Saved as its own flight, so the
-            distance counts twice", which is an implementation detail dressed
-            as a warning - and it read as a bug being confessed to. Ethan:
-            "there's no need to show that text, it's unnecessary and ruins the
-            design." */}
+            NO HINT UNDER THE RETURN. It said "Saved as its own flight, so the distance counts twice", which is an
+            implementation detail dressed as a warning - and it read as a bug being confessed to. */}
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <DateField
             id="flight-date"
@@ -260,12 +234,8 @@ export default function FlightsLogForm({
             "Airlines" statistic on this page read zero for everybody. */}
         {previewKm > 0 && (
           <div>
-            {/* NOT OPTIONAL. Ethan: "it shows the optional sign beside the
-                airline you choose. That shouldn't be optional. You should
-                always select the airline because that's something people
-                likely know." The whole reason this is a shortlist of real
-                candidates rather than an empty text box is that it is a fact
-                everybody has and nobody could be bothered to type. */}
+            {/* NOT OPTIONAL. The whole reason this is a shortlist of real candidates rather than an empty text box is
+                that it is a fact everybody has and nobody could be bothered to type. */}
             <p className="label">{tr("Airline")}</p>
             {customAirline ? (
               <div className="flex gap-2">
@@ -331,16 +301,11 @@ export default function FlightsLogForm({
         {previewKm > 0 && (
           <div>
             <p className="label">{tr("Aircraft")} <span className="font-normal text-smoke">(optional)</span></p>
-            {/* AND A WAY TO NAME ONE THAT IS NOT ON THE LIST.
-                Ethan: "a button to add other aircraft in case there's a rare
-                one someone goes on." The chips are what the airline you picked
-                could plausibly have sent on a route this length, which is a
-                good shortlist and a closed one - and a closed list is exactly
-                wrong for the person who has just been on a Twin Otter to an
-                island. The same escape the airline picker has had all along.
-                What gets typed here appears under "Also flown" on the
-                collection page and counts towards the number of different
-                aircraft you have been on. */}
+            {/* AND A WAY TO NAME ONE THAT IS NOT ON THE LIST. The chips are what the airline you picked could plausibly
+                have sent on a route this length, which is a good shortlist and a closed one - and a closed list is
+                exactly wrong for the person who has just been on a Twin Otter to an island. The same escape the airline
+                picker has had all along. What gets typed here appears under "Also flown" on the collection page and
+                counts towards the number of different aircraft you have been on. */}
             {customPlane ? (
               <div className="flex gap-2">
                 <input
@@ -395,19 +360,12 @@ export default function FlightsLogForm({
           </div>
         )}
 
-        {/* OPTIONAL SAYS SO, AND THAT IS ALL IT SAYS.
-            Ethan: "not everything is necessary, such as flight number, seat,
-            the note. So if someone doesn't put them in, it should still add
-            to the log... you should have optional there as well." Two of the
-            three now carry the same "(optional)" the airline used to wear
-            wrongly - and none of them ever blocked a save, so the label was
-            simply describing what the form already did.
-            THE NOTE IS THE EXCEPTION AND IT IS DELIBERATE. Ethan: "I think the
-            note is good to have. We should keep the note as you have to put it
-            in because it's a nice little tag on the trip as a memory." It is
-            not marked optional, because marking it optional is an invitation
-            to skip the one field that turns a row of airport codes into
-            something worth reading back. It is still not enforced. */}
+        {/* OPTIONAL SAYS SO, AND THAT IS ALL IT SAYS. Two of the three now carry the same "(optional)" the airline used
+            to wear wrongly - and none of them ever blocked a save, so the label was simply describing what the form
+            already did.
+            THE NOTE IS THE EXCEPTION AND IT IS DELIBERATE. It is not marked optional, because marking it optional is an
+            invitation to skip the one field that turns a row of airport codes into something worth reading back. It is
+            still not enforced. */}
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
           <div>
             <label htmlFor="flight-number" className="label">{tr("Flight no.")} <span className="font-normal text-smoke">(optional)</span></label>
@@ -461,19 +419,12 @@ export default function FlightsLogForm({
             })}
           </div>
 
-          {/* AND "OTHER" GETS TO SAY WHAT IT WAS.
-              Ethan: "whenever you're pressing what for, and click other, you
-              should be able to type something in, not just it appears as
-              other." A row filed under Other is the app recording that it did
-              not ask.
-              The six keys are unchanged and the chart still counts THEM - the
-              whole value of the field is that it can be counted, and a free
-              text reason column is four hundred distinct values and no chart.
-              The note rides beside the key (migration 104) and appears on the
-              row it belongs to, nowhere else.
-              It grows and shrinks rather than appearing, the same height
-              transition the board's country field uses, so the dialog does
-              not jump a row taller under the cursor. */}
+          {/* AND "OTHER" GETS TO SAY WHAT IT WAS. A row filed under Other is the app recording that it did not ask. The
+              six keys are unchanged and the chart still counts THEM - the whole value of the field is that it can be
+              counted, and a free text reason column is four hundred distinct values and no chart. The note rides beside
+              the key (migration 104) and appears on the row it belongs to, nowhere else. It grows and shrinks rather
+              than appearing, the same height transition the board's country field uses, so the dialog does not jump a
+              row taller under the cursor. */}
           <div
             className={cx(
               'grid transition-[grid-template-rows,opacity,margin] duration-300 ease-out motion-reduce:transition-none',
@@ -499,13 +450,10 @@ export default function FlightsLogForm({
           </div>
         </div>
 
-        {/* ---- ONE PHOTOGRAPH ----
-            Ethan: "photos of flight/trip, one image per trip." ONE, not a
-            gallery: the travel gallery on a profile already exists and a
-            second one attached to flights would be two places to put the same
-            picture. It is also the only part of a logged flight anybody ever
-            wants to look at again, which is why it gets the front of the row
-            in the log rather than a link. */}
+        {/* ---- ONE PHOTOGRAPH ---- ONE, not a gallery: the travel gallery on a profile already exists and a second one
+             attached to flights would be two places to put the same picture. It is also the only part of a logged flight
+             anybody ever wants to look at again, which is why it gets the front of the row in the log rather than a
+             link. */}
         <div>
           <p className="label">{tr("A photo from the trip")} <span className="font-normal text-smoke">(optional)</span></p>
           {form.photo_url ? (

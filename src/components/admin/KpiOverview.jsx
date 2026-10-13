@@ -11,14 +11,12 @@ import { useKpiPlan } from '../../lib/useKpiPlan'
 import { cx } from '../../lib/utils'
 import { useT } from '../../lib/i18n'
 
-// THE OVERVIEW UNDER THE CARDS (rebuilt 30 Sep 2026).
+// THE OVERVIEW UNDER THE CARDS (rebuilt).
 //
-// Ethan: "The year overview says 2026, but in 2027 it's still compared to the last quarter, which
-// would be in 2026" - so it is a ROLLING window round the period on screen, not a calendar year
-// (`windowPeriods`). "We have the other bar charts below ... I want to click on something that shows
-// the graphs" - every metric row opens its chart. And "even though these differences are small, I
-// still want you to visually show that there's a little bit of a difference" - a column's HEIGHT is
-// its goal, scaled across the window from a floor, so 300k / 330k / 370k are three visibly different
+// - so it is a ROLLING window round the period on screen, not a calendar year (`windowPeriods`). "We have the other bar
+// charts below... I want to click on something that shows the graphs" - every metric row opens its chart. And "even
+// though these differences are small, I still want you to visually show that there's a little bit of a difference" - a
+// column's HEIGHT is its goal, scaled across the window from a floor, so 300k / 330k / 370k are three visibly different
 // columns rather than three identical ones; how much of it is filled is what was achieved.
 //
 // It serves one scope or many: for the Total it is handed every scope and adds them up per period.
@@ -117,12 +115,11 @@ export function RollingOverview({ scopes, period, byMonth, currency, windowRows,
   )
 }
 
-// ONE ROW PER METRIC, ONE CELL PER PERIOD (rebuilt again 2 Oct 2026). Ethan: the little columns with
-// the orange circle round the current one "I don't really get that. I don't really like the UI."
-// The columns encoded a goal as a height and an achievement as a fill, which takes a key to read.
-// This is a grid a person can read cold: a metric down the side, the periods across the top, and in
-// each cell how much of that period's goal was reached, coloured by how it went. The period on screen
-// is named "Now" in the header and its column is tinted - nothing is circled. A period with no goal
+// ONE ROW PER METRIC, ONE CELL PER PERIOD (rebuilt again). The team: the little columns with the orange circle round the
+// current one "I don't really get that. I don't really like the UI." The columns encoded a goal as a height and an
+// achievement as a fill, which takes a key to read. This is a grid a person can read cold: a metric down the side, the
+// periods across the top, and in each cell how much of that period's goal was reached, coloured by how it went. The
+// period on screen is named "Now" in the header and its column is tinted - nothing is circled. A period with no goal
 // shows a dash; one that has not begun shows its goal in dashed outline.
 const CELL = {
   met: 'bg-emerald-50 text-emerald-700',
@@ -258,9 +255,9 @@ function MetricChart({ metric, periods, currency, current }) {
               <Icon name={metricIcon(metric)} className="h-3.5 w-3.5 text-brand" />
               {tr(metricLabel(metric))}
             </p>
-            {/* THE PERIOD ON SCREEN, NOT A SUM OF THE WINDOW (1 Oct 2026). Ethan: Germany "shows 0 out
-                of 500k views, but there's no KPI set". The headline used to add up every period in
-                view, so a quarter with no goal still showed next quarter's. */}
+            {/* THE PERIOD ON SCREEN, NOT A SUM OF THE WINDOW. The team: Germany "shows 0 out of 500k views, but there's
+                no KPI set". The headline used to add up every period in view, so a quarter with no goal still showed
+                next quarter's. */}
             {hereRow ? (
               <p className="mt-1 text-2xl font-bold tabular-nums tracking-tight text-ink">
                 {here.status === 'upcoming' ? fmt(here.target) : fmt(here.actual)}

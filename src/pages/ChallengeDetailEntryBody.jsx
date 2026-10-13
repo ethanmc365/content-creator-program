@@ -35,31 +35,20 @@ export default function ChallengeDetailEntryBody({
           <Link to={`/profile/${s.profiles?.id}`} className="block truncate text-sm font-semibold hover:text-brand">
             {s.profiles?.name}
           </Link>
-          {/* THE DATE AND THE TIME, NOT "1 DAY AGO".
-              Ethan: "on challenges, show the date and time a video
-              was submitted, not just 1 day ago or about 1 month
-              ago." A relative stamp is arithmetic the reader has to
-              undo, and on a challenge it is the one fact that
-              settles a deadline argument - "about 1 month ago" is
-              not evidence of anything. Shown in the reader's own
-              zone, with the zone named. */}
+          {/* THE DATE AND THE TIME, NOT "1 DAY AGO". A relative stamp is arithmetic the reader has to undo, and on a
+              challenge it is the one fact that settles a deadline argument - "about 1 month ago" is not evidence of
+              anything. Shown in the reader's own zone, with the zone named. */}
           <p className="truncate text-[11px] text-smoke sm:text-xs">{formatDateTimeTz(s.submitted_at)}</p>
         </div>
       </div>
-      {/* WHAT THE POINTS WERE FOR (28 Sep 2026): "+1 views · +5 bonus". */}
+      {/* WHAT THE POINTS WERE FOR: "+1 views · +5 bonus". */}
       {challenge.scoring === 'points' && <PointParts points={entryPoints.get(s.id)} />}
       {s.caption && <p className="line-clamp-2 text-xs text-smoke [overflow-wrap:anywhere] sm:line-clamp-3 sm:text-sm">{s.caption}</p>}
 
-      {/* ---- WHAT THIS ENTRY CLAIMED ----
-          Ethan: "it should show +1 point or plus x points on the
-          entry card, because then the admin can easily check and
-          ensure that it's correct and no one is cheating."
-          That is the whole answer to trusting a creator with a tick
-          box: the claim sits beside the video on a page an admin
-          already reads, so checking is looking rather than
-          auditing. Everybody sees these, not just the team - a
-          claim made in public is a claim people are careful about.
-          An admin can take one back from /admin/challenges/:id/results. */}
+      {/* ---- WHAT THIS ENTRY CLAIMED ---- That is the whole answer to trusting a creator with a tick box: the claim
+           sits beside the video on a page an admin already reads, so checking is looking rather than auditing. Everybody
+           sees these, not just the team - a claim made in public is a claim people are careful about. An admin can take
+           one back from /admin/challenges/:id/results. */}
       {(claimsBySubmission.get(s.id)?.size > 0) && (
         <div className="flex flex-wrap gap-1.5">
           {[...claimsBySubmission.get(s.id)].map((ruleId) => {
@@ -108,11 +97,12 @@ export default function ChallengeDetailEntryBody({
           while the challenge is live. */}
       {isLive && s.creator_id === user.id
         && claimableFor(s).length > 0 && (
-        /* ONE SMALL CHIP PER BONUS (30 Sep 2026). Ethan, in Romanian: the "+5 bonus
-           points for using the hook" card on an entry was "way, way too big". It was a
-           boxed panel with a heading and a full-width button per bonus, and a translated
-           prompt runs long. Now each is a single-line chip, the prompt cut to one line
-           (the whole of it is the tooltip), in the reader's language. */
+        /*
+         * ONE SMALL CHIP PER BONUS. The team, in Romanian: the "+5 bonus points for using the hook" card on an entry was
+         * "way, way too big". It was a boxed panel with a heading and a full-width button per bonus, and a translated
+         * prompt runs long. Now each is a single-line chip, the prompt cut to one line (the whole of it is the tooltip),
+         * in the reader's language.
+         */
         <div className="flex flex-wrap items-center gap-1.5">
           {claimableFor(s).map((r) => (
             <button
@@ -131,16 +121,7 @@ export default function ChallengeDetailEntryBody({
           ))}
         </div>
       )}
-      {/* THE FOOT OF THE CARD IS ONE BLOCK, AND IT IS PINNED
-          (10 Sep 2026).
-
-          Ethan: "the cards are different sizes, some of them are in
-          a different range depending on the caption they added. Fix
-          this so the cards are always the same size - Open Link
-          should always be at the bottom, Leave feedback for this
-          entry just above it, and the views just above that. Then
-          there can be extra space above if someone wrote a short
-          caption."
+      {/* THE FOOT OF THE CARD IS ONE BLOCK, AND IT IS PINNED.
 
           The cards were already the same HEIGHT - they are grid
           items and a grid stretches its row. What was different was

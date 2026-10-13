@@ -5,9 +5,9 @@ import { DateField } from './DateTimeFields'
 import { PERIODS } from '../lib/analyticsPeriod'
 import { cx } from '../lib/utils'
 
-// THE PERIOD CONTROL (2 Oct 2026). The house dropdown (never the OS menu - see ui/Select) with the presets, and
-// "Custom dates" opening a small card of two day fields under it. The custom range is only applied on "Show", so
-// typing a date does not reload the page a digit at a time.
+// THE PERIOD CONTROL. The house dropdown (never the OS menu - see ui/Select) with the presets, and "Custom dates"
+// opening a small card of two day fields under it. The custom range is only applied on "Show", so typing a date does not
+// reload the page a digit at a time.
 export default function PeriodPicker({ value, from, to, onChange, disabled = false, periods = PERIODS, className, width = 'w-40' }) {
   const [open, setOpen] = useState(false)
   const anchor = useRef(null)

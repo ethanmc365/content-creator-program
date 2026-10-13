@@ -116,10 +116,9 @@ function RoleRow({ person, isMe, viewerIsLead, onTitle, onDemote, onHandOver, bu
   )
 }
 
-// THE VIP COMMUNITY, FROM THE TEAM PAGE (2 Oct 2026). Ethan: "I don't seem to be able to change an admin's role so they
-// can also see the VIP community, this should be doable on the Tryp.com team page." Being an admin does not open the VIP
-// community (migration 296: it is the owner's to give, market by market). The owner's rows here show who has it and a
-// "VIP access" button that switches it on or off per VIP market. Same write as the old Access tab (vip_add_manager).
+// THE VIP COMMUNITY, FROM THE TEAM PAGE. Being an admin does not open the VIP community (migration 296: it is the
+// owner's to give, market by market). The owner's rows here show who has it and a "VIP access" button that switches it
+// on or off per VIP market. Same write as the old Access tab (vip_add_manager).
 function VipChip({ lead, vip, all = 0 }) {
   const chip = 'inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full bg-gray-900 px-2 py-0.5 text-[11px] font-semibold text-white'
   if (lead || (all > 1 && vip?.length >= all)) return <span className={chip}><Icon name="star" className="h-3 w-3" />VIP, every market</span>
@@ -189,10 +188,8 @@ export default function AdminTeam() {
   const [everyone, setEveryone] = useState([])
   const [busy, setBusy] = useState(false)
   const [adding, setAdding] = useState(false)
-  // SORTED BY MARKET (24 Sep 2026). Ethan: "can you sort it better? ... show
-  // each market with the [people] inside it, so I can see it easily, and then
-  // add [people] in a specific spot." One card per market with its managers
-  // and its own Add button; `addingTo` is the market that button opened.
+  // SORTED BY MARKET. One card per market with its managers and its own Add button; `addingTo` is the market that button
+  // opened.
   const [markets, setMarkets] = useState([])
   const [memberIds, setMemberIds] = useState({}) // market id -> Set of member ids
   const [addingTo, setAddingTo] = useState(null)
@@ -214,11 +211,9 @@ export default function AdminTeam() {
   useEffect(() => { loadVip() }, [loadVip])
   const vipOf = (id) => vipGrants.filter((g) => g.profile_id === id)
 
-  // THE TEAM FIRST, EVERYTHING ELSE AFTER (28 Sep 2026). Ethan: "the team
-  // admin panel page is not loading at all ... It did load eventually." The
-  // page waited for all four reads - including every active creator, only
-  // needed once somebody presses Add - before drawing anything. The roster and
-  // the markets draw the page; the people and the member counts fill in behind.
+  // THE TEAM FIRST, EVERYTHING ELSE AFTER. The page waited for all four reads - including every active creator, only
+  // needed once somebody presses Add - before drawing anything. The roster and the markets draw the page; the people and
+  // the member counts fill in behind.
   const load = useCallback(async () => {
     const peopleP = profilesApi.profiles().select('id, name, photo_url, country_code, city, country')
       .eq('status', 'active').eq('is_test', false).order('name').limit(1000)
@@ -335,12 +330,9 @@ export default function AdminTeam() {
     const personId = Array.isArray(picked) ? picked[0] : picked
     const person = everyone.find((p) => p.id === personId)
     if (!person) return
-    // A MANAGER IS ON THE TEAM (26 Sep 2026). Ethan: "it shows up: Maria will
-    // be able to edit Germany, but this will not make them a TikTok admin.
-    // Obviously, it should, and she already is an admin." Somebody who runs a
-    // market needs the admin panel to run it, so a creator made a manager
-    // joins the Tryp.com team in the same step - and the dialog says whichever
-    // of the two is true instead of warning about something that is not.
+    // A MANAGER IS ON THE TEAM. Somebody who runs a market needs the admin panel to run it, so a creator made a manager
+    // joins the Tryp.com team in the same step - and the dialog says whichever of the two is true instead of warning
+    // about something that is not.
     const isAdmin = (team || []).some((t) => t.id === personId)
     const ok = await confirm(
       isAdmin
@@ -386,11 +378,7 @@ export default function AdminTeam() {
   // Until the people arrive, trust the roster (it already leaves test accounts out).
   const people = (team || []).filter((t) => !everyone.length || real.has(t.id) || t.id === profile?.id)
   const lead = people.find((t) => t.platform_role === 'owner')
-  // THE WORLDWIDE TEAM IS WHO RUNS NO ONE MARKET (26 Sep 2026). Ethan: "If
-  // they're in a market ... then they shouldn't be showing up in the
-  // worldwide team. Hannah won't be showing up under a market manager, but she
-  // should still show up there. I can still show up there as well." The lead
-  // is always here, whatever they manage.
+  // THE WORLDWIDE TEAM IS WHO RUNS NO ONE MARKET. The lead is always here, whatever they manage.
   const admins = people.filter((t) => t.platform_role === 'global_admin' && !(t.market_slugs || []).length)
   const managersOf = (market) => people
     .filter((t) => (t.market_slugs || []).includes(market.slug))
@@ -511,7 +499,7 @@ export default function AdminTeam() {
                               <Link to={`/profile/${p.id}`} className="flex items-center gap-2 truncate text-sm font-semibold hover:text-brand">
                                 <span className="truncate">{p.name}</span>
                               </Link>
-                              {/* The chip wraps under the title instead of running off the card's right edge (7 Oct 2026). */}
+                              {/* The chip wraps under the title instead of running off the card's right edge. */}
                               <p className="mt-0.5 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-xs text-smoke"><span className="min-w-0 truncate">{p.role_title || `${m.name} manager`}</span><VipChip lead={p.platform_role === 'owner'} vip={vipOf(p.id)} all={vipProgrammes.length} /></p>
                             </div>
                             {viewerIsLead && p.platform_role !== 'owner' && vipProgrammes.length > 0 && (

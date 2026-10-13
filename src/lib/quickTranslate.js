@@ -2,11 +2,10 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { supabase } from './supabase'
 import { getLocale, useLocale, DEFAULT_LOCALE } from './i18n'
 
-// TRANSLATE THIS, ON REQUEST (2 Oct 2026).
+// TRANSLATE THIS, ON REQUEST.
 //
-// Ethan: chat messages (and a hook) should "always start with the original and just have the ability
-// to translate", shown "only if you're viewing the page in another language", and done "for free ...
-// by connecting it with Google".
+// The team: chat messages (and a hook) should "always start with the original and just have the ability to translate",
+// shown "only if you're viewing the page in another language", and done "for free... by connecting it with Google".
 //
 // So unlike a challenge brief (lib/contentTranslate, translated for every reader and cached in the
 // database), nothing here happens until somebody presses Translate, and nothing is stored: a chat
@@ -20,9 +19,7 @@ import { getLocale, useLocale, DEFAULT_LOCALE } from './i18n'
 
 const memo = new Map() // `${locale}\n${text}` -> { value, src }
 
-// ENGLISH READERS CAN TRANSLATE TOO (1 Oct 2026). Ethan: "if I'm on the main English language but a message is sent
-// in Spanish, I should be able to translate it ... even if a language is not on the platform. If someone sends a
-// Chinese message, we could translate it because Google can just detect it and translate."
+// ENGLISH READERS CAN TRANSLATE TOO.
 //
 // Google detects the language itself, so any language works. What a reader on English needs is for the button to
 // appear on the messages that are NOT English and stay out of the way on the ones that are. This is the cheap guess
@@ -39,10 +36,10 @@ const EN_WORDS = new Set(('the and is are was were be been to of in on at for wi
   + 'time times today too travel traveling travelling trip trips two up want way website week weekend well while why year years'
 ).split(' '))
 // The everyday words of the other languages this community writes in (es, pt, de, ro, it, fr, pl), minus any that are
-// also English. A text is only taken for "not English" when these outnumber the English ones, or when hardly any
-// English is in it AND something foreign is (one of these words, or accented letters). A single accented NAME in an
-// English hook ("But Cátia, how are you always traveling?") is not enough on its own - that was showing Translate on
-// English hooks (2 Oct 2026, 141 of the 1,516 in the bank).
+// also English. A text is only taken for "not English" when these outnumber the English ones, or when hardly any English
+// is in it AND something foreign is (one of these words, or accented letters). A single accented NAME in an English hook
+// ("But Cátia, how are you always traveling?") is not enough on its own - that was showing Translate on English hooks
+// (141 of the 1,516 in the bank).
 const FOREIGN_WORDS = new Set(('de la el que y en los las con para por una uno del al lo le se su sus es muy pero como más mas hoy hola '
   + 'gracias porque cuando donde todo todos esta este estas estos viaje viajes vuelo vuelos días dias noche barato '
   + 'um uma não nao com do da dos das em ao os pela pelo você voce obrigado obrigada também tambem viagem viagens muito '
@@ -67,9 +64,7 @@ export function looksNonEnglish(text) {
 }
 const engineLang = (l) => (l === 'pt' ? 'pt-PT' : l)
 
-// NOT RATE-LIMITED, AND FAST THE SECOND TIME (30 Sep 2026). Ethan: "properly set it up so that we don't
-// get rate-limited and we receive no errors. If there is a rate limit error, just show a simple error"
-// and chat translations "take a little while to load".
+// NOT RATE-LIMITED, AND FAST THE SECOND TIME. and chat translations "take a little while to load".
 //   - ONE REQUEST PER TEXT, not one per paragraph (a five-line message was five calls).
 //   - A QUEUE: at most two calls in flight and ~150ms between starts, so opening a busy room and
 //     translating a run of messages never bursts at Google.
@@ -193,10 +188,10 @@ export async function translateNow(text, target = getLocale()) {
   try { r = await viaBrowser(text, target) } catch {
     try { r = await viaServer(text, target) } catch { return { value: text, src: null, failed: true } }
   }
-  // THE ENGINE SAID "IT IS ALREADY ENGLISH" ABOUT SOMETHING THAT IS NOT (7 Oct 2026). Ethan could not translate
-  // Maxime's Romanian tips in Content tips. A message that mixes a few English words into another language can come back
-  // unchanged, which reads as the button doing nothing. When the answer is the question and the text does not look like
-  // the reader's language, ask the second engine before giving up.
+  // THE ENGINE SAID "IT IS ALREADY ENGLISH" ABOUT SOMETHING THAT IS NOT. The team could not translate Maxime's Romanian
+  // tips in Content tips. A message that mixes a few English words into another language can come back unchanged, which
+  // reads as the button doing nothing. When the answer is the question and the text does not look like the reader's
+  // language, ask the second engine before giving up.
   if (r && r.value.trim() === String(text).trim() && target === DEFAULT_LOCALE && looksNonEnglish(text)) {
     try {
       const s2 = await viaServer(text, target)
@@ -270,9 +265,9 @@ export function useMessageTranslations() {
     available,
     // Whether to offer the button on this message: always for a reader on another language, and for a reader
     // on English only where the message does not look English.
-    // EVERY MESSAGE WITH WORDS IN IT (7 Oct 2026). The English-reader guess (`looksNonEnglish`) hid the button on
-    // mixed-language messages, and a missing button is indistinguishable from a broken one. Only a message that is
-    // nothing but links, numbers or emoji goes without.
+    // EVERY MESSAGE WITH WORDS IN IT. The English-reader guess (`looksNonEnglish`) hid the button on mixed-language
+    // messages, and a missing button is indistinguishable from a broken one. Only a message that is nothing but links,
+    // numbers or emoji goes without.
     canFor: (m) => !!m?.body && /\p{L}{2,}/u.test(String(m.body).replace(/https?:\/\/\S+/g, '')),
     isFailed: (m) => !!state.get(m.id)?.failed,
     isOn: (m) => !!state.get(m.id)?.on && state.get(m.id)?.body === m.body,

@@ -55,12 +55,6 @@ export default function CountdownTimer({ endDate, compact = false, hero = false,
 
   // THE PHONE GETS THE SAME CLOCK, NOT A SENTENCE.
   //
-  // Ethan: "I don't like the way the time now shows just like normally. I think
-  // it can still be how it is on desktop where it shows the five days, nine
-  // hours, forty one minutes, and it should be in that nice style rather than
-  // just writing it. But obviously it should be much smaller, kind of like how
-  // the current size is."
-  //
   // It was one line of text - "5d 9h 41m left" - which is the correct
   // information in the wrong voice: the desktop card treats the deadline as a
   // thing you look AT, and the phone treated it as a thing you read. Same
@@ -70,9 +64,7 @@ export default function CountdownTimer({ endDate, compact = false, hero = false,
   // its own sake, and at this size the digit is too small to read anyway - it
   // just makes the tile flicker. Days, hours, minutes is the whole answer.
   //
-  // AND NO "LEFT". Ethan: "I don't say left because it says closes in, so
-  // there's no reason to say left." Every caller of this variant puts "Closes
-  // in" directly above it.
+  // AND NO "LEFT". Every caller of this variant puts "Closes in" directly above it.
   if (compact) {
     const small = [
       { label: 'Days', value: left.days },

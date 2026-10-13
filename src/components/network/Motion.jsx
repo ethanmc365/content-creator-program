@@ -58,13 +58,10 @@ export function RiseIn({ children, delay = 0, className, as = 'div' }) {
  * next to it appeared to snap. SMOOTHSTEP fixed that: `t*t*(3-2t)` is
  * symmetric, so a count to 44 passes through roughly every number on the way.
  *
- * THE SECOND BUG, AND WHY THE DURATION IS NOW A CONSTANT. The fix for the first
- * one made the duration follow the magnitude logarithmically, which is
- * defensible on its own and wrong in the place these counters actually live: a
- * ROW of four figures, read as one thing. A count to 6 finished in 800ms while
- * the kilometre total beside it ran for 1.5s, so the row landed in four
- * instalments and the small numbers looked like they had given up early -
- * Ethan: "it just shows a number like 6 and then suddenly jumps to the total".
+ * THE SECOND BUG, AND WHY THE DURATION IS NOW A CONSTANT. The fix for the first one made the duration follow the
+ * magnitude logarithmically, which is defensible on its own and wrong in the place these counters actually live: a ROW
+ * of four figures, read as one thing. A count to 6 finished in 800ms while the kilometre total beside it ran for 1.5s,
+ * so the row landed in four instalments and the small numbers looked like they had given up early -
  *
  * So the time is fixed and the RATE is what varies: everything starts at zero
  * on the same frame and everything arrives on the same frame, which makes the
@@ -72,16 +69,11 @@ export function RiseIn({ children, delay = 0, className, as = 'div' }) {
  * at a time. That is the reading the row wants, and it is only available if the
  * clock is shared.
  *
- * THE THIRD BUG, AND WHY THE CURVE IS GONE ENTIRELY. Smoothstep is symmetric,
- * which fixed the front-loading, but it is still a CURVE: its slope is zero at
- * both ends. On a count to six that is plainly visible, because the readout is
- * an INTEGER - the number of frames each integer is on screen is inversely
- * proportional to the slope, so 0 and 1 sit there for a quarter of a second
- * each while 3 and 4 flick past in two frames. The row does not read as six
- * counters running; it reads as numbers stopping and starting at different
- * moments. Ethan: "they should all start at 0 and never pause, just increase up
- * until the actual number, currently they seem to pause on certain numbers for
- * different amounts of time and it looks bad."
+ * THE THIRD BUG, AND WHY THE CURVE IS GONE ENTIRELY. Smoothstep is symmetric, which fixed the front-loading, but it is
+ * still a CURVE: its slope is zero at both ends. On a count to six that is plainly visible, because the readout is an
+ * INTEGER - the number of frames each integer is on screen is inversely proportional to the slope, so 0 and 1 sit there
+ * for a quarter of a second each while 3 and 4 flick past in two frames. The row does not read as six counters running;
+ * it reads as numbers stopping and starting at different moments.
  *
  * A count is not a physical object arriving, it is a TALLY, and a tally has one
  * honest curve: a straight line. Linear means every integer between zero and
@@ -100,8 +92,7 @@ export function RiseIn({ children, delay = 0, className, as = 'div' }) {
 // 1.6s: long enough that a count to six is unmistakably a count and not a
 // flicker, short enough that nobody is waiting on the card.
 export const COUNT_MS = 1600
-// THE VIP PAGES COUNT FASTER (11 Oct 2026). Ethan: "If I want to see quickly and it takes a while to come up to a big
-// number, it can be annoying." Money and views there are read, not admired, so they arrive in under a second.
+// THE VIP PAGES COUNT FASTER. Money and views there are read, not admired, so they arrive in under a second.
 export const VIP_COUNT_MS = 650
 
 // How long after a card BEGINS to arrive its numbers start counting. The card
@@ -129,16 +120,13 @@ export const countEase = (t) => t
 
 export function CountUp({ value, duration, className, format = (n) => n }) {
   const ref = useRef(null)
-  // THE CARD'S CLOCK, NOT ONE OF ITS OWN (19 Sep 2026).
+  // THE CARD'S CLOCK, NOT ONE OF ITS OWN.
   //
-  // See lib/revealContext for the whole diagnosis. In short: this observed
-  // ITSELF, with a NEGATIVE bottom margin, while the card it sits on was
-  // observed by `Reveal` with a POSITIVE one - so on the same element, on the
-  // same scroll, the number and the card started at two different moments, and
-  // which came first depended on how fast the page had loaded. That is exactly
-  // the three outcomes Ethan described: the count finishing behind an opacity-0
-  // card, the count starting a second after the card had settled, and
-  // occasionally the two happening to line up.
+  // See lib/revealContext for the whole diagnosis. In short: this observed ITSELF, with a NEGATIVE bottom margin, while
+  // the card it sits on was observed by `Reveal` with a POSITIVE one - so on the same element, on the same scroll, the
+  // number and the card started at two different moments, and which came first depended on how fast the page had loaded.
+  // That is exactly the three outcomes the team described: the count finishing behind an opacity-0 card, the count
+  // starting a second after the card had settled, and occasionally the two happening to line up.
   //
   // Inside a `Reveal` the card says when it is arriving and this follows it.
   // Outside one - a stats page that does not use the component - it still
@@ -183,11 +171,9 @@ export function CountUp({ value, duration, className, format = (n) => n }) {
   // zero, and a second effect only pushed the real number through when `target`
   // itself changed afterwards.
   //
-  // On a page where the data is already loaded before the counter mounts -
-  // which is every stats page, because they render a skeleton until the rows
-  // land - `target` never changes again, so the number simply never arrived.
-  // That is Ethan's "the km wasn't updating on the cards at the top": the
-  // figures were not stale, they had never been drawn.
+  // On a page where the data is already loaded before the counter mounts - which is every stats page, because they
+  // render a skeleton until the rows land - `target` never changes again, so the number simply never arrived. That is
+  // the team's "the km wasn't updating on the cards at the top": the figures were not stale, they had never been drawn.
   //
   // No flag now. The effect animates from wherever the number currently is to
   // wherever it should be, and re-runs when the target moves - which also makes
@@ -234,21 +220,15 @@ export function CountUp({ value, duration, className, format = (n) => n }) {
     // the count should be at that instant. `tick` (rAF) is the only thing
     // that ever calls `requestAnimationFrame` again.
     //
-    // THE BUG THIS REPLACES (found 23 Sep 2026, the session after the
-    // heartbeat was added to fix "the counters just appear instead of
-    // counting"). The heartbeat called `tick` directly, and `tick`
-    // unconditionally reschedules itself via `requestAnimationFrame` before
-    // returning - so every 90ms heartbeat firing spawned a BRAND NEW,
-    // independent, self-perpetuating rAF chain on top of whichever chains
-    // were already running, and nothing ever cancelled the earlier ones
-    // (`raf` only ever tracks the MOST RECENT id, and cleanup cancels
-    // exactly one). Over one 1.6s count that is on the order of seventeen
-    // parallel 60fps loops all painting the same node by the time it
-    // finishes - on every counter on the page, all at once, on the exact
-    // frames a fresh page load is already busiest. That is the real shape
-    // of "everything is laggy" and "the numbers aren't counting" - not a
-    // slow animation, a main thread buried under an animation that had
-    // quietly turned into dozens.
+    // THE BUG THIS REPLACES (found, the session after the heartbeat was added to fix "the counters just appear instead
+    // of counting"). The heartbeat called `tick` directly, and `tick` unconditionally reschedules itself via
+    // `requestAnimationFrame` before returning - so every 90ms heartbeat firing spawned a BRAND NEW, independent,
+    // self-perpetuating rAF chain on top of whichever chains were already running, and nothing ever cancelled the
+    // earlier ones (`raf` only ever tracks the MOST RECENT id, and cleanup cancels exactly one). Over one 1.6s count
+    // that is on the order of seventeen parallel 60fps loops all painting the same node by the time it finishes - on
+    // every counter on the page, all at once, on the exact frames a fresh page load is already busiest. That is the real
+    // shape of "everything is laggy" and "the numbers aren't counting" - not a slow animation, a main thread buried
+    // under an animation that had quietly turned into dozens.
     //
     // The fix keeps the property that made the heartbeat worth having (a
     // dropped rAF frame anywhere in the chain used to kill the rest of the
@@ -257,9 +237,9 @@ export function CountUp({ value, duration, className, format = (n) => n }) {
     const paintAt = (now) => {
       if (start === null) start = now
       const t = Math.min(1, (now - start) / ms)
-      // IN CENTS WHEN THE NUMBER HAS CENTS (7 Oct 2026). Every frame was rounded to a whole number, so a VIP balance of
-      // EUR 0.83 counted 0.00 -> 1.00 and then dropped back to 0.83 on the last frame (Ethan: "it immediately went to
-      // EUR 1 then went back down"). The step is now the target's own precision, and the last frame is the target.
+      // IN CENTS WHEN THE NUMBER HAS CENTS. Every frame was rounded to a whole number, so a VIP balance of EUR 0.83
+      // counted 0.00 -> 1.00 and then dropped back to 0.83 on the last frame ( ). The step is now the target's own
+      // precision, and the last frame is the target.
       paint(t >= 1 ? target : Math.round((from + (target - from) * countEase(t)) / step) * step)
       return t
     }
@@ -299,14 +279,10 @@ export function CountUp({ value, duration, className, format = (n) => n }) {
  * A live dot. Three sizes of the same idea used in five places, so it is one
  * component rather than five copies of a nested absolute span.
  *
- * JUST THE DOT, NOT A RING EXPANDING OUT OF IT (23 Sep 2026). Ethan, of the
- * leaderboard's live dot: "I like how you have the pulsing thing, but I don't
- * like the way it circles around it. Remove the white circle and just have
- * that nice pulsing white dot." The ring was `animate-ping` - a second,
- * absolutely-positioned copy of the dot scaling up and fading out around it,
- * which is the classic "live" affordance but reads as a circle drawing itself
- * repeatedly rather than one dot breathing. It is gone; the dot itself now
- * pulses in place (opacity only, no scale, no second element).
+ * JUST THE DOT, NOT A RING EXPANDING OUT OF IT. The ring was `animate-ping` - a second, absolutely-positioned copy of
+ * the dot scaling up and fading out around it, which is the classic "live" affordance but reads as a circle drawing
+ * itself repeatedly rather than one dot breathing. It is gone; the dot itself now pulses in place (opacity only, no
+ * scale, no second element).
  */
 export function LiveDot({ size = 'sm', tone = 'brand', className }) {
   const px = size === 'lg' ? 'h-2.5 w-2.5' : size === 'md' ? 'h-2 w-2' : 'h-1.5 w-1.5'

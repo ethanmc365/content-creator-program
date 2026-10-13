@@ -9,11 +9,7 @@ import { CountUp, VIP_COUNT_MS } from '../network/Motion'
 import { money, useOptionalRpc, useKindT } from '../../lib/vip'
 import { useT } from '../../lib/i18n'
 
-// THE VIP PAGE'S OWN NAVIGATION (1 Oct 2026).
-//
-// Ethan: "rather than having the 'This month' video stats, payouts, rewards, perks, and more, like every map, all at
-// the top, I would maybe have it as a thing down the side, like a separate column with custom icons. Make it look more
-// UI and nice, with animations, and then the content will show up on the left side."
+// THE VIP PAGE'S OWN NAVIGATION.
 //
 // So on a desktop the sections are a column on the right, each with its own icon tile, and the one you are on is a
 // solid tile with a highlight that slides to it. A phone has no room for a column: the same sections are a strip of
@@ -123,13 +119,14 @@ export function VipChipNav({ value, onChange, hidden, links, official = false })
   )
 }
 
-/** A VIP's own pages that live elsewhere, listed with the sections (3 Oct 2026: they were the quick links card). */
+/* A VIP's own pages that live elsewhere, listed with the sections (3 Oct 2026: they were the quick links card). */
 export const VIP_LINKS = [
   { to: '/portfolio', icon: 'briefcase', label: 'My portfolio', hint: 'Share your numbers' },
 ]
 
-/** The VIP's balance, small, under the sections: just the number, kept up to date by itself (4 Oct 2026). Ethan: "don't say
- *  ... EUR 10 to a feature or +EUR 100 this month so far. Just have Your Balance and actually show the current balance." */
+/**
+ * The VIP's balance, small, under the sections: just the number, kept up to date by itself.
+ */
 export function VipBalanceMini({ onOpen }) {
   const tr = useKindT()
   const { data: w, reload } = useOptionalRpc('vip_my_wallet')
@@ -152,13 +149,12 @@ export function VipBalanceMini({ onOpen }) {
 }
 
 /**
- * THE MARKET SWITCH ON THE TEAM'S VIP PAGE (2 Oct 2026). The team sees the real VIP page of each market they
- * look after, so the pill becomes a pair (or more): the flag beside each name, the picked one solid brand with
- * white on it (the house rule for a picked option), sliding between them.
+ * THE MARKET SWITCH ON THE TEAM'S VIP PAGE. The team sees the real VIP page of each market they look after, so the pill
+ * becomes a pair (or more): the flag beside each name, the picked one solid brand with white on it (the house rule for a
+ * picked option), sliding between them.
  */
-// `row` (12 Oct 2026): the phone version, a full-width row of market chips that scrolls sideways inside the team's
-// control card. Ethan: "VIP Room and VIP SP... seems to be unscrollable on mobile" - the pill sat in the header's top
-// right and simply ran off the screen once there were more than two markets.
+// `row`: the phone version, a full-width row of market chips that scrolls sideways inside the team's control card. - the
+// pill sat in the header's top right and simply ran off the screen once there were more than two markets.
 export function ProgrammeSwitch({ programmes, value, onChange, row = false }) {
   const tr = useKindT()
   if (row) {
@@ -221,17 +217,17 @@ export function ProgrammePill({ name, codes, official = false }) {
 }
 
 /**
- * VIP COMMUNITY OR OFFICIAL CREATORS (10 Oct 2026, migration 376). Ethan: the official Tryp.com creators get "a separate
- * podium, leaderboard etc ... Marta and any admins with access should be able to see both". The team picks the space
- * first, then (if the space has more than one market) the market inside it. Two wide tabs with a sliding gradient and how
- * many people are in each, so the split reads at a glance; a creator never sees this - they only have their own.
+ * VIP COMMUNITY OR OFFICIAL CREATORS (migration 376). The team: the official Tryp.com creators get "a separate podium,
+ * leaderboard etc... Marta and any admins with access should be able to see both". The team picks the space first, then
+ * (if the space has more than one market) the market inside it. Two wide tabs with a sliding gradient and how many
+ * people are in each, so the split reads at a glance; a creator never sees this - they only have their own.
  */
 export function SpaceSwitch({ programmes, value, onChange, bare = false }) {
   // Plain words on purpose: this switch names BOTH spaces, so it must not take the official page's wording.
   const tr = useT()
   const spaces = [
-    // NO SECOND LINE (13 Oct 2026). Ethan: remove "paid by views" and "Tryp.com content team" "so that the actual whole
-    // card is smaller". The name and the head count say enough.
+    // NO SECOND LINE. The team: remove "paid by views" and "Tryp.com content team" "so that the actual whole card is
+    // smaller". The name and the head count say enough.
     { key: 'vip', icon: 'star', label: tr('VIP community'), short: tr('VIP') },
     { key: 'official', icon: 'badge', label: tr('Official creators'), short: tr('Official') },
   ].map((s) => {

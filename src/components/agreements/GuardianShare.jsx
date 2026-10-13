@@ -4,13 +4,11 @@ import { cx } from '../../lib/utils'
 import { useT } from '../../lib/i18n'
 import { agreementsApi } from '../../api/agreements'
 
-// THE PARENT OR GUARDIAN STEP, FOR THE TWO MEMBERS WHO STILL NEED IT (rebuilt 12 Oct 2026).
+// THE PARENT OR GUARDIAN STEP, FOR THE TWO MEMBERS WHO STILL NEED IT (rebuilt).
 //
-// It used to hand the creator a link to send their parent themselves (migration 367). Ethan: "rather than them having
-// to copy the link and send it to their parents, once they manually submit their parents emails and details, I will
-// send the email to their parents with the link". So the creator only sees what happens next and, later, that it is
-// done; the team copies the link and an email from Admin > Agreements > Register. The parent still confirms on
-// /guardian/<token> with no account.
+// It used to hand the creator a link to send their parent themselves (migration 367). So the creator only sees what
+// happens next and, later, that it is done; the team copies the link and an email from Admin > Agreements > Register.
+// The parent still confirms on /guardian/<token> with no account.
 export const guardianUrl = (token) => `${window.location.origin}/guardian/${token}`
 
 export function useGuardianLinks(refreshKey = 0) {

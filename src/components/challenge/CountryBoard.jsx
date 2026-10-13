@@ -8,11 +8,9 @@ import { formatViews, cx } from '../../lib/utils'
 import { useT } from '../../lib/i18n'
 import { challengesApi } from '../../api/challenges'
 
-// COUNTRY AGAINST COUNTRY (4 Oct 2026, migration 324).
+// COUNTRY AGAINST COUNTRY (migration 324).
 //
-// Ethan, for the global challenge: "country versus country ... there's no reward for this, but it's just to see how each country is
-// doing ... it might motivate creators to actually post for their country to get their market on the leaderboard as well." And for the
-// creators with no home market: "rather than just having a blank square, you could add in the globe emoji."
+// And for the creators with no home market: "rather than just having a blank square, you could add in the globe emoji."
 //
 // Every creator counts for the market they were placed in on approval. The bars are one hue because they compare ONE measure across
 // countries; the switch above them changes which measure. Pressing a country opens the people who have actually entered for it, with
@@ -26,19 +24,17 @@ const MEASURES = [
 ]
 
 
-// THE NUMBERS DO NOT ANIMATE (5 Oct 2026). Ethan: "the animation isn't necessarily needed for the numbers, but for the cards moving positions."
-// A count-up on four figures per row, all running while the cards slid, is what made switching measure look frantic. The figure now simply
-// changes (rounded the same way every leaderboard rounds it - see formatViews) and the CARDS are what move.
+// THE NUMBERS DO NOT ANIMATE. A count-up on four figures per row, all running while the cards slid, is what made
+// switching measure look frantic. The figure now simply changes (rounded the same way every leaderboard rounds it - see
+// formatViews) and the CARDS are what move.
 function Figure({ value, measure }) {
   return <span className="inline-block min-w-[4.5rem] text-right tabular-nums">{fmt(measure, value)}</span>
 }
 
-// THE CARDS SLIDE TO THEIR NEW PLACES, ONCE, CLEANLY (12 Oct 2026, second pass). Ethan: "It just appears immediately. I
-// want it to actually visibly show the things switching. Before, it was too laggy and too confusing, and there's too much
-// movement ... cleaner animations, but actually still show a bit of movement, like where they're moving to."
-// So: a FLIP. Each card is measured where it was and where it is now, and only the cards that changed place travel the
-// difference, together - no stagger, no overshoot, no count-ups. A card going UP rides above the ones it passes, so an
-// overtake reads as an overtake (the "up 2" chips went on 13 Oct, see below). Offsets are layout positions (offsetTop), so a page scroll cannot fake a move.
+// THE CARDS SLIDE TO THEIR NEW PLACES, ONCE, CLEANLY (second pass). So: a FLIP. Each card is measured where it was and
+// where it is now, and only the cards that changed place travel the difference, together - no stagger, no overshoot, no
+// count-ups. A card going UP rides above the ones it passes, so an overtake reads as an overtake (the "up 2" chips went
+// on 13 Oct, see below). Offsets are layout positions (offsetTop), so a page scroll cannot fake a move.
 function useFlip(listRef, order) {
   const tops = useRef(null)
   useLayoutEffect(() => {
@@ -56,7 +52,7 @@ function useFlip(listRef, order) {
       const dy = was - now.get(k)
       if (Math.abs(dy) < 2) continue
       el.getAnimations?.().forEach((x) => x.cancel())
-      // SLOWER AND SMOOTHER, NO BADGES (13 Oct 2026). Ethan: "it shows a little pop-up quickly: it shows up as 1 and up
+      // SLOWER AND SMOOTHER, NO BADGES. The team: "it shows a little pop-up quickly: it shows up as 1 and up
       // 3. I don't like that, and the actual design seems a little bit too quick. I would just slow it down slightly and
       // have a smoother, higher frame-per-second animation." The "up 3" chips are gone; the cards travel in 820ms on a
       // gentle ease-in-out, on the compositor only (transform, will-change), and one going up lifts a hair as it passes.
@@ -171,9 +167,8 @@ export default function CountryBoard({ challenge, refreshKey, meId }) {
                 onClick={() => setOpen(r)}
                 className={cx(
                   'group relative w-full overflow-hidden rounded-card border p-3.5 text-left shadow-card transition-[box-shadow,border-color,transform,background-color] duration-300 hoverable:hover:-translate-y-0.5 hoverable:hover:shadow-lift sm:p-4',
-                  // YOUR HOME COUNTRY IS SOLID BRAND, WITH WHITE ON IT (5 Oct 2026). Ethan: "I don't like that light orangey-yellow colour and just
-                  // the little small orange bar." A picked thing on this platform is solid brand, never a tint; a market you belong to without it
-                  // being your home keeps a quiet brand outline.
+                  // YOUR HOME COUNTRY IS SOLID BRAND, WITH WHITE ON IT. A picked thing on this platform is solid brand,
+                  // never a tint; a market you belong to without it being your home keeps a quiet brand outline.
                   r.mine ? 'border-transparent bg-gradient-to-br from-brand to-brand-light text-white shadow-[0_10px_28px_-12px_rgba(217,68,7,0.7)]'
                     : r.also ? 'border-brand/35 bg-white' : 'border-gray-100 bg-white hoverable:hover:border-brand/30',
                 )}
@@ -195,8 +190,8 @@ export default function CountryBoard({ challenge, refreshKey, meId }) {
                         : r.none ? tr('Creators who are not placed in a market') : tr('Nobody has entered yet. Be the first.')}
                     </span>
                   </span>
-                  {/* THE MEASURE ON SHOW IS THE BIG NUMBER; the other ones sit small beside it, so points, views, entries and creators are
-                      all readable without switching (4 Oct 2026). */}
+                  {/* THE MEASURE ON SHOW IS THE BIG NUMBER; the other ones sit small beside it, so points, views,
+                      entries and creators are all readable without switching. */}
                   <span className={cx('hidden shrink-0 items-center gap-4 border-r pr-4 sm:flex', r.mine ? 'border-white/25' : 'border-gray-100')}>
                     {others.map((m) => (
                       <span key={m.value} className="text-right">

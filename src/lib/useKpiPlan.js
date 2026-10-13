@@ -2,19 +2,18 @@ import { useEffect, useState } from 'react'
 import { mergeKpiRows, periodKey, rowsForPeriod } from './kpiTracker'
 import { marketsApi } from '../api/markets'
 
-// EVERY GOAL OF SEVERAL SCOPES OVER SEVERAL PERIODS, IN TWO REQUESTS (30 Sep 2026).
+// EVERY GOAL OF SEVERAL SCOPES OVER SEVERAL PERIODS, IN TWO REQUESTS.
 //
-// Used by the Total (every market added up) and by the rolling overview under any scope. One read of
-// the targets for the years involved, then ONE `kpi_actuals_batch` call (migration 289) for every
-// scope x period that actually has a goal. It used to be a request per period - twelve on the month
-// view - which was much of the lag Ethan felt.
+// Used by the Total (every market added up) and by the rolling overview under any scope. One read of the targets for the
+// years involved, then ONE `kpi_actuals_batch` call (migration 289) for every scope x period that actually has a goal.
+// It used to be a request per period - twelve on the month view - which was much of the lag the team felt.
 //
 // Returns Map(periodKey -> [{ scope, rows }]) where rows are merged (goal + live number) and only
 // scopes with at least one goal in that period appear. A result already seen paints at once and is
 // refreshed behind.
 const cache = new Map()
-// Bumped whenever a goal is saved or deleted anywhere, so every mounted chart re-reads instead of
-// holding on to a plan that no longer exists (1 Oct 2026).
+// Bumped whenever a goal is saved or deleted anywhere, so every mounted chart re-reads instead of holding on to a plan
+// that no longer exists.
 let version = 0
 const listeners = new Set()
 const scopeKeyOf = (communityId, basis) => `${communityId}:${basis}`

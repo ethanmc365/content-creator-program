@@ -106,15 +106,12 @@ export function Highlight({ text, term }) {
 }
 
 /**
- * THE PHONE'S CHAT SEARCH, WHERE THE MESSAGE BOX WAS (12 Oct 2026).
+ * THE PHONE'S CHAT SEARCH, WHERE THE MESSAGE BOX WAS.
  *
- * Ethan: "if I click that search icon while the keyboard is up, it temporarily for a split second flashes a random
- * screen ... there's almost no space to see what you're typing ... that search bar should appear where the message box
- * usually is ... and when you press out of it, that search box should close." The field replaces the composer at the
- * bottom of the chat, so the keyboard and the field sit exactly where they were. It takes focus in a LAYOUT effect, in
- * the same press that opened it, so focus passes straight from the composer to the search and the keyboard never drops
- * and comes back (the flash). Pressing out of it closes it when nothing is typed; with a search typed it stays, so the
- * matches can be read, and the cross closes it.
+ * The field replaces the composer at the bottom of the chat, so the keyboard and the field sit exactly where they were.
+ * It takes focus in a LAYOUT effect, in the same press that opened it, so focus passes straight from the composer to the
+ * search and the keyboard never drops and comes back (the flash). Pressing out of it closes it when nothing is typed;
+ * with a search typed it stays, so the matches can be read, and the cross closes it.
  */
 export function ComposerSearch({ value, onChange, count, total, placeholder = 'Search', onClose }) {
   const tr = useT()

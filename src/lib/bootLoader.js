@@ -3,16 +3,12 @@ import { useLayoutEffect, useSyncExternalStore } from 'react'
 /**
  * ONE LOADER ON THE SCREEN AT A TIME.
  *
- * `index.html` paints `#boot` on the first frame - a white page carrying the
- * shape of the app shell (it was a copy of `PlaneLoader` until 4 Sep 2026).
- * The app then renders its OWN full-page placeholder while the lazy route chunk
- * arrives and the session resolves. Both were on screen together for the length
- * of the boot layer's 300ms fade, and they did not sit in the same place:
- * `#boot` is the viewport, `LazyFallback` was centred in a `min-h-[60vh]` box.
- * Ethan photographed the result - a faint plane and "Loading..." a few dozen
- * pixels above a solid "Loading...". Both are skeletons now, so the handover is
- * shape to shape, but the counting below is what guarantees there is only ever
- * one of them.
+ * `index.html` paints `#boot` on the first frame - a white page carrying the shape of the app shell (it was a copy of
+ * `PlaneLoader`). The app then renders its OWN full-page placeholder while the lazy route chunk arrives and the session
+ * resolves. Both were on screen together for the length of the boot layer's 300ms fade, and they did not sit in the same
+ * place: `#boot` is the viewport, `LazyFallback` was centred in a `min-h-[60vh]` box. The team photographed the result -
+ * a faint plane and "Loading..." a few dozen pixels above a solid "Loading...". Both are skeletons now, so the handover
+ * is shape to shape, but the counting below is what guarantees there is only ever one of them.
  *
  * The old dismissal was "two animation frames, or 400ms, whichever is first",
  * which is a guess at when React has something to show. It commits a FALLBACK
@@ -131,20 +127,15 @@ function subscribeUp(fn) {
 /**
  * HAS THE BOOT LAYER FINISHED LEAVING?
  *
- * For a page that ANIMATES ITSELF IN rather than one that draws a placeholder.
- * The landing page is the only one, and it is the reason this exists: its hero
- * entrance starts the moment React commits, which on a phone is comfortably
- * inside the life of `#boot` - so the whole animation played underneath an
- * opaque white sheet and Ethan reported, correctly, that "Create. Earn. Travel."
- * has no animation on mobile. It had one. Nobody could see it.
+ * For a page that ANIMATES ITSELF IN rather than one that draws a placeholder. The landing page is the only one, and it
+ * is the reason this exists: its hero entrance starts the moment React commits, which on a phone is comfortably inside
+ * the life of `#boot` - so the whole animation played underneath an opaque white sheet and the team reported, correctly,
+ * that "Create. Earn. Travel." has no animation on mobile. It had one. Nobody could see it.
  *
- * IT IS THE END OF THE FADE, NOT THE START (10 Sep 2026). `releaseBootLayer` -
- * which this used to read - fires when the sheet BEGINS its 160ms fade, which
- * is the right signal for a loader (it is being handed the screen) and the
- * wrong one for an entrance. Half the fix landed and the reader still saw the
- * first 130ms of every word behind a sheet that was still mostly opaque; what
- * is left of a 26px rise after that is a word appearing, which is exactly what
- * Ethan reported next: "they just appear up, everything there flashes up."
+ * IT IS THE END OF THE FADE, NOT THE START. `releaseBootLayer` - which this used to read - fires when the sheet BEGINS
+ * its 160ms fade, which is the right signal for a loader (it is being handed the screen) and the wrong one for an
+ * entrance. Half the fix landed and the reader still saw the first 130ms of every word behind a sheet that was still
+ * mostly opaque; what is left of a 26px rise after that is a word appearing, which is exactly what
  *
  * Unlike `useBootLoaderSlot` this claims NO slot: a page holding the layer up
  * while waiting for the layer to go is a deadlock, and this caller is real

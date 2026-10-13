@@ -6,12 +6,10 @@ import { useT } from '../../lib/i18n'
 
 // ONE HEADER FOR EVERY GAME.
 //
-// Each mode had grown its own: the quiz round had a badge, three stacked stats
-// and a hairline bar; Guess the language had a thick brand progress bar and
-// nothing else; the two daily puzzles had neither. So five games that share a
-// page looked like five games from five different products, and the one piece
-// of chrome Ethan actually liked - the percentage bar on top of Say hello - was
-// the one that existed in a single place.
+// Each mode had grown its own: the quiz round had a badge, three stacked stats and a hairline bar; Guess the language
+// had a thick brand progress bar and nothing else; the two daily puzzles had neither. So five games that share a page
+// looked like five games from five different products, and the one piece of chrome the team actually liked - the
+// percentage bar on top of Say hello - was the one that existed in a single place.
 //
 // This is that bar, plus the three numbers worth knowing, plus the way out. Any
 // mode built later gets it by importing it.
@@ -75,13 +73,9 @@ export default function GameChrome({ icon = 'joystick', title, tag, done, total,
   return (
     // TWO ROWS, AT EVERY WIDTH.
     //
-    // Ethan, on Guess the language: "the volume button and quit seem really
-    // squashed in there." They were: one row was carrying a title, three
-    // numbers, an icon button and a text button, and on a phone the two
-    // controls ended up as a 30px huddle in the corner with no space around
-    // either. `flex-wrap` only made it worse - the row broke in a different
-    // place depending on how long the title was, so the header changed shape
-    // between games.
+    // They were: one row was carrying a title, three numbers, an icon button and a text button, and on a phone the two
+    // controls ended up as a 30px huddle in the corner with no space around either. `flex-wrap` only made it worse - the
+    // row broke in a different place depending on how long the title was, so the header changed shape between games.
     //
     // So the row is split by what the things ARE. The top line is identity and
     // the way out; the second is the three numbers you glance at while playing.
@@ -96,10 +90,9 @@ export default function GameChrome({ icon = 'joystick', title, tag, done, total,
         <p className="flex min-w-0 items-center gap-1.5 text-[13px] font-semibold leading-tight sm:gap-2 sm:text-sm">
           <Icon name={icon} className="h-4 w-4 shrink-0 text-brand" />
           <span className="min-w-0">{title}</span>
-          {/* "DAILY", AS A CHIP. It used to be part of the title as
-              "Guess the language · today", which Ethan called out - a middle dot
-              and a lowercase word reads as a subtitle that got stuck on the end
-              of a heading. The other two daily puzzles already wear a chip. */}
+          {/* "DAILY", AS A CHIP. It used to be part of the title as "Guess the language · today", which the team called
+              out - a middle dot and a lowercase word reads as a subtitle that got stuck on the end of a heading. The
+              other two daily puzzles already wear a chip. */}
           {tag && (
             <span className="shrink-0 rounded-full bg-brand-tint px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-brand">
               {tag}
@@ -151,10 +144,9 @@ function Stat({ label, value, brand, mono }) {
 
 // A FLASH OF COLOUR IS THE FASTEST FEEDBACK THERE IS.
 //
-// Ethan asked for the green and the red, and they matter more than the sound:
-// a colour lands before you have finished reading the word next to it, and it
-// works with the sound off. The whole card flashes, not just the answer, so it
-// is unmissable on a phone where the answer might be under your thumb.
+// The team asked for the green and the red, and they matter more than the sound: a colour lands before you have finished
+// reading the word next to it, and it works with the sound off. The whole card flashes, not just the answer, so it is
+// unmissable on a phone where the answer might be under your thumb.
 //
 // `key` on the wrapper is what makes it re-run per question - a class that is
 // already applied does not restart its own animation.

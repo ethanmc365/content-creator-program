@@ -1,10 +1,5 @@
 // WHAT THIS ERROR ACTUALLY MEANS, IN ENGLISH.
 //
-// Ethan: "under error monitoring you will notice it says that there are two
-// errors, I'm not sure what these errors are, the information provided doesn't
-// really help me... on that error monitoring page can you provide more info for
-// these and in future so I can really understand exactly what the issue is."
-//
 // THE PANEL WAS PRINTING THE TRUTH AND THE TRUTH WAS UNREADABLE. A row said
 // "The object can not be found here." over twelve frames of
 // `Fa@.../ui-BaIenqY-.js:4:29678`. Every one of those facts is correct and none

@@ -8,14 +8,12 @@ import { toastSuccess } from '../../lib/toast'
 import { cx, formatDate } from '../../lib/utils'
 import { money, monthLabel, nf, rate, useOptionalRpc, useVipPreview, vipRpc, useKindT } from '../../lib/vip'
 
-// THE VIP BALANCE (2 Oct 2026, migration 312).
+// THE VIP BALANCE (migration 312).
 //
-// Ethan, for the Spanish VIPs: "because we work with them with a fixed CPM ... if they don't reach 100EUR they cannot
-// transfer the money, so they accumulate it until 100EUR or ask for a travel voucher with the same amount they have at
-// the end of the month." So an approved month ADDS to a balance. Once a month, when the statement is approved, a
-// window opens: cash for the whole balance (from the threshold up), or a Tryp.com travel voucher for the whole balance
-// (any amount), or leave it to grow. The database decides every one of those rules (vip_request_payout); this page
-// shows where the creator stands and offers only what will be accepted.
+// So an approved month ADDS to a balance. Once a month, when the statement is approved, a window opens: cash for the
+// whole balance (from the threshold up), or a Tryp.com travel voucher for the whole balance (any amount), or leave it to
+// grow. The database decides every one of those rules (vip_request_payout); this page shows where the creator stands and
+// offers only what will be accepted.
 
 const ENTRY = {
   earned: { icon: 'plus', label: 'Added', tone: 'text-emerald-700' },
@@ -51,8 +49,8 @@ export function VipWallet({ onChanged }) {
   const bal = Number(w.balance) || 0
   const threshold = Number(w.threshold) || 0
   const pct = threshold > 0 ? Math.min(1, bal / threshold) : 1
-  // ANY TIME, OVER A THRESHOLD (3 Oct 2026, migration 318). Ethan: a voucher "at any time over ten euro", cash "when it's
-  // over a hundred euro". There is no window to wait for any more.
+  // ANY TIME, OVER A THRESHOLD (migration 318). The team: a voucher "at any time over ten euro", cash "when it's over a
+  // hundred euro". There is no window to wait for any more.
   const voucherMin = Number(w.voucher_min ?? 10) || 0
   const canCash = bal >= threshold && bal > 0
   const canVoucher = bal >= voucherMin && bal > 0
@@ -75,7 +73,7 @@ export function VipWallet({ onChanged }) {
     try { await vipRpc('vip_set_auto_payout', { p_on: on }); reload() } catch (e) { notice(e.message) }
   }
 
-  // A MONTH WITH NOTHING IN IT IS NOT A ROW (4 Oct 2026). Ethan: it "shows being checked for September, but obviously there was
+  // A MONTH WITH NOTHING IN IT IS NOT A ROW. The team: it "shows being checked for September, but obviously there was
   // nothing in September, so there's no need to show anything there."
   const history = (w.history || []).filter((h) => Number(h.views) > 0 || Number(h.earned) > 0)
 
@@ -242,8 +240,9 @@ function ChoiceButton({ icon, title, hint, disabled, busy, onClick, primary }) {
   )
 }
 
-// STAYING IN (2 Oct 2026; AND on 4 Oct; back to OR on 6 Oct). Ethan: keeping a VIP place is "5 videos or 1 video with 20k+ views" -
-// two roads, either is enough, drawn as two bars with "or" between them. `views` is the best single video's.
+// STAYING IN (2 Oct 2026; AND on 4 Oct; back to OR on 6 Oct). The team: keeping a VIP place is "5 videos or 1 video with
+// 20k+ views" - two roads, either is enough, drawn as two bars with "or" between them. `views` is the best single
+// video's.
 export function StayInCard({ compact = false }) {
   const tr = useKindT()
   const { data: w } = useOptionalRpc('vip_my_wallet')
@@ -251,7 +250,7 @@ export function StayInCard({ compact = false }) {
   if (!r || r.on === false) return null
   const met = !!r.met
   const views = Number(r.best_video ?? r.views ?? r.best_views) || 0
-  // SMALL, NOT THE MAIN THING (3 Oct 2026). One row: the status, and the two things to reach side by side.
+  // SMALL, NOT THE MAIN THING. One row: the status, and the two things to reach side by side.
   if (compact) {
     return (
       <section className={cx('rounded-card border bg-white px-4 py-3.5 shadow-card', met ? 'border-emerald-100' : 'border-gray-100')}>

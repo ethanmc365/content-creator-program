@@ -16,10 +16,8 @@ import { eventsApi } from '../api/events'
 // FIND A TIME: an admin proposes time slots, creators tick yes/no per slot, and
 // the admin picks the slot most people can make - no external scheduling tool.
 //
-// IT IS CALLED "FIND A TIME" EVERYWHERE NOW. The section heading said that and
-// the button said "Plan a meet", which is two names for one feature on one
-// screen. Ethan: 'the button says "plan a meet" change it to "find a time"
-// aswell.'
+// IT IS CALLED "FIND A TIME" EVERYWHERE NOW. The section heading said that and the button said "Plan a meet", which is
+// two names for one feature on one screen. The team: 'the button says "plan a meet" change it to "find a time" aswell.'
 //
 // IT IS SCOPED. A poll can be for everybody or for named markets, the same way
 // an event can (see components/calendar/MarketPicker), and creators only see
@@ -31,11 +29,9 @@ import { eventsApi } from '../api/events'
 // only exists on the calendar page is a poll only the people who already opened
 // the calendar page will answer.
 //
-// Composer: type a date and times (no native pickers - the fields auto-format
-// as you type), then "repeat until" fills the rest of the day in equal slots
-// (9:00-9:30, 9:30-10:00, ... until 16:00). Any slot can be removed before
-// posting. Voting is one row per (slot, creator) with available true/false;
-// admins see who said what.
+// Composer: type a date and times (no native pickers - the fields auto-format as you type), then "repeat until" fills
+// the rest of the day in equal slots (9:00-9:30, 9:30-10:00,... until 16:00). Any slot can be removed before posting.
+// Voting is one row per (slot, creator) with available true/false; admins see who said what.
 //
 // NOTHING IS RED OR GREEN. "Can make it" was `bg-green-600` and "Can't" was
 // `bg-red-500`, which is a traffic light on a page that has exactly two

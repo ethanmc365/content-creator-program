@@ -1,5 +1,5 @@
 // "A score was just saved on this device." Fired after every game_scores insert so the leaderboards on the page reload
-// at once instead of waiting for a realtime event (7 Oct 2026).
+// at once instead of waiting for a realtime event.
 const EVENT = 'tryp:game-score'
 
 export function announceScore() {

@@ -14,14 +14,6 @@ import { teamApi } from '../../api/team'
 
 // THE ADMIN RECORD, WHERE THE ADMIN ALREADY IS.
 //
-// Ethan: "for admins, whenever they're viewing any creator profile, clicking on
-// the creator's name should show up the details like it would if I was on the
-// admin panel, went to creators and clicked their name there. Show the little
-// pop-up that I can click on their profile or dashboard to see their contact
-// details or submissions etc, and the team note. So clicking on their name as
-// an admin brings up that pop-up, so I don't have to go into creators every
-// time I want that information."
-//
 // WHY IT IS A NEW COMPONENT AND NOT THE ADMIN MODAL MOVED. The sheet on
 // /admin/creators is welded to that page: it reads from the list's own state
 // (the roster, the market map, the emails, the activity map, all fetched in one
@@ -164,20 +156,13 @@ export default function CreatorPeek({ creator, open, onClose }) {
           </div>
         </div>
 
-        {/* ---- THEIR OWN PAGES, AS THEY SEE THEM (8 Sep 2026) ----
-            Ethan: "instead of this, it should just show up the popup with
-            everything - the popup that normally shows up when clicking on a
-            creator's profile on the creators page... so I can view their
-            dashboard, etcetera."
+        {/* ---- THEIR OWN PAGES, AS THEY SEE THEM ----
 
-            The sheet on /admin/creators has carried "Their profile / Their
-            dashboard / Their rewards" for weeks and this one had a button that
-            navigated AWAY to go and find them. So every question this popup is
-            opened to answer - what have they earned, where are they on the
-            milestones, what does their dashboard say - cost a page load and
-            losing your place, which is the exact friction that made him ask for
-            the popup in the first place ("so I don't have to go into creators
-            every time I want that information").
+            The sheet on /admin/creators has carried "Their profile / Their dashboard / Their rewards" for weeks and this
+            one had a button that navigated AWAY to go and find them. So every question this popup is opened to answer -
+            what have they earned, where are they on the milestones, what does their dashboard say - cost a page load and
+            losing your place, which is the exact friction that made them ask for the popup in the first place ("so I
+            don't have to go into creators every time I want that information").
 
             `?as=<id>` is the existing read-only mechanism - see
             components/ViewingAs. It is inert for anybody who is not an admin,

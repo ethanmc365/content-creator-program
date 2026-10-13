@@ -31,11 +31,8 @@ export function loadMyScopes() {
     // "NOBODY IS SIGNED IN YET" IS NOT "THIS PERSON IS IN NO MARKETS", AND THE
     // DIFFERENCE EMPTIED THE CHALLENGES PAGE.
     //
-    // THE BUG THIS FIXES. This returned `ids: new Set()` - an empty set, which
-    // `inScope` reads as "in scope for nothing", so every challenge carrying a
-    // `community_id` was filtered out and the page drew "No challenges yet".
-    // Ethan: "on mobile the challenges aren't appearing at all... even though on
-    // desktop it shows the live Spanish challenge and the past challenges."
+    // THE BUG THIS FIXES. This returned `ids: new Set()` - an empty set, which `inScope` reads as "in scope for
+    // nothing", so every challenge carrying a `community_id` was filtered out and the page drew "No challenges yet".
     //
     // Nothing about it was width-dependent. It is a RACE, and a phone loses it
     // far more often: `getUser()` can resolve before the session has been
@@ -84,11 +81,10 @@ export function loadMyScopes() {
 
 // THE ANSWER, ONCE IT IS KNOWN, READABLE WITHOUT AWAITING ANYTHING.
 //
-// `cache` is a PROMISE, so a page mounting for the second time still has to
-// wait a microtask for it - which is one render with `loading: true`, which is
-// one painted frame of skeleton on a page whose data is already in hand. That
-// frame is exactly the flash Ethan keeps reporting on his phone. This is the
-// settled value, so a second mount starts where the first one finished.
+// `cache` is a PROMISE, so a page mounting for the second time still has to wait a microtask for it - which is one
+// render with `loading: true`, which is one painted frame of skeleton on a page whose data is already in hand. That
+// frame is exactly the flash the team keeps reporting on their phone. This is the settled value, so a second mount
+// starts where the first one finished.
 let settled = null
 
 export function clearScopeCache() {

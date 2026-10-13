@@ -1,8 +1,7 @@
-// ONE BAR, SEVERAL SHARES, NO GAPS (1 Oct 2026).
+// ONE BAR, SEVERAL SHARES, NO GAPS.
 //
-// Ethan, on the KPI status strip: "the colours are not connected: the green and the yellow ...
-// There should be a smooth gradient connection." And on the Money page's cash / vouchers bar: "merge
-// those colours into a nice gradient to show them as still separate".
+// And on the Money page's cash / vouchers bar: "merge those colours into a nice gradient to show them as still
+// separate".
 //
 // So a split bar is ONE element whose background is a linear-gradient: each share holds its own
 // colour across most of its width, and eases into the next over a short blend either side of the
@@ -40,10 +39,9 @@ export const STATUS_HEX = {
   upcoming: '#e5e7eb',
 }
 
-// The same statuses drawn ON the orange hero card, where each has to read against #d94407..#f5853f.
-// NEVER WHITE (13 Oct 2026). Ethan: "I don't like how we have that white colour. It should never be white. The yellow
-// colour is okay, but it should be green." On track was drawn white, so a quarter going well read as an empty bar. Met
-// and on track are now both greens (met the deeper one), against a darker track.
+// The same statuses drawn ON the orange hero card, where each has to read against #d94407..#f5853f. NEVER WHITE. On
+// track was drawn white, so a quarter going well read as an empty bar. Met and on track are now both greens (met the
+// deeper one), against a darker track.
 export const STATUS_HEX_ON_BRAND = {
   met: '#10b981',
   on_track: '#6ee7b7',

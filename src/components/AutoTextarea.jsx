@@ -2,12 +2,9 @@ import { useCallback, useLayoutEffect, useRef } from 'react'
 
 // A textarea that is as tall as what is in it.
 //
-// Ethan, about the About You box: "the text box should expand when writing a
-// lot, rather than having to scroll through." He is right, and the reason is
-// that a fixed-height textarea inside a page that also scrolls gives you two
-// nested scrollers with no visible boundary between them: the wheel does one
-// thing over the box and another an inch to the left of it, and you cannot see
-// the paragraph you are editing.
+// they are right, and the reason is that a fixed-height textarea inside a page that also scrolls gives you two nested
+// scrollers with no visible boundary between them: the wheel does one thing over the box and another an inch to the left
+// of it, and you cannot see the paragraph you are editing.
 //
 // HOW IT MEASURES. Height is set to `auto` first and then to `scrollHeight`.
 // Without the reset the box can only ever grow, because scrollHeight of an
@@ -23,12 +20,10 @@ import { useCallback, useLayoutEffect, useRef } from 'react'
 // difference is a couple of pixels per line, which on a long paragraph is a
 // visible jump or a clipped last line.
 //
-// IT MEASURES A TWIN, NEVER ITSELF (8 Oct 2026). Ethan: "in the About You section, I click in, type, and then the
-// entire mobile screen starts glitching absolutely crazy". Resetting the LIVE box to `height: auto` on every
-// keystroke shrank the page for an instant; iOS Safari answers a shrinking document under a focused caret by
-// re-scrolling to keep the caret in view, and the box grew back in the same frame - once per letter. An
-// off-screen copy with the same width and type takes the collapse instead, and the visible box only ever has its
-// height written when the number actually changed.
+// IT MEASURES A TWIN, NEVER ITSELF. Resetting the LIVE box to `height: auto` on every keystroke shrank the page for an
+// instant; iOS Safari answers a shrinking document under a focused caret by re-scrolling to keep the caret in view, and
+// the box grew back in the same frame - once per letter. An off-screen copy with the same width and type takes the
+// collapse instead, and the visible box only ever has its height written when the number actually changed.
 const COPIED = ['boxSizing', 'width', 'fontFamily', 'fontSize', 'fontWeight', 'fontStyle', 'letterSpacing', 'lineHeight',
   'paddingTop', 'paddingRight', 'paddingBottom', 'paddingLeft', 'borderTopWidth', 'borderRightWidth', 'borderBottomWidth',
   'borderLeftWidth', 'borderStyle', 'textTransform', 'textIndent', 'whiteSpace', 'wordBreak', 'overflowWrap', 'hyphens', 'tabSize']

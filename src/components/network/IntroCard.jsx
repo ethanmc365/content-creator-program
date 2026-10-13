@@ -10,12 +10,11 @@ import { cx } from '../../lib/utils'
 
 // AN INTRODUCTION, DRAWN AS A MESSAGE (5 Oct 2026; first drawn as a card on 24 Sep). See lib/intro for the shape and the reasons.
 //
-// Ethan: "I do like the current style, but it looks like something that was just automated, not something someone's actually filled in. Rather
-// than being like a card inside it, it appears like an actual message, but it still has the cool flags UI ... the profile picture, the connect
-// button." So it is a MESSAGE BUBBLE now - the same shape and the same colours as every other message in the room, tail corner and all - and
-// what is inside it reads as somebody talking: their own paragraph first, then short lines that lead with a bold word the way a person would
-// write them ("Next trip: Tokyo in May"), instead of a grid of upper-case field labels with an icon each. What stays from the card is what
-// made it useful: the face, the flags, the one-line facts, and Connect and Message at the foot.
+// So it is a MESSAGE BUBBLE now - the same shape and the same colours as every other message in the room, tail corner
+// and all - and what is inside it reads as somebody talking: their own paragraph first, then short lines that lead with
+// a bold word the way a person would write them ("Next trip: Tokyo in May"), instead of a grid of upper-case field
+// labels with an icon each. What stays from the card is what made it useful: the face, the flags, the one-line facts,
+// and Connect and Message at the foot.
 //
 // IT SITS ON THE SAME GROUND AS A NORMAL BUBBLE: someone else's is the grey `bg-cloud`, your own is the brand bubble with white on it
 // (`onDark`), exactly as NetworkChat draws a plain message. The room no longer strips the bubble off for an intro.

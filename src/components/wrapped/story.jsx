@@ -47,9 +47,7 @@ export function monthShort(value) {
   return ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][d.getMonth()]
 }
 
-// ONE STEP BIGGER THAN IT WAS (21 Sep 2026). Ethan: "it looks a little bit
-// small, so I would make it a bit bigger." A handful of flags now fill the
-// card at 60px and forty still fit at 24px.
+// ONE STEP BIGGER THAN IT WAS. A handful of flags now fill the card at 60px and forty still fit at 24px.
 export function flagScale(n) {
   if (n <= 3) return 'text-6xl'
   if (n <= 6) return 'text-5xl'
@@ -62,10 +60,6 @@ export function flagScale(n) {
 
 /**
  * A distance, always as a share of the way round the Earth.
- *
- * Ethan: "rather than saying it near enough to London or Sydney or whatever
- * other phrases you add, I would rather you say what percentage of the, around
- * the earth it is or how many times around the earth."
  *
  * It used to pick between three different yardsticks depending on how far you
  * had flown - laps of the world, then London-Sydney, then laps of the M25 -
@@ -112,25 +106,16 @@ export function buildCards(data, tr = fill) {
     key: 'open', palette: 'ember', hold: 3800,
     render: () => (
       <>
-        {/* THE YEAR IS A TITLE, NOT A KICKER. Ethan: "the 2026 year in review,
-            that font at the top, I don't really like it." It was the same 11px
-            all-caps 0.22em eyebrow every other card uses - fine as a label on
-            card nine, wrong as the first thing anybody sees, where it made the
-            cover look like a slide with a breadcrumb on it. The year is set big
-            and the words sit under it. */}
-        {/* ONE LINE, NOT A STACK. Ethan: "the 2026 looks good at the top, but
-            the 'year in review' looks like it's fallen below it. Maybe put it
-            directly below it or to the right of it and say your year in review
-            in one line."
+        {/* THE YEAR IS A TITLE, NOT A KICKER. It was the same 11px all-caps 0.22em eyebrow every other card uses - fine
+            as a label on card nine, wrong as the first thing anybody sees, where it made the cover look like a slide
+            with a breadcrumb on it. The year is set big and the words sit under it. */}
+        {/* ONE LINE, NOT A STACK.
 
             It was `Your year<br />in review` set beside the year, so two small
             lines hung off a big number and the second one looked like it had
             slipped. The words now run along the baseline as one phrase. */}
-        {/* CENTRED ON THE YEAR, NOT SAT ON ITS BASELINE (21 Sep 2026). Ethan:
-            "the your year in review should be aligned with the center of the
-            2026 rather than at the bottom of it." A 13px line on a 40px
-            number's baseline hangs off the bottom of it; `items-center` puts
-            the phrase on the number's middle, where it reads as one title. */}
+        {/* CENTRED ON THE YEAR, NOT SAT ON ITS BASELINE. A 13px line on a 40px number's baseline hangs off the bottom of
+            it; `items-center` puts the phrase on the number's middle, where it reads as one title. */}
         <div data-anim="rise" className="flex flex-wrap items-center gap-x-3 gap-y-1">
           <span className="text-[34px] font-extrabold leading-none tracking-tight sm:text-[40px]">{year}</span>
           <span className="text-[13px] font-bold uppercase leading-none tracking-[0.14em] opacity-80 sm:text-sm">
@@ -210,20 +195,11 @@ export function buildCards(data, tr = fill) {
             <Eyebrow palette="mint">{tr("Where you landed")}</Eyebrow>
             <div className="flex flex-1 flex-col justify-center gap-4">
               <Hero value={travel.countries} unit={travel.countries === 1 ? tr('country') : tr('countries')} palette="mint" />
-              {/* EVERY FLAG, AT A SIZE THAT FITS HOWEVER MANY THERE ARE.
-                  Ethan: "ensure you have the capability so that it works no
-                  matter how few or how many they have... let's say they travel
-                  to 40 countries this year, make sure you have that capability
-                  to fit it nicely on the card or even if they just did one."
-                  It was a fixed text-3xl and a hard `.slice(0, 18)`, so a
-                  well-travelled creator had countries silently deleted from
-                  their own recap - the worst way to be wrong on a card whose
-                  whole point is the number above it. The size steps down
-                  instead, and nothing is dropped. */}
-              {/* THEY START AT THE LEFT AND RUN RIGHT. Ethan: "the country flags
-                  are always in the middle, but I think they should always start
-                  from the left side and then go towards the right, ensuring
-                  that you have space for a lot of countries."
+              {/* EVERY FLAG, AT A SIZE THAT FITS HOWEVER MANY THERE ARE. It was a fixed text-3xl and a hard `.slice(0,
+                  18)`, so a well-travelled creator had countries silently deleted from their own recap - the worst way
+                  to be wrong on a card whose whole point is the number above it. The size steps down instead, and
+                  nothing is dropped. */}
+              {/* THEY START AT THE LEFT AND RUN RIGHT.
 
                   `justify-center` centres the LAST row as well as the first, so
                   seven flags came out as four over three-in-the-middle - which
@@ -271,11 +247,9 @@ export function buildCards(data, tr = fill) {
   }
 
   if (travel.collabTrips > 0) {
-    // NOT `sand`. Ethan: "I don't really like the color of this one." Sand is
-    // the one near-white palette in the set, so a card about going somewhere
-    // came out paler than every card around it and read as a gap in the run.
-    // `sky` is the travel palette this recap already uses for the distance
-    // card, which also makes the two trip cards belong to each other.
+    // NOT `sand`. Sand is the one near-white palette in the set, so a card about going somewhere came out paler than
+    // every card around it and read as a gap in the run. `sky` is the travel palette this recap already uses for the
+    // distance card, which also makes the two trip cards belong to each other.
     push({
       key: 'collab', palette: 'sky', hold: 4000,
       render: () => (
@@ -286,17 +260,13 @@ export function buildCards(data, tr = fill) {
             <Line palette="sky">
               {tr("You told the community where you were going, so somebody could come with you.")}
             </Line>
-            {/* FLAGS, NOT CHIPS. Ethan: "you show Botswana, Zimbabwe, Istanbul,
-                etc. I would also show the flags here. I think it adds a nice
-                bit of color." A city knows its country in `collab_posts`; the
-                card just never asked for it. A place with no country still
-                shows - as the city on its own - because dropping somebody's
-                trip to tidy a row is the wrong trade. */}
+            {/* FLAGS, NOT CHIPS. A city knows its country in `collab_posts`; the card just never asked for it. A place
+                with no country still shows - as the city on its own - because dropping somebody's trip to tidy a row is
+                the wrong trade. */}
             {travel.collabPlaces?.length > 0 && (
-              /* BIGGER (21 Sep 2026). Ethan: "it shows the flag and the country
-                 or the city they've been to, but it looks a little bit small."
-                 A 12px chip with a 14px flag was a caption; these are the
-                 places themselves. */
+              /*
+               * BIGGER. A 12px chip with a 14px flag was a caption; these are the places themselves.
+               */
               /* AND IT STEPS DOWN WITH THE COUNT, like the flags do: four big
                  chips, or up to six smaller ones, then "and N more" - eleven
                  at full size ran off the bottom of the card. */
@@ -355,11 +325,6 @@ export function buildCards(data, tr = fill) {
 
     // TWO CARDS, BECAUSE THEY ANSWER TWO DIFFERENT QUESTIONS.
     //
-    // Ethan: "I would do one that shows your total views, so cumulative views
-    // and what percent in the community you place there. Also on best video
-    // showing like top 3%, top 50% for most views for one video and for the
-    // cumulative views."
-    //
     // "Did you post a lot that did well" and "did you make ONE that went off"
     // are not the same achievement, and a creator with three steady videos and
     // a creator with one that took off can sit in the same total-views
@@ -394,9 +359,7 @@ export function buildCards(data, tr = fill) {
         render: () => (
           <>
             <Eyebrow palette="night">{tr("Your biggest video")}</Eyebrow>
-            {/* THE FRAME IS THE CARD, NOT A STAMP ON IT. Ethan: "for that
-                preview card that shows the video thing, I would improve the
-                design - it currently looks small and crammed in just above it."
+            {/* THE FRAME IS THE CARD, NOT A STAMP ON IT.
 
                 It was a 112x160 thumbnail floated above the number: the
                 smallest thing on a screen about the biggest thing they made.
@@ -408,14 +371,9 @@ export function buildCards(data, tr = fill) {
                 card is a fixed 9:16 and a thumbnail of unknown shape must be
                 cropped INTO its slot rather than allowed to set the height, or
                 a landscape frame pushes the standing off the bottom. */}
-            {/* BIGGER, AND IT SAYS WHAT IT WAS FOR ON THE FRAME (21 Sep 2026).
-                Ethan: "improve this preview of the video even more, make it
-                even bigger, take up more space. Show the views. You can even
-                put made for Tryp.com Creative Challenge on top of it."
-                The poster is sized off the card's HEIGHT now (h-[64%] with a
-                9:16 aspect), so it is as big as the card allows on every phone
-                rather than a fixed 168px, and the challenge rides on the frame
-                as a label instead of a sentence underneath it. */}
+            {/* BIGGER, AND IT SAYS WHAT IT WAS FOR ON THE FRAME. The poster is sized off the card's HEIGHT now (h-[64%]
+                with a 9:16 aspect), so it is as big as the card allows on every phone rather than a fixed 168px, and the
+                challenge rides on the frame as a label instead of a sentence underneath it. */}
             <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-4">
               {content.best.thumbnail ? (
                 <div data-anim="zoom" className="relative aspect-[9/16] h-[88%] max-h-[500px] max-w-full shrink-0 overflow-hidden rounded-[22px] shadow-2xl ring-2 ring-white/25">
@@ -457,11 +415,8 @@ export function buildCards(data, tr = fill) {
     }
 
     if (content.wins > 0 || content.cash > 0 || content.vouchers > 0) {
-      // `mint` RATHER THAN `sand`. Ethan: "maybe also improve the design of that
-      // card. I don't really like the light color." Sand is the one pale
-      // palette in the set and it had landed on the card about being PAID,
-      // which should be the most confident screen in the run rather than the
-      // faintest.
+      // `mint` RATHER THAN `sand`. Sand is the one pale palette in the set and it had landed on the card about being
+      // PAID, which should be the most confident screen in the run rather than the faintest.
       push({
         key: 'prizes', palette: 'mint', hold: 4200,
         render: () => (
@@ -513,10 +468,9 @@ export function buildCards(data, tr = fill) {
           <div className="flex flex-1 flex-col justify-center gap-4">
             <Hero value={nf(community.messages)} unit={community.messages === 1 ? tr('message') : tr('messages')} palette="dusk" />
             <Line palette="dusk">
-              {/* The old line was "And 9 creators you had never met became
-                  connections", which Ethan wanted rewritten - it read like a
-                  stat sheet and it asserted something the data does not know
-                  (whether they had met). This says what the number is. */}
+              {/* The old line was "And 9 creators you had never met became connections", which the team wanted rewritten
+                  - it read like a stat sheet and it asserted something the data does not know (whether they had met).
+                  This says what the number is. */}
               {community.dms > 0 && community.roomMessages > 0
                 ? tr('{rooms} in the rooms and {dms} in your DMs.', { rooms: nf(community.roomMessages), dms: nf(community.dms) })
                 : community.dms > 0
@@ -564,12 +518,9 @@ export function buildCards(data, tr = fill) {
         <>
           <Eyebrow palette="night">{tr("Every morning, a puzzle")}</Eyebrow>
           <div className="flex flex-1 flex-col justify-center gap-4">
-            {/* THE STREAK GETS THE FLAME. Ethan: "showing the streak. I would
-                maybe show the streak icon on this card as well, I think it
-                could be nice." It was a number in the small facts row at the
-                bottom; a run of days without missing one is the thing a player
-                is actually proud of, so it goes above the fold with the mark
-                the rest of the platform uses for it. */}
+            {/* THE STREAK GETS THE FLAME. It was a number in the small facts row at the bottom; a run of days without
+                missing one is the thing a player is actually proud of, so it goes above the fold with the mark the rest
+                of the platform uses for it. */}
             {games.bestStreak > 1 && (
               <span className="inline-flex items-center gap-2 self-start rounded-full bg-white/15 px-3.5 py-2 text-base font-extrabold">
                 {/* The platform's OWN streak mark, not a generic icon. `Flame`
@@ -603,11 +554,8 @@ export function buildCards(data, tr = fill) {
   // ------------------------------------------------------------ your month
   if (busiest) {
     push({
-      // `ember`, the brand palette, and the third move away from `sand`. Ethan:
-      // "this color card, I just don't really love it. But I like that you're
-      // showing the best month." The month is a headline WORD rather than a
-      // figure, and a word set at 92px wants the strongest ground in the set
-      // behind it, not the palest.
+      // `ember`, the brand palette, and the third move away from `sand`. The month is a headline WORD rather than a
+      // figure, and a word set at 92px wants the strongest ground in the set behind it, not the palest.
       key: 'month', palette: 'mint', hold: 3800,
       render: () => (
         <>
@@ -646,9 +594,7 @@ export function buildCards(data, tr = fill) {
 
   // ------------------------------------------------------------- everybody
   push({
-    // TRYP ORANGE (21 Sep 2026). Ethan: "for this views together one, I would
-    // put it on a Tryp.com orange one and maybe put the best month one as the
-    // green card." The whole community's number is the brand's number.
+    // TRYP ORANGE. The whole community's number is the brand's number.
     key: 'everyone', palette: 'ember', hold: 5000,
     render: () => (
       <>
@@ -695,29 +641,19 @@ export function ShareCard({ data, className = '', style, flush = false }) {
 
   // THE STANDING BADGE IS GONE FROM THIS CARD.
   //
-  // Ethan: "rather than saying top 3% for puzzles, I don't think you should
-  // show that here."
-  //
-  // He is right and it took two passes to see why. The badge was picked as the
-  // person's STRONGEST standing, which sounds like the right rule and produces
-  // the wrong sentence: the strongest standing for most creators is the puzzle
-  // one, because the puzzles are the easiest thing in the product to be good
-  // at. So the card built to be posted - the one that is supposed to say "I am
-  // a Tryp.com creator and here is my year" - ended on a line about a daily
-  // word game. The percentiles still appear on the cards they belong to, where
-  // they are in context. This card carries the year's own numbers and the
-  // programme's name, and nothing else has to compete with them.
+  // they are right and it took two passes to see why. The badge was picked as the person's STRONGEST standing, which
+  // sounds like the right rule and produces the wrong sentence: the strongest standing for most creators is the puzzle
+  // one, because the puzzles are the easiest thing in the product to be good at. So the card built to be posted - the
+  // one that is supposed to say "I am a Tryp.com creator and here is my year" - ended on a line about a daily word game.
+  // The percentiles still appear on the cards they belong to, where they are in context. This card carries the year's
+  // own numbers and the programme's name, and nothing else has to compete with them.
 
-  // THE LAST PAGE ARRIVES LIKE THE OTHERS (21 Sep 2026). Ethan: "add in
-  // animations for the last page. There seem to be no animations there." The
-  // photo pops, the name and place rise, the numbers land one by one and the
-  // whole numbers count up. The off-screen copy that gets photographed is never
-  // animated (see YearInReview), so a saved card is always whole.
+  // THE LAST PAGE ARRIVES LIKE THE OTHERS. The photo pops, the name and place rise, the numbers land one by one and the
+  // whole numbers count up. The off-screen copy that gets photographed is never animated (see YearInReview), so a saved
+  // card is always whole.
   return (
     <Card palette="ember" footer={false} flush={flush} className={className} bodyClassName="justify-between" style={style}>
-      {/* THE PERSON IS THE HEADLINE. Ethan: "for that final card, you can
-          improve it. So perhaps make the profile picture and their name bigger
-          and the country they're in."
+      {/* THE PERSON IS THE HEADLINE.
 
           It was a 56px avatar and an 18px name in a header strip - the same
           weight as a row in a list - on the one card in the whole run that
@@ -731,12 +667,10 @@ export function ShareCard({ data, className = '', style, flush = false }) {
           picture - which is what "2026 IN REVIEW" did, into three ragged lines
           beside the avatar. `truncate` on both, and the year has its own
           corner. */}
-      {/* THE NAME GETS THE WHOLE WIDTH (21 Sep 2026). Beside an 80px photo
-          and the year chip it had about 150px, so "Maximiliana
-          Fernández-Oliveira" broke into single letters down the card - and
-          the export font, a hair wider than the screen's, made even a short
-          name lose its end ("Jacob P..."). Photo and year on one row, the
-          person on the next, wrapping by word. */}
+      {/* THE NAME GETS THE WHOLE WIDTH. Beside an 80px photo and the year chip it had about 150px, so "Maximiliana
+          Fernández-Oliveira" broke into single letters down the card - and the export font, a hair wider than the
+          screen's, made even a short name lose its end ("Jacob P..."). Photo and year on one row, the person on the
+          next, wrapping by word. */}
       <div>
         <div className="flex items-start justify-between gap-3">
           {me?.photo
@@ -773,9 +707,7 @@ export function ShareCard({ data, className = '', style, flush = false }) {
         ))}
       </div>
 
-      {/* THE REAL LOGO, AND ONE SENTENCE UNDER IT. Ethan: "I think you can say
-          Tryp.com content creator community at the bottom, and have the actual
-          Tryp.com logo on this final page somewhere."
+      {/* THE REAL LOGO, AND ONE SENTENCE UNDER IT.
 
           It was the drawn plane mark and two half-sentences at opposite ends
           of a rule - "Tryp.com" on the left, "Creator Community" on the right -
@@ -787,12 +719,9 @@ export function ShareCard({ data, className = '', style, flush = false }) {
           certificate uses on a dark paper, for the same reason. `crossOrigin`
           because `domSnapshot` has to read its pixels back out. */}
       <div data-anim="rise" className="flex items-center gap-3 border-t border-white/25 pt-4">
-        {/* NO WHITE PLATE (21 Sep 2026). Ethan: "you have the logo at the
-            bottom, but there's like a white background around it. I wouldn't
-            have that." The plate was there because the only logo file had a
-            white square baked in; `tryp-wordmark-white.svg` is the same
-            lettering cut out of that square and set in white, so it sits
-            straight on the orange. */}
+        {/* NO WHITE PLATE. The plate was there because the only logo file had a white square baked in;
+            `tryp-wordmark-white.svg` is the same lettering cut out of that square and set in white, so it sits straight
+            on the orange. */}
         <img
           src="/brand/tryp-wordmark-white.svg"
           alt="Tryp.com"
@@ -809,12 +738,6 @@ export function ShareCard({ data, className = '', style, flush = false }) {
 
 /**
  * THE MILESTONE CARD AS A ROUTE, THE SAME DRAWING AS THE MILESTONES PAGE.
- *
- * Ethan: "it shows a line with a little circle and heart on it, maybe show an
- * airplane there instead or their profile picture, because currently it's
- * misaligned... maybe show how it actually looks like the way we have that
- * design, it's like a curve, so they can see where they actually are on the
- * milestone track."
  *
  * The old card was a rail with an icon dot per row, and the dot was placed by
  * a negative left margin that only lined up at one font size. This is the
@@ -865,14 +788,10 @@ export function MilestoneRoute({ milestones = [], next = null, me }) {
   return (
     <div className="relative w-full" style={{ aspectRatio: `${ROUTE_W} / ${H}` }}>
       <svg viewBox={`0 0 ${ROUTE_W} ${H}`} className="absolute inset-0 h-full w-full overflow-visible" aria-hidden="true">
-        {/* THE LINE STOPS AT EACH STOP'S EDGE (21 Sep 2026). The next stop is
-            a hollow dashed ring, so the route used to run straight through its
-            middle - Ethan: "the dotted line should stop once it reaches it, not
-            actually go through the centre of it." A mask punches a hole the
-            size of each stop (a touch bigger than the drawn circle, so there is
-            a hair of air) out of both the dashed and the flown line. Units are
-            px-ish because the card is ~300px wide: the dot is 28px, the face
-            48px. The id is per instance so two recaps on a page do not share. */}
+        {/* THE LINE STOPS AT EACH STOP'S EDGE. The next stop is a hollow dashed ring, so the route used to run straight
+            through its middle - A mask punches a hole the size of each stop (a touch bigger than the drawn circle, so
+            there is a hair of air) out of both the dashed and the flown line. Units are px-ish because the card is
+            ~300px wide: the dot is 28px, the face 48px. The id is per instance so two recaps on a page do not share. */}
         <defs>
           <mask id={maskId} maskUnits="userSpaceOnUse" x="-20" y="-20" width={ROUTE_W + 40} height={H + 40}>
             <rect x="-20" y="-20" width={ROUTE_W + 40} height={H + 40} fill="#fff" />

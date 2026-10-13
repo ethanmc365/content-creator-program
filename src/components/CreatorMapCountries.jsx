@@ -5,14 +5,12 @@ import { BRAND_LIGHT } from './CreatorMapParts'
 
 // THE LAND IS ITS OWN MEMOISED COMPONENT, AND THAT IS A PERFORMANCE FIX.
 //
-// THE BUG THIS FIXES. `<Geographies>` takes a render prop, so its 240 country
-// paths were rebuilt on EVERY render of CreatorMap - and CreatorMap re-renders
-// a lot: `liveZoom` is set from a rAF on every frame of a pinch or a wheel, and
-// `tooltip` is set every time the pointer crosses a border. So dragging the map
-// meant reconciling 240 <Geography> elements sixty times a second, and simply
-// moving the mouse across Europe meant a full pass per country. Inside a 700px
-// card that is a warm laptop; full screen, where the same work is being done at
-// four times the pixel count, it is Ethan's "really laggy, a lot of glitching".
+// THE BUG THIS FIXES. `<Geographies>` takes a render prop, so its 240 country paths were rebuilt on EVERY render of
+// CreatorMap - and CreatorMap re-renders a lot: `liveZoom` is set from a rAF on every frame of a pinch or a wheel, and
+// `tooltip` is set every time the pointer crosses a border. So dragging the map meant reconciling 240 <Geography>
+// elements sixty times a second, and simply moving the mouse across Europe meant a full pass per country. Inside a 700px
+// card that is a warm laptop; full screen, where the same work is being done at four times the pixel count, it is the
+// team's "really laggy, a lot of glitching".
 //
 // Nothing about the land depends on the zoom or on the tooltip. Pulled out here
 // and wrapped in `memo`, it re-renders only when the atlas, the tinting or the

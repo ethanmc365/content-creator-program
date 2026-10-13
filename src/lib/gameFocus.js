@@ -7,11 +7,11 @@ import { keyboardInset } from './keyboardFollow'
 // page - the streak card, today's three puzzles and four practice modes are all
 // above them - so:
 //
-//   * pressing Play left the puzzle below the fold. Ethan: "a daily puzzle
+//   * pressing Play left the puzzle below the fold. The team: "a daily puzzle
 //     should open centred on the puzzle, no scrolling first."
 //   * with the keyboard up, the guess field could sit behind the keys, and
 //     after each wrong guess the list of past guesses grew and pushed it
-//     further down. Ethan: "the guess bar should sit just above the keyboard
+//     further down. The team: "the guess bar should sit just above the keyboard
 //     (allow for the home-screen app inset), and re-centre after each guess."
 //
 // `scrollIntoView` alone is not enough for the second one: it centres inside
@@ -19,7 +19,7 @@ import { keyboardInset } from './keyboardFollow'
 // is covering. The visual viewport is the part you can actually see, so that is
 // what these measure against.
 
-// `useOpenOnGame` WAS HERE AND IS DELETED (1 Sep 2026).
+// `useOpenOnGame` WAS HERE AND IS DELETED.
 //
 // It scrolled a game's card to the top of the viewport when the game opened,
 // and it was the reason Guess the language opened part way down its own page:
@@ -32,7 +32,7 @@ import { keyboardInset } from './keyboardFollow'
 // one that needs no measurement is the one that cannot be wrong. Do not bring
 // it back: put the scroll in the page that owns the screen.
 
-// `useKeepAboveKeyboard` WAS HERE AND IS DELETED TOO (2 Sep 2026).
+// `useKeepAboveKeyboard` WAS HERE AND IS DELETED TOO.
 //
 // It is `lib/keyboardFollow` now, installed once from AppLayout, because the
 // problem was never a games problem: the schedule dialog's date and time, a
@@ -40,21 +40,13 @@ import { keyboardInset } from './keyboardFollow'
 // symptom in the same week. One field being kept above the keyboard is a
 // property of the app.
 //
-// AND HAVING BOTH WAS ITSELF A FAULT. Two mechanisms scrolling the same page is
-// one too many - the rule this file already learnt from `useOpenOnGame` above.
-// The hook's first correction was a SMOOTH `window.scrollBy`, issued while the
-// keyboard was still animating and while the global watcher was making its own
-// instant one; the two raced, and Ethan reported the result exactly: "it kind
-// of glitchy scrolls down a bit as I'm typing, which is weird." The surviving
-// mechanism measures against the visual viewport and moves instantly.
+// AND HAVING BOTH WAS ITSELF A FAULT. Two mechanisms scrolling the same page is one too many - the rule this file
+// already learnt from `useOpenOnGame` above. The hook's first correction was a SMOOTH `window.scrollBy`, issued while
+// the keyboard was still animating and while the global watcher was making its own instant one; the two raced, and The
+// surviving mechanism measures against the visual viewport and moves instantly.
 
 /**
  * Put `ref`'s TOP just under the top of the visible area.
- *
- * Ethan, on Guess the Country: "when I type in the country and click guess, it
- * should automatically move up so that I can see all my guesses, because
- * currently the top part of the game is cut off and I can't see my previous
- * guesses or the description, time, etc."
  *
  * `useKeepAboveKeyboard` answers the opposite question - it pins the BOTTOM of
  * the form above the keys - and once a card is taller than the space left over,
@@ -67,15 +59,11 @@ export function useScrollCardIntoView(ref) {
   return useCallback(() => {
     const node = ref.current
     if (!node) return
-    // ONLY WHEN A KEYBOARD IS ACTUALLY COVERING SOMETHING (2 Sep 2026).
+    // ONLY WHEN A KEYBOARD IS ACTUALLY COVERING SOMETHING.
     //
-    // This exists because a phone's keyboard eats the top of the card. On a
-    // desktop nothing is covered, the card's head is already on screen, and
-    // "put the card's top just under the top of the visible area" therefore
-    // means "scroll the page DOWN past the puzzle heading" - on every wrong
-    // guess. Ethan: "on desktop it should always be scrolled up to the very
-    // top... after I type a word and press guess it's moving down a bit. It
-    // should never do that."
+    // This exists because a phone's keyboard eats the top of the card. On a desktop nothing is covered, the card's head
+    // is already on screen, and "put the card's top just under the top of the visible area" therefore means "scroll the
+    // page DOWN past the puzzle heading" - on every wrong guess.
     //
     // The page is where the reader left it unless a keyboard made that
     // impossible. Same test `lib/keyboardFollow` uses, so the two cannot

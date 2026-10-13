@@ -1,11 +1,4 @@
-// AN INTRODUCTION, AS DATA (24 Sep 2026).
-//
-// Ethan: "whenever they fill in the introduction, it just comes as [a block of
-// text]. It doesn't structure it very well and doesn't look great. We're not
-// actually getting that much information from them... You can pull out more
-// stats from their profile... Make it colourful, show some icons like flags for
-// places they've been to or they're interested in, and connect buttons right
-// inside the chat."
+// AN INTRODUCTION, AS DATA.
 //
 // The room draws `messages.intro` (migration 262) as a card - see
 // components/network/IntroCard. This file owns the SHAPE, so the form, the card
@@ -20,7 +13,7 @@
 //     next: { text, iso },                where they are headed
 //     ask, fact,                          two lines in their own words
 //     since, platform, fav, hack, local   added 26 Sep 2026
-//     about, more                         added 28 Sep 2026: free text, in
+//     about, more added: free text, in
 //                                         their own words, line breaks kept
 //     visited: [{ name, iso }],           from the profile's countries
 //     dreams:  [{ name, iso }],           from the profile's bucket list
@@ -32,9 +25,7 @@
 import { isoForCountryName } from './markets'
 import { COUNTRIES } from './countries'
 
-// More questions, 26 Sep 2026. Ethan: "asking more questions, getting more
-// details from them ... the more the people learn about each other, the more
-// they're likely to connect." Every one can be skipped.
+// More questions. Every one can be skipped.
 export const INTRO_SINCE = ['Just starting', 'Under a year', '1 to 3 years', '3+ years']
 export const INTRO_PLATFORMS = ['TikTok', 'Instagram', 'YouTube', 'Facebook']
 

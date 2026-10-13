@@ -150,17 +150,10 @@ export default function MarketChallenges() {
               component /challenges/:id uses, so there is one implementation and
               the two can never drift apart. */}
           <section>
-            {/* NO HEADING OVER THE LIVE BRIEF (2 Sep 2026).
-                Ethan: "when on a market, for example Spain, and then clicking
-                on the challenges tab, it shows 'Challenges in Spain' as a weird
-                subtitle below it and it looks odd. Remove it, and the subtitle
-                saying every brief run here. Just the challenge name, the
-                entries, the leaderboard, the brief."
-                The market header directly above already names the market and
-                marks the Challenges tab, so this was the page's title printed
-                twice with a strapline between the two - and the thing under it
-                is not a list of briefs, it is ONE brief rendered in full. Only
-                the admin's control was worth keeping. */}
+            {/* NO HEADING OVER THE LIVE BRIEF. The market header directly above already names the market and marks the
+                Challenges tab, so this was the page's title printed twice with a strapline between the two - and the
+                thing under it is not a list of briefs, it is ONE brief rendered in full. Only the admin's control was
+                worth keeping. */}
             {canManage && (
               <div className="mb-6 flex justify-end">
                 <Link to={`/admin/challenges/new?market=${market.slug}`} className="btn-primary !py-2.5">
@@ -206,15 +199,10 @@ export default function MarketChallenges() {
                         <span aria-hidden>•</span>
                         <span>{c.submissions?.[0]?.count ?? 0} entries</span>
                       </p>
-                      {/* THE REAL PODIUM, the same one the main challenges
-                          board draws. This was a "Won by" strip: three small
-                          faces, the first name of whoever came first and a
-                          view count. Ethan: "for the past challenges it should
-                          show the same view it does for the normal challenges
-                          page, the actual podium graphic." The assembly lives
-                          in lib/winners now so the two boards cannot drift.
-                          `pointer-events-auto` because the whole card is a
-                          link and the podium has its own targets inside it. */}
+                      {/* THE REAL PODIUM, the same one the main challenges board draws. This was a "Won by" strip: three
+                          small faces, the first name of whoever came first and a view count. The assembly lives in
+                          lib/winners now so the two boards cannot drift. `pointer-events-auto` because the whole card is
+                          a link and the podium has its own targets inside it. */}
                       {galleries[c.id] ? (
                         /* ONE PODIUM, OR ONE PER BOARD. A challenge run as two
                            leaderboards has two sets of winners, and ranks are

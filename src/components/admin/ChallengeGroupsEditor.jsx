@@ -8,12 +8,6 @@ import { cx } from '../../lib/utils'
 
 // SPLITTING ONE CHALLENGE INTO SEVERAL LEADERBOARDS.
 //
-// Ethan: "the admin creating the challenge would need to have the ability to
-// select which creators to add to each group, but also have an option to split
-// randomly, so the amount of creators would be randomly split in two groups or
-// however many groups the admin created. There would need to be prizes set for
-// each group."
-//
 // THE SPLIT IS PREVIEWED, NOT PERFORMED. "Split randomly" fills the lists in
 // this editor and changes nothing in the database until the challenge is saved.
 // That is the whole reason the deal is a pure function in lib/challengeGroups
@@ -32,17 +26,12 @@ import { cx } from '../../lib/utils'
 // a one-prize challenge does not have to state the same prize twice. See
 // `prizeForGroup`.
 //
-// AND WHEN A GROUP DOES PLAY FOR ITS OWN, IT IS A WHOLE PRIZE. It used to be a
-// pot and a winner count, which are the two REPORTING figures - derived from
-// the rows everywhere else on this form - asked for as though they were the
-// prize itself. Nothing wrote `challenge_groups.prize_structure`, so the
-// payout function (which pays from exactly that column, falling through to the
-// challenge's when it is empty) never saw a group prize at all: an admin could
-// type "300" and "3 winners" into this editor and every board would still be
-// paid the challenge's breakdown. Ethan: "it needs the actual proper data, and
-// this would need to be synced to the database and everything so it works
-// correctly." Same editor as the challenge now - see PrizeBreakdownFields -
-// and the pot, the winner count and the prize type are derived on save.
+// AND WHEN A GROUP DOES PLAY FOR ITS OWN, IT IS A WHOLE PRIZE. It used to be a pot and a winner count, which are the two
+// REPORTING figures - derived from the rows everywhere else on this form - asked for as though they were the prize
+// itself. Nothing wrote `challenge_groups.prize_structure`, so the payout function (which pays from exactly that column,
+// falling through to the challenge's when it is empty) never saw a group prize at all: an admin could type "300" and "3
+// winners" into this editor and every board would still be paid the challenge's breakdown. Same editor as the challenge
+// now - see PrizeBreakdownFields - and the pot, the winner count and the prize type are derived on save.
 
 const BLANK_GROUP = () => ({
   id: null,
@@ -110,12 +99,8 @@ export default function ChallengeGroupsEditor({ groups, onChange, audience = [],
 
   // SPLITTING MAKES TWO, NOT ONE.
   //
-  // Ethan: "if someone clicks 'split into groups', for some reason it just
-  // shows up Group A. It should obviously already show Group B, because there's
-  // going to be at least two groups, and then the ability to add more."
-  // He is right that one group is not a split - it is the same single
-  // leaderboard with a name on it, and every admin who pressed the button then
-  // had to press a second one to get to the state they had asked for.
+  // they are right that one group is not a split - it is the same single leaderboard with a name on it, and every admin
+  // who pressed the button then had to press a second one to get to the state they had asked for.
   function startGroups() {
     onChange([makeGroup(0), makeGroup(1)])
   }
@@ -150,10 +135,6 @@ export default function ChallengeGroupsEditor({ groups, onChange, audience = [],
   }
 
   // TWO ANSWERS, DRAWN AS TWO ANSWERS.
-  //
-  // Ethan: "most of the time we'll be selecting one leaderboard, so have that as
-  // the obvious button, like a big button, or just make it clear - because
-  // currently I don't like the design."
   //
   // It was a dashed empty-state panel that described the current setting in
   // grey and offered one button to change it. That is a state, not a choice:
@@ -247,18 +228,11 @@ export default function ChallengeGroupsEditor({ groups, onChange, audience = [],
             </button>
           </div>
 
-          {/* THE PRIZE IS A CHOICE BEFORE IT IS A FORM.
-              Ethan: "it's the same and same... what do you mean, type in? I
-              can't type in a prize here. It really makes no sense, so that UI
-              needs to be improved."
-              He was describing two identical-looking boxes both placeholdered
-              "Same" - which is the RULE (blank means the challenge's own prize)
-              printed where a value goes, so the fields looked pre-filled with a
-              word you could not edit, on every group, twice. The rule is a
-              question now, asked once per group, and the editor only exists
-              once the answer is "its own". Choosing "same as the challenge"
-              clears it, so a group cannot carry a prize it is no longer
-              using. */}
+          {/* THE PRIZE IS A CHOICE BEFORE IT IS A FORM. they were describing two identical-looking boxes both
+              placeholdered "Same" - which is the RULE (blank means the challenge's own prize) printed where a value
+              goes, so the fields looked pre-filled with a word you could not edit, on every group, twice. The rule is a
+              question now, asked once per group, and the editor only exists once the answer is "its own". Choosing "same
+              as the challenge" clears it, so a group cannot carry a prize it is no longer using. */}
           <div className="mt-3 flex flex-wrap items-center gap-2">
             {[
               { own: false, label: 'Same prize as the challenge' },
@@ -316,9 +290,9 @@ export default function ChallengeGroupsEditor({ groups, onChange, audience = [],
                 participationPrize={g.participation_prize ?? ''}
                 onParticipation={({ threshold, prize }) =>
                   setGroup(i, { participation_threshold: threshold, participation_prize: prize, prize_own: true })}
-                // THE GROUP'S OWN TAKING-PART REWARD, PROPERLY (1 Oct 2026): a value, cash or voucher, and videos or
-                // points - "we want to be able to do it to the points, like the way we have it set up for the global
-                // challenge". Videos-or-points is the challenge's one setting, shared by every group.
+                // THE GROUP'S OWN TAKING-PART REWARD, PROPERLY: a value, cash or voucher, and videos or points - "we
+                // want to be able to do it to the points, like the way we have it set up for the global challenge".
+                // Videos-or-points is the challenge's one setting, shared by every group.
                 groupMode
                 pointsBasisAllowed={pointsAllowed}
                 participationExtra={{
@@ -389,28 +363,15 @@ export default function ChallengeGroupsEditor({ groups, onChange, audience = [],
         </div>
       ))}
 
-      {/* NOBODY IS LEFT OUT, AND THIS IS NOW A BLOCK RATHER THAN A FOOTNOTE.
-          It read: "anyone not in a group still sees the brief and can still
-          enter... they are not competing for any group's prize." True, and the
-          wrong thing to be relaxed about. Ethan: "remove that and instead make
-          it so that if someone's not added to a group it just doesn't work.
-          Someone always has to be in a group - it doesn't have to be even, but
-          they have to be in a group. Maybe suggest that if someone isn't added,
-          maybe they forgot."
-          So it names them, offers the one-press fix, and the form refuses to
-          save while anybody is here - see `unassignedInGroups` in
-          AdminChallengeForm. The "Not in a group" board on the leaderboard
-          stays, because a challenge saved before this rule existed still has to
-          rank whoever it has.
-          IT IS BRAND, NOT RED. Ethan: "let's say I'm creating a group, and then
-          it shows up 'everyone at 44 creators not in a group'. I don't like how
-          it's red. I want it to actually match the platform colour."
-          He is right about more than the colour. Red is this platform's
-          DESTRUCTIVE tone - it is on delete, on the danger zone, and nowhere
-          else - and nothing has gone wrong here: an admin who has just pressed
-          "split into groups" has not yet dealt anybody out, so the very first
-          thing they saw was a red panel telling them off for a step they were
-          about to take. Brand orange is the "look at this" tone, which is what
+      {/* NOBODY IS LEFT OUT, AND THIS IS NOW A BLOCK RATHER THAN A FOOTNOTE. It read: "anyone not in a group still sees
+          the brief and can still enter... they are not competing for any group's prize." True, and the wrong thing to be
+          relaxed about. So it names them, offers the one-press fix, and the form refuses to save while anybody is here -
+          see `unassignedInGroups` in AdminChallengeForm. The "Not in a group" board on the leaderboard stays, because a
+          challenge saved before this rule existed still has to rank whoever it has.
+          IT IS BRAND, NOT RED. they are right about more than the colour. Red is this platform's DESTRUCTIVE tone - it
+          is on delete, on the danger zone, and nowhere else - and nothing has gone wrong here: an admin who has just
+          pressed "split into groups" has not yet dealt anybody out, so the very first thing they saw was a red panel
+          telling them off for a step they were about to take. Brand orange is the "look at this" tone, which is what
           this is, and it still blocks the save. */}
       {unassigned.length > 0 && (
         <div className="rounded-xl border border-gray-100 bg-white px-4 py-3">

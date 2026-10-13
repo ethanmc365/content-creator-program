@@ -13,9 +13,6 @@ import { contentApi } from '../../api/content'
 
 // ADDING A VIDEO THE PLATFORM HAS NEVER SEEN, AND EDITING ONE IT HAS.
 //
-// Ethan: "you can start off by doing this for the UK challenge at least... and
-// we can also use them to share with the other markets."
-//
 // Five of the seven markets are not on this platform yet - they still run on a
 // spreadsheet and WhatsApp - so a tracker that can only see `submissions` can
 // only ever show the UK. This dialog is the other door: paste a link, and the
@@ -85,15 +82,9 @@ export default function TrackedVideoSheet({ row, markets, challenges, profileId,
 
   // ASK THE PLATFORM WHAT IT KNOWS ABOUT THIS LINK.
   //
-  // Ethan: "you'll pull the views from this... and we would want the hooks for
-  // this. I wonder if you can pull these from the video, because you have the
-  // scraper already."
-  //
-  // We do, and it is the same one: `view-sync`'s PROBE mode, which resolves one
-  // pasted link and writes nothing anywhere. It returned only a view count
-  // until now; it also returns the caption, the account that posted it, a
-  // poster frame and the date (9 Sep 2026, see the `Resolved` type in that
-  // function). So this fills in five fields from one request.
+  // We do, and it is the same one: `view-sync`'s PROBE mode, which resolves one pasted link and writes nothing anywhere.
+  // It returned only a view count until now; it also returns the caption, the account that posted it, a poster frame and
+  // the date (see the `Resolved` type in that function). So this fills in five fields from one request.
   //
   // IT NEVER OVERWRITES SOMETHING A PERSON WROTE. Every field below is filled
   // only where it is currently EMPTY, because the reason somebody typed a hook
@@ -200,11 +191,9 @@ export default function TrackedVideoSheet({ row, markets, challenges, profileId,
       // TYPING A HOOK CLAIMS IT. Anything else and the next sync would quietly
       // overwrite what somebody watched the video to work out.
       hook_source: form.hook.trim() && form.hook.trim() !== (row?.hook || '') ? 'manual' : (row?.hook_source || 'auto'),
-      // THE WORDS ON THE VIDEO (12 Oct 2026). What Video Ideas shows as the
-      // hook. The sync reads them from TikTok's text stickers, but a photo
-      // slideshow or a CapCut caption has its words burned into the picture,
-      // where nothing can read them - so they can be typed here. The sync only
-      // fills an empty one, so typed words stay.
+      // THE WORDS ON THE VIDEO. What Video Ideas shows as the hook. The sync reads them from TikTok's text stickers, but
+      // a photo slideshow or a CapCut caption has its words burned into the picture, where nothing can read them - so
+      // they can be typed here. The sync only fills an empty one, so typed words stay.
       screen_text: form.screen_text.trim() || null,
       caption: form.caption.trim() || null,
       creator_name: form.creator_name.trim() || null,
@@ -379,8 +368,7 @@ export default function TrackedVideoSheet({ row, markets, challenges, profileId,
             rows={3} className={inputCls} />
         </Field>
 
-        {/* NO TAGS (30 Sep 2026). Ethan: "There's no need for the tag section on this." Tags already
-            saved on a row are kept as they are; there is simply no field for them any more. */}
+        {/* NO TAGS. Tags already saved on a row are kept as they are; there is simply no field for them any more. */}
 
         <Field label={tr('Notes for the team')} hint={tr('Why it worked, what to copy, what not to.')}>
           <AutoTextarea value={form.notes} onChange={(e) => set({ notes: e.target.value })}

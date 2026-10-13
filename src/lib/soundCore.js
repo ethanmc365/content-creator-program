@@ -22,8 +22,7 @@ let ctx = null
 // sound - which by definition follows a tap - and resumed if the browser
 // suspended it since (Safari suspends on tab hide and does not tell you).
 //
-// AND IT IS PUT BACK TO SLEEP (4 Oct 2026). Ethan: "I've noticed whenever I go on my iPhone and go to Screen Time, the app is showing up for 9
-// hours, even if I only used it for 10 minutes that day ... I think it could also be possibly draining the battery a bit."
+// AND IT IS PUT BACK TO SLEEP.
 //
 // A WebAudio context that has been resumed stays RUNNING for ever: the audio hardware stays awake with nothing playing, and on an iPhone a
 // page holding a running audio session is treated as in use even once it is out of sight. Every chime in the app resumed this one context

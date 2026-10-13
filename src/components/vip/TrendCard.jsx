@@ -5,10 +5,10 @@ import { CHART, axisTick, tooltipStyle } from '../charts/chartTheme'
 import { cx, formatViews } from '../../lib/utils'
 import { nf, shortDay, useOptionalRpc, useKindT } from '../../lib/vip'
 
-// THE VIP TREND CHART, IN A FILE OF ITS OWN (30 Sep 2026). It is the only part of the VIP screens that needs the
-// charting library, and it is used by BOTH the creator's page and the team's. A module shared by two lazy routes is
-// hoisted by the bundler into the entry chunk - which put the whole charting library on every creator's first load
-// (the bundle-graph test caught it). adminC now loads this on demand instead, so it stays out of the entry.
+// THE VIP TREND CHART, IN A FILE OF ITS OWN. It is the only part of the VIP screens that needs the charting library, and
+// it is used by BOTH the creator's page and the team's. A module shared by two lazy routes is hoisted by the bundler
+// into the entry chunk - which put the whole charting library on every creator's first load (the bundle-graph test
+// caught it). adminC now loads this on demand instead, so it stays out of the entry.
 
 const RANGES = [[3, '3 days'], [7, '7 days'], [30, '30 days'], [90, '90 days'], ['all', 'All time']]
 
@@ -21,9 +21,9 @@ export default function TrendCard({ programmeId, mine = false, title, since = nu
   const allDays = since ? Math.max(30, Math.ceil((now - new Date(since).getTime()) / 864e5) + 1) : 365
   const days = range === 'all' ? Math.min(730, allDays) : range
   const { data: fresh, missing, reload } = useOptionalRpc(mine ? 'vip_my_trends' : 'vip_trends', mine ? { p_days: days } : { p_programme: programmeId, p_days: days }, `${programmeId}:${days}`)
-  // IT KEEPS ITSELF CURRENT (6 Oct 2026). Ethan: the views-gained-each-day graph "is not updating correctly ... ensure it always updates
-  // immediately and accurately." The chart asked once and then sat there. Now it asks again when the page's own numbers move
-  // (`refreshKey`: a video was read or added), every minute, and the moment the tab is looked at again.
+  // IT KEEPS ITSELF CURRENT. The team: the views-gained-each-day graph "is not updating correctly... ensure it always
+  // updates immediately and accurately." The chart asked once and then sat there. Now it asks again when the page's own
+  // numbers move (`refreshKey`: a video was read or added), every minute, and the moment the tab is looked at again.
   useEffect(() => { if (refreshKey != null) reload() }, [refreshKey]) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     const id = setInterval(reload, 60000)
@@ -31,9 +31,8 @@ export default function TrendCard({ programmeId, mine = false, title, since = nu
     document.addEventListener('visibilitychange', vis)
     return () => { clearInterval(id); document.removeEventListener('visibilitychange', vis) }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
-  // NO JUMP BETWEEN RANGES (1 Oct 2026). Ethan: "clicking between them causes lag and the character changes size."
-  // The chart was swapped for a grey block while the next range loaded, and back. Now the last chart stays, a little
-  // faded, until the new one is here, so nothing on the card changes size.
+  // NO JUMP BETWEEN RANGES. The chart was swapped for a grey block while the next range loaded, and back. Now the last
+  // chart stays, a little faded, until the new one is here, so nothing on the card changes size.
   const [last, setLast] = useState(null)
   if (fresh && fresh !== last) setLast(fresh)
   const data = fresh ?? last ?? undefined

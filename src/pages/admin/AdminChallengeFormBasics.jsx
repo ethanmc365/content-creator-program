@@ -36,10 +36,8 @@ export default function AdminChallengeFormBasics({
           Dates were three sections further down, past scoring and prizes,
           which is a strange place for the second thing anybody decides. */}
       <div>
-        {/* STARTS AND ENDS ARE TWO BOXES, EACH HOLDING ITS OWN DATE AND TIME (30 Sep 2026).
-            Ethan, on the phone: "dates are outside boxes, some weird inconsistent jumbled
-            UI." It was four loose fields in a two-column grid, so a date sat under a time
-            that belonged to another date. Now "Starts" is one box with its date and its
+        {/* STARTS AND ENDS ARE TWO BOXES, EACH HOLDING ITS OWN DATE AND TIME. It was four loose fields in a two-column
+            grid, so a date sat under a time that belonged to another date. Now "Starts" is one box with its date and its
             time side by side, "Ends" is the next, and they stack on a phone. */}
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           {[
@@ -84,23 +82,14 @@ export default function AdminChallengeFormBasics({
           grows with what you write, and what is stored is the portable
           markdown the challenge page already renders.
 
-          ONE TOOLBAR FOR BOTH BOXES, AND IT FOLLOWS YOU DOWN.
-          Ethan: "it looks odd that it shows up heading two, heading three,
-          bold, on every one - it's a strange design. I was thinking of just
-          having it at the top, and then it works for both the rules and the
-          brief, instead of having it twice."
-          Two identical bars stacked forty lines apart is a bar you stop
-          reading as a control and start reading as a border. So there is
-          one, it is sticky under the app header, and it points at whichever
-          box the CARET is in - which is what a formatting bar has always
-          meant. `activeEditor` is literally one of the two refs; see the
-          note on `writing` for why the caret and not a focus event decides
-          which.
+          ONE TOOLBAR FOR BOTH BOXES, AND IT FOLLOWS YOU DOWN. Two identical bars stacked forty lines apart is a bar you
+          stop reading as a control and start reading as a border. So there is one, it is sticky under the app header,
+          and it points at whichever box the CARET is in - which is what a formatting bar has always meant.
+          `activeEditor` is literally one of the two refs; see the note on `writing` for why the caret and not a focus
+          event decides which.
 
-          AND H1 IS THERE NOW. Ethan: "why don't we have heading one? We
-          should have heading one as well." It was always in RichToolbar's
-          list and simply not asked for here, so a brief could carry an H2
-          and an H3 and had no title-sized heading at all. */}
+          AND H1 IS THERE NOW. It was always in RichToolbar's list and simply not asked for here, so a brief could carry
+          an H2 and an H3 and had no title-sized heading at all. */}
       <div>
         <div className="sticky top-[4.5rem] z-10 mb-3 flex items-center gap-2 rounded-xl bg-white/95 backdrop-blur">
           <RichToolbar
@@ -142,30 +131,17 @@ export default function AdminChallengeFormBasics({
           pills reading Instagram / TikTok / YouTube / Facebook is a list you
           read; four marks is a row you recognise. */}
       <div>
-        {/* "WHO IS IT FOR" IS GONE, AND IT WAS ALWAYS ANSWERED ALREADY.
-            Ethan: "the who is it for is unnecessary, because it should
-            obviously be for whatever market was selected. We don't have UGC
-            or VIP creator challenges yet, so just get rid of it
-            altogether." The market is picked at the top of this form, in a
-            section whose heading is those same four words; a second control
-            offering "UGC creators" and "VIP creators" was asking about a
-            distinction the platform does not draw. The column stays in the
-            database and saves as `general`, so nothing that reads it breaks
-            and the option can come back if those tiers ever exist.
+        {/* "WHO IS IT FOR" IS GONE, AND IT WAS ALWAYS ANSWERED ALREADY. The market is picked at the top of this form, in
+            a section whose heading is those same four words; a second control offering "UGC creators" and "VIP creators"
+            was asking about a distinction the platform does not draw. The column stays in the database and saves as
+            `general`, so nothing that reads it breaks and the option can come back if those tiers ever exist.
 
-            "WHAT KIND OF VIDEO" WENT THE SAME WAY (21 Sep 2026). Ethan: "I
-            don't think it's necessary at all... just have the platforms you
-            can post on." The column keeps its default so analytics still
-            reads it. */}
-        {/* THE REAL MARKS, IN THEIR REAL COLOURS.
-            Ethan: "the grey icons - I'd like the actual colourful social
-            media icons here." `PlatformBadges` draws every mark grey in a
-            grey disc, which is right on a leaderboard row where four of
-            them sit beside a name and wrong here, where each one IS the
-            choice you are making. `SocialMark colored` is the same set of
-            marks the profile already uses, in the platforms' own colours
-            (and Instagram's actual gradient), so this is the app's existing
-            answer rather than a fifth drawing of a TikTok note.
+            "WHAT KIND OF VIDEO" WENT THE SAME WAY. The column keeps its default so analytics still reads it. */}
+        {/* THE REAL MARKS, IN THEIR REAL COLOURS. `PlatformBadges` draws every mark grey in a grey disc, which is right
+            on a leaderboard row where four of them sit beside a name and wrong here, where each one IS the choice you
+            are making. `SocialMark colored` is the same set of marks the profile already uses, in the platforms' own
+            colours (and Instagram's actual gradient), so this is the app's existing answer rather than a fifth drawing
+            of a TikTok note.
             THE COLOUR SURVIVES THE SELECTION. A picked pill is brand orange
             now, and a coloured mark on orange still reads - it is the mark
             that identifies the row, so draining it on the pill you have

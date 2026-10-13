@@ -79,10 +79,8 @@ export const METRICS = [
 
 export const METRIC_BY_VALUE = Object.fromEntries(METRICS.map((m) => [m.value, m]))
 
-// A STOP CAN GIVE SEVERAL THINGS (26 Sep 2026, migration 267). Ethan: "give a
-// new title as a reward and also a watch as a reward ... Also, add merch."
-// The title and the voucher are columns the engine pays by itself; everything
-// physical is an ITEM ({ kind, label }) the team sends and ticks off.
+// A STOP CAN GIVE SEVERAL THINGS (migration 267). The title and the voucher are columns the engine pays by itself;
+// everything physical is an ITEM ({ kind, label }) the team sends and ticks off.
 export const REWARD_PARTS = [
   { value: 'role', label: 'New title', icon: 'star' },
   { value: 'voucher', label: 'Voucher', icon: 'ticket' },
@@ -217,12 +215,10 @@ export function milestoneFraction(m) {
 /**
  * Reading a whole ladder in one go, so every surface agrees on where somebody is.
  *
- * `next` is the first stop NOT reached, which - because the stops are gated in
- * order - is always the one actually being worked towards. `blocked` are stops
- * whose own numbers are already met but which are waiting on an earlier one:
- * that is the state Ethan described, where a creator is past 100,000 views but
- * has not referred anybody, and it is worth naming rather than showing as an
- * unlit dot with no explanation.
+ * `next` is the first stop NOT reached, which - because the stops are gated in order - is always the one actually being
+ * worked towards. `blocked` are stops whose own numbers are already met but which are waiting on an earlier one: that is
+ * the state the team described, where a creator is past 100,000 views but has not referred anybody, and it is worth
+ * naming rather than showing as an unlit dot with no explanation.
  */
 export function routeState(rows = []) {
   const list = rows || []

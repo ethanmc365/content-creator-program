@@ -16,13 +16,10 @@ import { profilesApi } from '../api/profiles'
 
 // Session or profile still resolving.
 //
-// THE LAST FULL-SCREEN LOADER IN THE SIGNED-IN APP, AND IT IS A SKELETON NOW
-// (4 Sep 2026). Ethan: "I don't want a loading screen, only the skeleton layout
-// loading." This guard sits ABOVE `AppLayout`, so when it drew `AppLoader` the
-// entire app - header, tab bar, page - was replaced by a white screen with a
-// flying plane and the word "Loading". Every other transition in the product
-// had already been taken off that; these guards were the last ones, and they are
-// the ones most likely to fire on a phone that has just been woken up.
+// THE LAST FULL-SCREEN LOADER IN THE SIGNED-IN APP, AND IT IS A SKELETON NOW. This guard sits ABOVE `AppLayout`, so when
+// it drew `AppLoader` the entire app - header, tab bar, page - was replaced by a white screen with a flying plane and
+// the word "Loading". Every other transition in the product had already been taken off that; these guards were the last
+// ones, and they are the ones most likely to fire on a phone that has just been woken up.
 //
 // `RouteSkeleton` keeps the same contract `AppLoader` had - it draws NOTHING
 // while `index.html`'s own layer owns the screen and holds that layer up until
@@ -41,11 +38,9 @@ async function signOutAndGoHome(signOut) {
 // Shown while a new creator's application is awaiting review, and it is the
 // SAME CARD the onboarding form finishes on - see components/SubmittedCard.
 //
-// It used to be a branded flying-plane scene, and so did the screen Onboarding
-// drew while the save was in flight, so applying meant watching two full-screen
-// animations with a navigation between them. Ethan: "I would just skip that
-// automated plane page and jump to the page that says application submitted."
-// One card, one state change, nothing flies.
+// It used to be a branded flying-plane scene, and so did the screen Onboarding drew while the save was in flight, so
+// applying meant watching two full-screen animations with a navigation between them. One card, one state change, nothing
+// flies.
 function ReviewPending({ signOut }) {
   return <SubmittedCard pending onSignOut={() => signOutAndGoHome(signOut)} />
 }

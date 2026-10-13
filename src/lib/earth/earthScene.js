@@ -1,12 +1,11 @@
 import { geoArea, geoBounds, geoCentroid, geoDistance, geoGraticule10, geoInterpolate, geoOrthographic, geoPath } from 'd3-geo'
 
-// THE TURNING EARTH, AS A SCENE THAT DOES NOT CARE WHERE IT RUNS (1 Oct 2026).
+// THE TURNING EARTH, AS A SCENE THAT DOES NOT CARE WHERE IT RUNS.
 //
-// Ethan: "the entire platform is super laggy... Let me know if the worldwide map with the animations in the background
-// and the Europe map is really slowing the whole platform down." It was. The Earth redrew all 240 countries of the
-// atlas sixty times a second ON THE MAIN THREAD - the thread that also scrolls the page, runs every other animation
-// and answers every tap - and each market card ran a second loop of its own. Two or three of those on the Challenges
-// page was most of a phone's frame budget gone before the page did anything.
+// It was. The Earth redrew all 240 countries of the atlas sixty times a second ON THE MAIN THREAD - the thread that also
+// scrolls the page, runs every other animation and answers every tap - and each market card ran a second loop of its
+// own. Two or three of those on the Challenges page was most of a phone's frame budget gone before the page did
+// anything.
 //
 // The drawing lives here so it can run in a Web Worker on an OffscreenCanvas (lib/earth/earthWorker.js), where it
 // cannot hold up anything the reader touches. Browsers without OffscreenCanvas run the same scene on the main thread,

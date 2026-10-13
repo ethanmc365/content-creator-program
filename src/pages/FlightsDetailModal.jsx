@@ -86,13 +86,7 @@ export default function FlightsDetailModal({
             ))}
           </div>
 
-          {/* ONLY A TRIP THAT HAS NOT HAPPENED CAN BE POSTED (1 Sep 2026).
-
-              Ethan: "I seemed to be able to log a past flight and then click
-              edit and then it shows up a weird icon saying share to collab
-              board and I pressed it and it then shared it and it appeared as
-              a past trip. Remember only current or future trips logged on
-              flight log should get a popup saying post to collab board."
+          {/* ONLY A TRIP THAT HAS NOT HAPPENED CAN BE POSTED.
 
               The rule was already right in ONE of the two places that offer
               this - the post-save offer checks `upcoming` - and completely

@@ -9,11 +9,7 @@ import { windowPhrase, wholeDays } from '../../lib/boostWindow'
 import { DateField, TimeField } from '../DateTimeFields'
 import { challengesApi } from '../../api/challenges'
 
-// POINT BOOSTS (4 Oct 2026, migration 334).
-//
-// Ethan: "Whenever there is an editing challenge, I could add in double points for a specific day and time frame, like 3 hours or whatever,
-// or triple points or something crazy, to really get people actually posting videos ... It would just be double points for everything
-// related to that specific video ... It could also set a maximum points gain from this, in case people exploit it."
+// POINT BOOSTS (migration 334).
 //
 // A boost is a window (when it starts, how long it runs), a multiplier, and an optional ceiling on the EXTRA points one creator can gain from
 // it. Every video entered inside the window earns that many times what it would have: the per-video points and everything tied to the video
@@ -29,7 +25,7 @@ const mult = (n) => `x${String(Number(n)).replace(/\.0+$/, '')}`
 export default function BoostsEditor({ challengeId }) {
   const { profile } = useAuth()
   const [rows, setRows] = useState(undefined)
-  // `true` for a new boost, a row to edit one (7 Oct 2026: Ethan could only delete a boost and make it again).
+  // `true` for a new boost, a row to edit one (7 Oct 2026: the team could only delete a boost and make it again).
   const [open, setOpen] = useState(null)
   const load = useCallback(async () => {
     const { data } = await challengesApi.challengeBoosts().select('*').eq('challenge_id', challengeId).order('starts_at', { ascending: false })
@@ -92,7 +88,7 @@ function BoostModal({ challengeId, userId, boost, onClose, onSaved }) {
   const known = boost ? MULTS.includes(Number(boost.multiplier)) : true
   const [m, setM] = useState(boost && known ? Number(boost.multiplier) : 2)
   const [custom, setCustom] = useState(boost && !known ? String(Number(boost.multiplier)) : '')
-  // WHOLE DAYS OR HOURS (7 Oct 2026). Most boosts are "Thursday" or "Thursday and Friday", so days come first.
+  // WHOLE DAYS OR HOURS. Most boosts are "Thursday" or "Thursday and Friday", so days come first.
   const [byDays, setByDays] = useState(boost ? !!initialDays : true)
   const today = new Date()
   const [fromDay, setFromDay] = useState(initialDays ? ymd(initialDays[0]) : ymd(today))
@@ -150,8 +146,8 @@ function BoostModal({ challengeId, userId, boost, onClose, onSaved }) {
           </div>
           {byDays ? (
             <div className="grid grid-cols-2 gap-3">
-              {/* The platform's own date boxes, not the browser's calendar (12 Oct 2026). A half-typed date emits '' and is
-                  ignored, so the window never goes blank while somebody is typing. */}
+              {/* The platform's own date boxes, not the browser's calendar. A half-typed date emits '' and is ignored,
+                  so the window never goes blank while somebody is typing. */}
               <DateField id="boost-from" label="From" value={fromDay} onChange={(v) => { if (!v) return; setFromDay(v); if (v > toDay) setToDay(v) }} />
               <DateField id="boost-to" label="Until the end of" value={toDay} min={fromDay} onChange={(v) => { if (v) setToDay(v) }} />
             </div>

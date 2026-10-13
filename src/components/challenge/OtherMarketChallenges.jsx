@@ -7,15 +7,7 @@ import Icon from '../Icon'
 import { openJoinMarket } from '../network/JoinMarket'
 import { marketsApi } from '../../api/markets'
 
-// WHAT THE OTHER MARKETS ARE RUNNING (1 Oct 2026).
-//
-// Ethan: "for creators in the UK community they should be able to scroll down
-// and above archived it should show the Portugal and Spanish challenge but
-// greyed out, this is just to show that there are other challenges running.
-// And clicking on it should show a popup ... to request to join a market and
-// say why you would like to create content for that market and take part in
-// that challenge. All admins, anyone on the Tryp.com team should be able to go
-// in and view other challenges as they could learn from them."
+// WHAT THE OTHER MARKETS ARE RUNNING.
 //
 // A creator cannot read another market's live challenge (RLS, rightly), so the
 // window comes from `other_market_challenges()` (migration 308): title, market,
@@ -100,7 +92,7 @@ export default function OtherMarketChallenges({ staffRows = null, communities = 
             <button
               key={c.id}
               type="button"
-              // ONE SHEET FOR EVERY REQUEST (12 Oct 2026): the same questions (language, ties, a real reason) wherever it is asked.
+              // ONE SHEET FOR EVERY REQUEST: the same questions (language, ties, a real reason) wherever it is asked.
               onClick={() => openJoinMarket(c.community_id)}
               // GREYED, NOT HIDDEN: it is somebody else's challenge, shown so
               // you know it exists. Full colour comes back on hover/press so the

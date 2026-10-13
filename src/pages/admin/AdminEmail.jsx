@@ -10,14 +10,7 @@ import { vipApi } from '../../api/vip'
 import { profilesApi } from '../../api/profiles'
 import { teamApi } from '../../api/team'
 
-// The email page. NOTHING ON IT SENDS AN EMAIL ANY MORE (3 Sep 2026).
-//
-// Ethan: "for now, all email automations will be paused. Email will be done
-// manually, because we're gonna set up the DNS record at a later time. Obviously
-// we still want the email admin panel thing so I have the ability to copy all
-// emails - but the welcome email etc, that should be abolished. Although I'll
-// still have the option to copy all the emails and then send a custom welcome
-// email myself."
+// The email page. NOTHING ON IT SENDS AN EMAIL ANY MORE.
 //
 // The platform's outbound mail was already down to two jobs after a run of
 // near-identical messages out of a shared mailbox got it flagged as a bulk
@@ -28,7 +21,7 @@ import { teamApi } from '../../api/team'
 //                        receiving it, and pausing it locks people out.
 //   2. Welcome emails    still QUEUED when a creator is accepted, because the
 //                        queue is the worklist. But the queue now hands the
-//                        message to Ethan's own Gmail with everything filled
+//                        message to the team's own Gmail with everything filled
 //                        in, and he presses send. See lib/compose.
 //
 // WHY THE QUEUE SURVIVED THE "ABOLISH IT". The thing to abolish was the
@@ -38,8 +31,7 @@ import { teamApi } from '../../api/team'
 // made it untracked - and "did we ever welcome that creator" has no answer
 // anywhere else.
 //
-// The old `send-welcome` and `broadcast-email` edge functions were retired on
-// 13 Oct 2026 (deleted from Supabase and from this repo).
+// The old `send-welcome` and `broadcast-email` edge functions were retired (deleted from Supabase and from this repo).
 
 export default function AdminEmail() {
   const [people, setPeople] = useState([])   // creators, with their address
@@ -141,10 +133,7 @@ export default function AdminEmail() {
           )}
           </div>
           <AddressBook creators={creators} team={team} scoped={paid ? !!programme : !!market} group={group} />
-          {/* THE WELCOME QUEUE IS HIDDEN, NOT DELETED (4 Sep 2026).
-              Ethan: "remove the welcome emails thing from the email admin tool -
-              there are no more automatic emails for now, so hide it for now,
-              don't have to delete it all."
+          {/* THE WELCOME QUEUE IS HIDDEN, NOT DELETED.
 
               It is a to-do list for mail nobody is currently sending: outbound
               email is paused until mail.tryp.com exists (see the DNS work in
@@ -175,11 +164,9 @@ const SHOW_WELCOME_QUEUE = false
 // ---------------------------------------------------------------------------
 // THE ADDRESS BOOK.
 //
-// This was one button that copied 45 addresses in a lump. It is the way the
-// programme reaches anybody by email - the platform deliberately sends to one
-// person at a time - and a lump is the wrong shape for most of what it gets
-// used for. Ethan asked for the three things it was missing, and they are all
-// the same complaint: you could not take a SUBSET.
+// This was one button that copied 45 addresses in a lump. It is the way the programme reaches anybody by email - the
+// platform deliberately sends to one person at a time - and a lump is the wrong shape for most of what it gets used for.
+// The team asked for the three things it was missing, and they are all the same complaint: you could not take a SUBSET.
 //
 //   * A copy button per creator, because the common case is mailing ONE of
 //     them and the address was not written down anywhere you could reach.
@@ -392,11 +379,9 @@ function AddressBook({ creators, team, scoped, group }) {
 // ---------------------------------------------------------------------------
 // THE WELCOME QUEUE, WHICH NO LONGER SENDS ANYTHING.
 //
-// Every accepted creator still lands here - see the note at the head of this
-// file for why the list is worth keeping even though the sending is not. What
-// changed is the last press: "Send welcome email" called an edge function and
-// the platform mailed them; "Open in Gmail" fills in Ethan's own compose window
-// and he sends it himself.
+// Every accepted creator still lands here - see the note at the head of this file for why the list is worth keeping even
+// though the sending is not. What changed is the last press: "Send welcome email" called an edge function and the
+// platform mailed them; "Open in Gmail" fills in the team's own compose window and he sends it himself.
 //
 // MARKING IT SENT IS A SEPARATE PRESS, ON PURPOSE. Opening a compose window is
 // not evidence that anybody sent anything - the tab can be closed, the popup can

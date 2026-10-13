@@ -2,11 +2,8 @@ import { useEffect } from 'react'
 
 // KEEPING THE BOTTOM TAB BAR ON THE BOTTOM, FOR THE THIRD TIME.
 //
-// THE REPORT, three times now, most recently 15 Sep 2026. Ethan: "the bottom
-// tab bar 'worldwide, challenges, etc' appears to move up the screen as
-// scrolling, covering what's on screen. This should obviously never move from
-// the bottom so I don't know why it's happening." With, this time, the piece
-// that had been missing from the first two reports:
+// THE REPORT, three times now, most recently. With, this time, the piece that had been missing from the first two
+// reports:
 //
 //     "whenever I switch apps, like go from Apple notes to the CCC app and
 //      scroll, the glitch appears."
@@ -101,11 +98,11 @@ export function usePinnedToBottom(ref, slidAway = false) {
     const check = () => {
       const node = ref.current
       if (!node) return
-      // NOT WHILE THE KEYBOARD IS UP (8 Oct 2026). The bar is deliberately parked below the fold then, and on
-      // iOS innerHeight follows the keyboard while a fixed element stays on the layout viewport, so "expected"
-      // was a moving target: every caret move scrolled, every scroll re-pinned, every re-pin forced a reflow.
-      // Typing into Edit profile on a phone made the whole screen shake. The bar is checked again the moment
-      // the keyboard closes (slidAway changes, the effect re-runs, `soon()` fires).
+      // NOT WHILE THE KEYBOARD IS UP. The bar is deliberately parked below the fold then, and on iOS innerHeight follows
+      // the keyboard while a fixed element stays on the layout viewport, so "expected" was a moving target: every caret
+      // move scrolled, every scroll re-pinned, every re-pin forced a reflow. Typing into Edit profile on a phone made
+      // the whole screen shake. The bar is checked again the moment the keyboard closes (slidAway changes, the effect
+      // re-runs, `soon()` fires).
       if (slidAway) return
       // A bar that is not being drawn cannot be out of place, and measuring it
       // would report zeroes and "correct" them for ever.
@@ -129,10 +126,9 @@ export function usePinnedToBottom(ref, slidAway = false) {
       timer = setTimeout(once, 32)
     }
 
-    // COMING BACK TO THE APP IS RE-PINNED WITHOUT ASKING. This is the signal
-    // Ethan named, it costs one reflow, and it happens at a moment when the
-    // browser is relaying out the whole page anyway - so the measurement that
-    // would decide whether to bother is worth less than the certainty.
+    // COMING BACK TO THE APP IS RE-PINNED WITHOUT ASKING. This is the signal the team named, it costs one reflow, and it
+    // happens at a moment when the browser is relaying out the whole page anyway - so the measurement that would decide
+    // whether to bother is worth less than the certainty.
     //
     // It is also the case a measurement can MISS: the layout viewport is often
     // still the old one at the instant `visibilitychange` fires, so the bar
@@ -148,11 +144,11 @@ export function usePinnedToBottom(ref, slidAway = false) {
 
     const onVisible = () => { if (document.visibilityState === 'visible') onReturn() }
 
-    // WHILE A FINGER IS SCROLLING, DO NOTHING; LOOK ONCE IT HAS SETTLED (9 Oct 2026). This used to measure the bar on every
-    // frame of a scroll - a getBoundingClientRect (a forced layout) per frame - and, on iOS where innerHeight moves as the
-    // toolbars collapse, re-pinned it (display:none + a forced reflow) in the middle of the gesture. On a long page that is
-    // the "whole screen lags and glitches as I scroll" Ethan reported on Edit profile. A bar that has come loose is still
-    // found, one quiet 140ms after the scrolling stops, which is when a person could see it anyway.
+    // WHILE A FINGER IS SCROLLING, DO NOTHING; LOOK ONCE IT HAS SETTLED. This used to measure the bar on every frame of
+    // a scroll - a getBoundingClientRect (a forced layout) per frame - and, on iOS where innerHeight moves as the
+    // toolbars collapse, re-pinned it (display:none + a forced reflow) in the middle of the gesture. On a long page that
+    // is the "whole screen lags and glitches as I scroll" the team reported on Edit profile. A bar that has come loose
+    // is still found, one quiet 140ms after the scrolling stops, which is when a person could see it anyway.
     let settle = 0
     const afterScroll = () => { clearTimeout(settle); settle = setTimeout(soon, 140) }
     window.addEventListener('scroll', afterScroll, { passive: true })

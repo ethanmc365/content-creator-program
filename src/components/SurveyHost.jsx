@@ -11,18 +11,12 @@ import { cx } from '../lib/utils'
 import { useT } from '../lib/i18n'
 import { contentApi } from '../api/content'
 
-// A SURVEY, POPPED UP (30 Sep 2026, migration 291; rebuilt 1 Oct 2026, migration 293).
+// A SURVEY, POPPED UP (migration 291; rebuilt, migration 293).
 //
-// Ethan: "I would also much improve the preview of it and maybe have it more like the recap card with
-// that cool, engaging design and clean animations, rather than just a boring form style ... We can
-// say, 'Hey, their name,' in the actual pop-up ... It should just automatically keep asking until the
-// answer, or if they select 'I don't want to take part' ... say something like, 'This really helps
-// us' ... but they can still always click no."
-//
-// So it is a CARD, not a form: an orange header that greets the creator by name, one question at a
-// time with a progress bar across the top, big answers to tap, and a thank-you at the end. There is NO
-// CLOSE BUTTON (2 Oct 2026): they take part, or they say "No thanks". It comes back the next time the
-// app opens until it is answered or declined. Declining asks once more, kindly, and then takes the no.
+// So it is a CARD, not a form: an orange header that greets the creator by name, one question at a time with a progress
+// bar across the top, big answers to tap, and a thank-you at the end. There is NO CLOSE BUTTON: they take part, or they
+// say "No thanks". It comes back the next time the app opens until it is answered or declined. Declining asks once more,
+// kindly, and then takes the no.
 //
 // STRUCTURED WITH THE OTHER ASKS, NOT ON TOP OF THEM. It joins the same one-at-a-time queue as the
 // home-screen, notifications and bank-details prompts (lib/appNag), last in line, and never while the
@@ -64,12 +58,12 @@ export default function SurveyHost() {
   return <SurveyModal survey={survey} onDone={close} />
 }
 
-/** The survey as a dialog over the app. Used by the pop-up and by the Feedback page.
+/**
+ * The survey as a dialog over the app. Used by the pop-up and by the Feedback page.
  *
- *  NO WAY OUT BUT AN ANSWER (2 Oct 2026). Ethan: "They shouldn't have that X button at all. There should
- *  be no X button. They can either just say 'No thanks' or 'Continue.'" So there is no close button and
- *  Escape does nothing: the card leaves when they take part and finish, or say no. It leaves the way it
- *  came - the scrim fades and the card sinks - instead of vanishing. */
+ *  NO WAY OUT BUT AN ANSWER. So there is no close button and Escape does nothing: the card leaves when they take part
+ *  and finish, or say no. It leaves the way it came - the scrim fades and the card sinks - instead of vanishing.
+ */
 export function SurveyModal({ survey, onDone, preview = false, dismissible = false }) {
   const [leaving, setLeaving] = useState(false)
   useEffect(() => lockScroll(), [])
@@ -144,8 +138,8 @@ export function SurveyCard({ survey, onDone = () => {}, preview = false, stage: 
     setBusy('')
     if (ok) setStage('sent')
   }
-  // "No thanks" CLOSES THE SURVEY (2 Oct 2026). In the pop-up it records the no and the card leaves; in
-  // the builder's preview it closes the preview the same way, so the team sees what a creator sees.
+  // "No thanks" CLOSES THE SURVEY. In the pop-up it records the no and the card leaves; in the builder's preview it
+  // closes the preview the same way, so the team sees what a creator sees.
   async function decline() {
     setBusy('decline')
     const ok = await write({ declined: true, answers: {} })
@@ -301,9 +295,8 @@ export function SurveyCard({ survey, onDone = () => {}, preview = false, stage: 
   )
 }
 
-// A SINGLE STAR, FILLED WITH A GRADIENT (2 Oct 2026). Gold to amber to the brand orange, so a chosen
-// star reads warm and alive rather than as a flat orange block. `gid` ties it to the gradient the row
-// defines once.
+// A SINGLE STAR, FILLED WITH A GRADIENT. Gold to amber to the brand orange, so a chosen star reads warm and alive rather
+// than as a flat orange block. `gid` ties it to the gradient the row defines once.
 const STAR = 'M11.48 3.499a.562.562 0 0 1 1.04 0l2.125 5.111a.563.563 0 0 0 .475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 0 0-.182.557l1.285 5.385a.562.562 0 0 1-.84.61l-4.725-2.885a.563.563 0 0 0-.586 0L6.982 20.54a.562.562 0 0 1-.84-.61l1.285-5.386a.562.562 0 0 0-.182-.557l-4.204-3.602a.563.563 0 0 1 .321-.988l5.518-.442a.563.563 0 0 0 .475-.345L11.48 3.5Z'
 const SPARKS = Array.from({ length: 8 }, (_, k) => {
   const a = (k / 8) * Math.PI * 2
@@ -329,11 +322,12 @@ function RatingAnswer({ q, value, onChange }) {
       </svg>
       <div className="flex items-center justify-between gap-1" role="radiogroup" aria-label={q.prompt} onMouseLeave={() => setHover(0)}>
         {[1, 2, 3, 4, 5].map((n) => {
-          // THREE STATES, NO LOOP (4 Oct 2026). Ethan: the stars "constantly go from smaller to bigger, and some of them lose their colour
-          // and appear in their colour again". Two causes: every empty star pulsed forever (`survey-twinkle`), and a star's element was
-          // swapped for a new one whenever it changed state, so it blinked. Now an empty star is still; the gold star is a layer ABOVE
-          // a grey one and only its opacity changes, so brightening is a cross-fade that cascades from the first star to the last. A
-          // hovered star shows the gold at 55%, a chosen one at full strength, and only the star you press pops.
+          // THREE STATES, NO LOOP. The team: the stars "constantly go from smaller to bigger, and some of them lose
+          // their colour and appear in their colour again". Two causes: every empty star pulsed forever
+          // (`survey-twinkle`), and a star's element was swapped for a new one whenever it changed state, so it blinked.
+          // Now an empty star is still; the gold star is a layer ABOVE a grey one and only its opacity changes, so
+          // brightening is a cross-fade that cascades from the first star to the last. A hovered star shows the gold at
+          // 55%, a chosen one at full strength, and only the star you press pops.
           const chosen = (value || 0) >= n
           const lit = shown >= n
           const bright = chosen && (!hover || hover >= n) ? 1 : lit ? 0.55 : 0
@@ -416,10 +410,9 @@ function ScaleAnswer({ q, value, onChange }) {
   )
 }
 
-// YES AND NO, WITH THEIR MARKS DRAWN (2 Oct 2026). Ethan: "there seems to be something weird with the
-// animations and style" when picking one. The old buttons toggled their background, border and scale
-// all at once and fought their own hover lift. Now the colour is a layer that fades in, the tick or
-// cross is drawn as a stroke, the other answer steps back, and a ripple leaves the one that was chosen.
+// YES AND NO, WITH THEIR MARKS DRAWN. when picking one. The old buttons toggled their background, border and scale all
+// at once and fought their own hover lift. Now the colour is a layer that fades in, the tick or cross is drawn as a
+// stroke, the other answer steps back, and a ripple leaves the one that was chosen.
 function YesNoAnswer({ q, value, onChange }) {
   const tr = useT()
   const opts = [['yes', tr('Yes'), 'M5 12.5l4.5 4.5L19 7.5', 24], ['no', tr('No'), 'M6 6l12 12M18 6L6 18', 34]]

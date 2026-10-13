@@ -7,8 +7,8 @@ vi.mock('../../context/AuthContext', () => ({ useAuth: () => ({ isAdmin: true, p
 
 const { ApplicationCard } = await import('./AdminApplications')
 
-// "Whenever I click on the travel photos it doesn't do anything" (24 Sep 2026).
-// Each photo is a button that asks the page to open the viewer at ITS index.
+// "Whenever I click on the travel photos it doesn't do anything". Each photo is a button that asks the page to open the
+// viewer at ITS index.
 describe('ApplicationCard travel photos', () => {
   it('opens the pressed photo, and the +N tile opens the ninth', () => {
     const onZoomPhoto = vi.fn()

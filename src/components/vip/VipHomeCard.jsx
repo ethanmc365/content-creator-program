@@ -8,9 +8,8 @@ import { useAuth } from '../../context/AuthContext'
 import { cx, formatViews } from '../../lib/utils'
 import { vipApi } from '../../api/vip'
 
-// A VIP's own month on their Worldwide page (2 Oct 2026): what it has earned so far and a way in, under the
-// community card.
-// Nothing is drawn for anybody who is not a VIP, and nothing is fetched either.
+// A VIP's own month on their Worldwide page: what it has earned so far and a way in, under the community card. Nothing
+// is drawn for anybody who is not a VIP, and nothing is fetched either.
 export default function VipHomeCard({ delay = 0, inCard = false, className = '' }) {
   const { profile, isAdmin } = useAuth()
   // Outside the VIP page, so the kind comes from the creator's own profile (official creators read their own words).
@@ -19,14 +18,10 @@ export default function VipHomeCard({ delay = 0, inCard = false, className = '' 
   const { overview } = useVipOverview({ enabled: on })
   if (!on || !overview) return null
   const { stats, month, programme } = overview
-  // INSIDE THE COMMUNITY CARD (3 Oct 2026). Ethan: "we have the Tryp.com Content Creator Community card, and then
-  // below that we have a VIP card. I want them merged together ... so that everything is together and takes up less
-  // space." So on the Worldwide page it is the foot of that card: a translucent band on the same orange, wiping in
-  // after the card's own pieces, the way the global challenge strip does.
-  // A FULL-WIDTH BAND, WITH THE PLANE FLYING ABOVE IT (3 Oct 2026). Ethan, seeing it as a VIP: "I would rather have this
-  // expanding across the full width of that big card, and the Tryp.com airplane animation to be sitting above it, kind
-  // of like how the worldwide one is right now." So it takes the place the global challenge band takes for everybody
-  // else (GlobalChallengeStrip): the month's earnings, how the month is going, and the two things to do.
+  // INSIDE THE COMMUNITY CARD. So on the Worldwide page it is the foot of that card: a translucent band on the same
+  // orange, wiping in after the card's own pieces, the way the global challenge strip does. A FULL-WIDTH BAND, WITH THE
+  // PLANE FLYING ABOVE IT. So it takes the place the global challenge band takes for everybody else
+  // (GlobalChallengeStrip): the month's earnings, how the month is going, and the two things to do.
   if (inCard) {
     const left = daysLeft(month.ends_at)
     return (

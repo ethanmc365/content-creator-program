@@ -17,12 +17,6 @@ import { alpha, awardKind, designStyle, fillTemplate, formatAwardDate, optionsOf
 // ---------------------------------------------------------------------------
 // THE 28 SEP REDESIGN
 //
-// Ethan: "the Tryp.com plane is looking randomly placed ... other issues about
-// the fonts and the styling. The colors, some of the graphics, like those
-// dotted lines going behind the text, which makes it look weird. Although I do
-// like those dotted lines, but it's just placing everything properly. Have a
-// proper UI, like the badges. Some of them look weird."
-//
 // The six objects stay (they were the right idea); every one was rebuilt to
 // the same rules:
 //
@@ -41,7 +35,7 @@ import { alpha, awardKind, designStyle, fillTemplate, formatAwardDate, optionsOf
 //      3rd and the rest each drawn differently - and every other award a seal
 //      naming it (Participant, Milestone, Honour). The tier word is gone.
 //
-//   4. THE ID IS A LINK YOU CAN TYPE. "Verify at .../verify" became the full
+//   4. THE ID IS A LINK YOU CAN TYPE. "Verify at.../verify" became the full
 //      address with the code in it, which /verify/:serial opens directly.
 //
 //   5. ANY ACCENT CAN BE READ. Words on the accent use `onBlock`, so the new
@@ -58,9 +52,9 @@ const M = 56 // the margin, on every side of every layout
 const SANS = 'Poppins, system-ui, sans-serif'
 
 /**
- * The size that fits capitals of `text` into `width` px on a stamp (12 Oct 2026): "PUBLICACIÓN DE CREADOR" was set at
- * the size of "CREATOR POST" and ran round the postmark into its own date. `per` is a capital's width plus its letter
- * spacing, in ems.
+ * The size that fits capitals of `text` into `width` px on a stamp: "PUBLICACIÓN DE CREADOR" was set at the size of
+ * "CREATOR POST" and ran round the postmark into its own date. `per` is a capital's width plus its letter spacing, in
+ * ems.
  */
 function ringSize(text, max, width, per = 0.86) {
   const n = String(text || '').length || 1
@@ -77,14 +71,14 @@ function fit(text, max) {
   return Math.round(max * 0.5)
 }
 
-// THE LANGUAGE THE CARD IS DRAWN IN (30 Sep 2026). Every fixed word on the card goes
-// through `L`, so a layout does not have to know a second language exists.
+// THE LANGUAGE THE CARD IS DRAWN IN. Every fixed word on the card goes through `L`, so a layout does not have to know a
+// second language exists.
 const LangContext = createContext('en')
 const useL = () => { const lang = useContext(LangContext); return (en) => tIn(lang, en) }
 
 export default function CertificateCard({ design, facts: rawFacts = {}, cardRef, className, lang = 'en' }) {
-  // A market's name is ours, not the author's, so it is said in the certificate's language
-  // ("em Worldwide" read wrong on a Portuguese certificate, 2 Oct 2026).
+  // A market's name is ours, not the author's, so it is said in the certificate's language ("em Worldwide" read wrong on
+  // a Portuguese certificate).
   const facts = lang === 'en' ? rawFacts : {
     ...rawFacts,
     ...(rawFacts.market ? { market: tIn(lang, rawFacts.market) } : {}),
@@ -204,12 +198,9 @@ function Label({ s, children, color }) {
 /**
  * A small label with a fact under it.
  *
- * `lead` PUTS THE WEIGHT ON THE LABEL INSTEAD (28 Sep 2026). The Awarded block
- * read as a faint grey "AWARDED" over a bold date, which puts the emphasis on
- * the number rather than on what happened. Ethan: "maybe 'awarded' should be
- * bold, and then below, the date should be in the smaller grey writing."
- * Used for the date; "Certificate ID" and "Issued by" keep the normal order,
- * because there the value IS the fact and the label is just naming a field.
+ * `lead` PUTS THE WEIGHT ON THE LABEL INSTEAD. The Awarded block read as a faint grey "AWARDED" over a bold date, which
+ * puts the emphasis on the number rather than on what happened. Used for the date; "Certificate ID" and "Issued by" keep
+ * the normal order, because there the value IS the fact and the label is just naming a field.
  */
 function Fact({ s, label: labelEn, value, align = 'left', mono = false, color, labelColor, lead = false }) {
   const L = useL()
@@ -255,10 +246,9 @@ function Signature({ s, name, role, align = 'left', color }) {
   )
 }
 
-/** Where to check it (28 Sep 2026, evening). Ethan: "For the Verify at I
- *  would not have in the code in that link and just say verify at the link and
- *  then have it actually below the certificate ID." The ID is printed right
- *  above it, and /verify asks for it. */
+/**
+ * Where to check it. The ID is printed right above it, and /verify asks for it.
+ */
 function Verify({ s, serial, align = 'left', color }) {
   const L = useL()
   if (!serial) return null
@@ -330,7 +320,7 @@ function Plane({ width = 240, left, top, rotate = -8 }) {
 
 /**
  * THE BADGE. A place gets a medal that is visibly its own place:
- *   1st  the full gradient and a white ring (no star: Ethan, 28 Sep, "not
+ *   1st the full gradient and a white ring (no star: the team, 28 Sep, "not
  *        necessary. Keep it simple.")
  *   2nd  white with a heavy accent ring
  *   3rd  a soft accent tint with a lighter ring
@@ -346,12 +336,8 @@ function Badge({ s, c, size = 112, style, onGradient = false }) {
   }
   if (c.place) {
     const p = c.place
-    // ONE FIRST PLACE, EVERYWHERE (28 Sep 2026). Horizon's badge sits on the
-    // orange panel, so `onGradient` turned it WHITE while Sky Banner's and the
-    // Passport's - which sit on paper - were the orange gradient. Ethan, on
-    // Horizon: "the first place in this one is white. I don't like that colour.
-    // I prefer the one that's on Sky Banner and Passport, that first place with
-    // the orange and that same style."
+    // ONE FIRST PLACE, EVERYWHERE. Horizon's badge sits on the orange panel, so `onGradient` turned it WHITE while Sky
+    // Banner's and the Passport's - which sit on paper - were the orange gradient.
     //
     // So first place is the orange gradient on every layout. On the panel it
     // would be orange on orange, so there it gets a solid white halo instead of
@@ -366,18 +352,14 @@ function Badge({ s, c, size = 112, style, onGradient = false }) {
       }
       : p === 2
         ? { background: '#ffffff', color: s.accentDeep, boxShadow: `0 10px 24px rgba(26,26,26,0.12), inset 0 0 0 5px ${s.accent}` }
-        // THIRD IS A SOLID TINT, NOT A TRANSPARENT ONE. It was `alpha(accent,
-        // 0.12)`, which let whatever sat behind it show through - on Sky Banner
-        // that is the gradient band, and Ethan: "I noticed an issue with third
-        // place: it's transparent, and it doesn't look good. Third place should
-        // be a light-coloured orange background." Painting the tint over an
-        // opaque white makes the same colour solid on any ground.
+        // THIRD IS A SOLID TINT, NOT A TRANSPARENT ONE. It was `alpha(accent, 0.12)`, which let whatever sat behind it
+        // show through - on Sky Banner that is the gradient band, and Painting the tint over an opaque white makes the
+        // same colour solid on any ground.
         : p === 3
           ? {
-            // A REAL LIGHT ORANGE (30 Sep 2026): Ethan wanted third place "a better
-            // background colour, maybe light orange" - the 18% tint of the accent
-            // read as a washed-out beige on the paper. Fixed rather than derived,
-            // because the accent varies per design and third place should not.
+            // A REAL LIGHT ORANGE: the team wanted third place "a better background colour, maybe light orange" - the
+            // 18% tint of the accent read as a washed-out beige on the paper. Fixed rather than derived, because the
+            // accent varies per design and third place should not.
             background: 'linear-gradient(150deg, #ffe9d6 0%, #ffcb9c 100%)',
             color: '#a83204',
             boxShadow: `0 10px 24px rgba(217,68,7,0.22), inset 0 0 0 4px rgba(245,133,63,0.75)`,
@@ -392,11 +374,9 @@ function Badge({ s, c, size = 112, style, onGradient = false }) {
           <span style={{ fontSize: size * (n.length > 1 ? 0.36 : 0.42), fontWeight: 700, letterSpacing: '-0.03em' }}>{n}</span>
           <span style={{ fontSize: size * 0.14, fontWeight: 700, marginTop: size * 0.04, marginLeft: 1 }}>{suffix}</span>
         </span>
-        {/* NOTHING UNDER THE NUMBER (28 Sep 2026). The disc printed "1st", then
-            the word PLACE, then "of 10" - one fact said three times in a circle
-            112px across. Ethan: "don't say 'of 10'. Just say 'first', and you
-            don't even need to say 'place'." The ordinal on its own is bigger,
-            calmer, and says everything the other two lines did. */}
+        {/* NOTHING UNDER THE NUMBER. The disc printed "1st", then the word PLACE, then "of 10" - one fact said three
+            times in a circle 112px across. The ordinal on its own is bigger, calmer, and says everything the other two
+            lines did. */}
       </div>
     )
   }
@@ -432,11 +412,9 @@ function Footer({ s, c, style, align = 'split', colors = {} }) {
         <p style={{ margin: '0 0 12px', fontSize: 11, color: colors.faint || s.faint, textAlign: align === 'center' ? 'center' : 'left' }}>{c.footnote}</p>
       )}
       <div style={{ height: 1, background: colors.hair || s.hair, marginBottom: 18 }} />
-      {/* THREE EQUAL COLUMNS (28 Sep 2026). "Awarded looks like it should be
-          centred and it's not really centred." Spread with space-between, the
-          middle fact sat wherever the widths of its neighbours put it; in a
-          1fr/auto/1fr grid it is on the page's true centre line. The verify
-          address sits under the ID it verifies. */}
+      {/* THREE EQUAL COLUMNS. "Awarded looks like it should be centred and it's not really centred." Spread with
+          space-between, the middle fact sat wherever the widths of its neighbours put it; in a 1fr/auto/1fr grid it is
+          on the page's true centre line. The verify address sits under the ID it verifies. */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', alignItems: 'end', gap: 28 }}>
         <div style={{ justifySelf: 'start', minWidth: 0 }}>
           {c.signature
@@ -476,18 +454,11 @@ function Horizon({ s, c, o }) {
         {/* The route climbs from the panel's lower left to the plane's tail
             and on up and out of the top right corner - through the middle of
             the panel, where nothing else is. */}
-        {/* THEIR FACE, NOT THE PLANE (28 Sep 2026). Ethan: "make it a bit more
-            personal here and maybe also include the profile photo ... rather
-            than having the Tryp.com plane on the left side, I would have their
-            profile photo there." A large portrait in a white ring, with the
-            dotted route looping round it; the plane only when there is no
-            photo to show. */}
-        {/* NO ROUTE BEHIND THE FACE (28 Sep 2026). The dotted line looped round
-            the portrait, which from a foot away reads as a dotted ring drawn on
-            the photo rather than a flight path passing behind it. Ethan: "remove
-            the dot line that goes around near my profile picture." The route
-            stays on the version with the plane, where it is the plane's path and
-            has nothing to collide with. */}
+        {/* THEIR FACE, NOT THE PLANE. A large portrait in a white ring, with the dotted route looping round it; the
+            plane only when there is no photo to show. */}
+        {/* NO ROUTE BEHIND THE FACE. The dotted line looped round the portrait, which from a foot away reads as a dotted
+            ring drawn on the photo rather than a flight path passing behind it. The route stays on the version with the
+            plane, where it is the plane's path and has nothing to collide with. */}
         {o.route && !c.photo && (
           <Route d="M -10 470 C 70 440, 120 340, 190 318 C 250 300, 290 250, 300 190 C 310 140, 330 120, 360 110" color={ink} opacity={0.5} />
         )}
@@ -514,8 +485,8 @@ function Horizon({ s, c, o }) {
         position: 'absolute', left: 28 + PANEL + 60, right: M + 8, top: M, bottom: 170,
         display: 'flex', flexDirection: 'column', justifyContent: 'center',
       }}>
-        {/* NO KICKER ABOVE THE TITLE (30 Sep 2026). Ethan: the panel's foot already says
-            "Tryp.com Creator Community", so the same line over the title said it twice. */}
+        {/* NO KICKER ABOVE THE TITLE. The team: the panel's foot already says "Tryp.com Creator Community", so the same
+            line over the title said it twice. */}
         <Title s={s} size={38}>{c.title}</Title>
         <div style={{ height: 34 }} />
         <Preamble s={s}>{c.preamble}</Preamble>
@@ -535,11 +506,10 @@ function Horizon({ s, c, o }) {
  * certificate on /verify. The pass is always a white card; the paper is what
  * it lies on.
  *
- * 28 Sep 2026, evening (Ethan): the dotted line ABOVE the pass is gone; the
- * perforation and its two notches are redrawn as a real tear line; the barcode
- * is a QR code "that could actually take you to the certificate ID website";
- * and the route no longer reads "from RT to TRYP" - it runs from the market to
- * what was won ("Worldwide to 1st place"), and names Tryp.com in full.
+ * 28 Sep 2026, evening (the team): the dotted line ABOVE the pass is gone; the perforation and its two notches are
+ * redrawn as a real tear line; the barcode is a QR code "that could actually take you to the certificate ID website";
+ * and the route no longer reads "from RT to TRYP" - it runs from the market to what was won ("Worldwide to 1st place"),
+ * and names Tryp.com in full.
  */
 function Boarding({ s, c, o }) {
   const L = M
@@ -589,11 +559,9 @@ function Boarding({ s, c, o }) {
               </span>
               <div style={{ flex: 1, height: 3, backgroundImage: `radial-gradient(circle, ${alpha(s.accent, 0.6)} 1.4px, transparent 1.6px)`, backgroundSize: '9px 3px', backgroundRepeat: 'repeat-x' }} />
             </div>
-            {/* THE DESTINATION SITS ON ITS OWN CENTRE (28 Sep 2026). Ethan
-                likes this line - "From Worldwide to First Place. I think that's
-                cool" - and asked for the arrival centred rather than shoved
-                against the edge: "maybe 'First Place' should be centred, in the
-                middle of that right column." */}
+            {/* THE DESTINATION SITS ON ITS OWN CENTRE. The team likes this line - "From Worldwide to First Place. I
+                think that's cool" - and asked for the arrival centred rather than shoved against the edge: "maybe 'First
+                Place' should be centred, in the middle of that right column." */}
             <div style={{ textAlign: 'center', minWidth: 0 }}>
               <Label s={white}>To</Label>
               <p style={{ margin: '5px 0 0', fontSize: fit(to, 30), fontWeight: 700, color: white.accentText, lineHeight: 1, whiteSpace: 'nowrap' }}>{to}</p>
@@ -641,14 +609,9 @@ function Boarding({ s, c, o }) {
           )}
           <Fact s={white} label="Awarded" value={c.date} />
           <Fact s={white} label="Certificate ID" value={c.serial} mono />
-          {/* A BIGGER CODE, AND THE WORDS UNDER IT (28 Sep 2026). "SCAN TO
-              VERIFY" sat in a column beside the code, taking a third of the
-              stub's width to say something the code already implies - and Ethan
-              read it as a status: "I was a bit scared of 'Verify', not as in a
-              big thing to the side of it, but just really small text below the
-              QR code. The QR code can be bigger on that side."
-              Stacked, the code gets the whole width of the stub and the line
-              under it is a caption rather than a label. */}
+          {/* A BIGGER CODE, AND THE WORDS UNDER IT. "SCAN TO VERIFY" sat in a column beside the code, taking a third of
+              the stub's width to say something the code already implies - and Stacked, the code gets the whole width of
+              the stub and the line under it is a caption rather than a label. */}
           <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 7 }}>
             <QrCode text={verifyUrl} size={STUB - 56} color={ink} />
             <p style={{ margin: 0, fontSize: 8.5, fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase', color: faint, lineHeight: 1.4, textAlign: 'center' }}>
@@ -690,11 +653,10 @@ function Postcard({ s, c, o }) {
       <div style={{ position: 'absolute', left: M + 4, top: M + 4, width: MID - M - 60, bottom: M, display: 'flex', flexDirection: 'column' }}>
         <Wordmark white={!s.light && isWhite(s.ink)} height={26} />
         <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-          {/* A GREETING, WRITTEN LIKE ONE (30 Sep 2026). Ethan liked the colour it adds "although I would
-              change the font of it ... make it look better". It was the spaced-out capitals every
-              other layout uses for a label; on a postcard it is the line you would write by hand, so
-              it is sentence case, larger, slanted, with a short stroke under it. Poppins only, so the
-              saved picture matches the screen. */}
+          {/* A GREETING, WRITTEN LIKE ONE. The team liked the colour it adds "although I would change the font of it...
+              make it look better". It was the spaced-out capitals every other layout uses for a label; on a postcard it
+              is the line you would write by hand, so it is sentence case, larger, slanted, with a short stroke under it.
+              Poppins only, so the saved picture matches the screen. */}
           <p style={{
             margin: 0, fontSize: 19, fontWeight: 700, fontStyle: 'italic', letterSpacing: '-0.005em',
             color: s.accentText, lineHeight: 1.2,
@@ -725,11 +687,8 @@ function Postcard({ s, c, o }) {
             position: 'absolute', right: -60, top: -60, width: 180, height: 180, borderRadius: '50%',
             background: 'radial-gradient(circle, rgba(255,255,255,0.3) 0%, rgba(255,255,255,0) 70%)',
           }} />
-          {/* A PLACE ON THE STAMP, NOT THE PLANE (28 Sep 2026). Ethan: "I don't
-              like the Tryp.com plane being on the stamp. I would put something
-              else on the stamp instead." A sun going down over hills and the
-              sea, drawn in the stamp's own two colours - the thing a postcard
-              stamp is always of. */}
+          {/* A PLACE ON THE STAMP, NOT THE PLANE. A sun going down over hills and the sea, drawn in the stamp's own two
+              colours - the thing a postcard stamp is always of. */}
           <svg viewBox="0 0 130 162" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }} aria-hidden="true">
             <circle cx="84" cy="70" r="24" fill="#ffffff" fillOpacity="0.92" />
             <path d="M0 104 C 22 86, 40 84, 58 96 C 76 108, 96 84, 130 92 L130 162 L0 162 Z" fill="#ffffff" fillOpacity="0.28" />
@@ -743,19 +702,12 @@ function Postcard({ s, c, o }) {
         </div>
       </div>
 
-      {/* THE POSTMARK SITS BESIDE THE STAMP, NOT ON IT (28 Sep 2026, later).
-          It was 300px wide, pinned 24px OUTSIDE the right margin and 96px down -
-          so its cancel lines ran straight across the stamp and its outer ring
-          clipped the stamp's corner. From a foot away that is not a franking
-          mark, it is a second stamp landing on the first, which is exactly what
-          Ethan saw: "it should be just the stamp in the right corner, and then
-          there are other stamps that are going over the top of it, which looks
-          weird."
-          Moved to the left of the stamp and narrowed to 220, it clears the
-          stamp's left edge by twenty pixels, and the cancel lines run out to the
-          right INSIDE its own box - the franking gesture, with nothing under it.
-          The stamp now has the corner to itself, which is what a postcard looks
-          like. */}
+      {/* THE POSTMARK SITS BESIDE THE STAMP, NOT ON IT. It was 300px wide, pinned 24px OUTSIDE the right margin and 96px
+          down - so its cancel lines ran straight across the stamp and its outer ring clipped the stamp's corner. From a
+          foot away that is not a franking mark, it is a second stamp landing on the first, which is exactly what Moved
+          to the left of the stamp and narrowed to 220, it clears the stamp's left edge by twenty pixels, and the cancel
+          lines run out to the right INSIDE its own box - the franking gesture, with nothing under it. The stamp now has
+          the corner to itself, which is what a postcard looks like. */}
       <svg
         viewBox="0 0 220 130"
         style={{ position: 'absolute', left: MID + 8, top: M + 4, width: 220, height: 130, opacity: 0.78, transform: 'rotate(-10deg)' }}
@@ -785,10 +737,9 @@ function Postcard({ s, c, o }) {
         ))}
       </svg>
 
-      {/* THE ADDRESS, REDESIGNED (28 Sep 2026): "those three lines: just
-          improve the overall design of this card". The name on its own ruled
-          line in large type; the date and the ID as a pair of labelled
-          fields on the line under it; how to check it, last. */}
+      {/* THE ADDRESS, REDESIGNED: "those three lines: just improve the overall design of this card". The name on its own
+          ruled line in large type; the date and the ID as a pair of labelled fields on the line under it; how to check
+          it, last. */}
       <div style={{ position: 'absolute', left: MID + 44, right: M + 4, bottom: M - 4 }}>
         {o.medal && c.place && (
           <div style={{ position: 'relative', height: 84, marginBottom: 14 }}>
@@ -816,9 +767,7 @@ function Postcard({ s, c, o }) {
  * the band's lower edge; the name centred and large beneath.
  */
 /**
- * SKY BANNER, REDRAWN (28 Sep 2026). Ethan: "please improve the design of the
- * sky banner one, it's the only one I don't like, the rest should remain as
- * they are."
+ * SKY BANNER, REDRAWN.
  *
  * What was wrong with it, and every one of these is visible in a screenshot of
  * the old one rather than a matter of taste:
@@ -858,17 +807,14 @@ function Banner({ s, c, o }) {
         radius={0}
         style={{ left: 0, right: 0, top: 0, height: BAND, borderRadius: `0 0 50% 50% / 0 0 ${ARC}px ${ARC}px` }}
       >
-        {/* SKY BANNER, SIMPLIFIED (30 Sep 2026). Ethan: "remove the tryp.com plane
-            and the dotted line ... fix any spacing issues as I noticed the logo
-            is too far up the top." The plane and its route are gone (this layout
-            ignores the `plane` / `route` options now), and what was a wordmark
-            jammed into the top-left corner is a centred stack with even air:
-            logo, kicker, title, then the medal on the horizon. */}
+        {/* SKY BANNER, SIMPLIFIED. The plane and its route are gone (this layout ignores the `plane` / `route` options
+            now), and what was a wordmark jammed into the top-left corner is a centred stack with even air: logo, kicker,
+            title, then the medal on the horizon. */}
         <div style={{ position: 'absolute', left: 0, right: 0, top: 44, display: 'flex', justifyContent: 'center' }}>
           <Wordmark white={white} height={30} style={{ alignSelf: 'center' }} />
         </div>
         <div style={{ position: 'absolute', left: M + 8, right: M + 8, top: 112, textAlign: 'center' }}>
-          {/* The community line is said once, in the footer (30 Sep 2026, Ethan). */}
+          {/* The community line is said once, in the footer. */}
           <Title s={s} size={40} align="center" color={ink}>{c.title}</Title>
         </div>
       </GradientBlock>
@@ -911,10 +857,7 @@ function Banner({ s, c, o }) {
  * passport's data page: the creator's photo, the award written as passport
  * fields, an entry stamp, and the machine-readable lines along the foot.
  *
- * 28 Sep 2026, evening. Ethan, of the old dotted-route design: "Flight path
- * card: don't like it at all. I would completely redesign it again ... Maybe go
- * on a different travel theme style." The one travel document every creator
- * has in their bag, with them on it.
+ * 28 Sep 2026, evening. The one travel document every creator has in their bag, with them on it.
  */
 function mrzLine(text, len = 44) {
   const clean = String(text || '').toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^A-Z0-9]+/g, '<')
@@ -977,23 +920,19 @@ function Passport({ s, c, o }) {
           <Fact s={s} label="Issued by" value="Tryp.com" color={onPaper} labelColor={faint} />
           <Fact s={s} label="Community" value={c.market || tIn(c.lang, 'Worldwide')} color={onPaper} labelColor={faint} />
         </div>
-        {/* THEIR NAME THE WAY THEY WRITE IT (28 Sep 2026). This printed
-            "SURNAME, Given" - correct for a real passport data page, and the
-            reason the layout felt authentic - but it is a certificate with
-            somebody's name on it before it is a pastiche. Ethan: "this one
-            shows their name backwards. I still want to do this: still put their
-            name forwards, just their normal name."
-            The machine-readable strip at the foot keeps the passport ordering,
-            because that is a barcode rather than a way of addressing somebody. */}
+        {/* THEIR NAME THE WAY THEY WRITE IT. This printed "SURNAME, Given" - correct for a real passport data page, and
+            the reason the layout felt authentic - but it is a certificate with somebody's name on it before it is a
+            pastiche. The machine-readable strip at the foot keeps the passport ordering, because that is a barcode
+            rather than a way of addressing somebody. */}
         <div style={{ marginTop: 30 }}>
           <Label s={s} color={faint}>Name</Label>
           <p style={{ margin: '6px 0 0', fontSize: fit(c.name, 44), fontWeight: 700, lineHeight: 1.05, letterSpacing: '-0.02em', color: accent }}>
             {c.name}
           </p>
         </div>
-        {/* TWO LINES IN EVERY LANGUAGE (13 Oct 2026). Ethan: on the Spanish passport the line under the name "is going on
-            two or three lines"; Portuguese and Romanian too. The text is two lines by design (a break in the middle), and
-            each translated line was longer than the 430px box, so it wrapped into three. The box is now the whole data
+        {/* TWO LINES IN EVERY LANGUAGE. The team: on the Spanish passport the line under the name "is going on two or
+            three lines"; Portuguese and Romanian too. The text is two lines by design (a break in the middle), and each
+            translated line was longer than the 430px box, so it wrapped into three. The box is now the whole data
             column, and a line that would still not fit sets the size down instead of wrapping. */}
         <div style={{ marginTop: 16 }}>
           <Body s={s} width={PASSPORT_BODY_W} size={passportBodySize(c.body)} color={s.light ? '#5E6068' : s.muted}>{c.body}</Body>
@@ -1043,11 +982,8 @@ function Minimal({ s, c, o }) {
       <div style={{ position: 'absolute', left: M + 40, top: M + 12 }}>
         <Wordmark white={!s.light && isWhite(s.ink)} height={26} />
       </div>
-      {/* BIGGER, BECAUSE IT IS THE ONLY ORNAMENT HERE (28 Sep 2026). Ethan:
-          "the minimal one looks pretty decent too... maybe make that first place
-          icon there slightly bigger." On a layout that is deliberately mostly
-          white, the badge is carrying the whole page, and at 100px it read as an
-          afterthought in the corner. */}
+      {/* BIGGER, BECAUSE IT IS THE ONLY ORNAMENT HERE. On a layout that is deliberately mostly white, the badge is
+          carrying the whole page, and at 100px it read as an afterthought in the corner. */}
       {o.medal && <Badge s={s} c={c} size={124} style={{ right: M + 24, top: M }} />}
       {/* One accent band down the left edge: the only decoration. Wider since
           28 Sep ("the orange bit on the left side, I think, should be bigger"). */}

@@ -3,11 +3,8 @@ import { cx } from '../../lib/utils'
 
 // A FIRE, AT THE SIZE OF A WORD.
 //
-// WHAT WAS THERE. Two flat paths - one `#d94407` body, one `#fbbf24` blob -
-// swaying on the streak-card's keyframes. At fourteen pixels that is an orange
-// leaf with a yellow dot on it. Ethan: "the visible fire constant animation
-// icon should be improved, it should look like an actual fiery flame with the
-// different orange colours, like a nice animated fire."
+// WHAT WAS THERE. Two flat paths - one `#d94407` body, one `#fbbf24` blob - swaying on the streak-card's keyframes. At
+// fourteen pixels that is an orange leaf with a yellow dot on it.
 //
 // WHAT MAKES A DRAWING READ AS FIRE, in the order the eye picks it up:
 //
@@ -21,7 +18,7 @@ import { cx } from '../../lib/utils'
 //   body, an inner tongue, and a white core. Each one smaller and hotter than
 //   the one outside it, which is what gives a flame its depth at any size.
 //
-//   AND THREE TONGUES, NOT TWO. Ethan: "it doesn't look like an actual flame,
+//   AND THREE TONGUES, NOT TWO. The team: "it doesn't look like an actual flame,
 //   it should be more fiery and have 3 points like a flame that actually
 //   animates like a flame, not just 2." The old outline had a tall tip and one
 //   side notch, which is a leaf with a bite out of it. Every layer now has a

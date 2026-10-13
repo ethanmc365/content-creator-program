@@ -35,13 +35,7 @@ const tooltipStyle = {
 }
 const PLATFORM_COLORS = { Instagram: '#d94407', TikTok: '#1A1A1A', YouTube: '#f5853f', Other: '#9CA3AF' }
 
-// A CHALLENGE ANALYTICS PAGE THAT IS OPENED FOR THINGS THAT ARE NOT CHALLENGES
-// (8 Sep 2026).
-//
-// Ethan: "if I click Challenge performance, scroll down and click on a
-// challenge like the Spain Monthly one, clicking it - the thing crashes, I get
-// the Mayday screen, which is very frustrating. And the ability to fill in the
-// other ones, because currently clicking on them just doesn't do anything."
+// A CHALLENGE ANALYTICS PAGE THAT IS OPENED FOR THINGS THAT ARE NOT CHALLENGES.
 //
 // Reproduced exactly: `Cannot read properties of null (reading 'title')`.
 //
@@ -54,11 +48,10 @@ const PLATFORM_COLORS = { Instagram: '#d94407', TikTok: '#1A1A1A', YouTube: '#f5
 // forty-eight of its own forty-nine entries, and on the only one it did open
 // there was nothing to click through to.
 //
-// The page now asks BOTH tables and renders whichever answered. A logged
-// challenge has no submissions, no leaderboard and no prize engine - it is four
-// numbers and what they mean - so it gets its own, much smaller view, with the
-// editor attached: which is the second half of what Ethan asked for, "clicking
-// on the old challenge, I should be able to fix it out of there".
+// The page now asks BOTH tables and renders whichever answered. A logged challenge has no submissions, no leaderboard
+// and no prize engine - it is four numbers and what they mean - so it gets its own, much smaller view, with the editor
+// attached: which is the second half of what the team asked for, "clicking on the old challenge, I should be able to fix
+// it out of there".
 export default function AdminChallengeAnalytics() {
   const { id } = useParams()
   const navigate = useNavigate()
@@ -70,10 +63,8 @@ export default function AdminChallengeAnalytics() {
   // computed FROM the row, so patching state in place would leave the old CPM
   // beside the new view count.
   const [refresh, setRefresh] = useState(0)
-  // COMBINED, OR ONE GROUP (1 Oct 2026). Ethan: "the analytics should have
-  // combined and separate analytics." 'all' is the challenge as a whole; a
-  // group id narrows every figure on the page - entries, views, spend, CPM -
-  // to that group's creators.
+  // COMBINED, OR ONE GROUP. 'all' is the challenge as a whole; a group id narrows every figure on the page - entries,
+  // views, spend, CPM - to that group's creators.
   const [view, setView] = useState('all')
 
   useEffect(() => { loadMarkets().then((m) => setMarkets(m || [])) }, [])
@@ -109,12 +100,8 @@ export default function AdminChallengeAnalytics() {
     load()
   }, [id, refresh])
 
-  // IT FOLLOWS THE SYNC (22 Sep 2026). Ethan: "it should show the current CPM
-  // and it should be updating with the prize pot and participation vouchers
-  // and views every time something is synced, that way I can track it well."
-  // A view sync writes `submissions` and rebuilds `results`; either one
-  // arriving re-reads the page (debounced, a sweep writes dozens of rows). A
-  // two-minute poll sits behind it for a socket that has gone quiet.
+  // IT FOLLOWS THE SYNC. A view sync writes `submissions` and rebuilds `results`; either one arriving re-reads the page
+  // (debounced, a sweep writes dozens of rows). A two-minute poll sits behind it for a socket that has gone quiet.
   const bump = useRef(null)
   useEffect(() => {
     const later = () => {
@@ -213,10 +200,6 @@ export default function AdminChallengeAnalytics() {
 
   // THE COMBINED FIGURE IS THE ONE ON THE TILES; THE GROUPS ARE UNDERNEATH.
   //
-  // Ethan: "the analytics page should combine the data as just the one
-  // challenge, but clicking in on the challenge data should reveal more data
-  // and analytics from the different groups and comparing each."
-  //
   // This page IS the click-in - the main analytics page lists challenges and
   // this is what opens - so the split belongs here rather than in a third
   // screen. The tiles above stay exactly as they are, because a challenge run
@@ -293,9 +276,8 @@ export default function AdminChallengeAnalytics() {
         <StatCard label="Avg views / entry" value={formatViewsTotal(d.avgViews)} />
         <StatCard label="Median views" value={formatViewsTotal(d.medianViews)} />
         <StatCard label="Top entry" value={formatViewsTotal(d.topViews)} />
-        {/* CPM IN THE ECONOMICS TOO, NOT ONLY IN THE BAND (22 Sep 2026). Ethan
-            could not find it under the band. Same `challengeSpend` as the band,
-            so the two cannot disagree, and it stays once the challenge ends. */}
+        {/* CPM IN THE ECONOMICS TOO, NOT ONLY IN THE BAND. The team could not find it under the band. Same
+            `challengeSpend` as the band, so the two cannot disagree, and it stays once the challenge ends. */}
         {(() => {
           const sp = challengeSpend(viewChallenge, viewStandings, d.totalViews)
           const ccy = challenge.prize_currency || 'EUR'
@@ -311,10 +293,9 @@ export default function AdminChallengeAnalytics() {
       </div>
 
       {/* ---------- Which markets took part ----------
-          ONLY WHEN MORE THAN ONE COULD (28 Sep 2026). Ethan: the UK-only
-          Creative Challenge still showed "participation by market", which
-          says nothing when there was one market. A challenge run in one market
-          shows how its entries and views built up over the weeks instead. */}
+          ONLY WHEN MORE THAN ONE COULD. The team: the UK-only Creative Challenge still showed "participation by market",
+          which says nothing when there was one market. A challenge run in one market shows how its entries and views
+          built up over the weeks instead. */}
       {singleMarket
         ? <EntriesOverTime subs={subs} challenge={challenge} />
         : <MarketSplit subs={subs} results={results} markets={markets} scoring={challenge.scoring} />}
@@ -441,7 +422,8 @@ export default function AdminChallengeAnalytics() {
         </section>
       </div>
 
-      {/* ---------- Who has not posted yet: moved down to sit just above the leaderboard (4 Oct 2026), with participation by market back at the top. ---------- */}
+      {/* ---------- Who has not posted yet: moved down to sit just above the leaderboard, with participation by market
+           back at the top. ---------- */}
       {challenge.status === 'active' && <ChallengeReach challenge={challenge} />}
 
       {/* ---------- Leaderboard ---------- */}
@@ -486,9 +468,8 @@ export default function AdminChallengeAnalytics() {
       )}
 
       {/* ---------- All submissions ----------
-          THE SAME CARDS AS THE CHALLENGE'S OWN ENTRIES (28 Sep 2026): the
-          cover with its views and points on it, the creator under it, and a
-          search and an order above. */}
+          THE SAME CARDS AS THE CHALLENGE'S OWN ENTRIES: the cover with its views and points on it, the creator under it,
+          and a search and an order above. */}
       <AllEntries subs={subs} challenge={challenge} />
     </div>
   )
@@ -647,8 +628,6 @@ function LoggedChallenge({ row, siblings, markets, userId, editing, onEdit, onCl
       )}
 
       {/* ---- HOW IT COMPARES ----
-          Ethan: "on the actual [page], whenever clicking on a challenge, I want
-          a much better view - we want graphs etc."
 
           A logged challenge has no time series to draw. It is four totals, and
           a bar chart of four totals against nothing is decoration. What it DOES
@@ -734,19 +713,16 @@ function Detail({ label, value }) {
 
 // THE MONEY AND THE REACH, SIDE BY SIDE, WHILE IT IS STILL RUNNING.
 //
-// The numbers Ethan tracks a challenge by, in one band: what it is costing so
-// far (the cash prize pot plus every taking-part voucher and award EARNED to
-// date - `challenge_prize_standings`, the one definition), how many views that
+// The numbers the team tracks a challenge by, in one band: what it is costing so far (the cash prize pot plus every
+// taking-part voucher and award EARNED to date - `challenge_prize_standings`, the one definition), how many views that
 // has bought, and the CPM those two make. `challengeSpend` is pure and tested.
 function LiveEconomics({ challenge, subs, standings, totalViews }) {
   const spend = challengeSpend(challenge, standings || [], totalViews)
   const ccy = challenge.prize_currency || 'EUR'
   const lastRead = subs.reduce((m, s) => (s.views_synced_at && s.views_synced_at > m ? s.views_synced_at : m), '')
   const live = challenge.status === 'active'
-  // ONE CLEAN SURFACE (22 Sep 2026). Ethan: "there are weird brown squares
-  // around the numbers rather than just the clean background." Each figure had
-  // its own translucent dark tile on a 1px grid gap; now the four sit straight
-  // on the gradient, split by hairlines, and the explanatory footnote is gone.
+  // ONE CLEAN SURFACE. Each figure had its own translucent dark tile on a 1px grid gap; now the four sit straight on the
+  // gradient, split by hairlines, and the explanatory footnote is gone.
   const tiles = [
     { label: live ? 'Current CPM' : 'CPM', value: spend.cpm == null ? '—' : formatMoney(Math.round(spend.cpm * 100) / 100, ccy), hint: 'per 1,000 views', big: true },
     { label: 'Total views', value: formatViewsTotal(totalViews), hint: `${subs.length} ${subs.length === 1 ? 'entry' : 'entries'}`, big: true },

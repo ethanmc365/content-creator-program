@@ -108,8 +108,8 @@ describe('a whole swipe', () => {
   })
 
   it('turns two months for two swipes with no pause between them', () => {
-    // The reader flicks, the tail is still running, and they flick again. This
-    // is Ethan's "I don't have to move my mouse between it".
+    // The reader flicks, the tail is still running, and they flick again. This is the team's "I don't have to move my
+    // mouse between it".
     const first = at([...RAMP, ...TAIL.slice(0, 8)])
     const second = at([...RAMP, ...TAIL], first[first.length - 1][1] + 16)
     expect(play([...first, ...second]).turns).toBe(2)

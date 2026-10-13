@@ -73,10 +73,9 @@ export default function Flights() {
   // save button change under your hands the moment you enter a future date.
   const upcoming = !!form.flown_on && form.flown_on > today
 
-  // IS THIS TRIP STILL AHEAD? The one definition, read by every surface that
-  // offers to put a flight on the collab board. `>= today` and not `>` on
-  // purpose: a flight you are taking TODAY is exactly the one somebody might
-  // still meet you off, and Ethan's rule is "current or future trips".
+  // IS THIS TRIP STILL AHEAD? The one definition, read by every surface that offers to put a flight on the collab board.
+  // `>= today` and not `>` on purpose: a flight you are taking TODAY is exactly the one somebody might still meet you
+  // off, and the team's rule is "current or future trips".
   const tripIsUpcoming = useCallback((f) => !!f?.flown_on && f.flown_on >= today, [today])
   // The year-on-year panel, off until asked for. See YearColumn.
   const [compare, setCompare] = useState(false)
@@ -148,16 +147,10 @@ export default function Flights() {
   // itself the leg home (`return_of` set), which would make a trip of three
   // legs - `tripsFromFlights` pairs one return to one outbound.
   //
-  // IT USED TO SAY NO TO A TRIP THAT ALREADY HAD ITS RETURN, and that was the
-  // bug. Ethan: "I clicked my trip from Belfast to Amsterdam, which is saved
-  // and logged as a return trip, and then I click on the edit button. It no
-  // longer shows that it's a return trip, and there's no option showing that
-  // return trip is selected or anything or to change that." Hiding the whole
-  // section was hiding a FACT about the trip, not just an unavailable action:
-  // the form silently redescribed a round trip as a one-way, and saving it
-  // back would have been the creator agreeing to something they were never
-  // shown. The box is ticked and the return's date is filled in now, and the
-  // save writes THROUGH to the existing row - see `save`.
+  // IT USED TO SAY NO TO A TRIP THAT ALREADY HAD ITS RETURN, and that was the bug. Hiding the whole section was hiding a
+  // FACT about the trip, not just an unavailable action: the form silently redescribed a round trip as a one-way, and
+  // saving it back would have been the creator agreeing to something they were never shown. The box is ticked and the
+  // return's date is filled in now, and the save writes THROUGH to the existing row - see `save`.
   const canRoundTrip = !editing || !editing.return_of
   const fromA = airport(form.from_iata)
   const toA = airport(form.to_iata)
@@ -242,13 +235,10 @@ export default function Flights() {
 
   // EDITING A FLIGHT YOU HAVE ALREADY LOGGED.
   //
-  // Ethan: "on the actual log at the bottom where it says every flight, as well
-  // as being able to delete it, I should be able to re-edit and make changes."
-  // Until now the only way to fix a typo in a date was to delete the row and
-  // type the whole thing again - which is exactly the trade the community board
-  // was given an edit dialog to avoid.
+  // Until now the only way to fix a typo in a date was to delete the row and type the whole thing again - which is
+  // exactly the trade the community board was given an edit dialog to avoid.
   //
-  // A ROUND TRIP IS EDITED AS A PAIR, FROM THE OUTBOUND (1 Sep 2026).
+  // A ROUND TRIP IS EDITED AS A PAIR, FROM THE OUTBOUND.
   //
   // The return is still its OWN row with its own date and its own distance -
   // that is what makes the map, the totals and the year figures right - but it
@@ -306,8 +296,8 @@ export default function Flights() {
     if (!file) return
     setUploading(true)
     try {
-      // Same `gallery` bucket as the travel photos, and until 24 Aug 2026 this
-      // was the call still writing JPEG into it. WebP is the default now.
+      // Same `gallery` bucket as the travel photos, and this was the call still writing JPEG into it. WebP is the
+      // default now.
       const compressed = await compressImage(file, { maxDim: 1400, quality: 0.8 })
       const path = `${user.id}/flights/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.jpg`
       const url = await uploadFile('gallery', path, compressed, compressed.type || 'image/jpeg')
@@ -334,11 +324,8 @@ export default function Flights() {
     // date is an upcoming one, and both are valid things to be saving.
     // EVERYTHING NOT MARKED "(optional)" IS NOW ACTUALLY REQUIRED.
     //
-    // It was possible to save a flight with no airline and no note, because the
-    // labels were the only thing saying they were needed and `save` never
-    // checked. Ethan: "it seems like I've been able to add to log without
-    // actually selecting an airline etcetera, or filling in the note. Only the
-    // things that show optional can be skipped."
+    // It was possible to save a flight with no airline and no note, because the labels were the only thing saying they
+    // were needed and `save` never checked.
     //
     // So the rule is now literal and there is exactly one list: a field whose
     // label carries "(optional)" may be blank, and one whose label does not may
@@ -528,11 +515,8 @@ export default function Flights() {
 
     // THE OFFER TO POST IT ON THE COLLAB BOARD.
     //
-    // Ethan: "a logged flight offers to post the trip on collab board with the
-    // details." It is an OFFER and not a side effect, and it appears after the
-    // save rather than as a tick inside the form, because the two are different
-    // decisions: one is a record you keep and the other is a message to forty
-    // other people.
+    // It is an OFFER and not a side effect, and it appears after the save rather than as a tick inside the form, because
+    // the two are different decisions: one is a record you keep and the other is a message to forty other people.
     //
     // AN UPCOMING FLIGHT IS THE CASE THIS WAS ALWAYS REACHING FOR. The rule
     // used to be "the flight is in the last three weeks", which is the best
@@ -544,12 +528,9 @@ export default function Flights() {
     // cover the trip you have just got back from. Offering to tell forty people
     // about a flight from 2019 is offering to post something nobody can act on.
     const arrived = airport(legOne.to_iata)
-    // UPCOMING ONLY. It also offered on any flight taken in the last 21 days,
-    // which is a trip that has already happened - so the board filled up with
-    // "I am in Seville" from somebody who got home a fortnight ago and nobody
-    // could act on any of it. Ethan: "remember, this should always only be for
-    // future flights, not for past flights. So if there's a flight any time in
-    // the future from the current point, then it should show the popup."
+    // UPCOMING ONLY. It also offered on any flight taken in the last 21 days, which is a trip that has already happened
+    // - so the board filled up with "I am in Seville" from somebody who got home a fortnight ago and nobody could act on
+    // any of it.
     const worthPosting = upcoming
     setForm(BLANK_FORM)
     setCustomAirline(false)
@@ -658,15 +639,10 @@ export default function Flights() {
               <Icon name="users" className="h-4 w-4" />
               {tr("Across the community")}
             </Link>
-            {/* BIGGER, NAMED IN FULL, AND WITH AN ACTUAL AEROPLANE ON IT.
-                Ethan: "make the aircraft button slightly bigger and rename it to
-                aircraft collection, also change the icon to an actual plane
-                icon, like the one used for maps."
-                `plane` is Heroicons' paper aeroplane, which is a SEND glyph -
-                the same one that sits on the button that posts a message. The
-                maps draw a real aircraft silhouette, and it is already in the
-                icon set as `plane-tryp`, so the button that opens a collection
-                of aircraft now has one on it. */}
+            {/* BIGGER, NAMED IN FULL, AND WITH AN ACTUAL AEROPLANE ON IT. `plane` is Heroicons' paper aeroplane, which
+                is a SEND glyph - the same one that sits on the button that posts a message. The maps draw a real
+                aircraft silhouette, and it is already in the icon set as `plane-tryp`, so the button that opens a
+                collection of aircraft now has one on it. */}
             <Link to="/flights/aircraft" className="btn-secondary !px-5 !py-3 text-sm">
               <Icon name="plane-tryp" className="h-4 w-4" />
               {tr("Aircraft collection")}
@@ -719,12 +695,8 @@ export default function Flights() {
           {stats.upcoming.length > 0 && (
             <Reveal from="down">
               <section>
-                {/* JUST THE HEADING. "2 flights booked in" was a count of a
-                    list you are looking at, printed beside its own title. Ethan:
-                    "I would remove the thing that says one flight booked in or
-                    two flights booked in. I think the coming up section is
-                    fine." `buildFlightStats` already returns them soonest
-                    first. */}
+                {/* JUST THE HEADING. "2 flights booked in" was a count of a list you are looking at, printed beside its
+                    own title. `buildFlightStats` already returns them soonest first. */}
                 <h2 className="mb-3 text-lg font-semibold">{tr("Coming up")}</h2>
                 <Reveal className="grid items-stretch gap-3 sm:grid-cols-2" stagger={0.05}>
                   {stats.upcoming.map((f) => (
@@ -848,13 +820,9 @@ export default function Flights() {
           {/* ---- THE RECORDS WALL ---- */}
           <Reveal from="down">
             <section>
-              {/* NO STRAPLINE, AND THE GRID IS EVEN.
-                  "Every one of these is already in your log. Nothing here was
-                  typed in" was a reassurance nobody had asked for a second time.
-                  And the cards are `items-stretch` with a fixed foot, so a
-                  record whose detail line wraps no longer makes its whole row
-                  taller than the next - Ethan: "fix the ui/design of cards so
-                  they fit evenly." */}
+              {/* NO STRAPLINE, AND THE GRID IS EVEN. "Every one of these is already in your log. Nothing here was typed
+                  in" was a reassurance nobody had asked for a second time. And the cards are `items-stretch` with a
+                  fixed foot, so a record whose detail line wraps no longer makes its whole row taller than the next - */}
               <h2 className="mb-3 text-lg font-semibold">{tr("Your records")}</h2>
               <Reveal className="grid items-stretch gap-3 sm:grid-cols-2 lg:grid-cols-3" stagger={0.05}>
                 {r.longest && (
@@ -872,15 +840,10 @@ export default function Flights() {
                     value={humanHours(r.longestTime.mins)}
                     detail={`${r.longestTime.from.city} to ${r.longestTime.to.city}`} />
                 )}
-                {/* FASTEST TURNAROUND IS GONE. Ethan: "I would remove the
-                    Fastest turnaround metric, it's not needed and it then
-                    improves the UI as everything will fit nicely and equally."
-                    Both halves are right. "Two days" between landing and taking
-                    off again is a fact about a diary rather than about flying,
-                    and it was the odd card out on a wall of records - so
-                    dropping it also leaves a count that fills its rows. The
-                    `records.turnaround` computation stays in lib/flightStats
-                    (it is pure and tested); nothing draws it. */}
+                {/* FASTEST TURNAROUND IS GONE. Both halves are right. "Two days" between landing and taking off again is
+                    a fact about a diary rather than about flying, and it was the odd card out on a wall of records - so
+                    dropping it also leaves a count that fills its rows. The `records.turnaround` computation stays in
+                    lib/flightStats (it is pure and tested); nothing draws it. */}
                 {r.busiestMonth && (
                   <RecordCard icon="calendar" label={tr("Busiest month")}
                     value={monthLabel(r.busiestMonth.key)}
@@ -891,14 +854,11 @@ export default function Flights() {
                     value={`${r.busiestDay.flights} flights`}
                     detail={formatDate(r.busiestDay.date)} />
                 )}
-                {/* BIGGEST CLOCK CHANGE IS GONE. It is only ever computable on
-                    the flights where both ends name a single time zone (see
-                    lib/localTime), so on most logs it was a card that sometimes
-                    existed and sometimes did not - and "+8 hours" is a fact
-                    about a time zone table rather than about a journey. The
-                    lifetime figure still rides on the headline card, where it is
-                    an accumulation and means something. Ethan asked for the card
-                    to go. */}
+                {/* BIGGEST CLOCK CHANGE IS GONE. It is only ever computable on the flights where both ends name a single
+                    time zone (see lib/localTime), so on most logs it was a card that sometimes existed and sometimes did
+                    not - and "+8 hours" is a fact about a time zone table rather than about a journey. The lifetime
+                    figure still rides on the headline card, where it is an accumulation and means something. The team
+                    asked for the card to go. */}
                 {r.biggestYear && (
                   <RecordCard icon="trophy" label={tr("Biggest year")}
                     value={r.biggestYear.year}
@@ -936,24 +896,16 @@ export default function Flights() {
             </section>
           </Reveal>
 
-          {/* THE TRAVEL STREAK SECTION IS GONE. Ethan: "I would remove
-              this section 'Your streak', it's not needed." Three cards saying
-              how many consecutive MONTHS have a flight in them is a metric this
-              page invented for itself; the log already says how much somebody
-              flies in half a dozen better ways, and the number people actually
-              mean by "streak" on this platform is the games one
-              (lib/gameStreak), which is somewhere else entirely and was being
-              competed with. `stats.streak` is still computed and tested; it is
-              simply not drawn here. */}
+          {/* THE TRAVEL STREAK SECTION IS GONE. Three cards saying how many consecutive MONTHS have a flight in them is
+              a metric this page invented for itself; the log already says how much somebody flies in half a dozen better
+              ways, and the number people actually mean by "streak" on this platform is the games one (lib/gameStreak),
+              which is somewhere else entirely and was being competed with. `stats.streak` is still computed and tested;
+              it is simply not drawn here. */}
 
           {/* ---- AIRLINE LOYALTY ---- */}
-          {/* ---- AIRLINE LOYALTY: THREE, AND THE REST BEHIND A BUTTON ----
-              Ethan: "things like airline loyalty, it should only show up the top
-              three at a time, never like showing up five, six, seven, eight,
-              nine, ten. That takes way too much space."
-              Eight rows of bar chart is most of a phone screen spent on a
-              ranking whose only interesting entries are at the top - and the
-              tail is all ties on one flight each, which is not loyalty. */}
+          {/* ---- AIRLINE LOYALTY: THREE, AND THE REST BEHIND A BUTTON ---- Eight rows of bar chart is most of a phone
+               screen spent on a ranking whose only interesting entries are at the top - and the tail is all ties on one
+               flight each, which is not loyalty. */}
           {stats.loyalty.length > 0 && (
             <Reveal from="down">
               <section>
@@ -976,12 +928,9 @@ export default function Flights() {
             </Reveal>
           )}
 
-          {/* THE AIRCRAFT COLLECTION CARD WAS HERE AND IS NOW ONLY A BUTTON.
-              Ethan: "remove the airline collection card from here as we already
-              have the button at the top." Two doors to the same room, one of
-              them nine screens down, is one door too many - and the one at the
-              top is the one people actually use because it is in the header row
-              with "Across the community". */}
+          {/* THE AIRCRAFT COLLECTION CARD WAS HERE AND IS NOW ONLY A BUTTON. Two doors to the same room, one of them
+              nine screens down, is one door too many - and the one at the top is the one people actually use because it
+              is in the header row with "Across the community". */}
 
           {/* WHO ELSE FLIES YOUR ROUTES, AND THE LEADERBOARDS, HAVE MOVED.
               Both lived here, nine screens down a page about one person, which
@@ -1142,14 +1091,8 @@ export default function Flights() {
                 <span className="text-smoke">, {formatDate(offer.start)} to {formatDate(offer.end)}</span>
               </p>
             </div>
-            {/* ONE SENTENCE. It ended with "The dates come from the flight you
-                just logged and you can change them on the board afterwards",
-                which is the app explaining its own plumbing and pre-emptively
-                apologising for it. Ethan: "don't say you can change them on the
-                board afterwards, because obviously they will just edit the
-                flight details if it changes, or delete it. Just keep posted on
-                the collab board and anybody who is there at the same time can
-                reach out to you. Say that. No need for anything else." */}
+            {/* ONE SENTENCE. It ended with "The dates come from the flight you just logged and you can change them on
+                the board afterwards", which is the app explaining its own plumbing and pre-emptively apologising for it. */}
             <p className="text-sm text-smoke">
               {tr("Post it on the collab board and anybody who is there at the same time can reach out to you.")}
             </p>

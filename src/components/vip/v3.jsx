@@ -21,9 +21,9 @@ import { BRIEF_METRICS, PERK_KINDS, money, monthLabel, nf, prizesByPlace, safeAc
 import { ordinalFor } from '../../lib/podiumTiers'
 import { vipApi } from '../../api/vip'
 
-// THE VIP'S SIDE, THIRD PASS (30 Sep 2026, migration 299): this month's challenge, how the markets compare, perks and
-// trips to unlock, the content library, the VIP map and the creator's own settings. Every block asks politely
-// (useOptionalRpc) so a database without migration 299 draws nothing instead of an error.
+// THE VIP'S SIDE, THIRD PASS (migration 299): this month's challenge, how the markets compare, perks and trips to
+// unlock, the content library, the VIP map and the creator's own settings. Every block asks politely (useOptionalRpc) so
+// a database without migration 299 draws nothing instead of an error.
 
 // ------------------------------------------------------------------------------ this month's challenge
 /** The month's challenge(s): a theme, a brief, hook ideas, a goal and live standings. */
@@ -59,8 +59,8 @@ function BriefCard({ brief, overview }) {
   const mine = brief.metric === 'videos' ? s.videos : brief.metric === 'best_video'
     ? Math.max(0, ...(overview.videos || []).filter((v) => v.status === 'tracking').map((v) => Number(v.views_counted) || 0)) : s.views
   const me = (standings || []).find((r) => r.me)
-  // THE PRIZES COME FROM THE BONUS RULES (1 Oct 2026), the way the main challenges' prize lists come from their
-  // structure, so the team sets them once. The typed prize is now only an extra note.
+  // THE PRIZES COME FROM THE BONUS RULES, the way the main challenges' prize lists come from their structure, so the
+  // team sets them once. The typed prize is now only an extra note.
   const [rules, setRules] = useState([])
   const pid = brief.programme_id || overview.programme?.id
   useEffect(() => {
@@ -145,7 +145,7 @@ export function MarketStandings({ kind = 'vip' }) {
         return (
           <li key={r.programme_id} className={cx('rounded-card border bg-white p-4 shadow-card animate-rise sm:p-5', r.mine ? 'border-brand/40' : 'border-gray-100')} style={{ animationDelay: `${i * 70}ms` }}>
             <div className="flex items-start gap-3">
-              {/* THE MARKET'S FLAG, WITH ITS PLACE (1 Oct 2026). Ethan: "per-market ones ... Maybe show the flag." */}
+              {/* THE MARKET'S FLAG, WITH ITS PLACE. */}
               <span className="relative shrink-0">
                 <FlagTile codes={r.country_codes} kind="chapter" size="h-10 w-10" glyph="text-[22px]" title={r.name} />
                 <span className={cx('absolute -bottom-1 -right-1 flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-[10px] font-extrabold ring-2 ring-white', i === 0 ? 'bg-brand text-white' : 'bg-ink text-white')}>{i + 1}</span>
@@ -274,8 +274,7 @@ export function VipLibrary({ programmeId }) {
   const openGuide = (guides || []).find((g) => g.id === openId) || null
   return (
     <div className="space-y-6">
-      {/* TWO BIG BUTTONS, SIDE BY SIDE, NO HEADLINE (1 Oct 2026). Ethan: "don't say 'Stuck on the first line.' I don't
-          like that colour. Just have the 'Hook me up' and 'find a deal' button ... bigger ... side by side." */}
+      {/* TWO BIG BUTTONS, SIDE BY SIDE, NO HEADLINE. */}
       <section className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <div className="animate-rise"><HookButton variant="big" /></div>
         <div className="animate-rise [animation-delay:70ms]"><DealFinder variant="big" /></div>
@@ -295,7 +294,7 @@ export function VipLibrary({ programmeId }) {
         {guides === null ? <Skeleton className="h-40 w-full rounded-card" /> : shown.length === 0
           ? <p className="rounded-card border border-dashed border-gray-200 px-6 py-10 text-center text-sm text-smoke">{tr('No guides yet.')}</p>
           : (
-            // A CALMER ARRIVAL (3 Oct 2026). Ethan: the library's animations "you can improve". The cards came in on a
+            // A CALMER ARRIVAL. The team: the library's animations "you can improve". The cards came in on a
             // scroll-triggered spring that fired at different moments; now they rise together in a short stagger when
             // the section opens and when a topic is picked, and lift a little under the pointer.
             <div key={cat} className="grid grid-cols-1 gap-4 lg:grid-cols-2">
@@ -325,23 +324,23 @@ export function VipLibrary({ programmeId }) {
 }
 
 // ------------------------------------------------------------------------------ the VIP map
-/** Every VIP creator on one map. Only people who chose to be on it.
+/**
+ * Every VIP creator on one map. Only people who chose to be on it.
  *
- * THE MAP IS ALWAYS THERE (1 Oct 2026). Ethan: "It says 'No VIPs in the map yet,' but the map should always be
- * showing." An empty map is still the map, with a line on it. And the creator's own "show me on the VIP map" switch
- * lives HERE now, under the map it is about (it was in the Stats tab), with what else decides whether they appear:
- * their town on their profile, and their profile's own map setting. */
-// THE MAP IS ONLY A MAP NOW (2 Oct 2026). Ethan: the VIP map "says show me on the VIP map but I said that shouldn't
-// show here and instead should show under actual platform settings." The switch lives in Settings > Account
-// (`VipMapSetting` below), beside the profile's own map privacy, which is where a person looks for it.
+ * THE MAP IS ALWAYS THERE. An empty map is still the map, with a line on it. And the creator's own "show me on the VIP
+ * map" switch lives HERE now, under the map it is about (it was in the Stats tab), with what else decides whether they
+ * appear: their town on their profile, and their profile's own map setting.
+ */
+// THE MAP IS ONLY A MAP NOW. The team: the VIP map "says show me on the VIP map but I said that shouldn't show here and
+// instead should show under actual platform settings." The switch lives in Settings > Account (`VipMapSetting` below),
+// beside the profile's own map privacy, which is where a person looks for it.
 export function VipMap() {
   const tr = useKindT()
   const { data, missing } = useOptionalRpc('vip_map', {}, 'map')
   const { user, isAdmin } = useAuth()
-  // ONE ARRIVAL, NOT THREE (3 Oct 2026). Ethan: "the main map when it loads in is a bit laggy: it shows a blank map and
-  // then suddenly loads one of the example creators." The world, the list and the towns without stored coordinates
-  // used to arrive one after another, each redrawing the map. Now the atlas is fetched alongside the list and any
-  // missing town is looked up first, and the map is mounted once, with every pin, and fades in.
+  // ONE ARRIVAL, NOT THREE. The world, the list and the towns without stored coordinates used to arrive one after
+  // another, each redrawing the map. Now the atlas is fetched alongside the list and any missing town is looked up
+  // first, and the map is mounted once, with every pin, and fades in.
   const [ready, setReady] = useState(null)
   useEffect(() => {
     if (!data) return undefined
@@ -402,7 +401,7 @@ export function VipMySettings({ overview, onSaved }) {
   async function save() {
     setBusy(true)
     try {
-      // The headline is no longer the creator's to write (4 Oct 2026); whatever is stored stays as it was.
+      // The headline is no longer the creator's to write; whatever is stored stays as it was.
       await vipRpc('vip_update_my_settings', { p_headline: row.headline || '', p_accent: null, p_goal: goal ? Number(String(goal).replace(/[^\d]/g, '')) : null, p_on_map: null })
       flash()
       onSaved?.()

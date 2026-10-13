@@ -1,8 +1,7 @@
-// ONE LOOK FOR EVERY CHART (30 Sep 2026).
+// ONE LOOK FOR EVERY CHART.
 //
-// Ethan: "We have graphs, but some of them have nice gradients, and others are just solid colours.
-// Make sure that everything works together nicely." Each chart used to declare its own orange, its
-// own pale orange (three different ones) and, sometimes, its own gradient. They now share these.
+// Each chart used to declare its own orange, its own pale orange (three different ones) and, sometimes, its own
+// gradient. They now share these.
 //
 // THE GRADIENTS ARE DEFINED ONCE, IN THE DOCUMENT, NOT IN EACH CHART. `ChartGradients` is mounted at
 // the app root as a zero-size SVG (not display:none - some browsers then refuse to paint a gradient
@@ -30,8 +29,7 @@ export const FILL = {
   amber: 'url(#tg-amber)',
   red: 'url(#tg-red)',
   gray: 'url(#tg-gray)',
-  // "Still to go" in a neutral light grey, not a beige (1 Oct 2026, Ethan: "I don't really like the
-  // light beige colour. Prefer the style of the platform").
+  // "Still to go" in a neutral light grey, not a beige ().
   rest: 'url(#tg-rest)',
 }
 

@@ -3,10 +3,6 @@ import { isListableConversation } from './Messages'
 
 // THE PANEL THAT FLASHED UP WHILE A MESSAGE WAS SENDING.
 //
-// Ethan: "when sending a DM, after I type and press send, it temporarily shows
-// the panel with the suggested creator to message while the message is sending,
-// then shows the chat again. It should always be showing the chat."
-//
 // The whole fault is one predicate. `ensureConversation` creates the row BEFORE
 // the message is queued, because the outbox needs an id to write into, so for
 // the width of a round trip the conversation exists and has no `last_message_at`

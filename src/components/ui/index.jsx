@@ -14,7 +14,7 @@ import { useVisualViewport } from '../../lib/useKeyboardInset'
 import { useT } from '../../lib/i18n'
 
 /** Circular profile photo with an initials fallback. */
-// THE PHOTO IS FETCHED AT THE SIZE IT IS DRAWN (19 Sep 2026).
+// THE PHOTO IS FETCHED AT THE SIZE IT IS DRAWN.
 //
 // The same fault the map pins had - see lib/avatarUrl for the measurements -
 // and this component is where most of the copies of it are: the creator
@@ -107,14 +107,6 @@ export function PlaneLoader({ label = 'Loading…', className = '' }) {
 /**
  * A ROW OF PAGE ACTIONS THAT DOES NOT FALL APART ON A PHONE.
  *
- * Ethan, about the flight log's three buttons: "it shows three buttons - across
- * the community, aircraft collection, and log flight. If you can't fit the
- * three buttons on mobile, then one button above should be the full width of
- * the other two buttons, so it's a nice clean UI design. In this case I would
- * probably put the log a flight button as the big button. This UI needs to be
- * incorporated in other places where these buttons are not in sync and not
- * aligned."
- *
  * `flex flex-wrap` is what every one of these rows was, and wrapping is exactly
  * the thing that looks unfinished: three buttons of three different widths wrap
  * into two-then-one or one-then-two depending on how long the words are, and
@@ -155,13 +147,11 @@ export function ActionRow({ lead = null, children, className = '' }) {
 /**
  * THE APP'S FULL-PAGE LOADER, WHICH KNOWS ABOUT THE BOOT LAYER.
  *
- * Use this - never a bare `<PlaneLoader>` in a `min-h-screen` box - for any
- * screen that stands in for the whole app: a lazy route chunk, the session
- * resolving, the profile arriving. While `index.html`'s `#boot` is still up it
- * draws NOTHING, because `#boot` is already drawing exactly this loader, and
- * two of them at two different vertical centres is what Ethan photographed.
- * Holding the slot is also what tells main.jsx that the app is not ready yet,
- * so the boot layer waits for real content instead of guessing at a timer.
+ * Use this - never a bare `<PlaneLoader>` in a `min-h-screen` box - for any screen that stands in for the whole app: a
+ * lazy route chunk, the session resolving, the profile arriving. While `index.html`'s `#boot` is still up it draws
+ * NOTHING, because `#boot` is already drawing exactly this loader, and two of them at two different vertical centres is
+ * what the team photographed. Holding the slot is also what tells main.jsx that the app is not ready yet, so the boot
+ * layer waits for real content instead of guessing at a timer.
  *
  * See lib/bootLoader.js.
  */
@@ -177,12 +167,9 @@ export function AppLoader({ label, className = 'min-h-screen' }) {
 /**
  * A SETTINGS GROUP: A CARD ON A DESKTOP, A PLAIN BLOCK ON A PHONE.
  *
- * Ethan, twice, and not contradicting himself: "we now have specific buttons
- * for display, sound etc - we don't need to have a card inside them" and then,
- * later, "I think it actually might be better still having the card, because I
- * notice you kept it for the home screen icon and it looks good... although for
- * mobile I would remove the cards from all the settings and just have it inline,
- * because it will look better for mobile."
+ * and then, later, "I think it actually might be better still having the card, because I notice you kept it for the home
+ * screen icon and it looks good... although for mobile I would remove the cards from all the settings and just have it
+ * inline, because it will look better for mobile."
  *
  * Both are right about their own screen. On a phone a card is a border drawn
  * around the full width of the page - it separates the settings from nothing,
@@ -234,9 +221,8 @@ export function EmptyState({ emoji = '🌍', icon, title, hint, action }) {
   return (
     <div className="flex flex-col items-center justify-center gap-3 rounded-card border border-dashed border-gray-200 bg-white px-8 py-16 text-center">
       {icon
-        // A STRING IS AN ICON NAME. The creator kit passed `icon="image"` and
-        // got the word "image" printed in an orange tile (Ethan: "weird image
-        // text in an orange box").
+        // A STRING IS AN ICON NAME. The creator kit passed `icon="image"` and got the word "image" printed in an orange
+        // tile ( ).
         ? <div className="flex h-14 w-14 items-center justify-center rounded-2xl text-brand" aria-hidden>
             {typeof icon === 'string' ? <Icon name={icon} className="h-7 w-7" /> : icon}
           </div>
@@ -259,20 +245,16 @@ export function EmptyState({ emoji = '🌍', icon, title, hint, action }) {
 // on the title row makes the title jump left on pages that have one.
 // `inlineAction` KEEPS THE ACTION ON THE TITLE'S ROW AT EVERY WIDTH.
 //
-// The default stacks it underneath on a phone, which is right for the actions
-// most pages pass - "Submit your video", "Ask a question" - full-width primary
-// buttons you are meant to reach for. It is wrong for a small secondary control
-// like the admin panel's Arrange, which stacked into a wide pill of its own on
-// a line of its own, under a 30px heading, for a thing you press once. Ethan:
-// "Arrange button smaller, to the right of the heading." So the page says which
-// kind of action it is handing over; PageHeader does not guess.
+// The default stacks it underneath on a phone, which is right for the actions most pages pass - "Submit your video",
+// "Ask a question" - full-width primary buttons you are meant to reach for. It is wrong for a small secondary control
+// like the admin panel's Arrange, which stacked into a wide pill of its own on a line of its own, under a 30px heading,
+// for a thing you press once. So the page says which kind of action it is handing over; PageHeader does not guess.
 export function PageHeader({ title, subtitle, action, back, inlineAction = false }) {
   const backTo = typeof back === 'string' ? back : back?.to
   const backLabel = (typeof back === 'object' && back?.label) || 'Admin'
   return (
-    // TIGHTER WITHOUT A SUBTITLE (2 Oct 2026). Ethan: "because you've removed descriptions, you now
-    // have more space to move the top up a little bit". A title on its own no longer carries the gap
-    // that was sized for a title plus a paragraph under it.
+    // TIGHTER WITHOUT A SUBTITLE. A title on its own no longer carries the gap that was sized for a title plus a
+    // paragraph under it.
     <div className={subtitle ? 'mb-8 sm:mb-10' : 'mb-5 sm:mb-7'}>
       {backTo && (
         <Link
@@ -288,22 +270,13 @@ export function PageHeader({ title, subtitle, action, back, inlineAction = false
         inlineAction ? 'flex-row items-center justify-between gap-3' : 'flex-col',
       )}>
         <div className="min-w-0">
-          {/* `inlineAction` MEANS THE HEADING SHARES ITS LINE, SO IT KEEPS THE
-              LINE (4 Sep 2026). Ethan, on /admin from a phone: "the Arrange
-              button shows at the very top and it's actually in the admin panel
-              writing. It should be just a small button on the top right, and
-              the admin panel text should be on one row and not two rows."
-              Both halves of that are this component: the action was full width
-              on a phone (see below) which left the title ~120px to wrap into,
-              and nothing stopped it wrapping. */}
+          {/* `inlineAction` MEANS THE HEADING SHARES ITS LINE, SO IT KEEPS THE LINE. Both halves of that are this
+              component: the action was full width on a phone (see below) which left the title ~120px to wrap into, and
+              nothing stopped it wrapping. */}
           <h1 className={cx('text-3xl font-bold tracking-tight sm:text-4xl', inlineAction && 'truncate max-sm:text-2xl')}>{title}</h1>
           {subtitle && <p className="mt-2 max-w-xl text-smoke">{subtitle}</p>}
         </div>
-        {/* A LONE ACTION IS FULL WIDTH ON A PHONE. (1 Sep 2026.)
-
-            Ethan: "the ask a question button is at the top in the left hand
-            side; it should either span across the entire top or be centred in
-            the top. Please improve this design across the layouts."
+        {/* A LONE ACTION IS FULL WIDTH ON A PHONE.
 
             The header already stacked below `sm`, but the action was
             `shrink-0` and shrink-to-fit, so on every page with one primary
@@ -344,12 +317,9 @@ export function PageHeader({ title, subtitle, action, back, inlineAction = false
 /**
  * EVERY TILE IN A ROW IS THE SAME HEIGHT, AND THAT IS WHAT `h-full` IS FOR.
  *
- * Ethan, on the analytics pages: "I noticed some of the squares are like
- * different sizes." They were, and the cause was not the grid - a CSS grid
- * already stretches its items. It was that this card was `height: auto` inside
- * a stretched cell, so a tile WITH a hint grew and a tile without it did not,
- * and a row of four came out as two tall and two short. Every analytics grid
- * mixes hinted and unhinted tiles, so the fault showed on all of them.
+ * They were, and the cause was not the grid - a CSS grid already stretches its items. It was that this card was `height:
+ * auto` inside a stretched cell, so a tile WITH a hint grew and a tile without it did not, and a row of four came out as
+ * two tall and two short. Every analytics grid mixes hinted and unhinted tiles, so the fault showed on all of them.
  *
  * `h-full` makes the card fill the cell the grid already gave it, the column
  * pushes the hint to the bottom with `mt-auto`, and the numbers therefore sit
@@ -357,13 +327,13 @@ export function PageHeader({ title, subtitle, action, back, inlineAction = false
  * here changes what a tile CONTAINS - the fix is that the box now obeys the
  * grid instead of the text.
  */
-// `delta` (2 Oct 2026, the analytics periods): { pct, vs, lowerIsBetter } - a small pill under the figure saying how it
-// moved against the period before. Green when it moved the good way, which for a cost (CPM) is down.
+// `delta` (the analytics periods): { pct, vs, lowerIsBetter } - a small pill under the figure saying how it moved
+// against the period before. Green when it moved the good way, which for a cost (CPM) is down.
 export function StatCard({ label, value, hint, accent = false, onClick, delta = null }) {
   const className = cx(
     'card flex h-full flex-col',
-    // White like every other card (2 Oct 2026, Ethan: the "push enabled" card "isn't white. It should be
-    // white, matching the other cards"). The accent is the brand-coloured number, not a tinted box.
+    // White like every other card (the team: the "push enabled" card "isn't white. It should be white, matching the
+    // other cards"). The accent is the brand-coloured number, not a tinted box.
     accent && 'border-brand/20',
     onClick && 'w-full cursor-pointer text-left transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md active:translate-y-0 active:scale-[0.99]',
   )
@@ -410,23 +380,17 @@ function DeltaPill({ pct, vs, lowerIsBetter = false }) {
 /**
  * `dismissible = false` MAKES IT A WALL RATHER THAN A DIALOG.
  *
- * There is no close button, the scrim is not pressable, and Escape does
- * nothing. Exactly one screen uses it - the add-to-home-screen ask, which Ethan
- * asked to be persistent because the phone experience is the app and not the
- * website (see components/AddToHomePrompt). It is deliberately awkward to reach
- * for: a modal somebody cannot leave is a trap unless the only way past it is
- * something they were always going to have to do.
+ * There is no close button, the scrim is not pressable, and Escape does nothing. Exactly one screen uses it - the
+ * add-to-home-screen ask, which the team asked to be persistent because the phone experience is the app and not the
+ * website (see components/AddToHomePrompt). It is deliberately awkward to reach for: a modal somebody cannot leave is a
+ * trap unless the only way past it is something they were always going to have to do.
  */
 // How long a dialog takes to leave. Keep in step with `.scrim-out` / `.sheet-out` in index.css.
 const EXIT_MS = 190
 
 export function Modal({ open, onClose, title, children, wide = false, sheet = true, dismissible = true }) {
   const tr = useT()
-  // A DIALOG IS AS TALL AS WHAT YOU CAN SEE, NOT AS TALL AS THE PAGE
-  // (2 Sep 2026).
-  //
-  // Ethan: "if I try typing the day or the time it's covered by the keyboard...
-  // same with creating a poll and typing in the options."
+  // A DIALOG IS AS TALL AS WHAT YOU CAN SEE, NOT AS TALL AS THE PAGE.
   //
   // `max-h-[90vh]` is measured against the LAYOUT viewport, and on iOS the
   // layout viewport does not shrink when the keyboard opens - only the visual
@@ -440,15 +404,13 @@ export function Modal({ open, onClose, title, children, wide = false, sheet = tr
   // its content, so it has somewhere to scroll, and lib/keyboardFollow then has
   // room to put the focused field above the keyboard.
   const vp = useVisualViewport()
-  // A DIALOG LEAVES THE WAY IT CAME (2 Oct 2026).
+  // A DIALOG LEAVES THE WAY IT CAME.
   //
-  // Ethan, on the KPI cards: "when I click out of the card there's a weird bug, something flashes up on
-  // my screen ... everything jitters up a bit." Closing used to do THREE things in one frame: the scrim
-  // and the card were deleted, the page was un-frozen (body back in flow, scroll offset restored) and
-  // the sticky header snapped back. No single one of them is a bug, but together they read as a flash.
-  // Now the dialog plays a short exit (scrim fades, sheet drops) and the page stays frozen until it has
-  // finished, so the only thing that changes in any one frame is the dialog going away. The last
-  // content is kept for the exit, because callers clear their state the moment they close.
+  // Closing used to do THREE things in one frame: the scrim and the card were deleted, the page was un-frozen (body back
+  // in flow, scroll offset restored) and the sticky header snapped back. No single one of them is a bug, but together
+  // they read as a flash. Now the dialog plays a short exit (scrim fades, sheet drops) and the page stays frozen until
+  // it has finished, so the only thing that changes in any one frame is the dialog going away. The last content is kept
+  // for the exit, because callers clear their state the moment they close.
   const [present, setPresent] = useState(open)
   if (open && !present) setPresent(true)
   const closing = !open && present
@@ -594,9 +556,9 @@ export function StreakChip({ n, title }) {
 }
 
 /**
- * A SAVE BUTTON THAT SAYS IT WORKED (4 Oct 2026). Ethan: pressing Save on the VIP goal changed nothing on screen, so it
- * looked as if nothing had happened. `flash()` turns the button green with a tick for a few seconds, then it goes back to
- * orange. Usage: `const [saved, flash] = useSavedFlash()` ... `<SaveButton saved={saved} busy={busy} onClick={...} />`.
+ * A SAVE BUTTON THAT SAYS IT WORKED. The team: pressing Save on the VIP goal changed nothing on screen, so it looked as
+ * if nothing had happened. `flash()` turns the button green with a tick for a few seconds, then it goes back to orange.
+ * Usage: `const [saved, flash] = useSavedFlash()`... `<SaveButton saved={saved} busy={busy} onClick={...} />`.
  */
 export function useSavedFlash(ms = 3000) {
   const [saved, setSaved] = useState(false)
@@ -690,11 +652,11 @@ export function CopyButton({ value, label = 'Copy', className = '' }) {
 /**
  * A layer that floats over the page under an anchor, drawn into <body>.
  *
- * THE ONE ANSWER TO "THE DROPDOWN IS BEHIND THE CARD" (2 Oct 2026). Any popup positioned `absolute` inside a card lives
- * in that card's stacking context; every card on this platform animates in and keeps a transform, so the next card down
- * paints over the popup, and an `overflow-hidden` card slices it. Ethan has reported it on four different pages. Use
- * this (or `Select`, which uses the same idea) for anything that opens below a control. `innerRef` is the floating
- * element, for an outside-click check: `anchor.contains(t) || inner.contains(t)`.
+ * THE ONE ANSWER TO "THE DROPDOWN IS BEHIND THE CARD". Any popup positioned `absolute` inside a card lives in that
+ * card's stacking context; every card on this platform animates in and keeps a transform, so the next card down paints
+ * over the popup, and an `overflow-hidden` card slices it. The team has reported it on four different pages. Use this
+ * (or `Select`, which uses the same idea) for anything that opens below a control. `innerRef` is the floating element,
+ * for an outside-click check: `anchor.contains(t) || inner.contains(t)`.
  *
  * align: 'left' | 'right' | 'stretch' (as wide as the anchor). It flips upwards only when there is no room below.
  */
@@ -743,11 +705,10 @@ export function Floating({ anchor, open, align = 'left', offset = 6, innerRef, c
  * (see the modal-menu note in the design rules) because the list is short and a
  * jumping menu is worse than one that occasionally sits above the control.
  */
-// ONE dropdown for the whole platform. A native <select> opens the operating
-// system's own menu - grey panel, blue highlight, system font - which Ethan
-// flagged as "that weird apple menu" every time one turned up. This is a
-// listbox with the same keyboard behaviour and our own type and colour, and it
-// is the only dropdown that should ever be used. Do not add a native select.
+// ONE dropdown for the whole platform. A native <select> opens the operating system's own menu - grey panel, blue
+// highlight, system font - which the team flagged as "that weird apple menu" every time one turned up. This is a listbox
+// with the same keyboard behaviour and our own type and colour, and it is the only dropdown that should ever be used. Do
+// not add a native select.
 //
 // TWO SHAPES, because a dropdown does two different jobs. `pill` is a filter or
 // a sort control that sits beside a search box and is sized to its own label.
@@ -757,10 +718,10 @@ export function Floating({ anchor, open, align = 'left', offset = 6, innerRef, c
 /**
  * A searchable list on a PHONE: the menu is pinned to the top of the VISIBLE screen and is only as tall as what the keyboard leaves.
  *
- * Ethan: "even selecting the phone number sometimes has weird UI." The dial-code list was a floating menu placed under its button
- * and re-measured on every scroll; opening it focuses the search box, the keyboard arrives, iOS scrolls the page under the fixed
- * menu, and the list ended up half behind the keys or detached from its button. A sheet has no button to stay attached to: it sits
- * at the top of the visual viewport, its height follows the keyboard, and the page behind it is held still.
+ * The dial-code list was a floating menu placed under its button and re-measured on every scroll; opening it focuses the
+ * search box, the keyboard arrives, iOS scrolls the page under the fixed menu, and the list ended up half behind the
+ * keys or detached from its button. A sheet has no button to stay attached to: it sits at the top of the visual
+ * viewport, its height follows the keyboard, and the page behind it is held still.
  */
 function SelectSheet({ children, onClose }) {
   const vp = useVisualViewport()
@@ -780,13 +741,9 @@ export function Select({
   variant = 'pill', placeholder = 'Choose', disabled = false, id,
   // INSIDE A MODAL, THE MENU MUST NOT FLOAT.
   //
-  // A `Modal` panel is `overflow-y-auto` with a `max-h`, which makes it a
-  // clipping box on BOTH axes - so an absolutely-positioned menu opened near
-  // the foot of a dialog is sliced off at the card's edge, and a menu wider
-  // than its button (this one is `min-w-max`) is sliced off at the side too.
-  // Ethan, on the schedule dialog's timezone picker: "whenever I press the
-  // clock, it's showing up a pop up that's cut off because it's outside the
-  // main card."
+  // A `Modal` panel is `overflow-y-auto` with a `max-h`, which makes it a clipping box on BOTH axes - so an
+  // absolutely-positioned menu opened near the foot of a dialog is sliced off at the card's edge, and a menu wider than
+  // its button (this one is `min-w-max`) is sliced off at the side too.
   //
   // Flipping it upwards does not fix it: inside a dialog there is rarely 280px
   // either way, so it flips almost every time and then covers the fields above
@@ -794,20 +751,18 @@ export function Select({
   // dialog simply grows and its own scroller takes over, which is the answer
   // this codebase already reached once for the same reason.
   inFlow = false,
-  // FLOATING OVER A DIALOG WITHOUT BEING CLIPPED (30 Sep 2026). Ethan, on the video tracker's edit
-  // sheet: "whenever you click a market, it moves everything down. Instead, this dropdown should just
-  // go over the other cards." An in-flow menu cannot be clipped but pushes the form; this renders the
-  // menu into <body> at the button's position (fixed), so it floats over everything and no scroll box
-  // can slice it. Re-measured on scroll and resize.
+  // FLOATING OVER A DIALOG WITHOUT BEING CLIPPED. An in-flow menu cannot be clipped but pushes the form; this renders
+  // the menu into <body> at the button's position (fixed), so it floats over everything and no scroll box can slice it.
+  // Re-measured on scroll and resize.
   portal: portalProp = false,
   // `search` overrides the "more than eight options" rule: a fixed list of presets (the analytics periods) reads
   // better without a box asking you to type.
   search = null,
 }) {
   const tr = useT()
-  // EVERY FLOATING MENU IS DRAWN OVER THE PAGE, NOT INSIDE ITS CARD (2 Oct 2026). Ethan, on the VIP page's "A new VIP,
-  // day one" picker: "that drop down is hidden behind a card, this has been a recurring issue so ensure it doesn't
-  // happen again." An absolutely-positioned menu lives in its card's stacking context, and every card here animates in
+  // EVERY FLOATING MENU IS DRAWN OVER THE PAGE, NOT INSIDE ITS CARD. The team, on the VIP page's "A new VIP, day one"
+  // picker: "that drop down is hidden behind a card, this has been a recurring issue so ensure it doesn't happen again."
+  // An absolutely-positioned menu lives in its card's stacking context, and every card here animates in
   // (`animate-fade-up` leaves a transform), so the NEXT card on the page painted over it - the same bug, once per page,
   // each fixed by hand with `portal`. Now a menu that floats always goes to <body> at the button's position, so no card,
   // no `overflow-hidden` and no transform can cover or clip it. `inFlow` (a menu that is part of a dialog's column) is
@@ -819,7 +774,7 @@ export function Select({
   const [rect, setRect] = useState(null)
   const [active, setActive] = useState(() => options.findIndex((o) => o.value === value))
   const [up, setUp] = useState(false)
-  // A SEARCHABLE LIST ON A PHONE IS A SHEET (9 Oct 2026). See SelectSheet.
+  // A SEARCHABLE LIST ON A PHONE IS A SHEET. See SelectSheet.
   const [sheet, setSheet] = useState(false)
   const [query, setQuery] = useState('')
   const wrapRef = useRef(null)
@@ -910,11 +865,10 @@ export function Select({
   const menuEl = (
         // THE SEARCH BOX IS NOT IN THE SCROLLING LIST.
         //
-        // It was: a `sticky top-0` <li> inside the scrolling <ul>, pulled up
-        // with a negative margin to cover the list's own padding. Sticky offsets
-        // resolve against the scrollport, so the 6px of padding above it stayed
-        // visible - and options scrolled UP THROUGH that strip, which is Ethan's
-        // "I can see part of the name scrolling up just above the search bar".
+        // It was: a `sticky top-0` <li> inside the scrolling <ul>, pulled up with a negative margin to cover the list's
+        // own padding. Sticky offsets resolve against the scrollport, so the 6px of padding above it stayed visible -
+        // and options scrolled UP THROUGH that strip, which is the team's "I can see part of the name scrolling up just
+        // above the search bar".
         //
         // A header that does not scroll should not live inside the thing that
         // scrolls. The menu is a column now: a fixed search row, then the list.
@@ -952,22 +906,18 @@ export function Select({
                 aria-label={tr("Search options")}
                 onChange={(e) => { setQuery(e.target.value); setActive(0) }}
                 onKeyDown={onKeyDown}
-                /* NO FOCUS RING ON THIS ONE, AND `focus:outline-none` WAS NOT
-                   ENOUGH. index.css gives every focused `input` a flush
-                   `ring-1 ring-brand`, which is right for a field that sits on
-                   the page and wrong for this one: it is the menu's own header
-                   row, borderless and transparent, so the ring drew a small
-                   orange rectangle floating inside the popup. Ethan, on the
-                   timezone picker: "it shows up the search bar with a little
-                   weird orange outline around it."
-                   The ring is a box-shadow, so `outline-none` never touched it.
-                   The menu is already the focus indicator - it only exists
-                   because you opened it, and typing goes here wherever the
-                   caret appears to be. */
+                /*
+                 * NO FOCUS RING ON THIS ONE, AND `focus:outline-none` WAS NOT ENOUGH. index.css gives every focused
+                 * `input` a flush `ring-1 ring-brand`, which is right for a field that sits on the page and wrong for
+                 * this one: it is the menu's own header row, borderless and transparent, so the ring drew a small orange
+                 * rectangle floating inside the popup. The ring is a box-shadow, so `outline-none` never touched it. The
+                 * menu is already the focus indicator - it only exists because you opened it, and typing goes here
+                 * wherever the caret appears to be.
+                 */
                 className="no-ios-zoom w-full border-0 bg-transparent p-0 placeholder:text-gray-400 focus:outline-none focus:ring-0 focus-visible:ring-0"
               />
-              {/* THE SHEET NEEDS A WAY OUT (9 Oct 2026). Ethan: "they take up the full screen and you can't get out of it."
-                  The sheet is as tall as the visible screen, so there is no backdrop left to tap. An X in the header closes it. */}
+              {/* THE SHEET NEEDS A WAY OUT. The sheet is as tall as the visible screen, so there is no backdrop left to
+                  tap. An X in the header closes it. */}
               {sheet && (
                 <button
                   type="button"
@@ -1054,9 +1004,7 @@ export function Select({
             // Matched to `.input`: same radius, same padding, and 16px on mobile
             // so iOS does not zoom the page when it is focused.
             ? 'rounded-xl px-4 py-3 text-base sm:text-sm'
-            // MATCHED TO A FILTER CHIP (8 Sep 2026). Ethan, on the analytics
-            // controls: "the All markets button is round, and all the other
-            // ones are quite square, so I would fix that."
+            // MATCHED TO A FILTER CHIP.
             //
             // Measured, because "looks different" is worth turning into a
             // number: the seven market chips and the EUR/GBP pair are 8px and

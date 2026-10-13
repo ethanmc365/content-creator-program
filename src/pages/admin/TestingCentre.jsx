@@ -54,8 +54,8 @@ export const LABS = [
     element: <OnboardingLab />,
   },
   {
-    // Both guided tours, the community one and the VIP one, started over the live app (7 Oct 2026). The agreements
-    // lab that sat here is gone: Admin > Agreements previews the real pop-up for any version and market.
+    // Both guided tours, the community one and the VIP one, started over the live app. The agreements lab that sat here
+    // is gone: Admin > Agreements previews the real pop-up for any version and market.
     key: 'walkthroughs', title: 'Walkthroughs', icon: 'sparkles', group: 'Joining the programme',
     blurb: 'The first-open guided tour in both versions, community and VIP. One press runs it over the app from the start.',
     tags: ['2 walks', 'Live'],
@@ -172,12 +172,9 @@ export default function TestingCentre() {
                   </span>
                 )}
               </span>
-              {/* NO BLURB. Four cards, four titles you already understand, and
-                  three lines of prose under each one explaining what "View
-                  counts" means. Ethan: "titles only, drop the card
-                  descriptions." The group word stays - that is orientation, not
-                  a description - and `blurb` stays on LABS because the lab pages
-                  themselves introduce with it. */}
+              {/* NO BLURB. Four cards, four titles you already understand, and three lines of prose under each one
+                  explaining what "View counts" means. The group word stays - that is orientation, not a description -
+                  and `blurb` stays on LABS because the lab pages themselves introduce with it. */}
               <span className="mt-1.5 block text-[10px] font-semibold uppercase tracking-[0.1em] text-gray-400">
                 {l.group}
               </span>

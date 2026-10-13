@@ -81,11 +81,6 @@ export function videoEmbed(url = '') {
 
 // CAN THIS LINK ACTUALLY PLAY INSIDE THE APP?
 //
-// Ethan: "clicking on an entry card that is a carousel should always open the
-// link rather than trying to play it inline, as carousels seem to never work
-// inline ... ensure any other videos that don't play inline will just open the
-// link when clicked."
-//
 // `videoEmbed` answers "can I build an embed URL for this", which is not the
 // same question and is the reason the lightbox could open on something that
 // never played. An Instagram CAROUSEL has a perfectly good `/embed/` URL - it

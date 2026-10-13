@@ -132,11 +132,9 @@ export default function ProfileFlights({ creatorId, isMe, name, rail = false }) 
   if (rail) {
     return (
       <section className="overflow-hidden rounded-card border border-gray-100 bg-white shadow-card">
-        {/* `items-center`, not `items-baseline`. The heading carries an icon,
-            and baseline alignment lines the LINK up with the text baseline
-            inside a box the icon has made taller - so "Open" sat visibly low
-            against its own heading. Ethan: "the 'open' and 'play' buttons seem
-            off centred." */}
+        {/* `items-center`, not `items-baseline`. The heading carries an icon, and baseline alignment lines the LINK up
+            with the text baseline inside a box the icon has made taller - so "Open" sat visibly low against its own
+            heading. */}
         <div className="flex items-center justify-between gap-2 px-4 pb-1 pt-4">
           <h2 className="flex items-center gap-2 text-sm font-semibold">
             <Icon name="plane-tryp" className="h-4 w-4 shrink-0 text-brand" />
@@ -146,14 +144,10 @@ export default function ProfileFlights({ creatorId, isMe, name, rail = false }) 
             {isMe ? tr('Open') : tr('Community')}
           </Link>
         </div>
-        {/* A PLAIN GRID, NOT A HAIRLINE TRICK.
-            This was `gap-px bg-gray-50` with `bg-white` cells - the classic way
-            to draw one-pixel rules between grid cells by letting the container
-            show through the gaps. It does not survive padding: `px-4 py-3` put
-            grey all the way round the outside as well, so the card showed four
-            white squares floating on a grey block. Ethan: "there's like a white
-            square and then a grey background, please fix it."
-            Four numbers do not need rules between them at all. */}
+        {/* A PLAIN GRID, NOT A HAIRLINE TRICK. This was `gap-px bg-gray-50` with `bg-white` cells - the classic way to
+            draw one-pixel rules between grid cells by letting the container show through the gaps. It does not survive
+            padding: `px-4 py-3` put grey all the way round the outside as well, so the card showed four white squares
+            floating on a grey block. Four numbers do not need rules between them at all. */}
         <div className="grid grid-cols-2 gap-x-3 gap-y-2.5 px-4 py-3">
           {[
             { v: Math.round(stat.km).toLocaleString('en-GB'), unit: 'km', label: tr('Flown') },

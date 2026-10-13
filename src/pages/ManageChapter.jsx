@@ -62,8 +62,8 @@ const ADDABLE_ROOMS = [
   { key: 'wins', label: 'Wins', hint: 'Post a result you are proud of.', icon: 'trophy' },
 ]
 
-// A market with a VIP programme gets a door to its tools here (2 Oct 2026). Nothing is drawn for a market
-// without one, so the lead of a market that has no VIPs never sees a dead end.
+// A market with a VIP programme gets a door to its tools here. Nothing is drawn for a market without one, so the lead of
+// a market that has no VIPs never sees a dead end.
 function VipSection({ chapter }) {
   const tr = useT()
   const [on, setOn] = useState(false)
@@ -778,8 +778,8 @@ export default function ManageChapter() {
                       </button>
                       {/* One call for a move, never remove-then-add: two separate actions leave a window where they are
                           in no market at all (admin_set_creator_markets). */}
-                      {/* ADD TO MORE MARKETS, OR MOVE (10 Oct 2026). Ethan: moving "seems to remove them from the community
-                          they were in, we would need this function too but also the function to add them to multiple." */}
+                      {/* ADD TO MORE MARKETS, OR MOVE. The team: moving "seems to remove them from the community they
+                          were in, we would need this function too but also the function to add them to multiple." */}
                       <button onClick={() => setPlacing(m)}
                         className="shrink-0 rounded-full border border-gray-200 px-3 py-1 text-xs font-medium transition-transform duration-200 hover:scale-105 hover:border-brand hover:text-brand">
                         {tr("Markets")}

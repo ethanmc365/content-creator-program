@@ -1,4 +1,4 @@
-// FOUR CODES WERE WRONG, AND THEY WERE ALL WRONG THE SAME WAY (21 Aug 2026).
+// FOUR CODES WERE WRONG, AND THEY WERE ALL WRONG THE SAME WAY.
 //
 // Found by cross-checking every row here against OpenFlights while building the
 // world airport layer for the map: four entries carried the right airport, with
@@ -373,12 +373,9 @@ const RAW = [
   // ==================================================================
   // THE SECOND PASS: SMALL AND REGIONAL FIELDS.
   //
-  // Ethan: "ensure you have all the routes, short and longhaul and from small
-  // airports." The block above is majors and flag-carrier hubs, which is the
-  // right first three hundred and is exactly wrong for the person who flew
-  // Inverness to Amsterdam or Bergerac to Stansted - they got "no airport
-  // matches that", which reads as the log refusing their flight rather than as
-  // a gap in a table.
+  // The block above is majors and flag-carrier hubs, which is the right first three hundred and is exactly wrong for the
+  // person who flew Inverness to Amsterdam or Bergerac to Stansted - they got "no airport matches that", which reads as
+  // the log refusing their flight rather than as a gap in a table.
   //
   // A regional field is also where the derivation earns its keep: almost
   // nothing serves them, so the airline shortlist for one is short and nearly
@@ -734,8 +731,6 @@ const RAW = [
   ['KMG', 'Changshui', 'Kunming', 'CN', 25.1019, 102.9292],
 
   // ---- EVERY COUNTRY THAT HAS A COMMERCIAL AIRPORT NOW HAS ONE HERE.
-  //
-  // Ethan: "ensure every possible airport and flight combination is on."
   //
   // The table above is the three hundred fields this community actually flies
   // through, which is the right basis for a type-ahead and the wrong basis for

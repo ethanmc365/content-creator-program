@@ -58,10 +58,9 @@ export async function loadWinnerGalleries(challenges) {
   const person = new Map()      // creator id -> profile, for the voucher faces
   // VIEWS COME FROM THE SUBMISSIONS, NOT FROM `results.final_views`.
   //
-  // THE BUG: the archive said Lisa had 15.2k views and the challenge had
-  // 43.4k in total, while the leaderboard on the very next page said 16.8k
-  // and 76.6k. Two numbers for the same thing, and Ethan reported it as
-  // "the challenge archive is showing the incorrect view counts again".
+  // THE BUG: the archive said Lisa had 15.2k views and the challenge had 43.4k in total, while the leaderboard on the
+  // very next page said 16.8k and 76.6k. Two numbers for the same thing, and the team reported it as "the challenge
+  // archive is showing the incorrect view counts again".
   //
   // `results.final_views` is a SNAPSHOT, written when an admin saves the
   // results (see AdminResults). Views are read automatically off each

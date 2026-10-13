@@ -3,8 +3,6 @@ import { useT } from '../lib/i18n'
 
 // A REVIEW ROW THAT FITS ON A PHONE.
 //
-// Ethan: "it shows the ready to submit - I would just tidy up the UI here."
-//
 // It was a horizontal row with a FIXED 8rem label column, on a screen 375px
 // wide inside a card with 24px of padding either side. That leaves about 140px
 // for the answer - so "About you", which is the longest thing anybody writes in

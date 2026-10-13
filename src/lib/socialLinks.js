@@ -1,9 +1,5 @@
 // WHAT A CREATOR TYPED INTO "INSTAGRAM" IS NOT ALWAYS A LINK.
 //
-// Ethan (24 Sep 2026): "I click on the social media icon to see their account,
-// like Instagram or TikTok. For a few creators this opens the correct link, but
-// other times it just shows a screen saying 'creator not found'."
-//
 // Counted against prod the same day: of the active creators, a third had saved
 // something other than a full URL in at least one platform field - a bare
 // handle (`elviajedemartaa`), an at-handle (`@saddnoe`), or a link with no

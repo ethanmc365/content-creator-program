@@ -1,11 +1,8 @@
-// LINKS INTO TRYP.COM, IN THE CREATOR'S OWN LANGUAGE (26 Sep 2026).
+// LINKS INTO TRYP.COM, IN THE CREATOR'S OWN LANGUAGE.
 //
-// Ethan: "a link directly to the Tryp.com website that's going to show the best
-// deals ... it should probably bring them to their own correct language and
-// from their correct country." tryp.com serves each language under its own
-// first path segment (/es, /pt, /de ... measured 26 Sep: /nb, /en-gb and
-// friends 404, so only these exact codes). The country a creator gave us
-// decides it; failing that, the browser's language; failing that, English.
+// tryp.com serves each language under its own first path segment (/es, /pt, /de... measured 26 Sep: /nb, /en-gb and
+// friends 404, so only these exact codes). The country a creator gave us decides it; failing that, the browser's
+// language; failing that, English.
 
 export const TRYP_SITE = 'https://www.tryp.com'
 

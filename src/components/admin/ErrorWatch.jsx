@@ -22,14 +22,8 @@ import { teamApi } from '../../api/team'
 // one fault that hit forty creators is one row saying forty, not forty rows to
 // scroll past.
 //
-// ---------------------------------------------------------------------------
-// THE REBUILD (8 Sep 2026), and it starts with why the list was empty.
-//
-// Ethan: "on the error monitoring - there were previous errors, it's not
-// showing them, and it doesn't show what they are, which it should. Properly
-// build out the error monitoring. It should show what the errors were, like
-// where they happened, how to replicate them so I can fix it. And then a button
-// to actually click whenever it's fixed, and then a log of the fixed ones."
+// --------------------------------------------------------------------------- THE REBUILD, and it starts with why the
+//  list was empty.
 //
 // THE LIST WAS EMPTY BECAUSE NOTHING WAS EVER WRITTEN TO IT. `client_errors`
 // had zero rows and had never had one: the reporting function threw on every
@@ -57,12 +51,10 @@ import { teamApi } from '../../api/team'
 // something" is the same question whichever half of the system it came from.
 // `source` says which, and the filter chips let one be read without the other.
 //
-// TICKING ONE OFF IS NOT DELETING IT. `resolved_at` moves it to the ticked-off
-// list, and the reporting function clears that the moment the same fingerprint
-// arrives again - so a fault you thought you had fixed comes BACK to the top
-// rather than staying hidden. That is the difference between a tick box and a
-// dismiss button, and it is the whole reason to have the log of fixed ones that
-// Ethan asked for.
+// TICKING ONE OFF IS NOT DELETING IT. `resolved_at` moves it to the ticked-off list, and the reporting function clears
+// that the moment the same fingerprint arrives again - so a fault you thought you had fixed comes BACK to the top rather
+// than staying hidden. That is the difference between a tick box and a dismiss button, and it is the whole reason to
+// have the log of fixed ones that the team asked for.
 
 // Where a row came from, as a chip ON THE ROW. Ink rather than a new hue: the
 // palette is white, ink and the two oranges (see the platform's design rules),
@@ -81,20 +73,14 @@ const SOURCE_LABEL = {
 
 // THE FILTER CHIPS ARE ABOUT WHERE IT HAPPENED, NOT WHICH SUBSYSTEM WROTE IT.
 //
-// They used to be built from the distinct `source` values in the table, so the
-// row read "All · App · certificates" - and `certificates` is not a PLACE, it
-// is the name of the code that happened to call the reporting function once.
-// Ethan: "certificates, I don't get why this is here... it's not like a major
-// thing. I think it should just be an all or an app wherever it occurred as
-// well... we just need all and app."
+// They used to be built from the distinct `source` values in the table, so the row read "All · App · certificates" - and
+// `certificates` is not a PLACE, it is the name of the code that happened to call the reporting function once.
 //
-// He also said what he expects the other one to mean, and he was describing
-// something the chip did not do: "for the app ones, that is taken from the add
-// to home screen app, right?... The all ones can be anything, the website."
-// That is a genuinely more useful split than client-versus-cron - an installed
-// PWA and a Safari tab are different environments and fail differently, which
-// is exactly why `agent` records it - so the chip now means what he thought it
-// meant. `source` is still on every row that is not a browser crash.
+// They also said what he expects the other one to mean, and they were describing something the chip did not do: "for the
+// app ones, that is taken from the add to home screen app, right?... The all ones can be anything, the website." That is
+// a genuinely more useful split than client-versus-cron - an installed PWA and a Safari tab are different environments
+// and fail differently, which is exactly why `agent` records it - so the chip now means what they thought it meant.
+// `source` is still on every row that is not a browser crash.
 //
 // The agent string is built by lib/monitoring as `name / os / installed app`.
 const isInstalled = (row) => /(^|\/\s*)installed app\s*$/i.test(row?.agent || '')
@@ -140,8 +126,7 @@ export default function ErrorWatch() {
   return (
     <div className="space-y-6">
       {/* ---- What state is it in ---- */}
-      {/* THE PAGE ALREADY SAID ALL OF THIS (14 Sep 2026).
-          Ethan: "please clean up the design of that errors page."
+      {/* THE PAGE ALREADY SAID ALL OF THIS.
 
           The top of it read "Analytics" / "Anything broken: crashes creators
           hit, and scheduled jobs that failed." / a tab labelled "Error
@@ -171,9 +156,7 @@ export default function ErrorWatch() {
             {chip.label} ({chip.count})
           </button>
         ))}
-        {/* TWO SEGMENTS, NOT ONE BUTTON THAT SAYS THE OPPOSITE OF WHERE YOU
-            ARE (9 Sep 2026). Ethan: "it isn't showing the past ones that have
-            been fixed, like an archive with the ones that have been fixed."
+        {/* TWO SEGMENTS, NOT ONE BUTTON THAT SAYS THE OPPOSITE OF WHERE YOU ARE.
 
             The archive was built and reachable - through a single button
             whose label was the state you were NOT in. Sitting on the open
@@ -330,14 +313,10 @@ export default function ErrorWatch() {
                 const guide = explain(r)
                 return (
                 <div className="border-t border-gray-100 bg-white/70 px-4 py-4">
-                  {/* THE EXPLANATION LEADS, BECAUSE IT IS THE ANSWER.
-                      Everything else on this panel is evidence, and evidence is
-                      only worth reading once you know what you are looking for.
-                      Ethan: "I'm not sure what these errors are, the information
-                      provided doesn't really help me." See lib/errorGuide - a
-                      fault with no entry gets no explanation rather than a
-                      guess, because a confident wrong answer on a monitoring
-                      panel sends somebody looking in the wrong place. */}
+                  {/* THE EXPLANATION LEADS, BECAUSE IT IS THE ANSWER. Everything else on this panel is evidence, and
+                      evidence is only worth reading once you know what you are looking for. See lib/errorGuide - a fault
+                      with no entry gets no explanation rather than a guess, because a confident wrong answer on a
+                      monitoring panel sends somebody looking in the wrong place. */}
                   {guide ? (
                     <div className="mb-4 rounded-card border border-gray-100 bg-white p-4">
                       <p className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-wide text-brand">
@@ -374,13 +353,10 @@ export default function ErrorWatch() {
                     <Fact label={tr('Fingerprint')} value={r.fingerprint?.slice(0, 12)} mono />
                   </dl>
 
-                  {/* WHAT THEY WERE DOING, AND IT IS THE MOST USEFUL THING HERE.
-                      A production stack is minified to `Fa@ui-BaIenqY-.js:4:29678`
-                      and names nothing. A list of the screens they opened and
-                      the buttons they pressed does not minify, and it is a
-                      reproduction rather than a riddle. See lib/breadcrumbs -
-                      it records labels we wrote and never anything anybody
-                      typed. Rows from before 12 Sep 2026 have no trail. */}
+                  {/* WHAT THEY WERE DOING, AND IT IS THE MOST USEFUL THING HERE. A production stack is minified to
+                      `Fa@ui-BaIenqY-.js:4:29678` and names nothing. A list of the screens they opened and the buttons
+                      they pressed does not minify, and it is a reproduction rather than a riddle. See lib/breadcrumbs -
+                      it records labels we wrote and never anything anybody typed. Rows from have no trail. */}
                   {ctx?.trail?.length > 0 && (
                     <div className="mt-4">
                       <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">{tr('What they did, in order')}</p>
@@ -417,22 +393,15 @@ export default function ErrorWatch() {
                       {r.agent ? ` ${tr('on')} ${r.agent}` : ''}
                       {ctx?.viewport ? ` ${tr('at')} ${ctx.viewport}` : ''}.
                     </span>
-                    {/* EVERYTHING ABOUT THIS ROW, ON THE CLIPBOARD. The point of
-                        the button is that Ethan can paste one block into a
-                        message and have the whole fault travel with it -
-                        message, route, browser, context, trail and frames -
-                        instead of screenshotting a panel four times. */}
+                    {/* EVERYTHING ABOUT THIS ROW, ON THE CLIPBOARD. The point of the button is that the team can paste
+                        one block into a message and have the whole fault travel with it - message, route, browser,
+                        context, trail and frames - instead of screenshotting a panel four times. */}
                     <button type="button" onClick={() => copyReport(r, ctx, frames, guide)} className="font-semibold text-brand hover:underline">
                       {tr('Copy the whole report')}
                     </button>
-                    {/* THIS LINK USED TO GO TO SOMEBODY ELSE'S SENTRY.
-                        It was hard-coded to `/organizations/sentry/issues/` -
-                        `sentry` being Sentry's OWN org slug, not ours - so
-                        every press landed on a login for an account nobody
-                        here has. Ethan: "I tried to login and check Sentry but
-                        I was having difficulties logging in, it's weird, it
-                        seems like a different login screen or something." That
-                        is exactly what that link produces.
+                    {/* THIS LINK USED TO GO TO SOMEBODY ELSE'S SENTRY. It was hard-coded to
+                        `/organizations/sentry/issues/` - `sentry` being Sentry's OWN org slug, not ours - so every press
+                        landed on a login for an account nobody here has. That is exactly what that link produces.
 
                         AND THIS PROJECT IS ON SENTRY'S EU REGION, which the
                         DSN says plainly (`...ingest.de.sentry.io/...`) and
@@ -467,9 +436,8 @@ export default function ErrorWatch() {
 // migration; the two ends agree on the marker. See `buildDetail` in
 // lib/monitoring.
 //
-// A row written before 12 Sep 2026 has no marker and is all stack, which this
-// handles by simply returning it - the panel then draws no context section
-// rather than an empty one.
+// A row written has no marker and is all stack, which this handles by simply returning it - the panel then draws no
+// context section rather than an empty one.
 export function splitDetail(detail) {
   const text = String(detail || '')
   const i = text.indexOf(CONTEXT_MARK)

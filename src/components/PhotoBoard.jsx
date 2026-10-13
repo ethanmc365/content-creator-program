@@ -20,10 +20,10 @@ import { profilesApi } from '../api/profiles'
 //     production had `pos_x = null`: nobody ever completed an arrangement.
 //     Unbounded `pos_y` let the board grow taller than the screen, and twelve
 //     columns at 375px is a 31px cell, so it was switched off on phones.
-//  2. Masonry with drag-to-REORDER and a "narrower" button. It worked. Ethan
+//  2. Masonry with drag-to-REORDER and a "narrower" button. It worked.
 //     wanted to resize by dragging, not by pressing a button.
 //  3. Free placement again, snapped to a twelfth, overlap allowed, four corner
-//     grips. This is the one Ethan is reporting on now, and the report names
+//     grips. This is the one the team is reporting on now, and the report names
 //     all three faults exactly:
 //       "I don't like the current shuffliness when moving them around, and I
 //        don't like that you're able to overlap photos. Whenever you overlap
@@ -50,7 +50,7 @@ import { profilesApi } from '../api/profiles'
 //     the order or a span actually changes, and then it TRANSITIONS there.
 //   * A DRAG IS A REORDER. You pick a photo up, the rest re-flow live to show
 //     you where it will land, and it snaps into that place when you let go.
-//     Ethan: "creators can rearrange it, but the photos always snap in place,
+//     The team: "creators can rearrange it, but the photos always snap in place,
 //     so they're not overlapping each other."
 //   * THE UNARRANGED BOARD AND THE ARRANGED ONE ARE THE SAME LAYOUT. "It should
 //     always start, whenever they upload, just as 'tidy them up' - the way it
@@ -65,13 +65,7 @@ import { profilesApi } from '../api/profiles'
 //     no pointer to fade it in with, so on the device most of this board is
 //     looked at, resizing was undiscoverable and effectively absent.
 //
-// SO SIZE IS A BUTTON NOW, AND IT IS THE FIFTH DESIGN (1 Sep 2026).
-//
-// Ethan: "rather than the ability to drag to resize, we should have a simple
-// button in top right of each photo and clicking it alters the size, there
-// should be three sizes, every photo should start at the small size then one
-// click makes it the middle size, and another the big size, then we just need
-// the ability to drag the photos to rearrange them."
+// SO SIZE IS A BUTTON NOW, AND IT IS THE FIFTH DESIGN.
 //
 // One gesture per job: DRAG MOVES, BUTTON SIZES. That is the whole change, and
 // it removes a real ambiguity as well as an invisible control - a press near
@@ -119,18 +113,12 @@ export function isPlaced(p) {
 const toFrac = (n, fallback = null) => (Number.isFinite(Number(n)) && n !== null ? Number(n) / MILLE : fallback)
 const toMille = (f) => Math.round(f * MILLE)
 
-// HOW MANY COLUMNS THE BOARD RUNS AT, AND WHY THEY GOT FINER (2 Sep 2026).
+// HOW MANY COLUMNS THE BOARD RUNS AT, AND WHY THEY GOT FINER.
 //
-// Ethan: "the current big version is too big. The current middle version should
-// be the big version, the middle version should be the small version, and then
-// we should have a new small version."
-//
-// That is three sizes still - every one of them a notch smaller, with a genuinely
-// new smallest. You cannot express that on a three-column grid: the old small
-// was already one whole column, and there is nothing under it. So the GRID got
-// finer rather than the ladder getting longer - six columns on a desktop, four
-// on a phone - and the three levels sit at 1, 2 and 4 of them. Which lands
-// almost exactly where he asked:
+// That is three sizes still - every one of them a notch smaller, with a genuinely new smallest. You cannot express that
+// on a three-column grid: the old small was already one whole column, and there is nothing under it. So the GRID got
+// finer rather than the ladder getting longer - six columns on a desktop, four on a phone - and the three levels sit at
+// 1, 2 and 4 of them. Which lands almost exactly where they asked:
 //
 //   new large  = 4/6 = 0.67 of the board  (the old MEDIUM, 2/3)
 //   new medium = 2/6 = 0.33               (the old SMALL, 1/3)
@@ -352,13 +340,11 @@ export default function PhotoBoard({ creatorId, editable = false, alwaysArrangin
 
   // ADDING OR DELETING A PHOTO UPDATES THE BOARD IMMEDIATELY.
   //
-  // The uploader (TravelGallery) and the board are siblings that both read
-  // `creator_photos`, and neither knew about the other - so uploading a photo
-  // left the board a photo short until the next full page load, and deleting
-  // one left a tile pointing at a row that was gone. Ethan noticed both.
-  // A tiny module-level event is the honest fix here: they are peers, not
-  // parent and child, and threading a callback through Edit profile to join
-  // them would put this plumbing in a page that has no interest in it.
+  // The uploader (TravelGallery) and the board are siblings that both read `creator_photos`, and neither knew about the
+  // other - so uploading a photo left the board a photo short until the next full page load, and deleting one left a
+  // tile pointing at a row that was gone. A tiny module-level event is the honest fix here: they are peers, not parent
+  // and child, and threading a callback through Edit profile to join them would put this plumbing in a page that has no
+  // interest in it.
   useEffect(() => onPhotosChanged((id) => { if (id === creatorId) load() }), [creatorId, load])
 
   // MEASURING THE BOARD, AND WHY ONE MEASUREMENT IS NOT ENOUGH.
@@ -427,15 +413,11 @@ export default function PhotoBoard({ creatorId, editable = false, alwaysArrangin
   // A FILE CAN GO MISSING AFTER ITS ASPECT WAS MEASURED, and that is the
   // common case rather than the rare one.
   //
-  // THE BUG THIS FIXES. The probe above is the only thing that ever set
-  // `broken`, and it only runs for a photo whose aspect is still UNKNOWN. Every
-  // one of one creator's ten photos had been measured back when the files
-  // existed, so none of them was ever probed again, `broken` stayed empty, and
-  // the board rendered ten <img> tags at dead URLs - ten grey boxes with the
-  // browser's broken-image glyph and the word "Travel photo". Ethan: "the
-  // travel photo section on mobile seems to not be working at all, I'll just
-  // check for Jacob's and it's not working." It looks the same at every width;
-  // the files are gone from storage and nothing had noticed.
+  // THE BUG THIS FIXES. The probe above is the only thing that ever set `broken`, and it only runs for a photo whose
+  // aspect is still UNKNOWN. Every one of one creator's ten photos had been measured back when the files existed, so
+  // none of them was ever probed again, `broken` stayed empty, and the board rendered ten <img> tags at dead URLs - ten
+  // grey boxes with the browser's broken-image glyph and the word "Travel photo". It looks the same at every width; the
+  // files are gone from storage and nothing had noticed.
   //
   // The rendered tile reports its own failure now, which catches every case the
   // probe cannot: a file deleted after upload, a bucket permission change, a
@@ -665,20 +647,14 @@ export default function PhotoBoard({ creatorId, editable = false, alwaysArrangin
 
   // EVERY PHOTO BACK TO THE CLEAN COLLAGE, in one write.
   //
-  // "Tidy them up" clears the four position columns, which sets every span back
-  // to one and drops the whole board through the packer in upload order - side
-  // by side and below, each at its own shape, nothing overlapping. That is the
-  // same layout a brand new board has, which is the point: Ethan asked that the
-  // board "should always start, whenever they upload, just as tidy them up",
-  // and the only way to guarantee that is for the two to be the same code path.
+  // "Tidy them up" clears the four position columns, which sets every span back to one and drops the whole board through
+  // the packer in upload order - side by side and below, each at its own shape, nothing overlapping. That is the same
+  // layout a brand new board has, which is the point: the team asked that the board "should always start, whenever they
+  // upload, just as tidy them up", and the only way to guarantee that is for the two to be the same code path.
   //
   // Optimistic, then written; a failure says so and puts the board back rather
   // than leaving the screen disagreeing with the table.
-  // ADDING PHOTOS HAPPENS ON THE BOARD (1 Sep 2026).
-  //
-  // Ethan: "i think rather than seperating the upload section and the board
-  // section they should be integrated so you upload them and rather than having
-  // to press x there, there should be a button to x it on the actual board."
+  // ADDING PHOTOS HAPPENS ON THE BOARD.
   //
   // It was two cards: a film strip of 104px squares with the add / caption /
   // delete controls, and the board underneath it with the arrangement. Two
@@ -694,10 +670,6 @@ export default function PhotoBoard({ creatorId, editable = false, alwaysArrangin
   const [progress, setProgress] = useState({ done: 0, total: 0 })
 
   // ADDING PHOTOS: THREE AT A TIME, AND EACH ONE APPEARS AS IT LANDS.
-  //
-  // Ethan, on the onboarding flow: "I added photos, but it takes so so long to
-  // load. It just shows adding and loading for ages. And they haven't actually
-  // added."
   //
   // Both halves of that were one loop. It was `for (const file of files)` with
   // an await on every step, so six photographs meant six full round trips end
@@ -770,10 +742,8 @@ export default function PhotoBoard({ creatorId, editable = false, alwaysArrangin
         url = await uploadFile('gallery', path, compressed, compressed.type || 'image/jpeg')
       } catch (err) { failures.push(`${file.name || 'A photo'}: ${err.message}`); return }
       const aspect = await imageAspect(compressed)
-      // EVERY PHOTO STARTS SMALL. Ethan: "every photo should start at the small
-      // size then one click makes it the middle size, and another the big
-      // size." The column defaults to it; stating it here means a change to the
-      // default cannot silently change what a new upload looks like.
+      // EVERY PHOTO STARTS SMALL. The column defaults to it; stating it here means a change to the default cannot
+      // silently change what a new upload looks like.
       // EVERY NEW PHOTO GOES TO THE END OF BOTH BOARDS. Leaving
       // `sort_order_mobile` null would have put it wherever its desktop order
       // happens to land in the phone's arrangement, which for a creator who has
@@ -843,16 +813,12 @@ export default function PhotoBoard({ creatorId, editable = false, alwaysArrangin
     const byUpload = [...(photos || [])].sort((a, b) =>
       String(a.created_at || '').localeCompare(String(b.created_at || ''))
       || String(a.id).localeCompare(String(b.id)))
-    // TIDYING PUTS EVERYTHING AT THE MIDDLE SIZE, NOT THE SMALLEST
-    // (4 Sep 2026). Ethan: "the tidy them up button shouldn't necessarily put
-    // them all in the smallest size, the middle size makes more sense."
+    // TIDYING PUTS EVERYTHING AT THE MIDDLE SIZE, NOT THE SMALLEST.
     //
-    // He is right, and the reason is what the button is FOR. "Tidy" means "put
-    // this board back into a good default", and the smallest size is not a
-    // default, it is one end of the ladder - a wall of tiny thumbnails is not
-    // what anybody would arrange by hand. `medium` is the size a photograph is
-    // actually worth looking at on this board, and it is still one press from
-    // either of the others.
+    // they are right, and the reason is what the button is FOR. "Tidy" means "put this board back into a good default",
+    // and the smallest size is not a default, it is one end of the ladder - a wall of tiny thumbnails is not what
+    // anybody would arrange by hand. `medium` is the size a photograph is actually worth looking at on this board, and
+    // it is still one press from either of the others.
     //
     // NOTE the asymmetry with a NEW upload, which stays 'small' on purpose: a
     // photo arriving should not shove the board about, and a tidy is explicitly
@@ -899,10 +865,6 @@ export default function PhotoBoard({ creatorId, editable = false, alwaysArrangin
   }
 
   // REMOVING A PHOTO ASKS FIRST, AND IT ASKS ON THE BOARD.
-  //
-  // Ethan: "there should be a button to x it on the actual board, pressing this
-  // should show a popup asking if you're sure you want to remove this photo, to
-  // stop any accidental deletions."
   //
   // `confirm` here is the app's own dialog from lib/confirm - NOT the browser
   // global. A missing import silently falls through to `window.confirm`, which
@@ -985,15 +947,10 @@ export default function PhotoBoard({ creatorId, editable = false, alwaysArrangin
               {arranging ? 'Done' : 'Arrange the board'}
             </button>
           )}
-          {/* A WAY BACK. Any arrangement tool needs one, and this one needed it
-              badly: there was no undo, no reset, and a board you have shuffled
-              into a mess is a board you cannot recover without dragging every
-              photograph back by hand. Ethan: "there should be a button at the
-              top to reset all the photos back to how they originally were, the
-              original way should just arrange the photos nicely, side by side
-              and below each other, none of them getting covered."
-              Clearing every position is exactly that: the automatic layout is a
-              masonry packer, so nothing overlaps by construction. */}
+          {/* A WAY BACK. Any arrangement tool needs one, and this one needed it badly: there was no undo, no reset, and
+              a board you have shuffled into a mess is a board you cannot recover without dragging every photograph back
+              by hand. Clearing every position is exactly that: the automatic layout is a masonry packer, so nothing
+              overlaps by construction. */}
           {arranging && (
             <button
               type="button"
@@ -1100,10 +1057,7 @@ function PhotoTile({ photo, box, width, size = 'small', arranging, editable, dra
     <figure
       data-tile
       style={{
-        // A TILE MOVES ON ITS TRANSFORM, NOT ON `left` AND `top` (2 Sep 2026).
-        //
-        // Ethan: "make it even smoother and animate even better, not so jumbly
-        // and snappy."
+        // A TILE MOVES ON ITS TRANSFORM, NOT ON `left` AND `top`.
         //
         // Animating `left`/`top` is animating LAYOUT: every frame of every
         // tile's 200ms ease re-runs layout and paint for the whole board, and
@@ -1128,14 +1082,11 @@ function PhotoTile({ photo, box, width, size = 'small', arranging, editable, dra
         dragging ? 'shadow-lift ring-2 ring-brand' : 'shadow-card',
         // THE OTHER TILES GLIDE; THE ONE IN YOUR HAND DOES NOT.
         //
-        // This is the difference between "shuffliness" and a board that reads
-        // as a board. Every tile except the one being dragged eases to its new
-        // packed position over 200ms, so a reorder is something you WATCH
-        // happen rather than a set of photographs that were somewhere else the
-        // last time you blinked. The dragged tile has no transition at all,
-        // because a 200ms ease on `left` means the tile lags the finger - which
-        // reads as the board being slow, and is the other half of what Ethan
-        // called jittery.
+        // This is the difference between "shuffliness" and a board that reads as a board. Every tile except the one
+        // being dragged eases to its new packed position over 200ms, so a reorder is something you WATCH happen rather
+        // than a set of photographs that were somewhere else the last time you blinked. The dragged tile has no
+        // transition at all, because a 200ms ease on `left` means the tile lags the finger - which reads as the board
+        // being slow, and is the other half of what the team called jittery.
         // ONLY THE TRANSFORM MOVES. 240ms on the same spring-ish curve the rest
         // of the app settles on - long enough to read as a movement, short
         // enough not to lag a second drag. The held tile has NO transition at
@@ -1184,10 +1135,7 @@ function PhotoTile({ photo, box, width, size = 'small', arranging, editable, dra
         />
       )}
 
-      {/* THE CAPTION IS TYPED ON THE PHOTO ITSELF (1 Sep 2026).
-
-          Ethan: "also should have the option to type the caption directly onto
-          the photo."
+      {/* THE CAPTION IS TYPED ON THE PHOTO ITSELF.
 
           It used to be a separate text input under a thumbnail in a separate
           uploader grid on a separate card, so writing a caption meant looking
@@ -1238,10 +1186,8 @@ function PhotoTile({ photo, box, width, size = 'small', arranging, editable, dra
       {editable && arranging && (
         // THE TILE'S OWN CONTROLS, ON THE TILE, WHERE THE PHOTO IS.
         //
-        // Size top right (Ethan named the corner), remove top left, and both are
-        // real buttons rather than hit zones - the corner-drag resize they
-        // replace could not be found on a phone, because nothing hovers there to
-        // reveal it.
+        // Size top right (the team named the corner), remove top left, and both are real buttons rather than hit zones -
+        // the corner-drag resize they replace could not be found on a phone, because nothing hovers there to reveal it.
         //
         // `stopPropagation` on pointerDown as well as click: the figure takes a
         // pointerdown to start a drag, and without this pressing either button

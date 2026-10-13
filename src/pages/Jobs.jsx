@@ -68,10 +68,7 @@ export default function Jobs() {
     if (!await saved(contentApi.jobApplications().delete().eq('job_id', job.id).eq('creator_id', user.id))) setApplied(before)
   }
 
-  // THE OFFICIAL PROGRAMME LEADS (12 Oct 2026). Ethan: "no one has actually
-  // applied... we can definitely improve the search roles thing and advertise
-  // other roles like official creators, etc. much better here." It is a jobs
-  // row like any other (so applications land in Admin > Jobs), drawn as the
+  // THE OFFICIAL PROGRAMME LEADS. It is a jobs row like any other (so applications land in Admin > Jobs), drawn as the
   // featured card above the list.
   const featured = jobs.find((j) => /official/i.test(j.title))
   const rest = jobs.filter((j) => j !== featured)
@@ -109,9 +106,9 @@ export default function Jobs() {
       {loading ? (
         <SkeletonCards count={3} />
       ) : (
-        // A CSS ENTRANCE, NOT A MOTION ONE (12 Oct 2026). Ethan: "improve the animations on the roles page. Currently, it's
-        // laggy when that page loads." The page waited for Reveal's settle signal and then sprang three big blocks in
-        // with the motion library on the same frame the list drew. Each block now rises on the compositor, 70ms apart.
+        // A CSS ENTRANCE, NOT A MOTION ONE. The page waited for Reveal's settle signal and then sprang three big blocks
+        // in with the motion library on the same frame the list drew. Each block now rises on the compositor, 70ms
+        // apart.
         <div className="space-y-8">
           {featured && (
             <article className="animate-rise overflow-hidden rounded-card border border-gray-100 bg-white shadow-card">

@@ -31,11 +31,6 @@ export default function ConnectButton({
 
   // WHY CONNECTING IS TWO TAPS NOW.
   //
-  // Ethan: "say why you want to connect, an optional note whenever you request
-  // to connect with someone. Maybe you say you love their travel photos or you
-  // want to learn more about the country they've been to. You can just write in
-  // the box or you can skip it, it's optional, just connect with them."
-  //
   // The cost is one extra tap on a control that used to be instant, and it buys
   // the thing that makes a request land: a stranger's connection request with
   // nothing attached is a notification you deal with, and one that says "I loved
@@ -70,12 +65,7 @@ export default function ConnectButton({
         onChange?.({ relation: 'connected', rowId: relation.rowId })
       }
     } else if (rel === 'connected') {
-      // DISCONNECTING IS A DECISION, NOT A TOGGLE (3 Sep 2026).
-      //
-      // Ethan: "whenever you connect with a creator, if you tap the connected
-      // button again it immediately disconnects you with them. There should be
-      // at least a pop up to ask if you actually want to disconnect, so people
-      // aren't doing this accidentally and constantly reconnecting."
+      // DISCONNECTING IS A DECISION, NOT A TOGGLE.
       //
       // The button is the only control on the card in that state, it sits
       // exactly where "Connect" was a moment earlier, and on a phone it is
@@ -105,10 +95,6 @@ export default function ConnectButton({
 
   // THE COLOUR IS THE STATE.
   //
-  // Ethan: "when you're connected with someone the button should be the green
-  // colour saying connected, if it's pending it should be the lighter orange
-  // and if you haven't connected it's the Tryp.com orange."
-  //
   // It used to be `btn-primary` for the two you can act on and `btn-secondary`
   // for the two you cannot, which encodes "is this a call to action" rather
   // than "what is going on between us" - so Pending and Connected, two
@@ -118,12 +104,10 @@ export default function ConnectButton({
   //
   // AND THEN "CONNECTED" WENT QUIET AGAIN, WHICH IS NOT A REVERSAL.
   //
-  // Green was the same green "answered" uses on the board and "played" uses on
-  // the daily puzzles, and on ONE card it read exactly right. On a grid of
-  // people you already know it read as a wall: Ethan, on the network page,
-  // "when you're connected it looks misaligned with the palette, because it's
-  // just very green - if you're connected with a lot of creators we still need
-  // some Tryp.com orange somewhere."
+  // Green was the same green "answered" uses on the board and "played" uses on the daily puzzles, and on ONE card it
+  // read exactly right. On a grid of people you already know it read as a wall: the team, on the network page, "when
+  // you're connected it looks misaligned with the palette, because it's just very green - if you're connected with a lot
+  // of creators we still need some Tryp.com orange somewhere."
   //
   // The fix is not a different green. `Connected` is the one state of the four
   // that is NOT asking for anything - the button only exists there to be
@@ -137,15 +121,8 @@ export default function ConnectButton({
     none: 'bg-brand text-white ring-1 ring-brand hover:shadow-card',
     pending_sent: 'bg-brand-light/25 text-brand ring-1 ring-brand-light/60 hover:bg-brand-light/40',
     pending_received: 'bg-brand text-white ring-1 ring-brand hover:shadow-card',
-    // THE PUZZLE'S GREEN (26 Sep 2026). Ethan: "Whenever you're connected with
-    // the creator, I think the button should actually show up in the nice
-    // green colour that we've used ... whenever you play the daily puzzle."
-    // The same green-600 as a finished daily puzzle's tile, white on it.
-    // AND THEN THE PUZZLE'S *PLAYED* GREEN (28 Sep 2026). Ethan: "whenever I
-    // have played a daily puzzle like Flypath, it then shows up in that light
-    // green colour, but it's a bit transparent and a bit glowing. That's the
-    // colour I want." The Played chip's own wash, ring and ink, with a soft
-    // green glow under it.
+    // THE PUZZLE'S GREEN. The same green-600 as a finished daily puzzle's tile, white on it.
+    // AND THEN THE PUZZLE'S *PLAYED* GREEN. The Played chip's own wash, ring and ink, with a soft green glow under it.
     connected: 'bg-green-50 text-green-700 ring-1 ring-inset ring-green-500/30 shadow-[0_0_14px_-3px_rgba(34,197,94,0.45)] hover:bg-green-100/80',
   }[rel]
   const title = rel === 'pending_sent' ? tr('Cancel request') : rel === 'connected' ? tr('Disconnect') : ''
@@ -191,12 +168,9 @@ export default function ConnectButton({
                 ? `I loved your video from Lisbon, ${first}. I am heading there in March.`
                 : 'I loved your last video. I am heading there in March.'}
               className="input w-full resize-none"
-              // NOT ON A PHONE (12 Oct 2026). Ethan: "whenever you press
-              // Connect, temporarily everything moves down... and then it comes
-              // up above the keyboard." Focusing on open raised the keyboard
-              // mid-entrance, so the sheet slid up, dropped, then jumped above
-              // the keyboard. On a phone it now arrives and stays put; the
-              // keyboard comes when the note is tapped. A desktop still focuses.
+              // NOT ON A PHONE. Focusing on open raised the keyboard mid-entrance, so the sheet slid up, dropped, then
+              // jumped above the keyboard. On a phone it now arrives and stays put; the keyboard comes when the note is
+              // tapped. A desktop still focuses.
               autoFocus={!isMobile}
             />
             <p className="mt-1 text-right text-[11px] text-smoke tabular-nums">{note.length}/300</p>

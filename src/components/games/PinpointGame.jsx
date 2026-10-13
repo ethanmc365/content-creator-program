@@ -20,11 +20,10 @@ import { gamesApi } from '../../api/games'
 // "played today" (so laptop + phone stay in sync); localStorage is only a
 // fast-path cache for the guess list.
 //
-// THE NUMBER OF CLUES IS NOT A CONSTANT ANY MORE (16 Sep 2026). It is whatever
-// today's ROUND STYLE serves - three on an express round, five otherwise - and
-// it is read off the puzzle rather than off this file. `total` on the score row
-// carries it, which is what lets the leaderboard keep saying "guessed in N
-// words" without knowing which style was played. See lib/pinpoint.
+// THE NUMBER OF CLUES IS NOT A CONSTANT ANY MORE. It is whatever today's ROUND STYLE serves - three on an express round,
+// five otherwise - and it is read off the puzzle rather than off this file. `total` on the score row carries it, which
+// is what lets the leaderboard keep saying "guessed in N words" without knowing which style was played. See
+// lib/pinpoint.
 const STORE_KEY = 'tryp_pinpoint'
 
 const ROUND_TONE = { express: 'brand', classic: 'grey', mixed: 'grey', guided: 'light' }
@@ -164,11 +163,7 @@ export default function PinpointGame({ onExit }) {
 
   return (
     <div className="space-y-6">
-      {/* THE SAME HEADER FLIGHT PATH WEARS (2 Sep 2026).
-
-          Ethan: "the Guess the Country timer bar at the top and the back button
-          is different from Flight Path, and I really like the one on Flight
-          Path - build it into Guess the Country too."
+      {/* THE SAME HEADER FLIGHT PATH WEARS.
 
           What was here was a bare flex row: 14px readouts, no panel, no
           progress, and a Back button that changed its own label at `sm`. Two
@@ -241,37 +236,25 @@ export default function PinpointGame({ onExit }) {
         </div>
 
         {!done && !checking && (
-          /* THE BUTTON SITS UNDER THE FIELD, NOT A ROW AWAY FROM IT. Ethan:
-             "there's still space where it should be closer to the guess button,
-             with just a few millimetres." The other half of that gap was the
-             34px of home indicator the keyboard helper used to reserve on every
-             device - see lib/gameFocus. */
+          /*
+           * THE BUTTON SITS UNDER THE FIELD, NOT A ROW AWAY FROM IT. The other half of that gap was the 34px of home
+           * indicator the keyboard helper used to reserve on every device - see lib/gameFocus.
+           */
           <form ref={formRef} onSubmit={submit} className={cx('flex w-full max-w-sm flex-col items-center gap-2', shake && 'animate-shake')}>
             {/* THE HINT IS DRAWN, NOT A `placeholder`, AND THAT IS THE WHOLE
-                FIX FOR THE AUTOFILL BAR.
-                Ethan: "it automatically shows up autofill contact, which I
-                don't want it to. Can you stop Apple from doing that?"
-                It can be stopped, but not with `autocomplete="off"` - WebKit
-                treats that as advice on any field its own classifier has
-                decided is part of an address, and the classifier reads the
-                NAME, the LABEL and the PLACEHOLDER. This field was called
-                `country-guess`, labelled "Your country guess" and placeheld
-                "Type a country…": three separate address tokens on one input,
-                which is why `type="search"` alone was not winning. All three
-                are gone - the word "country" now appears only in a span the
-                classifier cannot read - and the shared NO_AUTOFILL_SEARCH set
-                covers the rest. See lib/noAutofill. */}
+                FIX FOR THE AUTOFILL BAR. It can be stopped, but not with `autocomplete="off"` - WebKit treats that as
+                advice on any field its own classifier has decided is part of an address, and the classifier reads the
+                NAME, the LABEL and the PLACEHOLDER. This field was called `country-guess`, labelled "Your country guess"
+                and placeheld "Type a country…": three separate address tokens on one input, which is why `type="search"`
+                alone was not winning. All three are gone - the word "country" now appears only in a span the classifier
+                cannot read - and the shared NO_AUTOFILL_SEARCH set covers the rest. See lib/noAutofill. */}
             <span className="relative w-full">
               <input
                 {...NO_AUTOFILL_SEARCH}
                 inputMode="text" enterKeyHint="go" value={typed} onChange={(e) => setTyped(e.target.value)}
-                // NO BLINKING CARET. Ethan: "I don't want it to show the flashing
-                // text bar, I just want the ability to write there without it,
-                // because it ruins the aesthetic." `caret-transparent` hides only
-                // the insertion bar - focus, typing, selection, autofocus and the
-                // mobile keyboard are all untouched, and the centred text still
-                // grows visibly as you type, which is what tells you it is taking
-                // the letters.
+                // NO BLINKING CARET. `caret-transparent` hides only the insertion bar - focus, typing, selection,
+                // autofocus and the mobile keyboard are all untouched, and the centred text still grows visibly as you
+                // type, which is what tells you it is taking the letters.
                 className="input caret-transparent text-center text-lg"
                 name="guess" autoCapitalize="words"
                 aria-label={tr("Your guess")}

@@ -26,13 +26,6 @@ import { marketsApi } from '../../api/markets'
 
 // THE KPI TRACKER.
 //
-// Ethan: "I want a KPI tracker for the admins. This can be in reference to
-// the number of challenges run, the number of creators recruited, the
-// number of creators who participated, the number of views... I want a
-// really clean UI so we can compare them at the end and see the progress.
-// Are we on track? Are we off track?... I don't want this built into
-// analytics, so maybe create a new page."
-//
 // WHY ITS OWN PAGE AND NOT A TAB ON ANALYTICS. Analytics answers "how did
 // the programme do" in rows of numbers, read after the fact. A KPI is a
 // PLAN made in advance and checked against as the quarter runs - the
@@ -49,12 +42,9 @@ import { marketsApi } from '../../api/markets'
 // its own source of truth eventually will. Only a CUSTOM KPI - one nothing on
 // the platform can count on its own - keeps a typed-in `current_value`.
 //
-// WHO CAN SEE WHAT. Every admin reads every scope's KPIs (Ethan: "all the
-// admins should have access to all the market KPIs and see everything").
-// Only a scope's own manager - or a global admin, who manages all of them -
-// can set or change its targets. `my_managed_scopes()` (migration 074) is
-// the existing, already-audited answer to "which markets do I lead"; this
-// page asks it once rather than re-deriving the rule.
+// WHO CAN SEE WHAT. Every admin reads every scope's KPIs ( ). Only a scope's own manager - or a global admin, who
+// manages all of them - can set or change its targets. `my_managed_scopes()` (migration 074) is the existing,
+// already-audited answer to "which markets do I lead"; this page asks it once rather than re-deriving the rule.
 export default function AdminKpis() {
   const tr = useT()
   const plural = usePlural()
@@ -62,18 +52,13 @@ export default function AdminKpis() {
 
   const [communities, setCommunities] = useState(null)
   const [managedIds, setManagedIds] = useState(null)
-  // THE SCOPE PILLS (29 Sep 2026). Worldwide is TWO things and Ethan asked for
-  // both: the TOTAL of everything the platform does, and the GLOBAL challenges
-  // on their own. They share the Worldwide community row and differ by `basis`
-  // (migration 281). Markets are one pill each, as before.
+  // THE SCOPE PILLS. Worldwide is TWO things and the team asked for both: the TOTAL of everything the platform does, and
+  // the GLOBAL challenges on their own. They share the Worldwide community row and differ by `basis` (migration 281).
+  // Markets are one pill each, as before.
   const [scopeKey, setScopeKey] = useState('')
-  //
-  // THE TOTAL IS ADDED UP, NOT SET (30 Sep 2026). Ethan: "the total one shouldn't have targets set and
-  // instead should be a combination of everything from all the KPIs that have been set for all the
-  // markets". It is its own button, apart from the row (he: "Germany has it as a separate button on
-  // the left, and then global challenges, Germany, Nordics, Portugal, etc., is scrollable"), and it
-  // opens `KpiTotal`, which reads every other scope. Each scope carries a colour that follows it
-  // everywhere the Total draws it.
+  // THE TOTAL IS ADDED UP, NOT SET. It is its own button, apart from the row (he: "Germany has it as a separate button
+  // on the left, and then global challenges, Germany, Nordics, Portugal, etc., is scrollable"), and it opens `KpiTotal`,
+  // which reads every other scope. Each scope carries a colour that follows it everywhere the Total draws it.
   const scopes = useMemo(() => (communities || []).flatMap((c) => (c.kind === 'network'
     ? [{ key: `${c.id}:global`, id: c.id, basis: 'global', name: tr('Global challenges'), sub: tr('Global challenges only'), currency: c.currency, global: true }]
     : [{ key: c.id, id: c.id, basis: 'all', name: c.name, currency: c.currency, flag: marketFlag(c.country_codes) }]))
@@ -83,8 +68,7 @@ export default function AdminKpis() {
   const current = isTotal ? null : scopes.find((x) => x.key === scopeKey)
   const scope = current?.id || ''
   const basis = current?.basis || 'all'
-  // A PERIOD IS A QUARTER OR A MONTH (24 Sep 2026). `month` null = the whole
-  // quarter, as every target was before migration 258.
+  // A PERIOD IS A QUARTER OR A MONTH. `month` null = the whole quarter, as every target was before migration 258.
   const [period, setPeriod] = useState(() => ({ ...currentQuarter(), month: null }))
 
   // IS THERE ANYTHING TO SCROLL TO? The market row fades its right edge so a
@@ -120,10 +104,9 @@ export default function AdminKpis() {
   const [editing, setEditing] = useState(null) // a target row, or {} for a new one
   const [detail, setDetail] = useState(null) // the KPI opened for its story
 
-  // COMMUNITIES AND MANAGED SCOPES LOAD ONCE. Worldwide first - it is the
-  // scope every creator belongs to and the one Ethan named first ("KPIs for
-  // the whole worldwide community that I can also create and adjust") -
-  // then markets alphabetically.
+  // COMMUNITIES AND MANAGED SCOPES LOAD ONCE. Worldwide first - it is the scope every creator belongs to and the one the
+  // team named first ("KPIs for the whole worldwide community that I can also create and adjust") - then markets
+  // alphabetically.
   useEffect(() => {
     let alive = true
     Promise.all([
@@ -144,11 +127,9 @@ export default function AdminKpis() {
     return () => { alive = false }
   }, [])
 
-  // SWITCHING MARKET OR PERIOD KEEPS THE PAGE (28 Sep 2026). Ethan: "It seems
-  // to load in a bit delayed, and the animation isn't that smooth." Every
-  // switch used to blank the cards to skeletons and then wait for a scroll
-  // observer before they could arrive. Now the old cards stay, dimmed, until
-  // the new numbers are in, and the new ones rise straight in.
+  // SWITCHING MARKET OR PERIOD KEEPS THE PAGE. Every switch used to blank the cards to skeletons and then wait for a
+  // scroll observer before they could arrive. Now the old cards stay, dimmed, until the new numbers are in, and the new
+  // ones rise straight in.
   const [fetching, setFetching] = useState(false)
   const [shownKey, setShownKey] = useState('')
   const [monthTargets, setMonthTargets] = useState([])
@@ -157,11 +138,9 @@ export default function AdminKpis() {
   // they finish in any order; without this the slowest one (an OLD period) landed
   // last and the page showed one quarter's goals under another's name.
   const loadSeq = useRef(0)
-  // A CACHE OF WHAT WAS ALREADY FETCHED (30 Sep 2026). Ethan: "there's lag when switching
-  // between them ... the whole page is a bit laggy when loading." Each step was three round
-  // trips before anything moved. Now a period that has been seen paints at once from here while
-  // the fresh numbers are fetched behind it (the request always still happens, so nothing shown
-  // can be stale for more than a moment), and the periods either side are fetched in advance.
+  // A CACHE OF WHAT WAS ALREADY FETCHED. Each step was three round trips before anything moved. Now a period that has
+  // been seen paints at once from here while the fresh numbers are fetched behind it (the request always still happens,
+  // so nothing shown can be stale for more than a moment), and the periods either side are fetched in advance.
   const cacheRef = useRef(new Map())
   const fetchSet = useCallback(async (sc, bs, y, q, m) => {
     const bm = m != null
@@ -192,10 +171,10 @@ export default function AdminKpis() {
     const key = `${scope}:${basis}:${year}:${quarter}:${month ?? ''}`
     const hit = cacheRef.current.get(key)
     if (hit) apply(hit, key); else setFetching(true)
-    // THE PAGE IS DIMMED AND UNCLICKABLE WHILE THIS RUNS (7 Oct 2026 fix). Ethan: "everything became greyed out and I was not able to click
-    // on any of the KPIs or make any changes." `fetching` was only ever cleared on the happy path, so a request that FAILED (a dropped
-    // connection, a phone waking up, a realtime refresh mid-flight) or never answered left the whole grid grey and dead until a reload.
-    // Now it is always cleared by whoever owns the latest load, and a request that has not answered in 15 seconds counts as failed.
+    // THE PAGE IS DIMMED AND UNCLICKABLE WHILE THIS RUNS (7 Oct 2026 fix). `fetching` was only ever cleared on the happy
+    // path, so a request that FAILED (a dropped connection, a phone waking up, a realtime refresh mid-flight) or never
+    // answered left the whole grid grey and dead until a reload. Now it is always cleared by whoever owns the latest
+    // load, and a request that has not answered in 15 seconds counts as failed.
     let res
     try {
       res = await Promise.race([
@@ -231,13 +210,12 @@ export default function AdminKpis() {
   // Leaving a market (or the page) never leaves the grid dimmed behind it.
   useEffect(() => { if (isTotal) setFetching(false) }, [isTotal])
 
-  // EVERYTHING ON THE PAGE MOVES TOGETHER (1 Oct 2026). Ethan: Germany showed "0 out of 500k" with
-  // no KPI set, and the UK "showing up once, then deleted. Everything should update." The per-scope
-  // cache was cleared after a save or a delete, but the Total and the overview kept their own copies
-  // and never asked again, so a deleted goal lived on in them. `invalidate` now clears every cache
-  // AND tells every chart to re-read (clearKpiPlanCache bumps a version they all listen to), and a
-  // realtime subscription does the same when a goal changes anywhere else - another admin, another
-  // tab, a market lead on their phone.
+  // EVERYTHING ON THE PAGE MOVES TOGETHER. The team: Germany showed "0 out of 500k" with no KPI set, and the UK "showing
+  // up once, then deleted. Everything should update." The per-scope cache was cleared after a save or a delete, but the
+  // Total and the overview kept their own copies and never asked again, so a deleted goal lived on in them. `invalidate`
+  // now clears every cache AND tells every chart to re-read (clearKpiPlanCache bumps a version they all listen to), and
+  // a realtime subscription does the same when a goal changes anywhere else - another admin, another tab, a market lead
+  // on their phone.
   const invalidate = useCallback(({ reload = true } = {}) => {
     cacheRef.current.clear()
     clearKpiPlanCache()
@@ -254,8 +232,8 @@ export default function AdminKpis() {
     return () => { clearTimeout(timer); supabase.removeChannel(ch) }
   }, [invalidate])
 
-  // EVERY MARKET'S CURRENT PERIOD, FETCHED WHILE IDLE (30 Sep 2026), so pressing a market paints at
-  // once from the cache instead of skeletons first.
+  // EVERY MARKET'S CURRENT PERIOD, FETCHED WHILE IDLE, so pressing a market paints at once from the cache instead of
+  // skeletons first.
   useEffect(() => {
     if (!scopes.length) return undefined
     const ric = window.requestIdleCallback || ((fn) => setTimeout(fn, 400))
@@ -307,8 +285,8 @@ export default function AdminKpis() {
   const ready = !!communities && managedIds !== null && (isTotal || merged !== null)
   // The scopes this admin may set goals for, for the market switch inside the goal sheet.
   const editableScopes = useMemo(() => scopes.filter((x) => managedIds?.has(x.id)), [scopes, managedIds])
-  // THE YEAR SECTION WAITS ITS TURN (30 Sep 2026): it fires up to twelve requests, and doing that in
-  // the same breath as the cards was a large part of the lag. The cards paint first.
+  // THE YEAR SECTION WAITS ITS TURN: it fires up to twelve requests, and doing that in the same breath as the cards was
+  // a large part of the lag. The cards paint first.
   const [yearOn, setYearOn] = useState(false)
   useEffect(() => {
     if (!ready || yearOn) return undefined
@@ -323,10 +301,8 @@ export default function AdminKpis() {
   const metCount = statuses.filter((s) => s.status === 'met').length
   const onTrackCount = statuses.filter((s) => s.status === 'on_track').length
   const derivedRows = (merged || []).filter((r) => r.derived)
-  // ONE FLAT GRID (30 Sep 2026). Ethan: "I don't think we necessarily need it to be divided into
-  // these groups, it will take up too much space and it's better for everything to just be
-  // arranged nicely." Anything behind or missed comes first (that is what you open this page to
-  // find), then the rest in their usual order.
+  // ONE FLAT GRID. Anything behind or missed comes first (that is what you open this page to find), then the rest in
+  // their usual order.
   const ordered = useMemo(() => {
     const rank = { missed: 0, behind: 1, on_track: 2, met: 3, upcoming: 4 }
     return (merged || [])
@@ -379,9 +355,7 @@ export default function AdminKpis() {
       {err && <p className="mb-5 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">{err}</p>}
 
       <div className="relative mb-6 flex flex-col gap-2.5 rounded-card border border-gray-100 bg-white p-2 shadow-card animate-fade-up lg:flex-row lg:items-center lg:gap-3">
-        {/* TOTAL ON ITS OWN, THE REST SCROLLING (30 Sep 2026). Ethan: "Make the total stand out a bit ...
-            a separate button on the left, and then global challenges, Germany, Nordics, Portugal,
-            etc., is scrollable." */}
+        {/* TOTAL ON ITS OWN, THE REST SCROLLING. */}
         <div className="flex min-w-0 flex-1 items-center gap-2">
           <button
             type="button"
@@ -438,9 +412,9 @@ export default function AdminKpis() {
             options={[{ value: 'quarter', label: tr('Quarter') }, { value: 'month', label: tr('Month') }]}
           />
           <div className="relative flex items-center gap-0.5 sm:gap-1">
-            {/* BACK TO TODAY, CENTRED OVER THE PERIOD (30 Sep 2026). Ethan: it was "too far above it,
-                and it's not centred with the Q4 2026. Centre that button, and maybe lower it a bit."
-                Absolute, so it never moves anything when it appears. */}
+            {/* BACK TO TODAY, CENTRED OVER THE PERIOD. The team: it was "too far above it, and it's not centred with the
+                Q4 2026. Centre that button, and maybe lower it a bit." Absolute, so it never moves anything when it
+                appears. */}
             <span className="pointer-events-none absolute bottom-full left-1/2 mb-6 hidden -translate-x-1/2 lg:block">
               <BackToToday show={!isCurrent} label={tr('Back to {p}', { p: backLabel })} onClick={backToToday} className="pointer-events-auto" />
             </span>
@@ -452,8 +426,8 @@ export default function AdminKpis() {
             >
               <Icon name="chevronLeft" className="h-4 w-4" />
             </button>
-            {/* THE PERIOD, IN THE PLATFORM'S OWN STYLE (1 Oct 2026). Ethan did not like the pale orange
-                block: it is white with a calendar mark now, like every other control on the bar. */}
+            {/* THE PERIOD, IN THE PLATFORM'S OWN STYLE. The team did not like the pale orange block: it is white with a
+                calendar mark now, like every other control on the bar. */}
             <span className="flex h-8 min-w-[6.5rem] items-center justify-center gap-1.5 overflow-hidden rounded-lg border border-gray-200 bg-white px-3 text-[13px] font-bold tabular-nums text-ink shadow-[0_1px_2px_rgba(26,26,26,0.04)] sm:min-w-[8.5rem]">
               <Icon name="calendar" className="h-3.5 w-3.5 shrink-0 text-brand" />
               <span key={periodLabel(period)} className="animate-pop-in">{periodLabel(period)}</span>
@@ -496,8 +470,8 @@ export default function AdminKpis() {
                     <p className="mt-1.5 text-xs font-medium uppercase tracking-wide text-white/80">{started ? tr('On track or met') : tr('Goals set')}</p>
                   </div>
                   <div className="min-w-[14rem] flex-1">
-                    {/* NOT STARTED READS AS NOT STARTED (30 Sep 2026): a dashed empty track, never a
-                        full white bar that looks like "all on track" for a quarter nobody has begun. */}
+                    {/* NOT STARTED READS AS NOT STARTED: a dashed empty track, never a full white bar that looks like
+                        "all on track" for a quarter nobody has begun. */}
                     {started ? (
                       <div className="h-2.5 overflow-hidden rounded-full bg-black/15" role="img" aria-label={tr('How the goals are doing')}>
                         <div className="kpi-fill h-full rounded-full" style={{ background: spreadGradient(statuses) }} />
@@ -519,10 +493,9 @@ export default function AdminKpis() {
               </div>
             )}
 
-            {/* THE TWO GRANULARITIES ARE ONE PLAN (29 Sep 2026). Goals set month by
-                month show here combined for the quarter, and a quarter's goal shows
-                its share in each month. Worked-out rows are marked, never saved
-                behind anybody's back, and one press makes them real. */}
+            {/* THE TWO GRANULARITIES ARE ONE PLAN. Goals set month by month show here combined for the quarter, and a
+                quarter's goal shows its share in each month. Worked-out rows are marked, never saved behind anybody's
+                back, and one press makes them real. */}
             {derivedRows.length > 0 && (
               <div className="mb-5 flex flex-col gap-3 rounded-card border border-gray-100 bg-white p-4 shadow-card animate-fade-up sm:flex-row sm:items-center">
                 <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand text-white shadow-card">
@@ -675,9 +648,8 @@ function BackToToday({ show, label, onClick, className }) {
   )
 }
 
-// Tones for a bar drawn ON the orange card, not on white: each is checked against both ends of
-// the brand gradient (#d94407 to #f5853f).
-// Met is a deep green (2 Oct 2026, Ethan: "a bit darker green, especially on the left side").
+// Tones for a bar drawn ON the orange card, not on white: each is checked against both ends of the brand gradient
+// (#d94407 to #f5853f). Met is a deep green ().
 const SUMMARY_HEX = STATUS_HEX_ON_BRAND
 
 // ONE GRADIENT FOR THE WHOLE SPREAD: each status owns a share of the strip in proportion to how
@@ -710,7 +682,7 @@ function KpiCard({ row, period, startsIn, currency, canEdit, onEdit, onDelete, o
   const fmt = (v) => formatKpiValue(row, v, currency)
 
   return (
-    // THE CARD OPENS (28 Sep 2026): its history, who is behind it, the charts.
+    // THE CARD OPENS: its history, who is behind it, the charts.
     <article
       role="button"
       tabIndex={0}

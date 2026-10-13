@@ -1744,13 +1744,10 @@ function questionFor(pool, answer, phrase, rand, want) {
 
   // ALWAYS FOUR OPTIONS, AND THE OLD LOOP COULD NOT PROMISE THAT.
   //
-  // Ethan: "sometimes it only shows up two options". The previous version asked
-  // for a language from `sameRegion` while `sameRegion.length` was non-zero -
-  // but the length it tested was of the WHOLE region list, not of what was left
-  // after removing the ones already chosen. Answer a phrase from a region
-  // holding two languages and the second pass found nothing new, hit the
-  // no-progress guard, and broke out with one distractor and a two-button
-  // question.
+  // The previous version asked for a language from `sameRegion` while `sameRegion.length` was non-zero - but the length
+  // it tested was of the WHOLE region list, not of what was left after removing the ones already chosen. Answer a phrase
+  // from a region holding two languages and the second pass found nothing new, hit the no-progress guard, and broke out
+  // with one distractor and a two-button question.
   //
   // Each source is tried until it is genuinely exhausted, and the loop only
   // gives up when all of them are. With 56 languages in the bank it never does.
@@ -1803,9 +1800,6 @@ function mulberry32(seed) {
 export const DAILY_LANGUAGE_ROUNDS = 10
 
 // THE SHAPE OF A DAY, WRITTEN DOWN.
-//
-// Ethan: "this one is mostly difficult enough for me but again have that range
-// of difficulty, don't want it too easy or impossible."
 //
 // So a round is not ten random phrases out of a thousand - it is two you should
 // get, five that take a moment, and three that are a real test, dealt in a

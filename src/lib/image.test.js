@@ -4,12 +4,10 @@ import { sniffHeic } from './image'
 
 // RECOGNISING THE FILE IS HALF OF ACCEPTING IT.
 //
-// Ethan asked us to "just accept any format", and accepting starts with
-// recognising: a photo that has been through AirDrop or a share sheet arrives
-// with an empty MIME type and no extension, so the bytes are the only honest
-// answer. A file we fail to recognise as HEIC goes straight to
-// `createImageBitmap`, fails there, and is refused as an unsupported format -
-// when it is in fact the one format we know how to convert.
+// The team asked us to "just accept any format", and accepting starts with recognising: a photo that has been through
+// AirDrop or a share sheet arrives with an empty MIME type and no extension, so the bytes are the only honest answer. A
+// file we fail to recognise as HEIC goes straight to `createImageBitmap`, fails there, and is refused as an unsupported
+// format - when it is in fact the one format we know how to convert.
 
 /** An ISO-BMFF header: 4 bytes of length, `ftyp`, then the major brand. */
 function ftyp(brand) {

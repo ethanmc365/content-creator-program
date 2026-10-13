@@ -2,7 +2,7 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import { installNavReturn, isReturnVisit, markReturn } from './navReturn'
 
-// Swiping back to a page already seen must not replay its entrance (13 Oct 2026).
+// Swiping back to a page already seen must not replay its entrance.
 describe('going back is not arriving', () => {
   afterEach(() => { vi.useRealTimers() })
 

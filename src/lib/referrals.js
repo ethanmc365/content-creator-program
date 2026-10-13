@@ -66,8 +66,8 @@ export function referralStage(profile, hasSubmission) {
   return REFERRAL_STAGES.signing_up
 }
 
-// THE TERMS (22 Sep 2026, migration 242): every `per` counted referrals earn one
-// voucher. Read from app_settings.referral_reward; these are the fallbacks.
+// THE TERMS (migration 242): every `per` counted referrals earn one voucher. Read from app_settings.referral_reward;
+// these are the fallbacks.
 export const DEFAULT_REFERRAL_TERMS = { amount: 20, currency: 'EUR', per: 3, label: 'Tryp.com voucher' }
 
 export function referralTerms(value) {

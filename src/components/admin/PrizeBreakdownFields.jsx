@@ -14,14 +14,11 @@ import { cx } from '../../lib/utils'
 // to show a creator and an impossible thing to add up, so the number a row is
 // worth is separate from the words, and every total on top of it is arithmetic.
 //
-// THE REDESIGN OF 21 SEP 2026. Ethan: the bonus and prize parts looked
-// "scattered and misaligned", the reward for taking part should match "how the
-// other prizes look", Extra awards should be called "Most committed" and not
-// show "unless someone actually clicks for it", and the totals did not count
-// the vouchers at all. So: every prize is a row on ONE grid (place, what they
-// get, value, cash or voucher), the two optional rewards are cards added with
-// a button beside "Add a prize", and `prizeBudget` is the one definition of
-// what the whole thing costs.
+// THE REDESIGN OF 21 SEP 2026. The team: the bonus and prize parts looked "scattered and misaligned", the reward for
+// taking part should match "how the other prizes look", Extra awards should be called "Most committed" and not show
+// "unless someone actually clicks for it", and the totals did not count the vouchers at all. So: every prize is a row on
+// ONE grid (place, what they get, value, cash or voucher), the two optional rewards are cards added with a button beside
+// "Add a prize", and `prizeBudget` is the one definition of what the whole thing costs.
 
 /** The pot and the winner count a set of rows adds up to. One definition. */
 export function prizeTotals(prizes = []) {
@@ -64,13 +61,12 @@ export function relabelPlace(label, n) {
 }
 
 /**
- * NUMBERED PLACES FOLLOW THE ROWS (7 Oct 2026).
+ * NUMBERED PLACES FOLLOW THE ROWS.
  *
- * Ethan removed 2nd and 3rd from the Portugal brief and the boards still paid
- * "4º" and "5º", with nothing on 2nd and 3rd: every leaderboard places a prize
- * by the number in its label (`placeNumber`), and deleting a row never touched
- * the labels below it. So after a row goes, the numbered rows are counted
- * again from the top and keep whatever style they were written in.
+ * The team removed 2nd and 3rd from the Portugal brief and the boards still paid "4º" and "5º", with nothing on 2nd and
+ * 3rd: every leaderboard places a prize by the number in its label (`placeNumber`), and deleting a row never touched the
+ * labels below it. So after a row goes, the numbered rows are counted again from the top and keep whatever style they
+ * were written in.
  */
 export function renumberPlaces(prizes = []) {
   let k = 0
@@ -133,10 +129,8 @@ export function numberIn(text) {
 /**
  * THE VALUE FOLLOWS THE WORDS FOR AS LONG AS IT CAME FROM THE WORDS.
  *
- * Ethan: "let's say I type 20 cash into What they get... I would expect it to
- * then show up as 20 beside the euro symbol." It did not, because the value was
- * only ever filled while it was EMPTY - so once "150" had been read out of the
- * first draft, retyping the words never moved it again.
+ * It did not, because the value was only ever filled while it was EMPTY - so once "150" had been read out of the first
+ * draft, retyping the words never moved it again.
  *
  * The rule now: if the value box still says exactly what the OLD words said, it
  * was ours, so it follows the new words. If somebody typed a different number
@@ -203,12 +197,6 @@ export function cleanExtraAwards(list = []) {
 /**
  * WHAT THE WHOLE THING COSTS, SPLIT INTO CASH AND VOUCHERS.
  *
- * Ethan: "it's not counting the Trip.com vouchers, so it should also count
- * them... The total prize pot should show the total, and then it should be
- * split by cash and vouchers. For the participation vouchers, we should say
- * from €0 to €15 and highlight what it is if it's only the first 33, or if it's
- * for all."
- *
  * The places and the awards are FIXED costs - somebody wins each of them. The
  * participation reward is a RANGE: nobody may reach the threshold, or up to the
  * cap may. With no cap there is no top to the range, which `max: null` says
@@ -237,12 +225,9 @@ export function prizeBudget({ prizes = [], participation = null, awards = [], cr
     const each = toAmount(participation.amount) ?? toAmount(numberIn(participation.prize)) ?? 0
     const cap = toInt(participation.cap)
     const scope = participation.scope === 'outside_prizes' ? 'outside_prizes' : 'everyone'
-    // WITH NO CAP, THE CEILING IS THE ROSTER (21 Sep 2026). "No limit" still
-    // has a limit: nobody who is not a creator in the market can earn it, and
-    // outside-the-places cannot go to a place-winner either. So the most it
-    // can cost is known, and Ethan wants it shown: "I would still show what
-    // the maximum is, even if there's no limit." `null` only when the roster
-    // is not known (the group editor passes no count).
+    // WITH NO CAP, THE CEILING IS THE ROSTER. "No limit" still has a limit: nobody who is not a creator in the market
+    // can earn it, and outside-the-places cannot go to a place-winner either. So the most it can cost is known, and
+    // `null` only when the roster is not known (the group editor passes no count).
     const n = toInt(creators)
     const reach = cap || (n ? Math.max(0, scope === 'outside_prizes' ? n - places.count : n) : null)
     part = {
@@ -317,12 +302,10 @@ function Choice({ value, options, onChange, label }) {
 
 // A NUMBER FIELD THAT KEEPS EVERY KEYSTROKE.
 //
-// Ethan: "I click in it, I type 2, and it shows up as nothing." Every number box
-// here had an `onInput` that rewrote `e.target.value` to strip letters. React
-// tracks an input's last value by intercepting that very setter, so writing the
-// value in onInput told React the box ALREADY said "2" - its change event then
-// saw nothing new, `onChange` never ran, state stayed empty, and the next render
-// put the empty string back. Filtering belongs in onChange, and only there.
+// Every number box here had an `onInput` that rewrote `e.target.value` to strip letters. React tracks an input's last
+// value by intercepting that very setter, so writing the value in onInput told React the box ALREADY said "2" - its
+// change event then saw nothing new, `onChange` never ran, state stayed empty, and the next render put the empty string
+// back. Filtering belongs in onChange, and only there.
 function NumberField({ value, onChange, placeholder, label, decimal = false, className = '', prefix = '', id }) {
   return (
     <label className={cx('flex h-[42px] items-center gap-1 rounded-xl border border-gray-200 bg-white px-3 transition-colors focus-within:border-brand/60', className)}>
@@ -397,8 +380,8 @@ export default function PrizeBreakdownFields({
   participationThreshold = '',
   participationPrize = '',
   onParticipation,
-  // The cap, the cash/voucher choice, the value and who can earn it, plus Most committed.
-  // The challenge AND every group pass these (a group since 5 Oct 2026).
+  // The cap, the cash/voucher choice, the value and who can earn it, plus Most committed. The challenge AND every group
+  // pass these (a group).
   participationExtra = null,
   onParticipationExtra = null,
   // A points challenge can pay the taking-part reward on a points total
@@ -408,9 +391,9 @@ export default function PrizeBreakdownFields({
   onExtraAwards = null,
   idPrefix = 'prize',
   dense = false,
-  // A GROUP's taking-part reward (1 Oct 2026): its own value, cash or voucher, and videos or points like the
-  // challenge's. Since 5 Oct (migration 338) it also has its own cap and "who can earn it", and its own Most
-  // committed; only videos-or-points stays the challenge's one setting, which this flag explains.
+  // A GROUP's taking-part reward: its own value, cash or voucher, and videos or points like the challenge's. Since 5 Oct
+  // (migration 338) it also has its own cap and "who can earn it", and its own Most committed; only videos-or-points
+  // stays the challenge's one setting, which this flag explains.
   groupMode = false,
 }) {
   // The taking-part card is open when it holds anything, or once "Add" has been
@@ -466,11 +449,8 @@ export default function PrizeBreakdownFields({
         </div>
       ))}
 
-      {/* ADD A PRIZE SITS UNDER THE LAST PLACE (21 Sep 2026). Ethan: "I would
-          still have it up above Reward for Taking Part and below the last main
-          price. Obviously, that's what you're adding." A new place joins the
-          list it is under; the two optional rewards keep their buttons at the
-          foot, where the things they add appear. */}
+      {/* ADD A PRIZE SITS UNDER THE LAST PLACE. A new place joins the list it is under; the two optional rewards keep
+          their buttons at the foot, where the things they add appear. */}
       <div>
         <button
           type="button" className={ADD_BTN} id={`${idPrefix}-add`}
@@ -553,9 +533,7 @@ export default function PrizeBreakdownFields({
 
           {participationExtra && onParticipationExtra && (
             <div className="mt-3 space-y-2.5 border-t border-gray-100 pt-3">
-              {/* VIDEOS OR POINTS (21 Sep 2026). Ethan: "for the point system,
-                  that if they reach, for example, 20 points, they'll get the
-                  participation voucher." Only a points challenge has points. */}
+              {/* VIDEOS OR POINTS. Only a points challenge has points. */}
               {pointsBasisAllowed && (
                 <SettingRow
                   label="Earned by"
@@ -572,9 +550,7 @@ export default function PrizeBreakdownFields({
                   />
                 </SettingRow>
               )}
-              {/* THE CAP. Ethan: "only the first 30 creators can actually earn
-                  that, so we're not giving out theoretically unlimited
-                  vouchers." First = whoever's Nth entry went in first. */}
+              {/* THE CAP. First = whoever's Nth entry went in first. */}
               <SettingRow
                 label="How many"
                 note={participationExtra.cap && Number(participationExtra.cap) > 0
@@ -609,10 +585,9 @@ export default function PrizeBreakdownFields({
         </RewardCard>
       )}
 
-      {/* MOST COMMITTED. Ethan: rename "Extra awards" to "Most committed",
-          because that is the only award there is, and it should not show "unless
-          someone actually clicks for it". Worked out automatically at the end
-          and paid with the other prizes. */}
+      {/* MOST COMMITTED. The team: rename "Extra awards" to "Most committed", because that is the only award there is,
+          and it should not show "unless someone actually clicks for it". Worked out automatically at the end and paid
+          with the other prizes. */}
       {onExtraAwards && mc.map((a, i) => {
         const scope = a.scope === 'anyone' ? 'anyone' : 'outside'
         return (
@@ -743,8 +718,7 @@ export function PrizeSummary({ budget, symbol = '', cpmTarget, legacyPot = null 
   for (const a of awards) {
     lines.push({ icon: 'star', label: a.label, value: money(symbol, a.amount), note: a.type === 'cash' ? 'cash' : 'voucher' })
   }
-  // A SPLIT CHALLENGE ADDS UP EVERY GROUP (1 Oct 2026). Ethan: "at the very bottom the total cost doesn't appear
-  // whenever you assign different prizes for the different groups." Each group is a line; the headline is the sum.
+  // A SPLIT CHALLENGE ADDS UP EVERY GROUP. Each group is a line; the headline is the sum.
   for (const g of budget.groups || []) {
     lines.push({
       icon: 'users',
@@ -770,10 +744,8 @@ export function PrizeSummary({ budget, symbol = '', cpmTarget, legacyPot = null 
 
   return (
     <div className="overflow-hidden rounded-2xl border border-brand/20 bg-white shadow-card">
-      {/* THE HEADLINE IS THE HUB CARD'S GRADIENT (21 Sep 2026). Ethan: "a bit
-          more colour on it because it should stand out more at the end, just
-          like a summary of that information." It is the last thing above Save,
-          so it reads as the answer to the whole form. */}
+      {/* THE HEADLINE IS THE HUB CARD'S GRADIENT. It is the last thing above Save, so it reads as the answer to the
+          whole form. */}
       <div className="relative grid gap-4 overflow-hidden bg-gradient-to-br from-brand to-brand-light p-4 text-white sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end sm:p-5">
         <span aria-hidden className="pointer-events-none absolute -right-14 -top-16 h-48 w-48 rounded-full bg-white/15 blur-2xl" />
         <div className="relative">

@@ -22,13 +22,7 @@ import { profilesApi } from '../../api/profiles'
 import { marketsApi } from '../../api/markets'
 import { contentApi } from '../../api/content'
 
-// SURVEYS (30 Sep 2026, migration 291; rebuilt 1 Oct 2026, migration 293).
-//
-// Ethan, on the first version: "It seems a bit crowded and hard to understand ... When I scroll on
-// the right column, it scrolls the left ... whenever I click on the rating, that dropdown is hidden
-// behind the next card ... I don't know why 'Pick a challenge' is an option ... There should be a
-// really nice page ... where we actually view the results. We can see charts of it, view everyone
-// that the creator actually submitted".
+// SURVEYS (migration 291; rebuilt, migration 293).
 //
 // Three screens in one page:
 //   THE LIST      every survey with its answers so far, and templates to start from.
@@ -328,10 +322,8 @@ function SurveyEditor({ survey, markets, vipMarkets = [], challenges, onChange, 
       {problem && <p className="-mt-2 shrink-0 px-1 text-xs font-medium text-amber-700">{problem}</p>}
 
       <div className="grid min-h-0 flex-1 gap-5 lg:grid-cols-[380px_minmax(0,1fr)]">
-        {/* ---------- left: the creator's card on a phone, live (2 Oct 2026) ----------
-            Ethan: "most of the time on the platform we have the preview on the left and the editing
-            thing on the right", so the phone is first. On a small screen the steps still come first:
-            you cannot edit and watch side by side in one column. */}
+        {/* ---------- left: the creator's card on a phone, live ----------, so the phone is first. On a small screen the
+             steps still come first: you cannot edit and watch side by side in one column. */}
         <aside className="order-last min-h-0 lg:order-first lg:overflow-y-auto lg:overscroll-contain lg:pb-10">
           <SurveyPreview survey={previewSurvey} stage={previewStage} at={openIdx} />
         </aside>
@@ -480,15 +472,14 @@ function SurveyEditor({ survey, markets, vipMarkets = [], challenges, onChange, 
   )
 }
 
-// THE CREATOR'S SCREEN, AS THEY WILL MEET IT (2 Oct 2026; sized for a real phone 4 Oct 2026; PHONE ONLY from then on).
+// THE CREATOR'S SCREEN, AS THEY WILL MEET IT (2 Oct 2026; sized for a real phone; PHONE ONLY from then on).
 //
-// Ethan, later the same day: "I only want the phone view from now on because the desktop view opens in a full screen, and it's not needed."
 // The desktop twin is gone; what is left is the phone below.
 //
-// Ethan: "I want it to look more like the recap card, which shows the way the creators will actually see it" (2 Oct), and now: "the
-// preview size isn't the actual size of an iPhone, so please fix that. Also, you don't need to show the bar at the bottom to swipe up. Make
-// it the actual size so it looks good and shows everything, and it should be interactive as well ... we should have the desktop one that
-// we can click on to see it. I guess it's just a card on the screen, whereas the mobile one's just taking up the bottom half."
+// , and now: "the preview size isn't the actual size of an iPhone, so please fix that. Also, you don't need to show the
+// bar at the bottom to swipe up. Make it the actual size so it looks good and shows everything, and it should be
+// interactive as well... we should have the desktop one that we can click on to see it. I guess it's just a card on the
+// screen, whereas the mobile one's just taking up the bottom half."
 //
 // So there are two screens to see it on. THE PHONE is a real iPhone's 393 x 852 points (the 15 / 16 Pro), drawn at that size and only
 // scaled down when the column or the window is smaller, with its dynamic island and no home-indicator bar; the survey rises over the
@@ -608,10 +599,10 @@ function OptionCard({ on, onClick, icon, label, hint }) {
   )
 }
 
-// WHAT THE CREATOR WILL TAP, DRAWN IN THE EDITOR (2 Oct 2026). Ethan: a yes or no "shows up on the
-// preview as yes or no, so that's good", and it "should show up on the actual editing thing" too. Every
-// kind that has a fixed answer now shows it under the wording: stars, the 0 to 10 row, the two buttons,
-// the box for a written answer. Lists of options stay as the editable list they already were.
+// WHAT THE CREATOR WILL TAP, DRAWN IN THE EDITOR. The team: a yes or no "shows up on the preview as yes or no, so that's
+// good", and it "should show up on the actual editing thing" too. Every kind that has a fixed answer now shows it under
+// the wording: stars, the 0 to 10 row, the two buttons, the box for a written answer. Lists of options stay as the
+// editable list they already were.
 function AnswerSketch({ type }) {
   const tr = useT()
   if (type === 'yesno') {
@@ -665,8 +656,8 @@ function QuestionEditor({ q, i, total, open, onOpen, onChange, onMove, onDuplica
       </button>
       {open && (
         <div className="space-y-3 border-t border-gray-100 bg-white p-3 animate-fade-up">
-          {/* THE KIND IS A ROW OF BUTTONS, NOT A DROPDOWN (1 Oct 2026): the old menu opened behind the
-              next card and could not be scrolled. */}
+          {/* THE KIND IS A ROW OF BUTTONS, NOT A DROPDOWN: the old menu opened behind the next card and could not be
+              scrolled. */}
           <div className="flex flex-wrap gap-1">
             {QUESTION_TYPES.map((t) => (
               <button key={t.key} type="button" onClick={() => onChange({ type: t.key, options: hasOptions(t.key) ? (q.options?.length ? q.options : ['', '']) : [] })}
@@ -1068,13 +1059,10 @@ function TextResult({ q, who }) {
   )
 }
 
-// EVERY RESPONSE, ONE PERSON AT A TIME (2 Oct 2026). Ethan: "We should obviously see the creators' profile
-// pictures whenever they submit and be able to go through them one by one to see what each creator
-// actually said. Currently, we can't see that ... it's a little bit confusing." It was a long list of
-// rows that each unfolded in place, and the face was tiny. Now there is a list of people on the left
-// (their photo, name, market and when), and the person picked fills the right: a big photo, who they are,
-// every question with their answer drawn the way they gave it, and Previous / Next (or the arrow keys)
-// to walk the whole list. On a phone the list is a strip of faces across the top.
+// EVERY RESPONSE, ONE PERSON AT A TIME. It was a long list of rows that each unfolded in place, and the face was tiny.
+// Now there is a list of people on the left (their photo, name, market and when), and the person picked fills the right:
+// a big photo, who they are, every question with their answer drawn the way they gave it, and Previous / Next (or the
+// arrow keys) to walk the whole list. On a phone the list is a strip of faces across the top.
 function ResponsesList({ survey, responses, who, onDelete }) {
   const tr = useT()
   const [filter, setFilter] = useState('all')

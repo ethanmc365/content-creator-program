@@ -5,9 +5,7 @@
 // way to ask it - it is name-agnostic, so a creator in Bavaria tints Germany
 // whatever they typed in the box.
 //
-// THE BUG THIS EXISTS FOR (28 Sep 2026). Ethan: "there is a lot of lag with me
-// zooming in ... if I zoom in a lot quickly, it gets super laggy and starts
-// freezing up."
+// THE BUG THIS EXISTS FOR.
 //
 // Measured on the production build, driving the zoom button eight times: two
 // long tasks of 1,240ms each, and a CPU profile with 3.5 SECONDS inside d3-geo's
@@ -21,11 +19,10 @@
 // countries nobody lives in ran all 158 tests each. That is where the number
 // comes from.
 //
-// WHY IT RAN WHILE HE WAS ZOOMING, which is the other half. Creators with no
-// stored coordinates are geocoded in the browser, one at a time, and each answer
-// writes `extraCoords` - a new object, so a new `located`, so this effect again.
-// A handful of slow lookups therefore drop a 1.2-second freeze into whatever the
-// reader happens to be doing, and what they happen to be doing is zooming.
+// WHY IT RAN WHILE they were ZOOMING, which is the other half. Creators with no stored coordinates are geocoded in the
+// browser, one at a time, and each answer writes `extraCoords` - a new object, so a new `located`, so this effect again.
+// A handful of slow lookups therefore drop a 1.2-second freeze into whatever the reader happens to be doing, and what
+// they happen to be doing is zooming.
 //
 // WHAT MAKES IT CHEAP. Three things, and the first does nearly all of it:
 //

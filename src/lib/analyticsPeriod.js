@@ -3,12 +3,10 @@ import {
   startOfWeek, startOfYear, subDays, subMonths, subQuarters, subWeeks, subYears,
 } from 'date-fns'
 
-// THE ANALYTICS OVERVIEW, OVER A PERIOD (2 Oct 2026).
+// THE ANALYTICS OVERVIEW, OVER A PERIOD.
 //
-// Ethan: "on the analytics page, for the overview, I want to be able to see data where I can view by current month,
-// last month, this week, last 7 days etc ... and obviously I can do for worldwide, everything, or a specific market."
-// The market half already existed (lib/analyticsScope); this is the time half, and it is the same shape: a pure
-// filter over the datasets the page already holds, so one definition of every number serves every period.
+// The market half already existed (lib/analyticsScope); this is the time half, and it is the same shape: a pure filter
+// over the datasets the page already holds, so one definition of every number serves every period.
 //
 // A RANGE IS HALF-OPEN: [start, end). `start` null means "since the beginning", which is how All time is a range
 // like any other and every filter below needs no special case for it.

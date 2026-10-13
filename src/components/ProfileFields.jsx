@@ -29,10 +29,8 @@ export const LANGUAGE_OPTIONS = [
   'Finnish', 'Czech', 'Hungarian', 'Catalan', 'Basque', 'Galician', 'Bulgarian', 'Croatian',
 ]
 
-// THE LANGUAGES MOST CREATORS HERE SPEAK, SHOWN FIRST, WITH A FLAG EACH (1 Oct 2026). Ethan: "show the flag beside
-// the language ... don't show so many options, but just the most common options that we're expecting, like English,
-// Irish, Spanish, and Portuguese, but also have the ability to search for your own language." Every other language
-// is one search away, and anything not on the list can still be typed in.
+// THE LANGUAGES MOST CREATORS HERE SPEAK, SHOWN FIRST, WITH A FLAG EACH. Every other language is one search away, and
+// anything not on the list can still be typed in.
 export const COMMON_LANGUAGES = ['English', 'Spanish', 'Portuguese', 'Irish', 'German', 'Romanian', 'French', 'Italian']
 const LANGUAGE_FLAG = {
   English: '🇬🇧', Irish: '🇮🇪', French: '🇫🇷', Spanish: '🇪🇸', Portuguese: '🇵🇹', Italian: '🇮🇹', German: '🇩🇪',
@@ -48,10 +46,9 @@ export const languageFlag = (lang) => LANGUAGE_FLAG[lang] || '🌐'
  *
  * Files land in avatars/<user id>/ (RLS-protected).
  *
- * REBUILT 4 SEP 2026. Ethan, on the "Who are you?" screen: "I uploaded a
- * profile picture, but first it just showed up as a wide screen. Like, it
- * didn't register. Then I tried again and eventually it worked - but obviously
- * there's a bit of issues there. Make sure it's really smooth."
+ * REBUILT 4 SEP 2026. The team, on the "Who are you?" screen: "I uploaded a profile picture, but first it just showed up
+ * as a wide screen. Like, it didn't register. Then I tried again and eventually it worked - but obviously there's a bit
+ * of issues there. Make sure it's really smooth."
  *
  * THREE THINGS WERE WRONG AND THEY COMPOUND EACH OTHER.
  *
@@ -102,10 +99,8 @@ export function AvatarUpload({ photoUrl, name, onUploaded, onUploadStart, maxDim
   // cleanup can revoke it without making it an effect dependency.
   const [preview, setPreview] = useState('')
   const previewRef = useRef('')
-  // THE CROP STEP (28 Sep 2026). The picked photo, decoded (HEIC included), is
-  // shown in PhotoCropper first; only the square the creator settles on is
-  // uploaded. `cropSrc` is an object URL for the cropper and is revoked when it
-  // closes.
+  // THE CROP STEP. The picked photo, decoded (HEIC included), is shown in PhotoCropper first; only the square the
+  // creator settles on is uploaded. `cropSrc` is an object URL for the cropper and is revoked when it closes.
   const [cropSrc, setCropSrc] = useState('')
 
   const dropPreview = useCallback(() => {
@@ -126,9 +121,10 @@ export function AvatarUpload({ photoUrl, name, onUploaded, onUploadStart, maxDim
     if (!file) return
     const looksImage = file.type.startsWith('image/') || /\.(heic|heif|jpe?g|png|webp|gif)$/i.test(file.name)
     if (!looksImage) return setError(tr('Please choose an image.'))
-    // NO SIZE GATE ON THE PICKED FILE (5 Oct 2026). A photo is shrunk to 2048px right here, in the browser, and then cropped to a ~1080px
-    // square before anything is uploaded (a few hundred kB), so a 20MB original never travels. Refusing big originals only turned a
-    // camera JPEG into an error; the decode deadlines in lib/image already stop anything that cannot be processed.
+    // NO SIZE GATE ON THE PICKED FILE. A photo is shrunk to 2048px right here, in the browser, and then cropped to a
+    // ~1080px square before anything is uploaded (a few hundred kB), so a 20MB original never travels. Refusing big
+    // originals only turned a camera JPEG into an error; the decode deadlines in lib/image already stop anything that
+    // cannot be processed.
     setError('')
 
     setBusy('reading')
@@ -153,13 +149,10 @@ export function AvatarUpload({ photoUrl, name, onUploaded, onUploadStart, maxDim
     })
   }
 
-  // THE PAGE IS HANDED THE UPLOAD ITSELF (28 Sep 2026). Ethan: "I clicked 'Use
-  // this photo,' and it uploaded. I clicked 'Save,' and then it didn't seem to
-  // work. I've tried it a second time, and it has worked." The preview shows
-  // the new photo the instant it is chosen, so the page LOOKS ready while the
-  // upload is still running - and a Save pressed in that window wrote the old
-  // photo_url, the new one arriving a moment later into a form nobody saved
-  // again. `onUploadStart` gives the page the promise so its Save can wait.
+  // THE PAGE IS HANDED THE UPLOAD ITSELF. The preview shows the new photo the instant it is chosen, so the page LOOKS
+  // ready while the upload is still running - and a Save pressed in that window wrote the old photo_url, the new one
+  // arriving a moment later into a form nobody saved again. `onUploadStart` gives the page the promise so its Save can
+  // wait.
   function uploadCropped(blob) {
     const job = doUpload(blob)
     onUploadStart?.(job)
@@ -211,20 +204,14 @@ export function AvatarUpload({ photoUrl, name, onUploaded, onUploadStart, maxDim
   }, [photoUrl, dropPreview])
 
   const shown = preview || photoUrl
-  // ONE WORD FOR THE WHOLE WAIT (8 Sep 2026).
+  // ONE WORD FOR THE WHOLE WAIT.
   //
-  // Ethan: "I noticed it says 'reading your photo' - rather than saying
-  // reading, it should say 'uploading'."
-  //
-  // He is right, and the reason is that "reading" was describing OUR internals,
-  // not their experience. From the moment a photo is chosen to the moment it is
-  // on the profile there is exactly one thing happening as far as the person
-  // holding the phone is concerned, and they called it uploading. Splitting it
-  // into a convert phase and an upload phase made the label CHANGE halfway
-  // through a wait, which reads as a restart - the opposite of the reassurance
-  // a progress label exists to give. `busy` still tracks both stages, because
-  // the code genuinely has two and `aria-busy` wants to know; the sentence does
-  // not.
+  // they are right, and the reason is that "reading" was describing OUR internals, not their experience. From the moment
+  // a photo is chosen to the moment it is on the profile there is exactly one thing happening as far as the person
+  // holding the phone is concerned, and they called it uploading. Splitting it into a convert phase and an upload phase
+  // made the label CHANGE halfway through a wait, which reads as a restart - the opposite of the reassurance a progress
+  // label exists to give. `busy` still tracks both stages, because the code genuinely has two and `aria-busy` wants to
+  // know; the sentence does not.
   const label = tr('Uploading…')
 
   return (
@@ -287,10 +274,7 @@ export function DobField({ value, onChange, required, fallbackAge = null, checkA
   const tr = useT()
   const [text, setText] = useState(() => formatDobInput(value))
 
-  // THE BOX NEVER FILLED ITSELF IN, AND THIS IS WHY (1 Sep 2026).
-  //
-  // Ethan: "I noticed an issue where everytime i click edit profile the date of
-  // birth section isnt filled in."
+  // THE BOX NEVER FILLED ITSELF IN, AND THIS IS WHY.
   //
   // Every other field on the edit form is controlled straight off `form`, so it
   // catches up the moment the profile lands. This one keeps its own copy of the
@@ -446,13 +430,10 @@ export function PhoneInput({ value, onChange, required }) {
 
 // A favourite quote, shown publicly on the profile.
 //
-// IT WAS A SINGLE-LINE <input>, WHICH IS WHY YOU HAD TO SCROLL SIDEWAYS. 160
-// characters in a one-line box means the start of what you wrote scrolls out of
-// sight as you type, so you cannot read your own quote back without dragging
-// the caret to the beginning. Ethan: "this should be made bigger as currently
-// I'm having to scroll to the right to see what I wrote."
-// A quote is a sentence, so it gets a box shaped like a sentence: two rows to
-// start, growing to fit, wrapping instead of scrolling.
+// IT WAS A SINGLE-LINE <input>, WHICH IS WHY YOU HAD TO SCROLL SIDEWAYS. 160 characters in a one-line box means the
+// start of what you wrote scrolls out of sight as you type, so you cannot read your own quote back without dragging the
+// caret to the beginning. A quote is a sentence, so it gets a box shaped like a sentence: two rows to start, growing to
+// fit, wrapping instead of scrolling.
 //
 // The hint underneath ("Shown on your public profile. Optional.") is gone.
 // Nothing on this form is required unless it says so, and every field on it is
@@ -495,8 +476,8 @@ export function LanguageSelect({ selected = [], onChange }) {
   const tr = useT()
   const place = usePlaceNames()
   const [query, setQuery] = useState('')
-  // THE SEARCH IS BEHIND A BUTTON (4 Oct 2026). Ethan: the common languages looked like the only choices. The box is hidden
-  // until "Another language" is pressed, which says outright that there are more, then opens with the cursor in it.
+  // THE SEARCH IS BEHIND A BUTTON. The team: the common languages looked like the only choices. The box is hidden until
+  // "Another language" is pressed, which says outright that there are more, then opens with the cursor in it.
   const [searching, setSearching] = useState(false)
 
   function toggle(lang) {
@@ -596,9 +577,6 @@ export function LanguageSelect({ selected = [], onChange }) {
 
 /**
  * WHERE YOU POST, IN THE PLATFORMS' OWN COLOURS.
- *
- * Ethan, on the onboarding flow: "rather than the grayed out social media
- * icons, I would add in the actual colourful social media icons."
  *
  * The marks were `text-smoke` on `bg-cloud` - five identical grey squares down
  * the left of five identical boxes. On the one screen whose entire subject is

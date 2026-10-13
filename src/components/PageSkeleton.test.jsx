@@ -4,9 +4,6 @@ import PageSkeleton from './PageSkeleton'
 
 // THE HUB PLACEHOLDER DREW THE PAGE'S FURNITURE TWICE.
 //
-// Ethan: "on the worldwide page on desktop, the skeleton loading cards are
-// incorrectly laid out."
-//
 // `shape="hub"` is rendered from two places. `RouteSkeleton` renders it ALONE,
 // while the route chunk is still downloading, so it has to draw the switcher,
 // the two columns and the rail or it is a placeholder for a different page.

@@ -4,14 +4,14 @@ import { useSlowNetwork } from '../lib/netQuality'
 import { createEarthScene, prepareLand } from '../lib/earth/earthScene'
 import { cx } from '../lib/utils'
 
-// THE EARTH BEHIND THE GLOBAL CHALLENGE (21 Sep 2026): the real atlas on an orthographic projection, turning, with
-// cities as points of light and a few Tryp.com routes flown by aeroplanes.
+// THE EARTH BEHIND THE GLOBAL CHALLENGE: the real atlas on an orthographic projection, turning, with cities as points of
+// light and a few Tryp.com routes flown by aeroplanes.
 //
-// OFF THE MAIN THREAD (1 Oct 2026). Ethan found the whole platform laggy, and this was most of it: 240 countries
-// redrawn sixty times a second on the thread that also scrolls the page. Now the canvas is handed to a Web Worker
-// (lib/earth/earthWorker.js) and drawn there, so the page never waits for it. A browser that cannot hand a canvas
-// over runs the same scene here at 30fps with the far side of the planet skipped. Either way the loop stops whenever
-// the card is off screen or the tab is hidden, and reduced motion gets one still frame.
+// OFF THE MAIN THREAD. The team found the whole platform laggy, and this was most of it: 240 countries redrawn sixty
+// times a second on the thread that also scrolls the page. Now the canvas is handed to a Web Worker
+// (lib/earth/earthWorker.js) and drawn there, so the page never waits for it. A browser that cannot hand a canvas over
+// runs the same scene here at 30fps with the far side of the planet skipped. Either way the loop stops whenever the card
+// is off screen or the tab is hidden, and reduced motion gets one still frame.
 
 const quietMotion = () => document.documentElement.hasAttribute('data-reduce-motion')
   || window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
@@ -23,9 +23,8 @@ function measure(canvas) {
 
 export default function SpinningEarth({ className = '', tilt = -18, speed = 7 }) {
   const hostRef = useRef(null)
-  // DECORATION WAITS FOR A GOOD CONNECTION (1 Oct 2026): the globe is the world
-  // atlas, and on a slow line that download competes with the page itself. If
-  // the atlas is already here it costs nothing, so it draws.
+  // DECORATION WAITS FOR A GOOD CONNECTION: the globe is the world atlas, and on a slow line that download competes with
+  // the page itself. If the atlas is already here it costs nothing, so it draws.
   const slow = useSlowNetwork()
   const skip = slow && !atlasReady()
 

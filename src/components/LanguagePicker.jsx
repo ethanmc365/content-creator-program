@@ -6,11 +6,7 @@ import { loadOverrides } from '../lib/translations'
 import { cx } from '../lib/utils'
 import { profilesApi } from '../api/profiles'
 
-// THE LANGUAGE, PICKED BEFORE YOU HAVE AN ACCOUNT (2 Oct 2026).
-//
-// Ethan: "We also want a language picker on the public page where creators can sign up ... at the very
-// top, we have that heading bar. They can switch the language there ... This will also be for the whole
-// sign-up process ... so that they can sign up in their own language."
+// THE LANGUAGE, PICKED BEFORE YOU HAVE AN ACCOUNT.
 //
 // It is the same choice Settings offers, and it works the same way: the dictionary is awaited before the
 // language flips so the page redraws once, the choice is written to THIS DEVICE (that is what makes it
@@ -81,8 +77,8 @@ export default function LanguagePicker({ className, tone = 'soft', align = 'righ
           'inline-flex h-10 items-center gap-2 rounded-full pl-3 pr-2.5 text-sm font-semibold transition-all duration-200 active:scale-[0.97]',
           tone === 'soft'
             ? 'bg-white/80 text-ink shadow-card ring-1 ring-black/5 backdrop-blur hoverable:hover:-translate-y-0.5 hoverable:hover:shadow-lift'
-            // `brand` (4 Oct 2026): the landing page's picker as the lighter orange gradient with white text (Ethan did not like the
-            // outlined version). It sits beside "Join us" so it reads as a control and not as a stray word.
+            // `brand`: the landing page's picker as the lighter orange gradient with white text (the team did not like
+            // the outlined version). It sits beside "Join us" so it reads as a control and not as a stray word.
             : tone === 'brand'
               ? 'border-0 bg-gradient-to-r from-brand to-brand-light text-white shadow-card hoverable:hover:-translate-y-0.5 hoverable:hover:shadow-lift'
               : 'text-smoke hoverable:hover:bg-cloud hoverable:hover:text-ink',

@@ -52,11 +52,6 @@ function findAnchor(name) {
 
 // `required` IS THE FIRST RUN, AND THE FIRST RUN IS NOT OPTIONAL.
 //
-// Ethan (4 Sep 2026): "remember the tutorial is non-skippable the very first
-// time you do it. If you redo it, yep, you can exit out of it. The first time
-// you have to complete it all. You have to enable notifications, and the bank
-// details is advised but you can add it later."
-//
 // So there are two kinds of walk. The one that STARTS ITSELF for a newly
 // approved creator has no X and no "Skip this": every step is a single press on
 // something the card is pointing at, and the point of it is that by the end
@@ -91,7 +86,7 @@ export default function TourHost({ onFinish, network = false, layout = 'desktop'
   const navigate = useNavigate()
   const location = useLocation()
   const { user, profile, isAdmin } = useAuth()
-  // WHICH WALK. A VIP gets the VIP walk; the Testing Centre can ask for either one by name (7 Oct 2026).
+  // WHICH WALK. A VIP gets the VIP walk; the Testing Centre can ask for either one by name.
   const vip = variant ? variant === 'vip' : (!!profile?.is_vip && !isAdmin)
   // The team walking the VIP walk is not a VIP, so the VIP page it walks is a new VIP's first day (`mode=as`), which
   // draws exactly the creator's page: the add-a-video box, the payouts section, the earnings card.
@@ -110,9 +105,6 @@ export default function TourHost({ onFinish, network = false, layout = 'desktop'
   // because it is read during render.
   // A TRANSITION RETARGETED EVERY FRAME DOES NOT ANIMATE, IT STUTTERS.
   //
-  // Ethan, on the very first step: "it automates up to the top, which is good,
-  // but it's not moving, it's a bit shuttery."
-  //
   // The loop runs at display rate and wrote `top`/`left` on every tick. While
   // `data-travel` is on that is a transition being handed a new destination
   // sixty times a second - and the resting position is computed from the card's
@@ -124,10 +116,8 @@ export default function TourHost({ onFinish, network = false, layout = 'desktop'
   // to STOP WRITING A VALUE THAT IS ALREADY WHAT WE WANT. A one-pixel deadband
   // is below what anybody can see and is far more than the jitter needs.
   const [litOnce, setLitOnce] = useState(false)
-  // THE WALK LEAVES THE WAY IT ARRIVED. Ethan, on the last step: "they click
-  // finish and it just appears away." Everything else about this component is
-  // about movement; ending it with a hard cut is the one moment that undoes
-  // that impression. `data-closing` fades the card, the spotlight and the glow
+  // THE WALK LEAVES THE WAY IT ARRIVED. Everything else about this component is about movement; ending it with a hard
+  // cut is the one moment that undoes that impression. `data-closing` fades the card, the spotlight and the glow
   // (index.css) and the unmount is held for the length of it.
   const [closing, setClosing] = useState(false)
   const [busy, setBusy] = useState(false)
@@ -142,11 +132,7 @@ export default function TourHost({ onFinish, network = false, layout = 'desktop'
   const travelUntil = useRef(0)
   const advanced = useRef(false)
 
-  // IS THIS STEP LIVE? A REF, BECAUSE `ready` IS A FRAME BEHIND WHERE IT
-  // MATTERS (9 Sep 2026).
-  //
-  // Ethan: "whenever I click 'show me around', the card temporarily went down,
-  // which should not be happening. Fix that - and then it moved up to the top."
+  // IS THIS STEP LIVE? A REF, BECAUSE `ready` IS A FRAME BEHIND WHERE IT MATTERS.
   //
   // Exactly one frame of the rAF loop caused that, and it is a React ordering
   // problem rather than a geometry one. Advancing a step re-renders with the
@@ -172,11 +158,7 @@ export default function TourHost({ onFinish, network = false, layout = 'desktop'
   // so the loop sees the truth on the frame it needs it.
   const live = useRef(false)
 
-  // THE WORDS CHANGE WHEN THE CARD STARTS MOVING, NOT BEFORE (9 Sep 2026).
-  //
-  // Ethan: "it shows the card while still in the corner - it should animate and
-  // show the new card WHILE it's moving, not immediately while still in the
-  // same place."
+  // THE WORDS CHANGE WHEN THE CARD STARTS MOVING, NOT BEFORE.
   //
   // Exactly what it did. Pressing a step advances `i`, React re-renders the
   // card with the next step's title, body and instruction on that very frame,
@@ -210,11 +192,7 @@ export default function TourHost({ onFinish, network = false, layout = 'desktop'
 
 
 
-  // THE CARD IS PLACED BEFORE ITS FIRST PAINT, NOT AFTER IT (8 Sep 2026).
-  //
-  // Ethan: "it started really weirdly. First the card appeared in the top left
-  // corner, and then it appeared down in the bottom middle. Obviously it should
-  // just appear smoothly, at the bottom, in the middle."
+  // THE CARD IS PLACED BEFORE ITS FIRST PAINT, NOT AFTER IT.
   //
   // `.tour-card` is `position: fixed` and, since 7 Sep, CSS gives it NO `top`
   // and NO `left` - deliberately, because two mechanisms moving one element is
@@ -265,10 +243,8 @@ export default function TourHost({ onFinish, network = false, layout = 'desktop'
   // THE CARD'S HEIGHT IS WRITTEN IN PIXELS SO THE CSS TRANSITION HAS SOMETHING
   // TO MOVE BETWEEN. `height: auto` cannot be transitioned.
   //
-  // Ethan: "the card shrinks a bit - smooth animation." Steps carry different
-  // amounts of text, so the box is 210px on one and 330px on the next, and the
-  // height was snapping on the frame the words changed while the card was still
-  // gliding across the screen.
+  // Steps carry different amounts of text, so the box is 210px on one and 330px on the next, and the height was snapping
+  // on the frame the words changed while the card was still gliding across the screen.
   //
   // MEASURED BY UNSETTING IT FIRST. The card IS the thing being sized, so its
   // own `scrollHeight` while a fixed height is applied would just read that
@@ -288,12 +264,7 @@ export default function TourHost({ onFinish, network = false, layout = 'desktop'
   useEffect(() => {
     const card = cardRef.current
     if (!card || isPhone) return undefined
-    // A RE-MEASURE THAT MOVES THE CARD BY THREE PIXELS IS NOT WORTH HAVING
-    // (9 Sep 2026).
-    //
-    // Ethan, on the last step: "the card goes to the home screen, which is
-    // good, but then it jumps down a bit - like it was in the middle, and it
-    // jumps down."
+    // A RE-MEASURE THAT MOVES THE CARD BY THREE PIXELS IS NOT WORTH HAVING.
     //
     // The resting place is bottom-anchored (`top = vh - h - 32` in
     // lib/tourPlacement), so the card's TOP is a function of its HEIGHT. The
@@ -379,8 +350,8 @@ export default function TourHost({ onFinish, network = false, layout = 'desktop'
     // Put them where the step happens, unless the goal is to navigate somewhere
     // and they are already there.
     const raw = stepAt(step, network)
-    // AS A REAL VIP WHEN ONE WAS PICKED (12 Oct 2026). Ethan: "show it from a natural VIP creator standpoint, not from my
-    // account". The Testing Centre can name a VIP; their own page is walked (their videos, their payouts), read only.
+    // AS A REAL VIP WHEN ONE WAS PICKED. The Testing Centre can name a VIP; their own page is walked (their videos,
+    // their payouts), read only.
     const asWho = vipPreview ? tourPreviewWho() : null
     const to = vipPreview && raw && /^\/vip(\?|$)/.test(raw) ? `/vip?mode=as${asWho ? `&who=${asWho}` : ''}${raw.includes('?') ? `&${raw.split('?')[1]}` : ''}` : raw
     const g = stepGoal(step, network)
@@ -392,13 +363,10 @@ export default function TourHost({ onFinish, network = false, layout = 'desktop'
       if (!sameRoute) navigate(to)
     }
 
-    // OPEN THE DRAWER THE THING IS IN (3 Sep 2026).
+    // OPEN THE DRAWER THE THING IS IN.
     //
-    // Ethan: "post a trip, find a company, open the collaboration board - but
-    // it's not showing where it is. It should be automatically opening the
-    // profile dropdown menu so I can actually see and then click on the collab
-    // board", and later, on the settings step: "the card's actually covering
-    // the settings drop down, so I'm kinda unable to click on it."
+    // , and later, on the settings step: "the card's actually covering the settings drop down, so I'm kinda unable to
+    // click on it."
     //
     // Half the destinations in this walk - the collab board, the flight log,
     // the games, the milestones, settings - are not tabs. They live behind the
@@ -428,11 +396,7 @@ export default function TourHost({ onFinish, network = false, layout = 'desktop'
       }
     }
 
-    // IT WAITS FOR THE PAGE TO STOP MOVING, NOT FOR A NUMBER (7 Sep 2026).
-    //
-    // Ethan: "when you click to go to the next thing it freezes there for a
-    // second, and then the card jumps up to Challenges. Sometimes it moves
-    // cleanly and other times it just stops and appears."
+    // IT WAITS FOR THE PAGE TO STOP MOVING, NOT FOR A NUMBER.
     //
     // This was `setTimeout(..., 300)`, and 300 was a guess at how long a smooth
     // scroll takes. It is wrong in both directions and both are visible:
@@ -456,13 +420,7 @@ export default function TourHost({ onFinish, network = false, layout = 'desktop'
     // settles at all.
     //
     // AND THE ANCHOR IS SCROLLED INTO VIEW *HERE*, BEFORE THE POLL - WHICH IS
-    // THE WHOLE OF "IT'S REALLY, REALLY SHAKY" (8 Sep 2026).
-    //
-    // Ethan: "I click show me around, and then it animates to the top, which is
-    // good, but it's really really really shaky. It's been some of the tough
-    // challenges, and it moves nicely over to where everyone talks. And then it
-    // moves nicely down to the bottom right corner. It's just that first
-    // animation that seemed to be really juttery."
+    // THE WHOLE OF "IT'S REALLY, REALLY SHAKY".
     //
     // One step juddered and the rest did not, and that is the clue. This
     // `scrollIntoView` used to live in the rAF loop effect below, which runs
@@ -564,10 +522,9 @@ export default function TourHost({ onFinish, network = false, layout = 'desktop'
 
   // ---------------------------------------------------- goal: they scroll ---
   //
-  // IT LISTENED TO THE WINDOW AND ONLY THE WINDOW (3 Sep 2026).
+  // IT LISTENED TO THE WINDOW AND ONLY THE WINDOW.
   //
-  // Ethan, on the brief step: "I am scrolling on that page, and nothing is
-  // happening." He was scrolling, and the step could not tell.
+  // they were scrolling, and the step could not tell.
   //
   // `window.scrollY` is right for a page that scrolls the document, and this
   // app has several surfaces that do not: a chat thread, the market rail, any
@@ -616,13 +573,11 @@ export default function TourHost({ onFinish, network = false, layout = 'desktop'
     return () => document.removeEventListener('click', onClick, true)
   }, [ready, goal, finishStep])
 
-  // THE `dwell` AND `connect` GOALS ARE GONE (4 Sep 2026).
+  // THE `dwell` AND `connect` GOALS ARE GONE.
   //
-  // `dwell` advanced on a TIMER, which is the one interaction in a walkthrough
-  // that takes control away from the person doing it - Ethan: "I don't like at
-  // the start where there's a timer to start, you should always have to click
-  // something to proceed." `connect` sent a real connection request to a real
-  // stranger as a side effect of a tutorial. Neither is coming back.
+  // `dwell` advanced on a TIMER, which is the one interaction in a walkthrough that takes control away from the person
+  // doing it - `connect` sent a real connection request to a real stranger as a side effect of a tutorial. Neither is
+  // coming back.
 
   // -------------------------------------- goal: they add payment details ---
   //
@@ -645,11 +600,7 @@ export default function TourHost({ onFinish, network = false, layout = 'desktop'
   }, [ready, goal, user?.id, finishStep])
 
   // ---------------------------------------------------- goal: they allow ---
-  // GRANTED IS SHOWN, NOT SKIPPED PAST (4 Sep 2026).
-  //
-  // Ethan: "for the notification thing, even if they have them enabled, the
-  // screen flashes up and goes away - just leave it for a second and actually
-  // show that you checked they were enabled, for a couple of seconds."
+  // GRANTED IS SHOWN, NOT SKIPPED PAST.
   //
   // The poll ran every 500ms and called `finishStep` the instant it saw
   // `granted`, so somebody who already had notifications on saw the card appear
@@ -695,9 +646,7 @@ export default function TourHost({ onFinish, network = false, layout = 'desktop'
   // this runs at display rate without re-rendering anything.
   useEffect(() => {
     if (!ready) return undefined
-    // THE TRAVEL WINDOW STARTS WHEN THE LOOP DOES, NOT WHEN THE STEP DOES
-    // (4 Sep 2026). Ethan: "the card, like, froze for a second and then jumped
-    // to the next place."
+    // THE TRAVEL WINDOW STARTS WHEN THE LOOP DOES, NOT WHEN THE STEP DOES.
     //
     // That is exactly what it did, and the sequence is worth writing down.
     // Entering a step sets `ready = false` and arms a 300ms timer; React
@@ -732,11 +681,7 @@ export default function TourHost({ onFinish, network = false, layout = 'desktop'
     // cancelling the other. Foreground gets frame-accurate tracking; anywhere
     // rAF is throttled still gets a correctly placed card, just on a timer.
     // ---------------------------------------------------------------
-    // AND IT IDLES WHEN NOTHING IS MOVING (9 Sep 2026).
-    //
-    // Ethan: "the tutorial animations... they are moving correctly now, but
-    // they're just really laggy. So really work on smoothing them out,
-    // especially the initial animations are very laggy."
+    // AND IT IDLES WHEN NOTHING IS MOVING.
     //
     // The animations themselves are CSS transitions on the spotlight and the
     // card, and they are the right duration and the right curve. What was
@@ -765,9 +710,8 @@ export default function TourHost({ onFinish, network = false, layout = 'desktop'
     // Anything that could move the page wakes it instantly, and the heartbeat
     // is the backstop for whatever those listeners miss.
     //
-    // The initial step benefits most, which is what Ethan noticed: it is the
-    // one running while route chunks are still importing and webfonts are still
-    // settling, so it has the least main thread to spare.
+    // The initial step benefits most, which is what the team noticed: it is the one running while route chunks are still
+    // importing and webfonts are still settling, so it has the least main thread to spare.
     // ---------------------------------------------------------------
     const IDLE_AFTER = 8      // identical frames before it stands down
     const IDLE_MS = 250       // the heartbeat once it has
@@ -792,7 +736,7 @@ export default function TourHost({ onFinish, network = false, layout = 'desktop'
       tickRef.current = setTimeout(once, 32)
     }
 
-    // EVERY FRAME IS GUARDED, AND THAT IS NOT BELT AND BRACES (4 Sep 2026).
+    // EVERY FRAME IS GUARDED, AND THAT IS NOT BELT AND BRACES.
     //
     // The last time this loop threw - an unguarded `r.top` three lines after a
     // test that already knew `r` might be undefined - it threw sixty times a
@@ -857,11 +801,7 @@ export default function TourHost({ onFinish, network = false, layout = 'desktop'
       // is the property that makes skipping the second one safe.
       //
       // AND IT NOW IDLES *DURING* THE GLIDE TOO, WHICH IS THE OPPOSITE OF WHAT
-      // THIS USED TO DO (9 Sep 2026).
-      //
-      // Ethan: "it moved up to the top so I could click on challenges, but it
-      // was a really juttery and laggy animation - even the screen seemed to be
-      // lagging."
+      // THIS USED TO DO.
       //
       // This returned `null` while travelling, explicitly so the loop could
       // never stand down mid-glide - the reasoning being that a glide is when
@@ -892,36 +832,25 @@ export default function TourHost({ onFinish, network = false, layout = 'desktop'
         visible ? `${Math.round(r.top)},${Math.round(r.left)},${Math.round(r.width)},${Math.round(r.height)}` : 'none',
         vw, vh, isPhone ? 'p' : 'd',
       ].join('|')
-      // THE CARD GLIDES BETWEEN STEPS TOO (4 Sep 2026). Ethan, on a laptop: "a
-      // lot of lagging between the cards moving - after I click one and the
-      // next card appears, it's a bit glitchy."
-      // It was not lag. `top`/`left` are written straight to the element with
-      // no transition, so the card TELEPORTED from one step's position to the
-      // next while separately replaying a 10px entrance slide: a jump and a
-      // slide, in that order, which reads exactly as a glitch. It travels on
-      // the same curve and for the same 560ms as the spotlight now, so the two
-      // move together - and, like the spotlight, the transition is OFF the rest
-      // of the time, or following a scroll would leave it swimming behind.
+      // THE CARD GLIDES BETWEEN STEPS TOO. It was not lag. `top`/`left` are written straight to the element with no
+      // transition, so the card TELEPORTED from one step's position to the next while separately replaying a 10px
+      // entrance slide: a jump and a slide, in that order, which reads exactly as a glitch. It travels on the same curve
+      // and for the same 560ms as the spotlight now, so the two move together - and, like the spotlight, the transition
+      // is OFF the rest of the time, or following a scroll would leave it swimming behind.
       if (cardRef.current) cardRef.current.dataset.travel = travelling ? 'yes' : 'no'
 
       // THE LIT AREA IS THE ANCHOR PLUS WHATEVER IT OPENED.
       //
-      // The spotlight cuts a hole in a scrim, and the hole used to be the
-      // anchor alone. On the two steps that open the account menu that meant
-      // the avatar was lit and the MENU - the thing the card had just told you
-      // to use - sat under the dim, greyed out like the rest of the page. The
-      // same `data-tour-keepout` rectangles that keep the card off it belong
-      // inside the hole for the same reason: they are part of what the step is
-      // about.
-      // `visible` IS CHECKED BEFORE `r` IS READ, AND THAT IS THE WHOLE OF
-      // "IF I CLICK A BUTTON IT ALL JUST GOES AWAY" (4 Sep 2026).
+      // The spotlight cuts a hole in a scrim, and the hole used to be the anchor alone. On the two steps that open the
+      // account menu that meant the avatar was lit and the MENU - the thing the card had just told you to use - sat
+      // under the dim, greyed out like the rest of the page. The same `data-tour-keepout` rectangles that keep the card
+      // off it belong inside the hole for the same reason: they are part of what the step is about. `visible` IS CHECKED
+      // BEFORE `r` IS READ, AND THAT IS THE WHOLE OF "IF I CLICK A BUTTON IT ALL JUST GOES AWAY".
       //
-      // This was an unconditional `union([{ top: r.top, ... }])`, three lines
-      // after a `visible` test that already knew `r` could be undefined. So the
-      // moment a step's anchor was not in the DOM - which is EVERY step for the
-      // frames between navigating and the new page rendering, and permanently
-      // for the notifications step on a device that has blocked push - this
-      // threw:
+      // This was an unconditional `union([{ top: r.top,... }])`, three lines after a `visible` test that already knew
+      // `r` could be undefined. So the moment a step's anchor was not in the DOM - which is EVERY step for the frames
+      // between navigating and the new page rendering, and permanently for the notifications step on a device that has
+      // blocked push - this threw:
       //
       //     TypeError: Cannot read properties of undefined (reading 'top')
       //
@@ -961,20 +890,11 @@ export default function TourHost({ onFinish, network = false, layout = 'desktop'
       // The card. On a phone it is a sheet pinned by CSS, so nothing to do.
       const card = cardRef.current
       if (!card || isPhone) return sig
-      // A STEP WITH NO ANCHOR NO LONGER PUTS THE CARD OVER THE PAGE (3 Sep
-      // 2026). Ethan, on the hub: "this is the hub, scroll down and have a
-      // look - yet the card is covering most of the hub." It was: with no
-      // anchor the card went dead centre, which is exactly where the content
-      // he was being asked to look at lives. A card asking you to read
-      // something must not be on top of it, so these steps pin it low and out
-      // of the way instead. `data-centre` still drives the entrance animation.
-      // ONE MECHANISM WRITES EVERY POSITION THIS CARD EVER TAKES (7 Sep 2026).
-      //
-      // Ethan, walking the whole tutorial: "tapping rooms, it then suddenly
-      // appears down in the bottom right corner rather than smoothly animating
-      // there... and then it suddenly jumps to the middle of the screen for
-      // notifications. The card should always be smoothly animating anywhere
-      // it's moving."
+      // A STEP WITH NO ANCHOR NO LONGER PUTS THE CARD OVER THE PAGE. It was: with no anchor the card went dead centre,
+      // which is exactly where the content they were being asked to look at lives. A card asking you to read something
+      // must not be on top of it, so these steps pin it low and out of the way instead. `data-centre` still drives the
+      // entrance animation.
+      // ONE MECHANISM WRITES EVERY POSITION THIS CARD EVER TAKES.
       //
       // Both jumps were the same fault, and it is one this codebase already has
       // a rule about: TWO MECHANISMS MOVING ONE ELEMENT. An anchored card was
@@ -1001,7 +921,7 @@ export default function TourHost({ onFinish, network = false, layout = 'desktop'
       // hand off between and the transition simply runs.)
       card.dataset.centre = 'no'
 
-      // WHAT THE CARD MUST NOT COVER IS BIGGER THAN THE ANCHOR (3 Sep 2026).
+      // WHAT THE CARD MUST NOT COVER IS BIGGER THAN THE ANCHOR.
       //
       // The arithmetic lives in lib/tourPlacement, where it can be tested: this
       // used to be inline here, inside a rAF loop, and rAF does not run in a
@@ -1016,7 +936,7 @@ export default function TourHost({ onFinish, network = false, layout = 'desktop'
       // exactly what the card must not cover.
       if (!lit) return sig
       // `targetH`, NOT `offsetHeight` - AND THE RULE FOR THAT IS ALREADY
-      // WRITTEN TWENTY LINES ABOVE THIS FILE'S OWN CODE (8 Sep 2026).
+      // WRITTEN TWENTY LINES ABOVE THIS FILE'S OWN CODE.
       //
       // The resting branch was changed to use the SETTLED height for a reason
       // that is spelled out where `targetH` is declared: "using the live
@@ -1087,12 +1007,10 @@ export default function TourHost({ onFinish, network = false, layout = 'desktop'
 
   // THE DOCUMENT KNOWS THE WALK IS RUNNING.
   //
-  // On a phone the account menu is 668px of an 812px screen - eighteen items -
-  // and the card is a sheet at the bottom. There is nowhere to put a 272px card
-  // that does not land on it, which is why Ethan still saw "cards blocking the
-  // instructions" on the two steps that open it, on mobile, after the desktop
-  // placement was fixed. Desktop can move the card beside the menu; a phone has
-  // no beside.
+  // On a phone the account menu is 668px of an 812px screen - eighteen items - and the card is a sheet at the bottom.
+  // There is nowhere to put a 272px card that does not land on it, which is why the team still saw "cards blocking the
+  // instructions" on the two steps that open it, on mobile, after the desktop placement was fixed. Desktop can move the
+  // card beside the menu; a phone has no beside.
   //
   // So the menu gives way instead: `html.tour-running` caps it above the sheet
   // (index.css). It already scrolls, and `scrollMenuToGoal` below puts the item
@@ -1119,11 +1037,7 @@ export default function TourHost({ onFinish, network = false, layout = 'desktop'
 
   if (!step) return null
 
-  // THE GATE, AND IT NO LONGER OPENS ON A REFUSAL (3 Sep 2026).
-  //
-  // Ethan: "remember that you can't skip enabling notifications. If you don't
-  // enable notifications it should say please enable notifications and try
-  // again, and this actually has to be enabled properly for their device."
+  // THE GATE, AND IT NO LONGER OPENS ON A REFUSAL.
   //
   // It used to hold only while the permission was still `default` - so pressing
   // "Turn on notifications" and then Block in the browser's own dialog put a
@@ -1140,14 +1054,11 @@ export default function TourHost({ onFinish, network = false, layout = 'desktop'
   // no instruction exists to give. That is not a refusal, it is an absence.
   // THE GATE HOLDS ONLY WHILE THERE IS STILL SOMETHING THEY CAN DO.
   //
-  // `required` hides the skip so notifications cannot be waved past - Ethan
-  // asked for that and it is right. But `denied` is not a refusal to press the
-  // button, it is the BROWSER refusing to ask again: once a device has said no,
-  // no amount of pressing produces a prompt, and the only fix is several taps
-  // deep in the operating system's own settings. Holding the gate there does
-  // not get notifications turned on; it strands somebody at 83% with an X as
-  // the only way out, which is how a walkthrough becomes the thing people
-  // remember about the product.
+  // `required` hides the skip so notifications cannot be waved past - the team asked for that and it is right. But
+  // `denied` is not a refusal to press the button, it is the BROWSER refusing to ask again: once a device has said no,
+  // no amount of pressing produces a prompt, and the only fix is several taps deep in the operating system's own
+  // settings. Holding the gate there does not get notifications turned on; it strands somebody at 83% with an X as the
+  // only way out, which is how a walkthrough becomes the thing people remember about the product.
   //
   // So: gate `default` (never asked - the prompt still works), release
   // `denied`. The card still says how to turn them back on, the "check again"
@@ -1166,14 +1077,11 @@ export default function TourHost({ onFinish, network = false, layout = 'desktop'
         aria-hidden
         data-on="no"
         data-travel="yes"
-        // LIT ONCE, THEN NEVER DARK AGAIN UNTIL THE WALK ENDS. Gating this on
-        // `ready` meant the spotlight faded out at the start of every step and
-        // back in at the end of it, so what the eye saw between two anchors was
-        // a box vanishing here and a different box appearing there - Ethan's
-        // "it just disappears and appears". It has a travel transition for
-        // exactly this; letting it stay visible is what lets the transition be
-        // seen. The first step still fades in, because there is nothing for it
-        // to travel from.
+        // LIT ONCE, THEN NEVER DARK AGAIN UNTIL THE WALK ENDS. Gating this on `ready` meant the spotlight faded out at
+        // the start of every step and back in at the end of it, so what the eye saw between two anchors was a box
+        // vanishing here and a different box appearing there - the team's "it just disappears and appears". It has a
+        // travel transition for exactly this; letting it stay visible is what lets the transition be seen. The first
+        // step still fades in, because there is nothing for it to travel from.
         className={cx('tour-spot', (ready || litOnce) && 'tour-spot--ready')}
         style={{ top: '50%', left: '50%', width: 0, height: 0 }}
       />
@@ -1223,10 +1131,9 @@ export default function TourHost({ onFinish, network = false, layout = 'desktop'
           </div>
         </div>
 
-        {/* THE BODY SCROLLS, THE ACTIONS DO NOT (4 Sep 2026).
-            The whole sheet was one `overflow-y: auto` box capped at 17rem, so
-            on any step with a long explanation - the notifications one, when a
-            device has blocked push and the card has to explain how to undo that
+        {/* THE BODY SCROLLS, THE ACTIONS DO NOT. The whole sheet was one `overflow-y: auto` box capped at 17rem, so on
+            any step with a long explanation - the notifications one, when a device has blocked push and the card has to
+            explain how to undo that
             - the buttons were simply below the fold, inside a small scroller
             nobody could tell was scrollable. Somebody looking at a card with no
             visible way forward concludes it is broken, and they are not wrong.
@@ -1244,15 +1151,9 @@ export default function TourHost({ onFinish, network = false, layout = 'desktop'
         {/* THE INSTRUCTION. The one line that matters if they read nothing
             else, so it gets the brand colour and its own row.
 
-            NO ARROW (4 Sep 2026). Ethan: "it shows Tap Challenges on a button
-            below the copy with a little arrow pointing, and I don't like the
-            arrow pointing because it could seem like it's actually there.
-            Remove that little arrow and just have the copy that says Tap
-            Challenges as that main thing."
-            He is right and it is a real ambiguity, not a taste: a pulsing
-            chevron inside the pill reads as "the thing is over there", and the
-            thing is a tab at the bottom of the screen in the other direction.
-            The spotlight is what points; this line is what says. */}
+            NO ARROW. they are right and it is a real ambiguity, not a taste: a pulsing chevron inside the pill reads as
+            "the thing is over there", and the thing is a tab at the bottom of the screen in the other direction. The
+            spotlight is what points; this line is what says. */}
         {said.do && !hit && (
           <p className="tour-do mt-3 rounded-xl bg-cloud/70 px-3 py-2.5 text-center text-[13px] font-semibold text-brand">
             {said.do}

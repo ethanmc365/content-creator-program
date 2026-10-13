@@ -1,13 +1,8 @@
 // WHAT AN AIRLINE LOOKS LIKE, WITHOUT SHIPPING 172 TRADEMARK FILES.
 //
-// Ethan: "where it says airline loyalty where it currently shows 1,2,3 we don't
-// need that because it's already filtered and has the number of times you fly
-// on the right side, so change the 1,2,3 to the airline logo instead."
-//
-// He is right that the rank badge is dead weight - a list already reads top to
-// bottom and the flight count is on the same row. What replaces it needs care
-// though, because "the airline logo" as a literal instruction runs into two
-// walls at once:
+// they are right that the rank badge is dead weight - a list already reads top to bottom and the flight count is on the
+// same row. What replaces it needs care though, because "the airline logo" as a literal instruction runs into two walls
+// at once:
 //
 //   THE CSP. vercel.json sets `img-src 'self'`, so a logo CDN is simply blocked
 //   in production. Every mark would have to be downloaded into public/ - 172

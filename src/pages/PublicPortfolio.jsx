@@ -10,10 +10,6 @@ import { profilesApi } from '../api/profiles'
 
 // A PORTFOLIO ANYBODY CAN OPEN.
 //
-// Ethan: "they should have the option to share it as a link, public profile page
-// at a real URL, opt-in, indexable. People viewing the link will obviously only
-// be able to see the portfolio, nothing else."
-//
 // THIS PAGE IS OUTSIDE THE APP SHELL AND THAT IS THE POINT. No header, no tab
 // bar, no avatar menu, nothing to sign into. A visitor is a brand or a friend
 // who followed a link out of an Instagram bio; showing them the community's
@@ -56,9 +52,8 @@ export default function PublicPortfolio() {
   if (state === 'missing') {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-cloud/40 px-6 text-center">
-        {/* The logo at its own aspect (`w-auto`), as in the app header. It was
-            forced into a 56px square, which is the "really compressed" logo
-            Ethan saw on a link that had not been published yet. */}
+        {/* The logo at its own aspect (`w-auto`), as in the app header. It was forced into a 56px square, which is the
+            "really compressed" logo the team saw on a link that had not been published yet. */}
         <img src="/brand/tryp-logo-360.png" alt="Tryp.com" className="h-12 w-auto rounded-xl shadow-card" />
         <h1 className="text-xl font-bold text-ink">This portfolio is not here</h1>
         <p className="max-w-sm text-sm text-smoke">
@@ -103,8 +98,6 @@ export default function PublicPortfolio() {
         />
 
         {/* THE VIDEO CARDS ARE CLICKABLE, and this is where that happens.
-            Ethan: "remember the video cards showing the preview on the portfolio
-            should be clickable, opening the actual link."
 
             It is a strip UNDER the document rather than links inside the pages,
             and that is deliberate: the pages are a PDF - they are photographed

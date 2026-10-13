@@ -16,22 +16,15 @@ import { useT } from '../lib/i18n'
 import HelpTeam, { HelpOpenDoors } from '../components/HelpTeam'
 import { contentApi } from '../api/content'
 
-// QUESTIONS AND ANSWERS (7 Oct 2026).
-//
-// Ethan: "build a frequently asked questions page ... as an admin you'll be able to click the edit button at the top
-// and edit those frequently asked questions. Also anyone can ask a new question and we can reply to it ... the ability
-// to delete that or edit the question to structure it better ... headings, bold, and maybe the ability to add an image
-// circling something."
+// QUESTIONS AND ANSWERS.
 //
 // Its own page rather than a section of Get help, because it has its own job (find the answer yourself, in seconds)
 // and its own admin life (edit, reorder, answer). Get help leads with a card into it, and the avatar menu links it.
 //
-// ONE PAGE, "GET HELP" (8 Oct 2026). Ethan: "combine the questions and answers page into the Get Help page, so the
-// questions and answers should be at the top. If you scroll down, there should be the Get Help below it ... Ask a
-// Question should also be below those things, and obviously they can be hidden or like toggles." And: "remove at the
-// top ... Getting Started, Challenges, and Points. Those buttons aren't necessary." So the answers lead (search, then
-// every topic as a heading), and the two ways to reach a person sit underneath as sections that open on a tap. The
-// page lives at /help; /help/faq and Settings > Get help both arrive here.
+// ONE PAGE, "GET HELP". And: "remove at the top... Getting Started, Challenges, and Points. Those buttons aren't
+// necessary." So the answers lead (search, then every topic as a heading), and the two ways to reach a person sit
+// underneath as sections that open on a tap. The page lives at /help; /help/faq and Settings > Get help both arrive
+// here.
 //
 // Three tabs: the answers everybody sees (searchable, by topic, with the answered community questions under them);
 // "My questions", where a creator sees what they asked and can reword or withdraw one until it is answered; and, for
@@ -104,10 +97,8 @@ export default function Faq() {
         />
       </div>
 
-      {/* TWO COLUMNS (9 Oct 2026). Ethan: "the small right column and the bigger left column. Move all those frequently asked
-          questions to the big left column, and then in the right column ... Ask a question at the very top right, and the
-          team things below it ... Ask the community and Help us improve as buttons." On a phone the column drops under the
-          answers, with a one-tap jump to it so asking is never a long scroll away. */}
+      {/* TWO COLUMNS. On a phone the column drops under the answers, with a one-tap jump to it so asking is never a long
+          scroll away. */}
       <div className={cx('grid items-start gap-6', tab !== 'questions' && 'lg:grid-cols-[minmax(0,1fr)_360px]')}>
         <div className="min-w-0">
           {tab === 'faq' && (
@@ -124,10 +115,8 @@ export default function Faq() {
         </div>
         {tab !== 'questions' && (
           <aside id="help-side" className="min-w-0 scroll-mt-24 space-y-4">
-            {/* ONE ASK CARD, NOT TWO (12 Oct 2026). Ethan: "We have Ask a question at the top, so it makes no sense to have
-                it as a button above ... move Ask a question to the bottom, just above where it shows Ethan." On a phone the
-                column falls under the answers, so the card sits just above the team, and the two buttons in the header
-                jump straight to it or to the team. */}
+            {/* ONE ASK CARD, NOT TWO. On a phone the column falls under the answers, so the card sits just above the
+                team, and the two buttons in the header jump straight to it or to the team. */}
             <div id="help-ask" className="scroll-mt-24"><AskCard compact onAsked={() => { loadMine(); loadInbox() }} /></div>
             <div id="help-team" className="scroll-mt-24"><HelpTeam /></div>
             <HelpOpenDoors />
@@ -175,10 +164,9 @@ function FaqHero({ isAdmin, editing, onEdit, onAsk, onTeam }) {
           <p className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.18em] text-white/85"><Icon name="lifebuoy" className="h-4 w-4" />{tr('Questions and Answers')}</p>
           <h1 className="mt-2 text-[30px] font-extrabold leading-[1.05] tracking-tight sm:text-[40px]">{tr('Get Help')}</h1>
           <p className="mt-2 text-[15px] leading-relaxed text-white/85">{tr('The answers creators ask for most. Cannot find yours? Ask the team.')}</p>
-          {/* TWO REAL BUTTONS (12 Oct 2026). Ethan: "I don't like the design of
-              that button... It doesn't even look like a button." */}
-          {/* SIDE BY SIDE AND COMPACT ON A PHONE (12 Oct 2026): "those buttons should be side by side in a better UI and
-              be more compact." */}
+          {/* TWO REAL BUTTONS. */}
+          {/* SIDE BY SIDE AND COMPACT ON A PHONE: "those buttons should be side by side in a better UI and be more
+              compact." */}
           <div className="mt-5 grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:gap-2.5">
             <button type="button" onClick={onAsk}
               className="inline-flex items-center justify-center gap-1.5 whitespace-nowrap rounded-full bg-white px-3 py-2.5 text-[13px] font-bold text-brand shadow-card transition-transform active:scale-95 hoverable:hover:-translate-y-0.5 sm:gap-2 sm:px-5 sm:py-3 sm:text-sm">

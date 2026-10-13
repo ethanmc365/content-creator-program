@@ -2,12 +2,6 @@ import { convert, FALLBACK_RATES } from './programme'
 
 // MARKET AGAINST MARKET.
 //
-// Ethan, 16 Sep 2026: "Market-vs-market standings, total views by market, per
-// month and all time. I think it's good for the community managers to have a
-// bit of competition too... this is based on views, but should also show
-// numbers of creators, prize money paid etc, like a comparison as well as
-// competition."
-//
 // WHICH MARKET A VIEW BELONGS TO, AND WHY IT IS NOT THE CREATOR'S.
 //
 // `lib/analyticsScope` answers this question the other way round, on purpose: a
@@ -29,13 +23,9 @@ import { convert, FALLBACK_RATES } from './programme'
 // entries and prize money go with it. That is one rule, it holds over the whole
 // record, and it is the rule the Challenges tab already uses.
 //
-// WHICH MONTH. EVERY month the challenge RAN IN, whole (24 Sep 2026). Ethan:
-// "some challenges are run throughout two months, and they both show up, like
-// a challenge from the 15th of July to the 15th of August." It used to belong
-// to its start month only, so August read "no market ran a challenge" while one
-// was running. Splitting its views across the weeks would be inventing a
-// distribution nobody measured, so it counts whole in each month it touched;
-// all time still counts it once.
+// WHICH MONTH. EVERY month the challenge RAN IN, whole. It used to belong to its start month only, so August read "no
+// market ran a challenge" while one was running. Splitting its views across the weeks would be inventing a distribution
+// nobody measured, so it counts whole in each month it touched; all time still counts it once.
 
 /** 'YYYY-MM' for a date, or null. */
 export function monthKey(d) {
@@ -64,7 +54,7 @@ export function monthsBetween(from, to) {
 const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June',
   'July', 'August', 'September', 'October', 'November', 'December']
 
-/** "August 2026" from '2026-08'. */
+/* "August 2026" from '2026-08'. */
 export function monthLabel(key) {
   if (!key) return ''
   const [y, m] = key.split('-').map(Number)
@@ -113,13 +103,10 @@ function contests(raw) {
     resultViews.set(r.challenge_id, (resultViews.get(r.challenge_id) || 0) + Number(r.final_views || 0))
   }
 
-  // A WORLDWIDE CHALLENGE IS EVERY MARKET'S (24 Sep 2026). The Global
-  // Challenge runs on the worldwide network, which is not a market, so it was
-  // in nobody's row and September read "no market ran a challenge" while all
-  // six were running one. Its entries are counted for each ENTRANT'S market -
-  // their first market membership - and its prize money is split by the share
-  // of entrants each market brought, which is the one split that needs no
-  // measurement nobody took.
+  // A WORLDWIDE CHALLENGE IS EVERY MARKET'S. The Global Challenge runs on the worldwide network, which is not a market,
+  // so it was in nobody's row and September read "no market ran a challenge" while all six were running one. Its entries
+  // are counted for each ENTRANT'S market - their first market membership - and its prize money is split by the share of
+  // entrants each market brought, which is the one split that needs no measurement nobody took.
   const chapterIds = new Set((raw?.marketRows || []).filter((m) => m.kind === 'chapter').map((m) => m.id))
   const homeOf = new Map()
   for (const r of raw?.memberRows || []) {
@@ -181,10 +168,8 @@ function contests(raw) {
 }
 
 /**
- * Every month from the programme's first through THIS one, newest first
- * (24 Sep 2026). It was only the months a challenge STARTED in, so a month a
- * challenge merely ran into was missing, and a new month did not appear until
- * something started in it. Ethan: "ensure the new months always show up".
+ * Every month from the programme's first through THIS one, newest first. It was only the months a challenge STARTED in,
+ * so a month a challenge merely ran into was missing, and a new month did not appear until something started in it.
  */
 export function monthsInRecord(raw, now = new Date()) {
   let first = null

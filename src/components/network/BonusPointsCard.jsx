@@ -12,17 +12,9 @@ import { SLOT, SLOT_ICON } from '../challenge/SwapIn'
 import { BoostDisc, boostMult } from '../challenge/BoostBanner'
 import { windowPhrase } from '../../lib/boostWindow'
 
-// THE EXTRA POINTS, IN THEIR OWN CARD, IN THE RAIL (24 Sep 2026).
+// THE EXTRA POINTS, IN THEIR OWN CARD, IN THE RAIL.
 //
-// Ethan: "anything that's related to bonus points - just posting a video, or
-// post at least one video in all 4 weeks, or bonus points - should have a
-// little separate column on the right side, just below 'Platforms you can post
-// on'. This should be a different UI that stands out more than the regular
-// points."
-//
-// WHITE CARDS INSIDE THE ORANGE (26 Sep 2026). Ethan: "I like the nice orange
-// card that makes it stand out, but I would make the card inside it maybe white
-// ... it seems to be too much orange, and it's quite hard to read."
+// WHITE CARDS INSIDE THE ORANGE.
 //
 // So it is the one SOLID BRAND card on the page. The view ladder on the left is
 // the steady part of the scoring and reads as a table; these are the offers,
@@ -30,11 +22,7 @@ import { windowPhrase } from '../../lib/boostWindow'
 // drawn as offers. A bonus with dates (migration 256) says when it runs, and
 // one that has finished drops to the foot, dimmed, saying the points are kept.
 //
-// AND THE SMALL PRINT MOVED BEHIND A PRESS (28 Sep 2026). Ethan: "for the bonus
-// points UI can you make this shorter - 'Tick the box when you submit the
-// video', 'Counts once the video passes 500 views' - or only appear when it's
-// clicked, just to make the card and UI tidied. Clicking on the bonus points
-// should show a card with the information bigger and better UI."
+// AND THE SMALL PRINT MOVED BEHIND A PRESS.
 //
 // Every row was carrying up to four lines of conditions, and a rail of them
 // read as a terms-and-conditions page rather than a list of offers. A row is
@@ -47,9 +35,9 @@ const ICON = { per_post: 'video', platform_spread: 'share', consistency: 'calend
 
 const dm = (iso) => new Date(iso).toLocaleDateString(dateTag(), { weekday: 'short', day: 'numeric', month: 'short' })
 
-// HOW MANY TIMES, AND THE CEILING, IN ONE SENTENCE (30 Sep 2026). Ethan disliked "The most it
-// can pay: 25 points in total, however many times you do it". A cap of 25 on a +5 bonus IS
-// five claims, so say that: "You can claim this bonus on 5 videos for a maximum of 25 points".
+// HOW MANY TIMES, AND THE CEILING, IN ONE SENTENCE. The team disliked "The most it can pay: 25 points in total, however
+// many times you do it". A cap of 25 on a +5 bonus IS five claims, so say that: "You can claim this bonus on 5 videos
+// for a maximum of 25 points".
 function claimLine(r, tr) {
   const pts = Number(r.points) || 0
   const max = r.max_points != null ? Number(r.max_points) : null
@@ -81,15 +69,15 @@ export default function BonusPointsCard({ rules, now = 0, className, boost = nul
   // Before the early return: a hook cannot be called conditionally, and this
   // component returns nothing at all when a challenge has no bonuses.
   const [open, setOpen] = useState(null)
-  // The joining bonus, the boost and the voucher days open the same card as a bonus rule (13 Oct 2026).
+  // The joining bonus, the boost and the voucher days open the same card as a bonus rule.
   const [offer, setOffer] = useState(null)
   const bonuses = (rules || []).filter(isBonusKind)
-  // The labels and questions are what an admin typed, so a reader in another language gets them
-  // translated, with ONE Translated | Original switch for the whole card (30 Sep 2026).
+  // The labels and questions are what an admin typed, so a reader in another language gets them translated, with ONE
+  // Translated | Original switch for the whole card.
   const tx = useContentTranslations(bonuses.flatMap((r) => [r.label?.trim(), r.prompt?.trim()]))
   const stateOf = (r) => ruleWindowState(r, now || undefined)
-  // THE JOINING BONUS AND THE VOUCHER DAYS ARE OFFERS TOO (12 Oct 2026). Ethan: "Currently that bonus points thing isn't
-  // showing up on the bonus points." `joinPts` is passed only while the reader has not entered yet.
+  // THE JOINING BONUS AND THE VOUCHER DAYS ARE OFFERS TOO. `joinPts` is passed only while the reader has not entered
+  // yet.
   const vdays = (voucherDays || []).filter((d) => voucherDayState(d, now || Date.parse(d.starts_at)) !== 'done')
   if (bonuses.length === 0 && !boost && !joinPts && !vdays.length) return null
   const current = bonuses.filter((r) => stateOf(r) !== 'ended')
@@ -107,8 +95,8 @@ export default function BonusPointsCard({ rules, now = 0, className, boost = nul
         </div>
         <TranslateSwitch t={tx} className="shrink-0" />
       </div>
-      {/* A POINT BOOST IS AN OFFER TOO (7 Oct 2026). Ethan: the double points window "should show up on the bonus points
-          card that the creator sees too". It leads the list while it is on or coming up. */}
+      {/* A POINT BOOST IS AN OFFER TOO. The team: the double points window "should show up on the bonus points card that
+          the creator sees too". It leads the list while it is on or coming up. */}
       {boost && (
         <button type="button" onClick={() => setOffer({ kind: 'boost', boost })} aria-label={tr('How {label} works', { label: boost.label })}
           className="group mx-3 mb-1.5 flex w-[calc(100%-1.5rem)] items-center gap-3 rounded-xl bg-gradient-to-r from-ink via-[#2b160c] to-[#5a2308] px-3 py-3 text-left shadow-sm transition-transform duration-200 hoverable:hover:-translate-y-0.5">
@@ -223,9 +211,7 @@ function BonusDetail({ rule, state, onClose, pick = (x) => x }) {
   const min = rule.kind === 'bonus' ? Number(rule.min_views) || 0 : 0
   const facts = [
     { icon: 'check', label: tr('How you earn it'), value: howToEarn(rule, tr) },
-    // THE CEILING SITS UNDER HOW YOU EARN IT (2 Oct 2026). Ethan: "rather than actually putting
-    // that as a separate card, I would just put it in the little thing below 'How you earn it' ...
-    // just the icon and then the text".
+    // THE CEILING SITS UNDER HOW YOU EARN IT.
     claim ? { icon: 'ticket', label: tr('How many times'), value: `${claim.text}.` } : null,
     min > 0
       ? { icon: 'eye', label: tr('Before it counts'), value: tr('The video has to pass {n} views. It is added as soon as it does.', { n: min.toLocaleString() }) }
@@ -250,9 +236,8 @@ function BonusDetail({ rule, state, onClose, pick = (x) => x }) {
   )
 }
 
-// ONE CARD FOR EVERY OFFER (13 Oct 2026). Ethan: "the double points, when you click on it, should show a pop-up with more
-// info too, and it doesn't. I'm sure all of them will have a pop-up for anything related to the bonus points with the same
-// clean design." The bonus rule's card is the design; the joining bonus, a points boost and a voucher day fill it too.
+// ONE CARD FOR EVERY OFFER. The bonus rule's card is the design; the joining bonus, a points boost and a voucher day
+// fill it too.
 function OfferShell({ onClose, icon, title, sub, pays, facts, disc = null }) {
   const tr = useT()
   return (
@@ -313,8 +298,8 @@ export function OfferDetail({ offer, onClose }) {
         ? { icon: 'calendar', label: tr('Who gets it'), value: tr('Creators who enter this challenge for the first time on or after {d}. Anybody who entered before then already had the whole challenge to climb, so it is not added for them.', { d: dm(offer.from) }) }
         : null,
       { icon: 'clock', label: tr('When it runs'), value: tr('Until the challenge closes.') },
-      // 12 Oct 2026, Ethan: "add a line noting that these points will not be duplicated on double points day". The
-      // database never multiplies it: a boost only multiplies points tied to a video (recalc_challenge_points_internal).
+      // 12 Oct 2026, The database never multiplies it: a boost only multiplies points tied to a video
+      // (recalc_challenge_points_internal).
       { icon: 'star', label: tr('On double points days'), value: tr('The joining bonus is added once and is never doubled or multiplied by a points boost. The points your videos earn still are.') },
     ].filter(Boolean)
     return <OfferShell onClose={onClose} icon="userPlus" title={tr('New creator bonus')} sub={tr('Extra points for your first video')} pays={`+${offer.points}`} facts={facts} />
@@ -351,12 +336,9 @@ export function LiveBonusCallout({ rules, now, onOpen }) {
   const tx = useContentTranslations(live.slice(0, 1).map((x) => x.label?.trim()))
   if (live.length === 0) return null
   const r = live[0]
-  // AS WIDE AS THE ROW, AND IT ARRIVES LIKE THE LEADERBOARD BADGE (26 Sep
-  // 2026). Ethan: "you have more space to widen it on desktop ... start from
-  // that right and go as far as the entries button ... make it stand out more"
-  // and "show up ... with that same animation, so it looks clean, like
-  // expanding in and out." `sm:flex-1` fills the row beside the tabs exactly as
-  // BoardStatus does, and `board-status` is that badge's own entrance.
+  // AS WIDE AS THE ROW, AND IT ARRIVES LIKE THE LEADERBOARD BADGE. and "show up... with that same animation, so it looks
+  // clean, like expanding in and out." `sm:flex-1` fills the row beside the tabs exactly as BoardStatus does, and
+  // `board-status` is that badge's own entrance.
   return (
     <button
       type="button"

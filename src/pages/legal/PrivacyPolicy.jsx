@@ -2,9 +2,6 @@ import LegalShell, { H2 } from './LegalShell'
 
 // PRIVACY POLICY, REWRITTEN 4 SEP 2026.
 //
-// Ethan: "I would properly update the privacy policy now, within the legal
-// things that you think we need to have."
-//
 // WHAT WAS WRONG WITH THE OLD ONE. It was accurate about the product as it
 // existed in June 2026 and the product has moved a long way since. The gaps
 // were not stylistic:
@@ -23,9 +20,9 @@ import LegalShell, { H2 } from './LegalShell'
 //    Google Fonts for the typeface, the four social platforms the view sync
 //    reads from).
 //
-// The controller is Tryp.com ApS (CVR 42533165, Odense), corrected 7 Oct 2026: it is the company on the signed VIP
-// contract and in the Danish business register (parent: Tryp.com Holding ApS). Every legal page and both
-// agreements now name the same company.
+// The controller is Tryp.com ApS (CVR 42533165, Odense), corrected: it is the company on the signed VIP contract and in
+// the Danish business register (parent: Tryp.com Holding ApS). Every legal page and both agreements now name the same
+// company.
 // THIS IS A TEMPLATE WRITTEN CAREFULLY, NOT LEGAL ADVICE - have a lawyer read
 // it before it is relied on, and keep the "last updated" date honest.
 export default function PrivacyPolicy() {

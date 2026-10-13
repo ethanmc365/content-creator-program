@@ -258,12 +258,10 @@ describe('isPlaced', () => {
   })
 })
 
-// THE SIZE LADDER (1 Sep 2026). Drag-to-resize is gone; a photo carries a
-// stored level and a button in its corner steps up it. The two properties that
-// matter are that the cycle always comes back round (so a creator can never get
-// a photo stuck at a size) and that `large` is genuinely the widest thing on
-// the board at EVERY width - which is the whole reason the level is stored
-// rather than the column count.
+// THE SIZE LADDER. Drag-to-resize is gone; a photo carries a stored level and a button in its corner steps up it. The
+// two properties that matter are that the cycle always comes back round (so a creator can never get a photo stuck at a
+// size) and that `large` is genuinely the widest thing on the board at EVERY width - which is the whole reason the level
+// is stored rather than the column count.
 describe('the size ladder', () => {
   it('cycles small -> medium -> large -> small', () => {
     expect(nextSize('small')).toBe('medium')

@@ -84,9 +84,8 @@ describe('formatViews', () => {
 })
 
 
-// AN EXPORT IS READ BY A SPREADSHEET, NOT BY A PERSON, and every rule below is
-// something Excel gets wrong when the file does not follow it. Ethan reported an
-// export opening "very messy"; these are the three reasons why.
+// AN EXPORT IS READ BY A SPREADSHEET, NOT BY A PERSON, and every rule below is something Excel gets wrong when the file
+// does not follow it. The team reported an export opening "very messy"; these are the three reasons why.
 describe('the CSV an admin export produces', () => {
   it('titles the header from the key, so a column reads like a heading', () => {
     expect(csvHeader('countries_visited')).toBe('Countries visited')

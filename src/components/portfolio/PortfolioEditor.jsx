@@ -12,8 +12,6 @@ import { DEFAULT_COPY, PORTFOLIO_ACCENTS as ACCENTS, WORK_LIMIT, compactViews, s
 
 // THE CONTROLS, BESIDE THE DOCUMENT THEY CHANGE.
 //
-// Ethan: "The design should be intuitive, easy to use and look good."
-//
 // EVERY CHANGE LANDS ON THE PAGE BESIDE IT, WITH NO PREVIEW BUTTON. That is the
 // whole interaction: the document is the screen, and this panel is a set of
 // handles on it. A form that has to be submitted before you can see what you
@@ -78,11 +76,8 @@ export default function PortfolioEditor({ portfolio, creator, videos, shown, cer
 // ------------------------------------------------------------------ words ---
 // EVERY FIELD HAS A CEILING, AND THE CEILING IS THE SLIDE.
 //
-// Ethan, on the about box: "if they type too much it doesn't fit in so limit it
-// so that all the words fit in on the actual slide". The page is a fixed
-// 1280x720 with `overflow: hidden`, so there was no feedback at all - the
-// eleventh line of a paragraph simply was not painted, and the creator found
-// out when a brand opened the PDF.
+// The page is a fixed 1280x720 with `overflow: hidden`, so there was no feedback at all - the eleventh line of a
+// paragraph simply was not painted, and the creator found out when a brand opened the PDF.
 //
 // `max` is measured against the box each string actually lands in. `about_body`
 // renders at 16px/1.72 in a column about 600px wide, which is ~62 characters a
@@ -90,25 +85,18 @@ export default function PortfolioEditor({ portfolio, creator, videos, shown, cer
 // the same way. They are generous - the point is to stop the invisible cliff,
 // not to make people write telegrams.
 //
-// `lines` is the height of the EDITOR box, not the slide. Ethan: "make that box
-// bigger whenever they're typing in that box... rather than them having to
-// expand it themselves." Six rows for a ten-line paragraph meant scrolling a
-// textarea to read your own bio.
+// `lines` is the height of the EDITOR box, not the slide. Six rows for a ten-line paragraph meant scrolling a textarea
+// to read your own bio.
 const WORD_FIELDS = [
   { key: 'cover_kicker', label: 'Line above your name', lines: 1, max: 52 },
   { key: 'cover_role', label: 'What you do', lines: 1, max: 44 },
   { key: 'about_title', label: 'About: heading', lines: 1, max: 34 },
-  // THE CAP IS THE ROOM ON THE PAGE, MEASURED. Ethan: "in the about your
-  // paragraph, it seems to show full before it's actually full. Obviously
-  // there's more space below, so it should be a bit longer and not just say
-  // full when it's only halfway."
+  // THE CAP IS THE ROOM ON THE PAGE, MEASURED.
   //
-  // He is right and 600 was a guess. The About slide's text column is 528px
-  // wide at 17px/1.8, which is ~58 characters a line and 30.6px a line, and the
-  // column runs from y=210 to the kit chips at y=700 of a 720 page - call it
-  // fifteen lines before anything is at risk, which is ~870 characters. 900 is
-  // that with the last line's slack, and the counter now appears where the page
-  // actually starts to fill up rather than at the halfway mark.
+  // they are right and 600 was a guess. The About slide's text column is 528px wide at 17px/1.8, which is ~58 characters
+  // a line and 30.6px a line, and the column runs from y=210 to the kit chips at y=700 of a 720 page - call it fifteen
+  // lines before anything is at risk, which is ~870 characters. 900 is that with the last line's slack, and the counter
+  // now appears where the page actually starts to fill up rather than at the halfway mark.
   { key: 'about_body', label: 'About: your paragraph', lines: 10, max: 900 },
   { key: 'work_title', label: 'Work: heading', lines: 1, max: 34 },
   { key: 'awards_title', label: 'Awards: heading', lines: 1, max: 34, needsCerts: true },
@@ -171,15 +159,10 @@ function Words({ portfolio, creator, onChange, certificates, tr }) {
   const chosen = typeof copy.cover_photo === 'string' ? copy.cover_photo.trim() : ''
   return (
     <>
-      {/* THE COVER PHOTO. Ethan: "it currently uses their profile picture,
-          which I think is great, but they should also have the option to change
-          that to a different photo if they'd like."
-          Default stays the profile picture, so nobody has to do anything. The
-          same `AvatarUpload` the profile page uses - it is already the
-          best-tested upload control in the app (instant local preview, a
-          progress ring, HEIC handling) and inventing a second one for a circle
-          of the same shape would be inventing a second set of its bugs. It asks
-          for 900px rather than 512 because this one gets printed. */}
+      {/* THE COVER PHOTO. Default stays the profile picture, so nobody has to do anything. The same `AvatarUpload` the
+          profile page uses - it is already the best-tested upload control in the app (instant local preview, a progress
+          ring, HEIC handling) and inventing a second one for a circle of the same shape would be inventing a second set
+          of its bugs. It asks for 900px rather than 512 because this one gets printed. */}
       <div className="rounded-xl border border-gray-100 bg-cloud/40 p-3">
         <p className="label !mb-2">{tr('Cover photo')}</p>
         <div className="flex items-center gap-3">
@@ -288,9 +271,6 @@ function Words({ portfolio, creator, onChange, certificates, tr }) {
 }
 
 // ------------------------------------------------------------------- work ---
-// Ethan: "the videos should show up in the order from highest views, and only
-// show top 6-10. The creators should be able to choose specific videos and
-// rearrange them if they'd like."
 //
 // SO THERE ARE TWO MODES AND THE DEFAULT IS THE GOOD ONE. Untouched, the
 // portfolio shows the best work by views and needs no attention at all.
@@ -454,13 +434,9 @@ function YouBits({ portfolio, onChange, tr }) {
         </p>
         {extra.map((row, i) => (
           <div key={i} className="mb-1.5 flex items-center gap-1.5">
-            {/* THE MARK APPEARS AS YOU TYPE. Ethan: "have the actual social
-                media icons, for example, TikTok icon. And even showing up
-                whenever you're actually entering the thing."
-                `SocialMark` already draws the real glyphs and falls back to a
-                chain link for anything it does not know, so typing "tik" turns
-                into the TikTok note in front of you - which is also the fastest
-                way to find out you have spelled it wrong. */}
+            {/* THE MARK APPEARS AS YOU TYPE. `SocialMark` already draws the real glyphs and falls back to a chain link
+                for anything it does not know, so typing "tik" turns into the TikTok note in front of you - which is also
+                the fastest way to find out you have spelled it wrong. */}
             <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-gray-200 text-smoke">
               <SocialMark brand={String(row.platform || '').trim().toLowerCase()} className="h-4 w-4" />
             </span>

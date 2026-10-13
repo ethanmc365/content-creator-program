@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { applyPeriod, buckets, bucketFor, change, inRange, overlaps, periodHeadline, periodRange } from './analyticsPeriod'
 
-// Thursday 2 Oct 2026, 15:00 local.
+// Thursday, 15:00 local.
 const NOW = new Date(2026, 9, 2, 15, 0, 0)
 const d = (y, m, day, h = 0) => new Date(y, m - 1, day, h)
 

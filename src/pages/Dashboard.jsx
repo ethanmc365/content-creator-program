@@ -19,14 +19,11 @@ import { profilesApi } from '../api/profiles'
 // A `rewardsTotal` result, printed. "≈" whenever a conversion was involved.
 const money = (t) => `${t?.converted ? '≈ ' : ''}${formatMoney(t?.amount ?? 0, t?.currency ?? 'EUR')}`
 
-// YOUR DASHBOARD IS ABOUT YOU (3 Oct 2026).
+// YOUR DASHBOARD IS ABOUT YOU.
 //
-// Ethan: "the community highlights are not necessary on the dashboard. The dashboard should just be about their own
-// performance ... have it actually show a nice visual of where they appeared in the leaderboard: if they were on the
-// podium or if they finished fourth or fifth ... For best finish, I don't really like the way it's #4. Maybe just have
-// a nice icon." So: four figures that are all yours (what you entered, posted, were watched and earned), your best
-// finish as a medal or a trophy, every result drawn as a small podium with your place lit, and - where the community
-// figures were - your videos and your links, the same things your profile shows other creators.
+// So: four figures that are all yours (what you entered, posted, were watched and earned), your best finish as a medal
+// or a trophy, every result drawn as a small podium with your place lit, and - where the community figures were - your
+// videos and your links, the same things your profile shows other creators.
 const MEDAL = {
   1: { ring: 'from-amber-300 to-yellow-500', text: 'text-amber-600', label: 'Gold' },
   2: { ring: 'from-slate-200 to-slate-400', text: 'text-slate-500', label: 'Silver' },

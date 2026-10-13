@@ -8,11 +8,7 @@ import { notice } from '../../../lib/confirm'
 import { cx } from '../../../lib/utils'
 import { profilesApi } from '../../../api/profiles'
 
-// THE TWO WALKTHROUGHS, ONE PRESS EACH (7 Oct 2026).
-//
-// Ethan: "In the testing centre, I want the possibility to run through both. Clicking on it should start the previews.
-// I can just click on the general community one or the VIP community one ... so I can see how both of them work and
-// make any changes."
+// THE TWO WALKTHROUGHS, ONE PRESS EACH.
 //
 // Each card starts the REAL walkthrough over the real app, from its first step, exactly as a new creator or a new VIP
 // gets it - the same overlay, the same spotlight, the same pages. For the VIP walk the VIP page is shown as a new VIP's
@@ -35,9 +31,8 @@ const WALKS = [
 
 export default function WalkthroughLab() {
   const lists = useMemo(() => ({ community: stepsFor({ network: true }), vip: stepsFor({ network: true, vip: true }) }), [])
-  // WALK IT AS A REAL VIP (12 Oct 2026). Ethan: "show it from a natural VIP creator standpoint, not from my account,
-  // where the VIP thing is a bit different." Pick one of the VIPs and the walk shows their own page (their month, their
-  // videos, their payouts), read only, the way they see it. "A new VIP" is a first day with nothing in it yet.
+  // WALK IT AS A REAL VIP. Pick one of the VIPs and the walk shows their own page (their month, their videos, their
+  // payouts), read only, the way they see it. "A new VIP" is a first day with nothing in it yet.
   const [vips, setVips] = useState([])
   const [who, setWho] = useState(() => tourPreviewWho() || '')
   useEffect(() => {

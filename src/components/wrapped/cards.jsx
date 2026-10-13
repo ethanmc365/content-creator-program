@@ -117,10 +117,6 @@ export function Eyebrow({ children, palette = 'ember' }) {
 /**
  * How big the big number can be, given how many characters it is.
  *
- * Ethan: "I noticed an issue where some of the months that have more letters
- * don't fit onto the cards... ensuring that in every possible scenario for
- * every card, you've accounted for every possibility and then it all fits."
- *
  * The ladder had three rungs and the middle one covered 8 to 10 characters at
  * 72px, which is where the month card lives: "September" is nine characters and
  * ran off the side. The rungs are finer now and start stepping down at seven,
@@ -221,10 +217,8 @@ export function Standing({ standing: s, what, palette = 'ember' }) {
 }
 
 /**
- * A pot of money said the way a person would say it: "€8,000+", not
- * "€8,845.50". Ethan: "don't give it to the cents. Just give it roughly to the
- * 1,000." Under a thousand there is nothing to round to, so it is exact, and
- * never with cents.
+ * A pot of money said the way a person would say it: "€8,000+", not "€8,845.50". Under a thousand there is nothing to
+ * round to, so it is exact, and never with cents.
  */
 export function roughMoney(amount, currency = 'EUR') {
   const n = Number(amount) || 0

@@ -54,7 +54,7 @@ describe('weekOf', () => {
 })
 
 // ---------------------------------------------------------------------------
-// LEAVING A PUZZLE IS NOT PLAYING IT (3 Sep 2026).
+// LEAVING A PUZZLE IS NOT PLAYING IT.
 //
 // `leaveDaily(key)` passed the puzzle's key to `markPlayed`, and a key is an
 // assertion rather than a question - so pressing Back on a board you had not

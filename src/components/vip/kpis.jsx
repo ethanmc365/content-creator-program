@@ -11,20 +11,19 @@ import { money, monthLabel, nf, perK, vipRpc, useKindT } from '../../lib/vip'
 import VipScopeSwitch from './scope'
 import { vipApi } from '../../api/vip'
 
-// THE VIP KPIs, BUILT LIKE THE KPI PAGE (3 Oct 2026).
+// THE VIP KPIs, BUILT LIKE THE KPI PAGE.
 //
-// Ethan: "the KPIs thing makes no sense. I want it to be the same structure as the actual KPIs thing we have here."
-// So it is the KPI page's shape, for one VIP market and one month: an orange summary card saying how many goals are
-// on track with the same one-gradient spread bar, the same month stepper with a "back to this month" button, and one
-// card per goal with the same status chip and the same pace bar (KpiProgress: the fill is where you are, the tick is
-// where a steady pace would be). Every actual is counted live by `vip_kpi_actuals` from the videos the payouts use.
+// So it is the KPI page's shape, for one VIP market and one month: an orange summary card saying how many goals are on
+// track with the same one-gradient spread bar, the same month stepper with a "back to this month" button, and one card
+// per goal with the same status chip and the same pace bar (KpiProgress: the fill is where you are, the tick is where a
+// steady pace would be). Every actual is counted live by `vip_kpi_actuals` from the videos the payouts use.
 const METRICS = [
   { key: 'views', label: 'Views counted', icon: 'eye', fmt: (v) => formatViews(v) },
   { key: 'videos', label: 'Videos posted', icon: 'video', fmt: (v) => nf(v) },
   { key: 'active_creators', label: 'VIPs with views', icon: 'users', fmt: (v) => nf(v), level: true },
   { key: 'spend', label: 'Spend on views', icon: 'money', fmt: (v, cur) => money(v, cur, { cents: false }), lower: true },
   { key: 'hit_target', label: 'VIPs who hit their target', icon: 'trophy', fmt: (v) => nf(v), level: true },
-  // MORE TO MEASURE (4 Oct 2026, migration 323). Ethan: the KPI page "needs improvement ... use some things from the main one".
+  // MORE TO MEASURE (migration 323). The team: the KPI page "needs improvement... use some things from the main one".
   { key: 'new_vips', label: 'New VIPs this month', icon: 'plus', fmt: (v) => nf(v) },
   { key: 'cpm', label: 'Cost per 1,000 views', icon: 'money', fmt: (v, cur) => perK(v, cur), lower: true, level: true },
   { key: 'stay_in', label: 'VIPs who kept their place', icon: 'shield', fmt: (v) => nf(v), level: true },
@@ -51,9 +50,9 @@ const STYLE = {
   upcoming: { chip: 'bg-gray-100 text-smoke', label: 'Not started' },
 }
 
-// ALL MARKETS TOGETHER (4 Oct 2026). Every figure is a count or an amount, so the combined number is the sum - except the two that are
-// ratios, which are worked out again from the sums (cost per 1,000 from the combined spend and views; videos per VIP weighted by how many
-// VIPs each market had).
+// ALL MARKETS TOGETHER. Every figure is a count or an amount, so the combined number is the sum - except the two that
+// are ratios, which are worked out again from the sums (cost per 1,000 from the combined spend and views; videos per VIP
+// weighted by how many VIPs each market had).
 function combineActuals(list) {
   const sum = (k) => list.reduce((a, x) => a + (Number(x?.[k]) || 0), 0)
   const active = sum('active_creators')
@@ -82,7 +81,8 @@ export function VipKpiTab({ programme, programmes = [], isAdmin = false }) {
   const tr = useKindT()
   const { profile } = useAuth()
   const today = thisMonth()
-  // OVERALL FIRST, THEN ONE MARKET AT A TIME (4 Oct 2026): the combined numbers are the first page, and the chips move to a single market.
+  // OVERALL FIRST, THEN ONE MARKET AT A TIME: the combined numbers are the first page, and the chips move to a single
+  // market.
   const mine = useMemo(() => (programmes.length ? programmes : [programme]), [programmes, programme])
   const canAll = !!isAdmin && mine.length > 1
   const [scope, setScope] = useState(canAll ? 'all' : programme.id)

@@ -9,9 +9,6 @@ import { useT } from '../../lib/i18n'
 
 // THE RUNNER.
 //
-// Ethan: "It needs to be super interactive and shareable, research how Spotify
-// make it dynamic and shareable."
-//
 // What Spotify actually does, stripped of the animation budget:
 //
 //   PROGRESSIVE DISCLOSURE. One fact per screen, revealed rather than listed.
@@ -28,8 +25,7 @@ import { useT } from '../../lib/i18n'
 // lesson is that a recap celebrates what somebody ACTUALLY did rather than
 // inventing goals to congratulate them for missing.
 
-// REUSED BY THE CHALLENGE RECAP (24 Sep 2026): `build` makes the cards and
-// `Share` draws the closing card; both default to the year's.
+// REUSED BY THE CHALLENGE RECAP: `build` makes the cards and `Share` draws the closing card; both default to the year's.
 export default function YearInReview({ data, onExit, autoplay = true, build = buildCards, Share = ShareCard, fileStem }) {
   const tr = useT()
   const cards = useMemo(() => build(data, tr), [data, build, tr])
@@ -117,10 +113,8 @@ export default function YearInReview({ data, onExit, autoplay = true, build = bu
     setShotCard(which)
     await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))
     if (!shotRef.current) return null
-    // FOUR TIMES SIZE, from three. A story is displayed about 1080 wide and
-    // Instagram re-compresses whatever it is given, so handing it 1440 rather
-    // than 1080 is what keeps type crisp after their pass. 360x640 at 4x is
-    // 1440x2560. Ethan: "it doesn't seem to download in that high quality."
+    // FOUR TIMES SIZE, from three. A story is displayed about 1080 wide and Instagram re-compresses whatever it is
+    // given, so handing it 1440 rather than 1080 is what keeps type crisp after their pass. 360x640 at 4x is 1440x2560.
     //
     // The background no longer has to match anything: the exported copy is
     // `flush`, so there are no corners to fill.
@@ -146,10 +140,8 @@ export default function YearInReview({ data, onExit, autoplay = true, build = bu
   /**
    * Every card, one file at a time.
    *
-   * Ethan: "have the ability to save every card at once or save a specific
-   * card." NOT a zip - that needs a library, and a browser handed a zip of PNGs
-   * is a worse outcome on a phone than a run of images landing in the camera
-   * roll, which is where these are going.
+   * NOT a zip - that needs a library, and a browser handed a zip of PNGs is a worse outcome on a phone than a run of
+   * images landing in the camera roll, which is where these are going.
    *
    * Sequential on purpose. Each shot is a full-page clone with fonts embedded;
    * firing fifteen at once is how you get a tab killed on a phone.
@@ -175,12 +167,7 @@ export default function YearInReview({ data, onExit, autoplay = true, build = bu
     }
   }
 
-  // THE PIECES OF A CARD ARRIVE ONE AFTER ANOTHER (21 Sep 2026).
-  //
-  // Ethan: "add in even more animations on the pages. Currently we have the
-  // nice animation where it's going slide to slide. But you can also add in
-  // animations like the text appearing in, or the image of the best video that
-  // shows up, or the milestone... clean animations for all of that."
+  // THE PIECES OF A CARD ARRIVE ONE AFTER ANOTHER.
   //
   // The card primitives tag themselves (`data-anim` = rise / pop / zoom /
   // draw) and this plays them in document order, 85ms apart, with the Web
@@ -207,16 +194,11 @@ export default function YearInReview({ data, onExit, autoplay = true, build = bu
     if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return undefined
 
     const ease = 'cubic-bezier(0.22, 1, 0.36, 1)'
-    // THE INDIVIDUAL `translate` / `scale` PROPERTIES, NEVER `transform`
-    // (21 Sep 2026). Ethan, on the milestone card: "the animation there is a
-    // bit weird and glitchy. It appears one way then moves another way." Every
-    // stop and label on that card is centred with `-translate-x-1/2
-    // -translate-y-1/2`, which IS a `transform` - so an animation of
-    // `transform` replaced the centring for its whole run: each stop popped in
-    // half its own size down and to the right, then jumped into place when the
-    // animation ended. The separate properties compose WITH `transform`
-    // instead of overriding it, so anything positioned by a transform animates
-    // where it actually sits.
+    // THE INDIVIDUAL `translate` / `scale` PROPERTIES, NEVER `transform`. Every stop and label on that card is centred
+    // with `-translate-x-1/2 -translate-y-1/2`, which IS a `transform` - so an animation of `transform` replaced the
+    // centring for its whole run: each stop popped in half its own size down and to the right, then jumped into place
+    // when the animation ended. The separate properties compose WITH `transform` instead of overriding it, so anything
+    // positioned by a transform animates where it actually sits.
     const FRAMES = {
       rise: [{ opacity: 0, translate: '0 16px' }, { opacity: 1, translate: '0 0' }],
       pop: [{ opacity: 0, scale: '0.8' }, { opacity: 1, scale: '1' }],
@@ -227,9 +209,8 @@ export default function YearInReview({ data, onExit, autoplay = true, build = bu
       draw: [{ strokeDasharray: '1 1', strokeDashoffset: 1 }, { strokeDasharray: '1 1', strokeDashoffset: 0 }],
     }
     const anims = []
-    // `data-delay` (ms) overrides the ladder for an element that has to come in
-    // on its own beat - the challenge recap's top videos arrive one at a time,
-    // well after the rest of the card (28 Sep 2026). `data-dur` stretches one.
+    // `data-delay` (ms) overrides the ladder for an element that has to come in on its own beat - the challenge recap's
+    // top videos arrive one at a time, well after the rest of the card. `data-dur` stretches one.
     let lastEnd = 0
     root.querySelectorAll('[data-anim]').forEach((el, n) => {
       const kind = el.getAttribute('data-anim')
@@ -314,10 +295,8 @@ export default function YearInReview({ data, onExit, autoplay = true, build = bu
           key={onShare ? 'share' : card?.key}
           className="wr-in aspect-[9/16] w-full"
         >
-          {/* NO `name` PROP ON THE CARD. Ethan: "showing their name, you don't
-              need to show it in the bottom right again" - it is already the
-              largest thing on the opening card, and the recap is only ever
-              looked at by the person it is about. The Tryp mark stays. */}
+          {/* NO `name` PROP ON THE CARD. - it is already the largest thing on the opening card, and the recap is only
+              ever looked at by the person it is about. The Tryp mark stays. */}
           {onShare
             ? <Share data={data} className="h-full" />
             : (
@@ -387,8 +366,8 @@ export default function YearInReview({ data, onExit, autoplay = true, build = bu
       {/* THE SHARE IS OFFERED FROM THE MOMENT THEY HAVE SEEN IT ALL, not only
           on the last screen - somebody who watched to the end and scrolled back
           to their favourite card should not have to skip forward again. */}
-      {/* ALWAYS THERE (4 Oct 2026). Ethan: the save buttons only showed after clicking through to the last card; they are
-          part of the recap from the first card now, so a creator can save one and share it straight away. */}
+      {/* ALWAYS THERE. The team: the save buttons only showed after clicking through to the last card; they are part of
+          the recap from the first card now, so a creator can save one and share it straight away. */}
       {(
         <div className="mt-4 flex flex-col items-center gap-2">
           <div className="flex flex-wrap items-center justify-center gap-2">
@@ -542,10 +521,8 @@ export function YearInReviewLocked({ year, opensOn }) {
   const tr = useT()
   return (
     <div className="mx-auto w-full max-w-[400px]">
-      {/* TRYP ORANGE, NOT THE PURPLE (21 Sep 2026). Ethan: "improve how it
-          looks before it opens... I would make this like the Tryp.com orangey
-          thing rather than the purpley color." It is the first thing anybody
-          sees of the recap, and it should look like the brand. */}
+      {/* TRYP ORANGE, NOT THE PURPLE. It is the first thing anybody sees of the recap, and it should look like the
+          brand. */}
       <Card palette="ember" className="aspect-[9/16]" footer={false}>
         <Eyebrow palette="ember">{year}</Eyebrow>
         <div className="flex flex-1 flex-col justify-center gap-4">

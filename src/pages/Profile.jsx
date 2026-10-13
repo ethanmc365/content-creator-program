@@ -48,10 +48,11 @@ export default function Profile() {
   const isMe = id === user?.id
   const viewerIsAdmin = !!profile?.is_admin
 
-  // A PROFILE YOU HAVE OPENED BEFORE PAINTS ON THE FIRST FRAME (5 Oct 2026). Ethan: on a phone "it takes a little while for the animation to
-  // kick in" when you open a profile. The page held back until FIVE queries had all come home, and on a phone the slowest sets the pace. Now
-  // (1) the last copy of this profile is drawn at once while it refreshes - see lib/pageCache - and (2) a first visit paints as soon as the
-  // profile row and your connection to them are in, with the trips, flights and entries filling in behind it.
+  // A PROFILE YOU HAVE OPENED BEFORE PAINTS ON THE FIRST FRAME. The team: on a phone "it takes a little while for the
+  // animation to kick in" when you open a profile. The page held back until FIVE queries had all come home, and on a
+  // phone the slowest sets the pace. Now (1) the last copy of this profile is drawn at once while it refreshes - see
+  // lib/pageCache - and (2) a first visit paints as soon as the profile row and your connection to them are in, with the
+  // trips, flights and entries filling in behind it.
   const cacheKey = `profile:${id}`
   const [seed] = useState(() => readPageCache(cacheKey))
   const [creator, setCreator] = useState(seed?.creator ?? null)
@@ -171,21 +172,16 @@ export default function Profile() {
 
   // Admins see the creator's EMAIL here. The phone deliberately is not read.
   //
-  // Ethan's rule: the admin-only details, their number above all, belong in the
-  // creators roster panel and nowhere else. A profile is a page you land on
-  // from a leaderboard, a chat room or a search - often with somebody looking
-  // over your shoulder - and a phone number a creator gave us for payouts is
-  // not something to put on it. Reaching for a number is now a deliberate act:
-  // /admin/creators, open the person. The RPC and creator_private's RLS still
-  // enforce admin-only access server side; this is one less place it is shown.
-  // The admin email fetch that used to live here is gone with the card it fed.
-  // Nothing on this page reads a creator's private contact details any more.
+  // The team's rule: the admin-only details, their number above all, belong in the creators roster panel and nowhere
+  // else. A profile is a page you land on from a leaderboard, a chat room or a search - often with somebody looking over
+  // your shoulder - and a phone number a creator gave us for payouts is not something to put on it. Reaching for a
+  // number is now a deliberate act: /admin/creators, open the person. The RPC and creator_private's RLS still enforce
+  // admin-only access server side; this is one less place it is shown. The admin email fetch that used to live here is
+  // gone with the card it fed. Nothing on this page reads a creator's private contact details any more.
 
-  // A DM IS OPENED, NOT CREATED (9 Sep 2026). `openConversation` INSERTS a row,
-  // so pressing Message and then changing your mind left an empty thread in two
-  // inboxes. `/messages?to=` opens the thread either way and Messages.jsx
-  // creates the row on the first send - see `ensureConversation` there. It is
-  // also instant, which the round trip this replaced was not.
+  // A DM IS OPENED, NOT CREATED. `openConversation` INSERTS a row, so pressing Message and then changing your mind left
+  // an empty thread in two inboxes. `/messages?to=` opens the thread either way and Messages.jsx creates the row on the
+  // first send - see `ensureConversation` there. It is also instant, which the round trip this replaced was not.
   function startMessage() {
     navigate(`/messages?to=${id}`)
   }
@@ -329,23 +325,16 @@ export default function Profile() {
       : []),
   ].filter((x) => x.url)
 
-  // ================= THE PAGE, AS NAMED SECTIONS =================
-  // Ethan gave a mobile reading order that INTERLEAVES the two desktop
-  // columns: about, local time, at a glance, the map, where they are
-  // headed, photos, languages and bucket list, milestones, games, and the
-  // content showcase last of all.
-  // CSS `order` cannot do that. Order only sorts SIBLINGS, and on desktop
-  // these live in two different parents, so anything in the rail can never
-  // be ordered between two things in the main column.
-  // So each section is named once here and the two layouts below are
-  // nothing but running orders. The markup exists exactly once, which is
-  // the property that matters: the old page rendered its whole body twice
-  // and the two copies drifted for weeks. Same trick as the Settings
-  // page's BODIES map.
-  // Somebody's chosen words. Bigger than it was, because at 14px grey italic it
-  // was genuinely hard to read - a quote somebody put on their profile should
-  // not be the faintest thing on it. Named here so the two running orders can
-  // place it: beside the header on a desktop, under About on a phone.
+  // ================= THE PAGE, AS NAMED SECTIONS ================= the team gave a mobile reading order that
+  // INTERLEAVES the two desktop columns: about, local time, at a glance, the map, where they are headed, photos,
+  // languages and bucket list, milestones, games, and the content showcase last of all. CSS `order` cannot do that.
+  // Order only sorts SIBLINGS, and on desktop these live in two different parents, so anything in the rail can never be
+  // ordered between two things in the main column. So each section is named once here and the two layouts below are
+  // nothing but running orders. The markup exists exactly once, which is the property that matters: the old page
+  // rendered its whole body twice and the two copies drifted for weeks. Same trick as the Settings page's BODIES map.
+  // Somebody's chosen words. Bigger than it was, because at 14px grey italic it was genuinely hard to read - a quote
+  // somebody put on their profile should not be the faintest thing on it. Named here so the two running orders can place
+  // it: beside the header on a desktop, under About on a phone.
   const quote = creator.favourite_quote ? (
     <div className="mt-3">
       <TranslateText
@@ -359,12 +348,12 @@ export default function Profile() {
     </div>
   ) : null
 
-  // THE YEAR IN REVIEW, ON ITS WAY (1 Oct 2026). Every creator's profile, above everything else in
-  // the body, so it is seen before 3 December. See components/wrapped/RecapTeaser.
-  // ON FROM 18 NOVEMBER, FOR EVERYONE (2 Oct 2026). Ethan: it "should also appear on admins so I can
-  // see how it actually looks", and it must not "show up until the middle of November, so that they
-  // see it for 15 days or whatever before December 3rd". Admins looking at their own profile get it
-  // early, labelled as a preview, so the design can be checked before creators see it.
+  // THE YEAR IN REVIEW, ON ITS WAY. Every creator's profile, above everything else in the body, so it is seen before 3
+  // December. See components/wrapped/RecapTeaser.
+  // ON FROM 18 NOVEMBER, FOR EVERYONE. The team: it "should also appear on admins so I can see how it actually looks",
+  // and it must not "show up until the middle of November, so that they see it for 15 days or whatever before December
+  // 3rd". Admins looking at their own profile get it early, labelled as a preview, so the design can be checked before
+  // creators see it.
   const recapWindow = recapTeaserWindow()
   const recap = recapWindow === 'on' || (recapWindow === 'before' && isMe && isAdmin)
     ? <RecapTeaser name={creator.name} isMe={isMe} preview={recapWindow === 'before'} />
@@ -387,12 +376,9 @@ export default function Profile() {
         <section>
           <div className="mb-4 flex items-baseline justify-between">
             <h2 className="text-lg font-semibold">
-              {/* ONE SENTENCE WITH THE NUMBER IN IT, not a number followed by
-                  a word chosen by a ternary. `{n} countries visited` cannot be
-                  assembled from parts in Spanish - the order is different and
-                  so is the agreement - which is the whole reason lib/i18n's API
-                  is placeholders. Ethan: "21 countries visited on their profile
-                  pages, the about section - they're all not translated." */}
+              {/* ONE SENTENCE WITH THE NUMBER IN IT, not a number followed by a word chosen by a ternary. `{n} countries
+                  visited` cannot be assembled from parts in Spanish - the order is different and so is the agreement -
+                  which is the whole reason lib/i18n's API is placeholders. */}
               {creator.countries_visited?.length === 1
                 ? tr('1 country visited')
                 : tr('{n} countries visited', { n: creator.countries_visited?.length || 0 })}
@@ -401,12 +387,9 @@ export default function Profile() {
           </div>
             {/* `owner` makes the countries tappable: what the place is known for,
               and a way to ask the one person whose map this is about it. */}
-          {/* THE LIST OF EVERY COUNTRY UNDER THE MAP IS GONE. Somebody with
-              forty countries got forty grey chips, which is six rows of text
-              restating what the map above had just drawn - and none of them
-              did anything. The map is the list; the heading is the count.
-              Ethan: "there is no need to list all the countries, it takes up
-              space and looks bad." */}
+          {/* THE LIST OF EVERY COUNTRY UNDER THE MAP IS GONE. Somebody with forty countries got forty grey chips, which
+              is six rows of text restating what the map above had just drawn - and none of them did anything. The map is
+              the list; the heading is the count. */}
           <WorldMap selected={creator.countries_visited || []} owner={creator} here={here} />
         </section>
         </>
@@ -450,12 +433,10 @@ export default function Profile() {
               action={isMe && <Link to="/challenges" className="btn-primary">{tr("View challenges")}</Link>}
             />
           ) : (
-            /* BEST FIRST. It was newest first, which buries the video that
-               actually did the numbers under whatever was posted last. Ethan:
-               "always filter the content showcase by views from highest to
-               lowest, want the best videos showing first." Ties fall back to
-               newest, so a wall of un-synced zeroes still reads in a sane
-               order. */
+            /*
+             * BEST FIRST. It was newest first, which buries the video that actually did the numbers under whatever was
+             * posted last. Ties fall back to newest, so a wall of un-synced zeroes still reads in a sane order.
+             */
             <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-3">
               {[...submissions]
                 .sort((a, b) => (Number(b.logged_views) || 0) - (Number(a.logged_views) || 0)
@@ -476,47 +457,32 @@ export default function Profile() {
       )
   const clock = (
         <>
-{/* WHERE THEY ARE, WHAT TIME IT IS THERE, AND WHO THEY ARE. IT LEADS THE RAIL.
-            (Reworked 1 Sep 2026.)
+{/* WHERE THEY ARE, WHAT TIME IT IS THERE, AND WHO THEY ARE. IT LEADS THE RAIL. (Reworked.)
 
-            Ethan: "I would like the role name like creator or Tryp.com CCC Lead
-            to be below the name and for the home 'Belfast UK' to be moved into
-            the card with the local time, and also 20 years old or the age moved
-            there aswell in a nice ui design."
+    The header was carrying four unlike facts in four stacked centred
+    lines - name, role, age, home town - and the rail card underneath it
+    was carrying a fifth, the clock, which is about the same place the
+    home town names. Two of those belong together and did not sit
+    together. Home and local time ARE one fact ("it is 3:41pm in
+    Belfast"), and age is a fact about the person rather than about the
+    page, so it reads better beside them than under their name.
 
-            The header was carrying four unlike facts in four stacked centred
-            lines - name, role, age, home town - and the rail card underneath it
-            was carrying a fifth, the clock, which is about the same place the
-            home town names. Two of those belong together and did not sit
-            together. Home and local time ARE one fact ("it is 3:41pm in
-            Belfast"), and age is a fact about the person rather than about the
-            page, so it reads better beside them than under their name.
+    WHAT SURVIVES FROM THE OLD CARD, and must: it is a CLOCK, NOT A PIN, and it never writes a sentence about where
+    somebody sleeps. The town is a LABELLED FACT in a two-column footer - the same shape as any other stat on this page -
+    not prose the app volunteers about a stranger. A travelling creator still leads with where they are, because they
+    published that themselves on the collab board.
 
-            WHAT SURVIVES FROM THE OLD CARD, and must: it is a CLOCK, NOT A PIN,
-            and it never writes a sentence about where somebody sleeps. Ethan,
-            earlier: "I don't want it to say 'you are home in Belfast', this is
-            almost too creepy, instead just show the time for you or for them."
-            The town is a LABELLED FACT in a two-column footer - the same shape
-            as any other stat on this page - not prose the app volunteers about
-            a stranger. A travelling creator still leads with where they are,
-            because they published that themselves on the collab board.
-
-            THE CARD NOW DRAWS WITHOUT A CLOCK. It used to be gated entirely on
-            `here`, and `here` is null for any profile lib/localTime refuses to
-            place (see the note there about the countries we will not guess at).
-            Moving the town and the age in here would have deleted them from
-            those profiles altogether. */}
+    THE CARD NOW DRAWS WITHOUT A CLOCK. It used to be gated entirely on
+    `here`, and `here` is null for any profile lib/localTime refuses to
+    place (see the note there about the countries we will not guess at).
+    Moving the town and the age in here would have deleted them from
+    those profiles altogether. */}
         {(here || homeLine || shownAge) && (
           <section className={cx(
             'overflow-hidden rounded-card border',
             here?.travelling ? 'border-brand/25 bg-brand-tint/50' : 'border-gray-100 bg-white shadow-card',
           )}>
-            {/* THE CLOCK IS A LABELLED CELL, LIKE THE TWO UNDER IT (2 Sep 2026).
-
-                Ethan: "for your local time, rather than having that weird
-                circle around the clock icon I want it to just be the clock
-                icon - match it in with the home town and the age. I don't
-                really like the UI, make it more in sync."
+            {/* THE CLOCK IS A LABELLED CELL, LIKE THE TWO UNDER IT.
 
                 It was the odd one out on its own card: a 36px tinted disc and a
                 horizontal icon-then-text row, sitting directly above two cells
@@ -589,13 +555,9 @@ export default function Profile() {
       )
   const glance = (
         <>
-{/* AT A GLANCE. Four numbers that used to be four full-width boxes in
-            a row across the page, which is a lot of furniture for four facts.
-            As rows in one rail card they take a quarter of the space and read
-            faster, because the labels line up and the eye goes down a column
-            rather than across a band. "Member since" stays - Ethan: "to hear
-            since March 2026, I think we might have something similar to that,
-            it says member since, so yeah that's good, we should keep that." */}
+{/* AT A GLANCE. Four numbers that used to be four full-width boxes in a row across the page, which is a lot of furniture
+    for four facts. As rows in one rail card they take a quarter of the space and read faster, because the labels line up
+    and the eye goes down a column rather than across a band. "Member since" stays - */}
         <section className="rounded-card border border-gray-100 bg-white p-4 shadow-card">
           <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold">
             <Icon name="chart" className="h-4 w-4 shrink-0 text-brand" />
@@ -620,13 +582,9 @@ export default function Profile() {
   const headedNextSection = (
         <>
 {/* ---------- Where I'm headed next ---------- */}
-        {/* THE "COLLAB BOARD" LINK BESIDE THE HEADING IS GONE, and the cards
-            are the link instead. A heading with a destination next to it is a
-            second way to do what the thing underneath it already does, and it
-            sent you to the board's front page rather than to the trip you were
-            looking at. Ethan: "it shouldn't show collab board beside the title,
-            although clicking on one of cards should correctly open to the
-            collab board."
+        {/* THE "COLLAB BOARD" LINK BESIDE THE HEADING IS GONE, and the cards are the link instead. A heading with a
+            destination next to it is a second way to do what the thing underneath it already does, and it sent you to
+            the board's front page rather than to the trip you were looking at.
             EACH CARD GOES WHERE ITS TRIP LIVES. A collab post opens the collab
             board; a flight with no collab post behind it opens the community
             flight log, because that is the page that trip actually exists on.
@@ -647,11 +605,8 @@ export default function Profile() {
               <ul className="space-y-2">
                 {headedNext.map((t) => (
                   <li key={t.key}>
-                    {/* NO BORDER PER ROW. Every trip was a bordered box inside
-                        a bordered card, which is two frames around one thing.
-                        Ethan: "no need to have a border around each trip as
-                        they're already inside a card." The hover tint is what
-                        says a row is a target now. */}
+                    {/* NO BORDER PER ROW. Every trip was a bordered box inside a bordered card, which is two frames
+                        around one thing. The hover tint is what says a row is a target now. */}
                     <Link
                       to={t.to}
                       className="-mx-1.5 flex h-[58px] w-[calc(100%+0.75rem)] items-center gap-3 rounded-xl px-1.5 transition-colors duration-150 hover:bg-cloud/70"
@@ -673,15 +628,10 @@ export default function Profile() {
       )
   const languages = (
         <>
-{/* LANGUAGES AND THE BUCKET LIST, IN ONE CARD AND MUCH SMALLER.
-            Ethan: "we have the languages that show up, the travel bucket list,
-            but the way they show up is really small, taking up a lot of space,
-            and it just doesn't look good."
-            Both were their own full-width section with an 18px heading over a
-            row of pills - so two facts that fit on one line each were spending
-            a third of a screen between them. One card, two labelled rows, and
-            the pills are now plain text separated by dots: a chip around a
-            single word is a button that does nothing. */}
+{/* LANGUAGES AND THE BUCKET LIST, IN ONE CARD AND MUCH SMALLER. Both were their own full-width section with an 18px
+    heading over a row of pills - so two facts that fit on one line each were spending a third of a screen between them.
+    One card, two labelled rows, and the pills are now plain text separated by dots: a chip around a single word is a
+    button that does nothing. */}
         {(creator.languages?.length > 0 || creator.bucket_list?.length > 0) && (
           <section className="rounded-card border border-gray-100 bg-white p-4 shadow-card">
             {creator.languages?.length > 0 && (
@@ -809,14 +759,9 @@ export default function Profile() {
         {/* BIGGER. The avatar is the only picture in the header and it was the
             same size as the one on a directory card, so the page opened with
             the name doing all the work. */}
-        {/* PRESSING THE FACE OPENS THE FACE (1 Sep 2026).
-            Ethan: "when clicking on a profile photo on the profile page, it
-            should open up the photo in a big view but still the same circle
-            shape." Round, because that is the crop the picture was chosen
-            against - opening it square shows the corners the avatar has been
-            hiding, which is usually a stranger's ceiling.
-            Only when there IS a photograph: enlarging a set of initials is a
-            control that does nothing. */}
+        {/* PRESSING THE FACE OPENS THE FACE. Round, because that is the crop the picture was chosen against - opening it
+            square shows the corners the avatar has been hiding, which is usually a stranger's ceiling. Only when there
+            IS a photograph: enlarging a set of initials is a control that does nothing. */}
         <div className="relative shrink-0">
           {isAdmin && !isMe && <OnlineDot lastSeenAt={creator.last_seen_at} />}
           {creator.photo_url ? (
@@ -834,19 +779,11 @@ export default function Profile() {
           )}
         </div>
         <div className="min-w-0 flex-1">
-          {/* BESIDE THE NAME ON A DESKTOP, UNDER IT ON A PHONE.
-              Beside the name is right where there is room: it reads as who this
-              person is, in four words, rather than as a second heading. On a
-              375px phone the header is centred and the two do not fit on one
-              line, so "Spanish Country Manager" either wrapped raggedly beside
-              a centred name or pushed it off centre. Ethan: "on mobile it
-              should show up just below their name... so everything's centred
-              and looks good." A column below `sm`, a baseline row above it. */}
-          {/* THE ROLE GOES UNDER THE NAME AT EVERY WIDTH (1 Sep 2026).
-
-              Ethan: "I would like the role name like creator or Tryp.com CCC
-              Lead to be below the name... this way with the role under the name
-              i think the design will be better."
+          {/* BESIDE THE NAME ON A DESKTOP, UNDER IT ON A PHONE. Beside the name is right where there is room: it reads
+              as who this person is, in four words, rather than as a second heading. On a 375px phone the header is
+              centred and the two do not fit on one line, so "Spanish Country Manager" either wrapped raggedly beside a
+              centred name or pushed it off centre. A column below `sm`, a baseline row above it. */}
+          {/* THE ROLE GOES UNDER THE NAME AT EVERY WIDTH.
 
               It was beside the name on a desktop and under it on a phone, which
               is two headers to keep in step and a role that changes altitude
@@ -855,26 +792,18 @@ export default function Profile() {
               With the age and the town moved into the clock card, the header is
               now exactly two lines - who they are, and what they do.
 
-              The per-person title is already stored (profiles.role_title, set
-              on the team page) and `roleBadgeTitle` falls back to the generic
-              label only when nobody has been given one, so a Spain country
-              manager reads "Spanish Country Manager" and Ethan reads "Tryp.com
-              CCC Lead". Everybody else reads "Creator", which is a job, not a
-              blank. */}
-          {/* THE NAME IS A BUTTON, FOR ADMINS ONLY (7 Sep 2026).
-              Ethan: "clicking on the creator's name as an admin should bring up
-              that pop-up, so I don't have to go into creators every time I want
-              that information."
+              The per-person title is already stored (profiles.role_title, set on the team page) and `roleBadgeTitle`
+              falls back to the generic label only when nobody has been given one, so a Spain country manager reads
+              "Spanish Country Manager" and the team reads "Tryp.com CCC Lead". Everybody else reads "Creator", which is
+              a job, not a blank. */}
+          {/* THE NAME IS A BUTTON, FOR ADMINS ONLY.
 
               It is `isAdmin` and not a role check, and it renders a plain <h1>
               for everyone else - not a disabled button, not a button that does
               nothing. A control that exists and refuses is a control a creator
               will press and be confused by; one that was never drawn is not.
 
-              NO UNDERLINE (8 Sep 2026). Ethan: "I don't need it to be
-              underlined, because hovering over it makes it orange and it's
-              clickable. It doesn't need to be underlined, so you can remove
-              that."
+              NO UNDERLINE.
 
               The dotted rule was there to say "this is pressable" without
               shouting, on the reasoning that this is the page's own <h1> for
@@ -895,11 +824,9 @@ export default function Profile() {
               <Icon name="shield" className="ml-2 inline-block h-4 w-4 align-middle text-gray-300 transition-colors duration-200 group-hover:text-brand" />
             </button>
           ) : (
-            // CENTRED ON A PHONE, WHATEVER THE LENGTH (12 Oct 2026). Ethan,
-            // of Florina's profile: "Her name is not centred." A short name
-            // happened to sit centred in a centred column; a long one wrapped
-            // and its lines ran from the left. The heading centres its own
-            // text below `sm` and balances the wrap.
+            // CENTRED ON A PHONE, WHATEVER THE LENGTH. A short name happened to sit centred in a centred column; a long
+            // one wrapped and its lines ran from the left. The heading centres its own text below `sm` and balances the
+            // wrap.
             <h1 className="text-center text-3xl font-bold tracking-tight [text-wrap:balance] sm:text-left sm:text-[34px]">{creator.name}</h1>
           )}
           <p className="mt-1 flex flex-wrap items-center justify-center gap-x-2.5 gap-y-1.5 sm:justify-start">
@@ -924,22 +851,14 @@ export default function Profile() {
             <p className="mt-1.5 flex justify-center sm:justify-start"><LastOnline lastSeenAt={creator.last_seen_at} /></p>
           )}
           {creator.bio && <TranslateText text={creator.bio} align={isMobile ? 'center' : 'start'} render={(shown) => <p className="mt-2 text-lg text-smoke">{shown}</p>} />}
-          {/* THE QUOTE IS ONLY IN THE HEADER ON A DESKTOP.
-              On a phone the header is already the avatar, the name, the role,
-              the age and the town stacked and centred, and a three-line pull
-              quote on top of that pushed everything a creator came to read off
-              the first screen. Ethan: "the quote, rather than being squashed
-              down at the top, should go below the about section." It renders
-              exactly once either way - `isMobile` chooses WHERE, it does not
-              draw a second copy. */}
+          {/* THE QUOTE IS ONLY IN THE HEADER ON A DESKTOP. On a phone the header is already the avatar, the name, the
+              role, the age and the town stacked and centred, and a three-line pull quote on top of that pushed
+              everything a creator came to read off the first screen. It renders exactly once either way - `isMobile`
+              chooses WHERE, it does not draw a second copy. */}
           {!isMobile && quote}
-          {/* NAMED, AND IN THE PLATFORM'S OWN COLOURS. These were six
-              identical grey circles, so the row that is entirely ABOUT other
-              platforms was the least recognisable thing on the page, and you
-              had to hover to find out which was which. Ethan: "the links should
-              have better UI and the actual colourful social media logos, not
-              greyed, in each card have the icon and write the name TikTok etc,
-              make it clearer." */}
+          {/* NAMED, AND IN THE PLATFORM'S OWN COLOURS. These were six identical grey circles, so the row that is
+              entirely ABOUT other platforms was the least recognisable thing on the page, and you had to hover to find
+              out which was which. */}
           {socials.length > 0 && (
             <div className="mt-4 flex flex-wrap items-center justify-center gap-2 sm:justify-start">
               {socials.map((x) => (
@@ -956,14 +875,11 @@ export default function Profile() {
               ))}
             </div>
           )}
-          {/* MUTUALS, AS FACES. It was a count: "3 mutual connections". A number
-              answers "do we overlap"; the faces answer "should I say hello",
-              which is the question somebody is actually asking on a profile -
-              and in a community of 45 the specific people are recognisable, so
-              the overlap is the introduction. Ethan: "mutual connections showing
-              up on a profile, so it shows just connected with who kind of."
-              Overlapped avatars rather than a row: at four or five it stays one
-              object the width of a sentence, and the names are on hover. */}
+          {/* MUTUALS, AS FACES. It was a count: "3 mutual connections". A number answers "do we overlap"; the faces
+              answer "should I say hello", which is the question somebody is actually asking on a profile - and in a
+              community of 45 the specific people are recognisable, so the overlap is the introduction. Overlapped
+              avatars rather than a row: at four or five it stays one object the width of a sentence, and the names are
+              on hover. */}
           {!isMe && mutual.total > 0 && (
             <Link
               to="/connections"
@@ -991,16 +907,11 @@ export default function Profile() {
             </div>
           ) : (
             <>
-              {/* CONNECT AND MESSAGE ARE FOR MEMBERS (4 Sep 2026).
-                  Ethan: "if I view the full profile, we have a Connect and
-                  Message button, which doesn't make sense showing up before
-                  they're actually approved."
+              {/* CONNECT AND MESSAGE ARE FOR MEMBERS.
 
-                  He is right, and it is not only untidy - both controls would
-                  FAIL. A connection request and a DM conversation are both
-                  between two members, and RLS says so: a `pending` account is
-                  not `is_member()`, so the request would be refused and the
-                  conversation could not be created. Offering an action that
+                  they are right, and it is not only untidy - both controls would FAIL. A connection request and a DM
+                  conversation are both between two members, and RLS says so: a `pending` account is not `is_member()`,
+                  so the request would be refused and the conversation could not be created. Offering an action that
                   cannot succeed is worse than not offering it.
 
                   An admin arriving here from the applications queue is looking
@@ -1011,10 +922,7 @@ export default function Profile() {
                 // button beside it grows with it rather than sitting short
                 // against a taller neighbour.
                 <div className="flex flex-wrap items-stretch gap-3 [&>*]:min-w-[10rem]">
-                  {/* THE STATUS PILL OVERFLOWED ITS OWN BACKGROUND (29 Sep
-                      2026). Ethan: "it shows up a waiting application status in
-                      a little button, but the text is too big inside the button,
-                      it's going outside of it."
+                  {/* THE STATUS PILL OVERFLOWED ITS OWN BACKGROUND.
 
                       Three things did that together: `whitespace-nowrap`, so
                       the words could not break; `flex-1` inside a row, so the
@@ -1030,11 +938,9 @@ export default function Profile() {
                       also stops it breaking again in a language where the same
                       phrase is longer, which German and Portuguese both are.
 
-                      AND IT IS NOT AMBER ANY MORE. Ethan: "maybe change the
-                      colour of the button too." Amber reads as a warning, and
-                      the two controls beside it are a real decision somebody
-                      has to make; a neutral pill says "this is the state" and
-                      leaves the colour on the page to the actions. */}
+                      AND IT IS NOT AMBER ANY MORE. Amber reads as a warning, and the two controls beside it are a real
+                      decision somebody has to make; a neutral pill says "this is the state" and leaves the colour on the
+                      page to the actions. */}
                   <span className="inline-flex min-h-10 flex-1 items-center justify-center gap-1.5 rounded-full bg-cloud px-4 py-2 text-center text-sm font-semibold leading-tight text-smoke ring-1 ring-black/5">
                     <Icon name="clock" className="h-4 w-4 shrink-0 text-gray-400" />
                     {creator?.onboarded ? tr('Awaiting review') : tr('Profile not finished')}
@@ -1086,16 +992,10 @@ export default function Profile() {
         </div>
       </section>
 
-      {/* ================= THE PAGE, SPLIT =================
-          Ethan: "you can split it rather than just having big wide cards
-          everywhere. Similar to the worldwide page, smaller cards on the right
-          hand side and the bigger cards on the left hand side."
-          Everything here used to be a full-width band stacked twelve deep, so
-          a map, four statistics, a language list and a bucket list all had the
-          same weight and the same width - which is why the page read as a
-          scroll of unrelated stripes rather than as one person.
-          LEFT is the things that NEED width: the map, the photo board, the
-          flight log, the video showcase. RIGHT is everything that is a fact
+      {/* ================= THE PAGE, SPLIT ================= Everything here used to be a full-width band stacked twelve
+          deep, so a map, four statistics, a language list and a bucket list all had the same weight and the same width -
+          which is why the page read as a scroll of unrelated stripes rather than as one person. LEFT is the things that
+          NEED width: the map, the photo board, the flight log, the video showcase. RIGHT is everything that is a fact
           rather than a picture, at a quarter of the size.
           ONE COLUMN BELOW `lg`, main first. A rail stacked above the content on
           a phone is just the old page with smaller headings.
@@ -1110,15 +1010,13 @@ export default function Profile() {
           measured every image twice and loaded the world atlas twice, all to
           paint one of them. Cheap for a settings panel, not for this page. */}
       {isMobile ? (
-      /* THE SECTIONS ARRIVE ONE AFTER ANOTHER, ON A PHONE TOO (12 Sep 2026).
-         Ethan: "all the other pages on mobile also need those nice smooth
-         animations built in... profiles". This page had none at either width:
-         the whole body appeared on one frame, which on a page this long is the
-         "sections just flash and appear in" report exactly.
-         `Reveal` observes each section separately once the column is taller
-         than the screen, which a profile always is - so a section animates when
-         you reach it rather than having finished five screens before you did.
-         See the per-item note in components/network/Reveal. */
+      /*
+       * THE SECTIONS ARRIVE ONE AFTER ANOTHER, ON A PHONE TOO. This page had none at either width: the whole body
+       * appeared on one frame, which on a page this long is the "sections just flash and appear in" report exactly.
+       * `Reveal` observes each section separately once the column is taller than the screen, which a profile always is -
+       * so a section animates when you reach it rather than having finished five screens before you did. See the
+       * per-item note in components/network/Reveal.
+       */
       <Reveal className="flex flex-col gap-6" stagger={0.05}>
         {recap}
         {about}
@@ -1148,7 +1046,7 @@ export default function Profile() {
       ) : (
       /* ---------------- TWO COLUMNS, FROM `lg` ---------------- */
       <>
-      {/* ACROSS BOTH COLUMNS, above About and the local time (Ethan, 1 Oct 2026). */}
+      {/* ACROSS BOTH COLUMNS, above About and the local time (the team). */}
       <div className="mb-8">{recap}</div>
       <div className="grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
         {/* The two columns do not arrive the same way: the article rises and
@@ -1219,11 +1117,8 @@ function ShowcaseCard({ submission: s, expanded, onToggle }) {
   const views = Number(s.logged_views) || 0
   const hasCaption = !!s.caption?.trim()
 
-  // TWO A ROW, SHAPED LIKE AN ENTRY (12 Oct 2026). Ethan: "show two videos
-  // side by side in a nice UI similar to how the entries are, rather than
-  // having just one video on each thing." A portrait cover with the views on
-  // it, the challenge and date under it, and the caption clamped to two lines
-  // that opens in place. The cover is the link to the video.
+  // TWO A ROW, SHAPED LIKE AN ENTRY. A portrait cover with the views on it, the challenge and date under it, and the
+  // caption clamped to two lines that opens in place. The cover is the link to the video.
   return (
     <div className="group flex min-w-0 flex-col overflow-hidden rounded-card border border-gray-100 bg-white shadow-card transition-all duration-200 hoverable:hover:-translate-y-0.5 hoverable:hover:shadow-lift">
       <a
@@ -1332,23 +1227,20 @@ function ProfileGallery({ creatorId, isMe, creatorName }) {
           />
         )
       ) : (
-        /* READ ONLY HERE. The board used to be editable in place, with an
-           "Arrange the board" toggle sitting on your own public profile - so
-           the page had two modes and the one you were shown depended on who
-           you were. Ethan: "we have arrange the board and we have manage
-           photos which is weird, it should just be manage photos."
-           Arranging, cropping, captioning and deleting all live in one place
-           now: Edit profile → Photos, which shows the same board with the same
-           component, so what you arrange is exactly what lands here. */
+        /*
+         * READ ONLY HERE. The board used to be editable in place, with an "Arrange the board" toggle sitting on your own
+         * public profile - so the page had two modes and the one you were shown depended on who you were. Arranging,
+         * cropping, captioning and deleting all live in one place now: Edit profile → Photos, which shows the same board
+         * with the same component, so what you arrange is exactly what lands here.
+         */
         <PhotoBoard creatorId={creatorId} editable={false} onCount={setDrawable} />
       )}
     </section>
   )
 }
 
-// A HOME TOWN TOO LONG FOR ITS CELL OPENS IN PLACE (3 Oct 2026). Ethan: "if someone's hometown is longer, it doesn't
-// show the full thing ... you cannot just see it all." It still sits on one line, cut with an ellipsis, so the card
-// keeps its shape; when it IS cut, it is a button, and a press lets the whole name wrap onto as many lines as it needs.
+// A HOME TOWN TOO LONG FOR ITS CELL OPENS IN PLACE. It still sits on one line, cut with an ellipsis, so the card keeps
+// its shape; when it IS cut, it is a button, and a press lets the whole name wrap onto as many lines as it needs.
 function HomeTownValue({ text }) {
   const tr = useT()
   const ref = useRef(null)

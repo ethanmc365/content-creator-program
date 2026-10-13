@@ -4,12 +4,11 @@ import Icon from './Icon'
 import { cx } from '../lib/utils'
 import { useT } from '../lib/i18n'
 
-// CIRCLE THE BIT THAT MATTERS (7 Oct 2026).
+// CIRCLE THE BIT THAT MATTERS.
 //
-// Ethan, for FAQ answers: "maybe the ability to add an image circling something". A screenshot of where a button is
-// only helps if the button is obvious, so before an image goes into an answer it can be marked up: a circle, an
-// arrow, or a freehand line, in Tryp orange or white, with undo. What is saved is the flattened picture; nothing else
-// has to understand the marks.
+// A screenshot of where a button is only helps if the button is obvious, so before an image goes into an answer it can
+// be marked up: a circle, an arrow, or a freehand line, in Tryp orange or white, with undo. What is saved is the
+// flattened picture; nothing else has to understand the marks.
 const COLOURS = ['#d94407', '#ffffff', '#111111']
 const TOOLS = [
   { key: 'circle', label: 'Circle' },

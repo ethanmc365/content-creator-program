@@ -9,17 +9,14 @@ import { COMMON_ZONES } from '../../lib/timezones'
 import { moneyApi } from '../../api/money'
 import { challengesApi } from '../../api/challenges'
 
-// TWO WAYS TO GET PEOPLE POSTING (12 Oct 2026, migration 383).
+// TWO WAYS TO GET PEOPLE POSTING (migration 383).
 //
-// JOINING BONUS. Ethan: "a bonus points thing for creators that haven't entered yet. Any creator that now joins the
-// challenge gets a bonus 10 points, just to kick them off, get them on the leaderboard and get them posting. I can choose
-// this to be 5 or 10 points." Switching it on stamps the moment (challenges.join_bonus_from); a creator whose FIRST entry
-// comes after it gets the points once. Points challenges only.
+// JOINING BONUS. Switching it on stamps the moment (challenges.join_bonus_from); a creator whose FIRST entry comes after
+// it gets the points once. Points challenges only.
 //
-// VOUCHER DAYS. Ethan: "anyone that posts a video and achieves over 5k views on whatever date I choose, or multiple dates,
-// wins a 10 euro voucher, a 5 euro voucher, or 5 euro cash." A day is the whole date in a timezone (the market's unless one
-// is picked), a view bar and a reward. A video posted that day that passes the bar wins its creator one pending reward,
-// the moment its views cross it; the team hands vouchers out from Rewards as with every other prize.
+// VOUCHER DAYS. A day is the whole date in a timezone (the market's unless one is picked), a view bar and a reward. A
+// video posted that day that passes the bar wins its creator one pending reward, the moment its views cross it; the team
+// hands vouchers out from Rewards as with every other prize.
 
 const chip = (on) => cx('rounded-full border px-3.5 py-1.5 text-xs font-semibold transition-all duration-200', on ? 'border-brand bg-brand text-white' : 'border-gray-200 bg-white text-ink hoverable:hover:border-brand')
 const dayLabel = (ymd) => new Date(`${ymd}T12:00:00`).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })
@@ -72,8 +69,8 @@ export function JoinBonusEditor({ challengeId }) {
             {[5, 10].map((n) => (
               <button key={n} type="button" aria-pressed={!custom && pts === n} onClick={() => { setPts(n); setCustom('') }} className={chip(!custom && pts === n)}>+{n} points</button>
             ))}
-            {/* TYPE THE NUMBER, "points" FOLLOWS IT (12 Oct 2026): "Make sure it shows that I just type in the number,
-                and then it says 'points' after it, with a similar design to the other ones." */}
+            {/* TYPE THE NUMBER, "points" FOLLOWS IT: "Make sure it shows that I just type in the number, and then it
+                says 'points' after it, with a similar design to the other ones." */}
             <label className={cx('flex items-center gap-1 rounded-full border px-3.5 py-1 text-xs font-semibold transition-all duration-200', custom ? 'border-brand bg-brand text-white' : 'border-gray-200 bg-white text-ink focus-within:border-brand')}>
               <span aria-hidden>+</span>
               <input className="w-10 bg-transparent text-center text-xs font-semibold tabular-nums outline-none placeholder:font-normal placeholder:text-smoke" inputMode="numeric"

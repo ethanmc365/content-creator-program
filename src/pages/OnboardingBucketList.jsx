@@ -7,17 +7,10 @@ import { useT } from '../lib/i18n'
 /**
  * THE BUCKET LIST, CALLED THE BUCKET LIST.
  *
- * Ethan: "I don't get the 'where you are headed next' thing below this. Is this
- * for the calendar? I don't think it is. Is this just, like, the bucket list?
- * You need to rename it or make it more clear because I don't even understand
- * what it is."
- *
- * He wrote the brief and he could not tell what the field was for, which is
- * about as clear a verdict as a label can get. "Where you are headed next"
- * describes a TRIP - something with dates, something the calendar and the
- * collab board deal in - and this is neither: it writes `profiles.bucket_list`,
- * it has no dates, and the profile has always drawn it under the heading
- * "Bucket list". Three surfaces, one column, two names.
+ * they wrote the brief and he could not tell what the field was for, which is about as clear a verdict as a label can
+ * get. "Where you are headed next" describes a TRIP - something with dates, something the calendar and the collab board
+ * deal in - and this is neither: it writes `profiles.bucket_list`, it has no dates, and the profile has always drawn it
+ * under the heading "Bucket list". Three surfaces, one column, two names.
  *
  * So it is the bucket list here too, and the sentence under it says what
  * happens to the answer AND, just as importantly, what does not: nobody is
@@ -46,13 +39,9 @@ export function BucketList({ rows = [], onChange }) {
               b.country?.trim() ? 'border-gray-200 bg-white' : 'border-dashed border-gray-200 bg-cloud/30',
             )}
           >
-            {/* THE FLAG, ONCE THERE IS A COUNTRY (4 Sep 2026). Ethan: "when
-                they type in the country, like on the profile, it should show
-                the country flag as the icon rather than the pin."
-                The profile already draws bucket-list entries with a flag, so a
-                pin here was the same data in two different clothes. It falls
-                back to the pin while the box is empty or the name does not
-                resolve - a blank square would read as a broken image. */}
+            {/* THE FLAG, ONCE THERE IS A COUNTRY. The profile already draws bucket-list entries with a flag, so a pin
+                here was the same data in two different clothes. It falls back to the pin while the box is empty or the
+                name does not resolve - a blank square would read as a broken image. */}
             <span className="flex h-9 w-9 shrink-0 items-center justify-center text-xl leading-none text-brand" aria-hidden>
               {flagFromIso(isoForCountryName(b.country)) || <Icon name="pin" className="h-5 w-5" />}
             </span>

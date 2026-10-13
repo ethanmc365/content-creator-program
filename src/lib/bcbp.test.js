@@ -78,14 +78,12 @@ describe('boardingPassToForm', () => {
 })
 
 // ---------------------------------------------------------------------------
-// THE TWO PASSES THAT DID NOT WORK, 21 Aug 2026.
+// THE TWO PASSES THAT DID NOT WORK.
 //
-// Ethan photographed both: an Aer Lingus paper pass OSL->DUB (EI627, 18 Aug,
-// seat 10C, seq 0036) and the Apple Wallet pass for the outbound DUB->OSL
-// (EI0626, 11 Aug, seat 10C, seq 28). The digital one half worked. The paper
-// one produced "no boarding pass found" every time, and the barcode was fine -
-// the parser was reading at fixed offsets, and a PAPER ticket carries a SPACE
-// where an e-ticket carries `E`, which shifts the whole leg block one left.
+// The team photographed both: an Aer Lingus paper pass OSL->DUB (EI627, 18 Aug, seat 10C, seq 0036) and the Apple Wallet
+// pass for the outbound DUB->OSL (EI0626, 11 Aug, seat 10C, seq 28). The digital one half worked. The paper one produced
+// "no boarding pass found" every time, and the barcode was fine - the parser was reading at fixed offsets, and a PAPER
+// ticket carries a SPACE where an e-ticket carries `E`, which shifts the whole leg block one left.
 //
 // Built by FIELD rather than typed as a literal, because hand-counting a
 // 60-character fixed-width string is how the first version of this test was

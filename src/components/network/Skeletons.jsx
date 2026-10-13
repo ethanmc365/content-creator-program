@@ -60,14 +60,10 @@ export function MarketHeaderSkeleton() {
 // Matches LiveChallengeCard's hero: badge row, title, two lines, countdown
 // tiles on the left and buttons on the right.
 //
-// AND IT MATCHES THE PHONE'S CARD TOO, which is a different shape since that
-// card was cut down: no blurb, a one-line clock instead of four tiles, one
-// button instead of two. A skeleton that promises a paragraph and four tiles
-// and then hands over a card two hundred pixels shorter is the jump it exists
-// to prevent. Ethan: "the loading previews of cards across the platform, I've
-// noticed sometimes the preview shows 3 small cards when it's actually loading
-// a big card." The rule at the top of this file cuts both ways: the skeleton
-// and the component change together.
+// AND IT MATCHES THE PHONE'S CARD TOO, which is a different shape since that card was cut down: no blurb, a one-line
+// clock instead of four tiles, one button instead of two. A skeleton that promises a paragraph and four tiles and then
+// hands over a card two hundred pixels shorter is the jump it exists to prevent. The rule at the top of this file cuts
+// both ways: the skeleton and the component change together.
 export function LiveChallengeSkeleton() {
   return (
     <div className="rounded-card border border-gray-100 bg-white p-5 shadow-card sm:p-10">

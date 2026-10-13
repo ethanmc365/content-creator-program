@@ -130,10 +130,10 @@ export default function NetworkChatThread({
             <motion.div
               key={m.id}
               id={`msg-${m.id}`}
-              // A LIGHTER ENTRANCE (13 Oct 2026). Ethan: switching from General to Worldwide and scrolling "is a little bit
-              // laggy". A room opened with fourteen rows on a spring that took most of a second to settle (and scaled,
-              // which re-rasters every bubble each frame), so the first scroll fought it. Now eight rows, a 320ms
-              // ease-out, transform and opacity only.
+              // A LIGHTER ENTRANCE. The team: switching from General to Worldwide and scrolling "is a little bit laggy".
+              // A room opened with fourteen rows on a spring that took most of a second to settle (and scaled, which
+              // re-rasters every bubble each frame), so the first scroll fought it. Now eight rows, a 320ms ease-out,
+              // transform and opacity only.
               initial={quietMount || (introducing && visible.length - 1 - i > 8) ? false : { opacity: 0, y: introducing ? 10 : 6 }}
               animate={{ opacity: 1, y: 0 }}
               transition={introducing ? { duration: 0.32, ease: [0.22, 1, 0.36, 1], delay: Math.max(0, 8 - (visible.length - 1 - i)) * 0.03 } : { duration: 0.24, ease: [0.22, 1, 0.36, 1] }}
@@ -163,8 +163,9 @@ export default function NetworkChatThread({
               // stacking context and a later message paints over an earlier
               // one's popover whatever z-index the popover has.
               className={cx(
-                // 13 Oct 2026: hover only where there is a mouse. On a phone a tapped row kept :hover (and :focus-within) and so
-                // the same z-20 as a row with its bar open, and a later such row painted over the open row's pop-up.
+                // 13 Oct 2026: hover only where there is a mouse. On a phone a tapped row kept:hover (and:focus-within)
+                // and so the same z-20 as a row with its bar open, and a later such row painted over the open row's
+                // pop-up.
                 'group/msg relative flex gap-2.5 hoverable:hover:z-20',
                 // YOUR OWN MESSAGES SIT ON THE RIGHT.
                 //
@@ -188,37 +189,23 @@ export default function NetworkChatThread({
                 actionsFor === m.id && '!z-30',
               )}
             >
-              {/* THE FACE COLUMN, AND ONLY WHERE A FACE CAN GO.
-                  It is not reserved on YOUR rows: your messages never draw an
-                  avatar, and the row is `flex-row-reverse`, so an empty 36px
-                  column plus its gap sat against the right edge of every
-                  message you sent. Ethan: "when I send a message there's a
-                  lot of unnecessary white space on the right side."
+              {/* THE FACE COLUMN, AND ONLY WHERE A FACE CAN GO. It is not reserved on YOUR rows: your messages never
+                  draw an avatar, and the row is `flex-row-reverse`, so an empty 36px column plus its gap sat against the
+                  right edge of every message you sent.
 
-                  A FACE ON EVERY MESSAGE, INCLUDING A RUN FROM ONE PERSON.
-                  The column used to be reserved-but-empty under the first of
-                  a run, on the Slack reasoning that repeating the avatar is
-                  noise. It is not noise here, because these bubbles are
-                  tinted and shrink-to-fit: a run of four short messages from
-                  announcements drew one face and then three bubbles hanging
-                  off nothing, indented past an empty gutter. Ethan: "I
-                  noticed it was showing up like it was floating because there
-                  was no profile picture beside it... it should still show up
-                  the profile photo on the left hand side even if the creator
-                  sent multiple messages, just for the UI, so it looks
-                  clean."
-                  The NAME line is still once per run - that is the repetition
-                  that actually reads as noise, and it is not what anchors the
-                  bubble to the left edge. */}
+                  A FACE ON EVERY MESSAGE, INCLUDING A RUN FROM ONE PERSON. The column used to be reserved-but-empty
+                  under the first of a run, on the Slack reasoning that repeating the avatar is noise. It is not noise
+                  here, because these bubbles are tinted and shrink-to-fit: a run of four short messages from
+                  announcements drew one face and then three bubbles hanging off nothing, indented past an empty gutter.
+                  The NAME line is still once per run - that is the repetition that actually reads as noise, and it is
+                  not what anchors the bubble to the left edge. */}
               {/* THE FACE OPENS THE PERSON. It is a link, not decoration:
                   pressing a profile picture in a chat means "who is this",
                   and it used to open the react/reply bar because the press
                   handler was on the row. */}
-              {/* THE FACE MOVED INSIDE MessageActions (28 Sep 2026). Here
-                  it was `self-end` in this row, so opening the action bar -
-                  which makes space under the bubble - grew the row and took
-                  the face down with it. It is passed as `lead` now and shares
-                  a row with the bubble alone. Same change in the DMs. */}
+              {/* THE FACE MOVED INSIDE MessageActions. Here it was `self-end` in this row, so opening the action bar -
+                  which makes space under the bubble - grew the row and took the face down with it. It is passed as
+                  `lead` now and shares a row with the bubble alone. Same change in the DMs. */}
 
               {/* A framed poll or board uses the whole row on a phone: at 82% a poll was so narrow its options truncated. */}
               <div className={cx('flex w-full min-w-0 flex-col sm:max-w-[68%]', framed(m) && editingId !== m.id ? 'max-w-full' : 'max-w-[82%]', mine && 'items-end')}>
@@ -262,7 +249,7 @@ export default function NetworkChatThread({
                   // keeps the two at opposite ends of it.
                   footer={(
                     <>
-                      {/* Only the team sees that a team message was edited (12 Oct 2026). */}
+                      {/* Only the team sees that a team message was edited. */}
                       {m.edited_at && !m.pending && (isAdmin || !m.profiles?.is_admin) && (
                         <p className={cx('mt-0.5 px-1 text-[10px] text-gray-400', mine && 'text-right')}>edited</p>
                       )}
@@ -349,16 +336,14 @@ export default function NetworkChatThread({
                       // min-width - see components/MessageEditor.
                       editingId === m.id ? 'w-full' : boardBubble(m) ? 'w-full sm:w-[29rem]' : pollBubble(m) ? 'w-full max-w-[26rem]' : 'w-fit',
                       'max-w-full rounded-2xl text-sm leading-relaxed',
-                      // A SHARED LEADERBOARD IS A MESSAGE AGAIN (13 Oct 2026). Ethan: "I still prefer it when it was in an
-                      // actual text bubble because then people could react to it ... can't you reverse that, but just
-                      // improve it more?" The words and the live board share ONE bubble, so pressing anywhere on it opens
-                      // the reactions bar like any message - but a white one, never the orange that he did not want
-                      // round a leaderboard, sitting on the sender's side rather than across the middle of the room.
+                      // A SHARED LEADERBOARD IS A MESSAGE AGAIN. The words and the live board share ONE bubble, so
+                      // pressing anywhere on it opens the reactions bar like any message - but a white one, never the
+                      // orange that he did not want round a leaderboard, sitting on the sender's side rather than across
+                      // the middle of the room.
                       framed(m) && editingId !== m.id
-                        // YOUR OWN COLOUR, AND A FRAME TO PRESS (13 Oct 2026). Ethan: "it's not showing the orange
-                        // background like my actual message shows ... make the background a little bit bigger so it's
-                        // clickable". The bubble is the sender's normal bubble (orange for you, grey for others) with
-                        // a wide margin round the white board, and that margin is what opens the reactions.
+                        // YOUR OWN COLOUR, AND A FRAME TO PRESS. The bubble is the sender's normal bubble (orange for
+                        // you, grey for others) with a wide margin round the white board, and that margin is what opens
+                        // the reactions.
                         ? cx('p-2.5 sm:p-3', mine ? 'ml-auto rounded-br-md bg-brand text-white' : 'rounded-bl-md bg-cloud text-ink')
                       // AN INTRO IS ITS OWN CARD, NOT A BUBBLE AROUND ONE. Nor is a card posted with no words.
                       : (introOf(m) || cardOnly(m)) && editingId !== m.id
@@ -443,10 +428,12 @@ export default function NetworkChatThread({
                         <div className={cx('whitespace-pre-wrap break-words', (m.image_url || m.video_url) && 'px-2 py-1.5')}>
                           {search
                             ? <Highlight text={m.body} term={search} />
-                            /* ANNOUNCEMENTS ARE LIKE EVERY OTHER MESSAGE (30 Sep 2026). They had their own
-                               Translated / Original switch on top as well as the Translate action and the
-                               "Show original" line under it - two controls for one job, and only in the
-                               announcements room (Ethan saw it in Germany's). One way now, everywhere. */
+                            /*
+                             * ANNOUNCEMENTS ARE LIKE EVERY OTHER MESSAGE. They had their own Translated / Original
+                             * switch on top as well as the Translate action and the "Show original" line under it - two
+                             * controls for one job, and only in the announcements room (the team saw it in Germany's).
+                             * One way now, everywhere.
+                             */
                             : renderMessageBody(mt.textFor(m), { rich: true, members, onDark: mine })}
                           {mt.isOn(m) && (
                                 <button type="button" onClick={() => mt.toggle(m)} className={cx('mt-1 inline-flex items-center gap-1 text-[11px] font-semibold', mine ? 'text-white/80' : 'text-brand')}>
@@ -460,9 +447,9 @@ export default function NetworkChatThread({
                       )
                     )}
                   </div>
-                  {/* THE CARD SITS UNDER THE BUBBLE, NEVER IN IT (12 Oct 2026). Ethan: "I don't like that the leaderboard
-                      appears on an orange card." A results share carries a sentence, so the board was drawn inside the
-                      team's own orange bubble. Now the words are the bubble and the card is its own white thing below. */}
+                  {/* THE CARD SITS UNDER THE BUBBLE, NEVER IN IT. A results share carries a sentence, so the board was
+                      drawn inside the team's own orange bubble. Now the words are the bubble and the card is its own
+                      white thing below. */}
                   {CARD_KINDS.some((c) => m[c.idKey]) && !cardOnly(m) && !framed(m) && (
                     <div className={cx('mt-1.5 flex w-full', mine && 'justify-end')}>
                       <AttachedCard message={m} />

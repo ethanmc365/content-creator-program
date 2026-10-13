@@ -1,9 +1,4 @@
-// DAILY POSTING STREAKS ON A CHALLENGE (4 Oct 2026).
-//
-// Ethan: "we currently have the streak where someone has posted for 1 week, but I think we should have a streak where someone posts every
-// day, because that would be even more impressive ... have a bigger flame ... show a really big fire with the daily streak they have. If
-// they lost their streak, it should be greyed out and show what their highest streak was; if they currently have one, show the current
-// streak."
+// DAILY POSTING STREAKS ON A CHALLENGE.
 //
 // A DAY IS A CALENDAR DAY ON THE READER'S CLOCK (the same one their feed shows). The streak is how many days in a row have at least one entry.
 //

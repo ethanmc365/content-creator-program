@@ -1,11 +1,11 @@
-// A DEV-ONLY BENCH FOR THE VIP SCREENS (30 Sep 2026). Mounted at /__vip-bench under `import.meta.env.DEV`, so it is
-// never in the production bundle.
+// A DEV-ONLY BENCH FOR THE VIP SCREENS. Mounted at /__vip-bench under `import.meta.env.DEV`, so it is never in the
+// production bundle.
 //
 // The real VIP pages read a database that, on a developer machine, is production - and it may not have the data (or
 // even the functions) a screen needs to be looked at. So this swaps `supabase.rpc` and `supabase.from` for a stub that
 // answers from the fixtures below, then renders the REAL pages: the creator's VIP hub and the team's VIP tools.
 //   /__vip-bench?view=hub&tab=stats      the creator's side (tab: month | videos | stats | payouts | board | earn)
-//   /__vip-bench?view=admin&tab=members  the team's side   (tab: overview | members | announcements | ...)
+//   /__vip-bench?view=admin&tab=members the team's side (tab: overview | members | announcements |...)
 import { useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import VipHub from '../VipHub'

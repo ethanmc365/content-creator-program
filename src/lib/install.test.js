@@ -3,17 +3,10 @@ import { installPromptFor } from './install'
 
 // THE PROMPT THAT WENT MISSING FOR EXACTLY THE TWO PEOPLE WHO WOULD NOTICE.
 //
-// Ethan (9 Sep 2026): "previously we had it set up so that if you logged in on
-// a mobile browser you just immediately get that pop up that says how to add it
-// as an app on your home screen... but for some reason that just doesn't work
-// anymore. Did you take it away? This should always be here permanently. Make
-// sure it doesn't break again."
-//
-// It was one line - `if (profile.is_admin) return`, added on 7 Sep for the
-// notifications nag and applied to the install wall too. Ethan is `owner` and
-// Casandra is `global_admin`, so the feature was invisible to both admins and
-// working perfectly for all 44 creators, which is the worst possible way for a
-// regression to hide. "Make sure it doesn't break again" is this file.
+// It was one line - `if (profile.is_admin) return`, added on 7 Sep for the notifications nag and applied to the install
+// wall too. The team is `owner` and Casandra is `global_admin`, so the feature was invisible to both admins and working
+// perfectly for all 44 creators, which is the worst possible way for a regression to hide. "Make sure it doesn't break
+// again" is this file.
 
 const phoneBrowser = { phone: true, installed: false, inApp: false, wantsPush: true, status: 'active' }
 
@@ -27,11 +20,9 @@ describe('installPromptFor', () => {
     expect(installPromptFor({ ...phoneBrowser, isAdmin: true }).mode).toBe('install')
   })
 
-  // AND GIVES THEM NO WAY OUT EITHER (9 Sep 2026, later the same day).
+  // AND GIVES THEM NO WAY OUT EITHER (later the same day).
   //
-  // Ethan, having met the dismissible version on his own phone: "currently it
-  // shows 'not now, keep me in the browser'. We don't want that at all... we
-  // want them to only use that." The escape hatch was written for a real worry
+  // The escape hatch was written for a real worry
   // - an admin opening /admin from a phone browser - and that worry has an
   // answer that is not a door: install the app and open /admin from the icon,
   // which is the same app on the same origin.

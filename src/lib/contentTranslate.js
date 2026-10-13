@@ -6,12 +6,10 @@ import { contentApi } from '../api/content'
 
 // WHAT A PERSON WROTE, IN THE READER'S LANGUAGE, WITHOUT A SECOND COPY OF IT.
 //
-// Ethan: briefs and the like should be readable in a creator's own language, and "keep
-// same file". A challenge still holds ONE text - what its author wrote. This asks for
-// what that text says in the reader's language, from a cache keyed on a hash of the
-// exact words (`content_translations`, migration 281), and only calls the translator the
-// first time anybody asks. The original is never altered and is one press away
-// (`TranslatedText`).
+// The team: briefs and the like should be readable in a creator's own language, and "keep same file". A challenge still
+// holds ONE text - what its author wrote. This asks for what that text says in the reader's language, from a cache keyed
+// on a hash of the exact words (`content_translations`, migration 281), and only calls the translator the first time
+// anybody asks. The original is never altered and is one press away (`TranslatedText`).
 //
 // EVERY FAILURE IS THE ORIGINAL. Offline, a translator that is down, a table that has not
 // been migrated: the reader gets exactly what the author wrote, unmarked. A translation
@@ -26,11 +24,11 @@ const memo = new Map() // `${locale}\n${text}` -> row
 const inflight = new Map() // `${locale}\n${text}` -> Promise<row | undefined>, while it is being fetched
 const key = (locale, text) => `${locale}\n${text}`
 
-// ONE CACHE LOOKUP PER PAGE, NOT ONE PER TEXT (7 Oct 2026). Every TranslatedText / ReaderText on a page
-// used to send its own `content_translations` request - the busiest endpoint on the platform, ~9,000 a
-// day, and the one at the front of the queue when the database ran out of room and the platform went
-// down. Lookups asked for within the same 25ms are now merged into one request (chunked so the URL
-// stays short), and a text already on its way is waited for rather than asked for again.
+// ONE CACHE LOOKUP PER PAGE, NOT ONE PER TEXT. Every TranslatedText / ReaderText on a page used to send its own
+// `content_translations` request - the busiest endpoint on the platform, ~9,000 a day, and the one at the front of the
+// queue when the database ran out of room and the platform went down. Lookups asked for within the same 25ms are now
+// merged into one request (chunked so the URL stays short), and a text already on its way is waited for rather than
+// asked for again.
 const LOOKUP_WAIT_MS = 25
 const LOOKUP_CHUNK = 60
 const lookups = new Map() // locale -> { hashes: Set, waiters: [{ resolve }], timer }
@@ -93,11 +91,10 @@ async function fetchTexts(need, locale) {
       const row = byHash.get(hashes[i])
       if (row) { memo.set(key(locale, t), row); out[t] = row } else missing.push(t)
     })
-    // THE READER'S BROWSER FIRST (2 Oct 2026). The server's calls to the free engines are
-    // rate-limited on Supabase's shared addresses (three in four failed in a day); from here the
-    // same endpoint answers on the reader's own allowance. What it makes is kept in memory and in
-    // the shared cache (`cache_content_translation`, migration 288). Anything it cannot do still
-    // goes to the edge function, which tries its own engines.
+    // THE READER'S BROWSER FIRST. The server's calls to the free engines are rate-limited on Supabase's shared addresses
+    // (three in four failed in a day); from here the same endpoint answers on the reader's own allowance. What it makes
+    // is kept in memory and in the shared cache (`cache_content_translation`, migration 288). Anything it cannot do
+    // still goes to the edge function, which tries its own engines.
     const viaServer = []
     await Promise.all(missing.map(async (t) => {
       try {
@@ -137,10 +134,8 @@ export function forgetTranslation(locale, text) { memo.delete(key(locale, text))
 export function useContentTranslation(text, { originalFirst = true } = {}) {
   const locale = useLocale()
   const [row, setRow] = useState(null)
-  // ORIGINAL FIRST (1 Oct 2026). Ethan: "whenever I'm viewing in English, for example the Portugal challenge, the
-  // prefix, etc., should always show in the language it was typed in first, not automatically be translated. Of
-  // course, that toggle should still be there at the top." So what the author wrote is what opens, and the switch
-  // (Original | Translated) is one press away once a translation exists.
+  // ORIGINAL FIRST. So what the author wrote is what opens, and the switch (Original | Translated) is one press away
+  // once a translation exists.
   const [showOriginal, setShowOriginal] = useState(originalFirst)
   useEffect(() => {
     let alive = true

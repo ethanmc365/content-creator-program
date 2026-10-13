@@ -6,10 +6,10 @@ import Icon from '../Icon'
 import { formatDate, formatViews } from '../../lib/utils'
 import { ATTENTION, EVENT_ICON, describeEvent, perK, useOptionalRpc, useKindT } from '../../lib/vip'
 
-// THE TEAM'S SIDE OF THE VIP PROGRAMME, PART THREE (30 Sep 2026, migration 298): the things that turn the tools from
-// a set of tables into something you can read at a glance - a trend, who needs a nudge, who looks ready to be a VIP,
-// what has happened, and what you have told your VIPs. Every block asks the database politely (useOptionalRpc): if it
-// does not have the function yet the block draws nothing rather than an error.
+// THE TEAM'S SIDE OF THE VIP PROGRAMME, PART THREE (migration 298): the things that turn the tools from a set of tables
+// into something you can read at a glance - a trend, who needs a nudge, who looks ready to be a VIP, what has happened,
+// and what you have told your VIPs. Every block asks the database politely (useOptionalRpc): if it does not have the
+// function yet the block draws nothing rather than an error.
 
 // The chart is loaded on demand (see TrendCard.jsx for why it lives apart from this file).
 const TrendCardChart = lazyRoute(() => import('./TrendCard'))
@@ -23,7 +23,7 @@ export function AttentionCard({ programme }) {
   const { data, missing } = useOptionalRpc('vip_attention', { p_programme: programme.id }, programme.id)
   const r = perK(programme.cpm, programme.currency || 'EUR')
   if (missing || !data || data.length === 0) return null
-  // IN THE PLATFORM'S OWN COLOURS (3 Oct 2026). Ethan: "I don't like that color of that card. It's like a weird yellow."
+  // IN THE PLATFORM'S OWN COLOURS.
   return (
     <section className="relative overflow-hidden rounded-card border border-gray-100 bg-white p-4 shadow-card animate-rise sm:p-5">
       <h2 className="mb-3 flex items-center gap-2 text-[15px] font-bold text-ink"><Icon name="bell" className="h-5 w-5 text-brand" />{tr('Needs a nudge')} <span className="rounded-full bg-brand-tint px-2 py-0.5 text-xs font-bold text-brand">{data.length}</span></h2>
@@ -78,9 +78,9 @@ export function SuggestionsCard({ programme, onPick }) {
 /** What has happened: moves, rate changes, targets. One creator, or the whole programme. */
 export function ActivityFeed({ programme, profileId = null, limit = 12, title, bare = false }) {
   const tr = useKindT()
-  // SHOW MORE, A PAGE AT A TIME (9 Oct 2026). Ethan: "for the recent activity at the bottom of VIP tools, try to improve it." It was
-  // the last dozen entries and no way to see anything older, one flat list with a dot each. Now it is grouped by day, shows who it
-  // was about, and a button asks for older ones (each ask is one more small read, only when somebody presses it).
+  // SHOW MORE, A PAGE AT A TIME. It was the last dozen entries and no way to see anything older, one flat list with a
+  // dot each. Now it is grouped by day, shows who it was about, and a button asks for older ones (each ask is one more
+  // small read, only when somebody presses it).
   const [more, setMore] = useState(0)
   const n = limit + more * 20
   const { data, missing } = useOptionalRpc('vip_timeline', { p_programme: programme.id, p_profile: profileId, p_limit: n }, `${programme.id}:${profileId}:${n}`)

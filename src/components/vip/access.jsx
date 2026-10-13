@@ -7,10 +7,7 @@ import { clearVipAccess, vipRpc, useKindT } from '../../lib/vip'
 import { formatDate } from '../../lib/utils'
 import { profilesApi } from '../../api/profiles'
 
-// WHO CAN OPEN THE VIP TOOLS (30 Sep 2026, migration 296).
-//
-// Ethan: "The entire Tryp.com team should not be able to see it but I should, and I should be able to add other
-// managers to it, for example Marta who is leading the Spanish VIP program."
+// WHO CAN OPEN THE VIP TOOLS (migration 296).
 //
 // The owner always has it. Anybody else needs a row here, per programme, so a Spanish lead runs Spain and sees
 // nothing of Romania. Only the owner sees this tab and only the owner can write the list (the functions refuse
@@ -29,7 +26,7 @@ export function VipAccessTab({ programmes }) {
   const load = useCallback(async () => {
     try {
       const list = (await vipRpc('vip_managers_list')) || []
-      // The team's demo login keeps its access for testing, but it is not somebody to list here (3 Oct 2026).
+      // The team's demo login keeps its access for testing, but it is not somebody to list here.
       const ids = [...new Set(list.map((r) => r.profile_id))]
       const { data: hide } = ids.length ? await profilesApi.profiles().select('id').in('id', ids).or('is_test.eq.true,is_sandbox.eq.true') : { data: [] }
       const hidden = new Set((hide || []).map((h) => h.id))
@@ -38,10 +35,9 @@ export function VipAccessTab({ programmes }) {
   }, [])
   useEffect(() => { load() }, [load])
 
-  // PEOPLE SEARCH, FAST (3 Oct 2026). Ethan: "type in a name, it shows searching ... if I delete it, it just keeps showing
-  // searching ... it takes a while for them to show up." The search box was waiting a quarter of a second, asking the
-  // database, and never clearing its "Searching" flag when the box was emptied. Now the team (admins first) is fetched
-  // once when the tab opens and filtered as you type, with no wait; anybody else is looked up behind it.
+  // PEOPLE SEARCH, FAST. The search box was waiting a quarter of a second, asking the database, and never clearing its
+  // "Searching" flag when the box was emptied. Now the team (admins first) is fetched once when the tab opens and
+  // filtered as you type, with no wait; anybody else is looked up behind it.
   const [team, setTeam] = useState(null)
   useEffect(() => {
     let alive = true

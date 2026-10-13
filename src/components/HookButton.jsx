@@ -12,13 +12,7 @@ import { OnDemandSwitch } from './TranslatedText'
 import { useTranslateOnDemand } from '../lib/quickTranslate'
 import { contentApi } from '../api/content'
 
-// "HOOK ME UP" (24 Sep 2026).
-//
-// Ethan: "a button that should show up on every challenge... on the right side,
-// just above where it shows the prizes... Whenever you click it, it should just
-// pop up with a hook... Call it something cool... I don't want any filters or
-// anything on the button, just really straightforward: click and give a
-// random hook."
+// "HOOK ME UP".
 //
 // The bank (table `hooks`, migration 261) is read once, on the first press,
 // and kept for the session - it is ~1,500 short lines and most visits never
@@ -36,9 +30,7 @@ function writeSeen(set) {
   try { localStorage.setItem(SEEN, JSON.stringify([...set].slice(-2000))) } catch { /* private mode */ }
 }
 
-// NO LOADING ON THE FIRST PRESS (28 Sep 2026). Ethan: "immediately, whenever
-// you do it for the very first time, it shows a bit of a loading thing ...
-// just make it happen faster." Two things make the first press instant:
+// NO LOADING ON THE FIRST PRESS. Two things make the first press instant:
 //   1. The bank is kept on the device for a day, so a returning creator has it
 //      before they ever press.
 //   2. It is fetched quietly as soon as the button is on screen (when the
@@ -123,9 +115,7 @@ export default function HookButton({ className, variant = 'card' }) {
     await next()
   }
 
-  // A HOOK ARRIVES IN ENGLISH, WITH A TRANSLATE SWITCH (2 Oct 2026). Ethan: "the hooks aren't
-  // actually translated. Maybe we could also have a translate button at the top ... It should
-  // always load an English version". Copy takes whichever version is on screen.
+  // A HOOK ARRIVES IN ENGLISH, WITH A TRANSLATE SWITCH. Copy takes whichever version is on screen.
   const htx = useTranslateOnDemand(hook?.text || '')
 
   async function copy() {
@@ -134,7 +124,7 @@ export default function HookButton({ className, variant = 'card' }) {
     if (ok !== false) toastSuccess(tr('Hook copied'))
   }
 
-  // `big` (1 Oct 2026): the button alone, larger, for the VIP library where it sits beside "Find a deal".
+  // `big`: the button alone, larger, for the VIP library where it sits beside "Find a deal".
   const bigButton = (
     <div className={cx('relative', className)}>
       <span aria-hidden className="absolute inset-0 animate-cta-glow rounded-2xl bg-brand/50 blur-md" />
@@ -153,12 +143,8 @@ export default function HookButton({ className, variant = 'card' }) {
   return (
     <>
       {variant === 'big' ? bigButton : (<>
-      {/* JUST THE BUTTON, AND IT ASKS TO BE PRESSED (26 Sep 2026).
-          Ethan: "remove where it says 'Stuck on the first line' and the other
-          icon ... All I would have here is the button, small. Maybe have it
-          glow a bit. Make people want to click it ... the stars beside 'Hook
-          Me Up' could be animating." A slow glow breathes behind it and the
-          sparkles twinkle; both are decoration and stop under reduced motion. */}
+      {/* JUST THE BUTTON, AND IT ASKS TO BE PRESSED. A slow glow breathes behind it and the sparkles twinkle; both are
+          decoration and stop under reduced motion. */}
       <section className={cx('relative rounded-card border border-gray-100 bg-white p-3 shadow-card', className)}>
         <div className="relative">
           <span aria-hidden className="absolute inset-0 -z-0 animate-cta-glow rounded-xl bg-brand/60 blur-md" />
@@ -186,9 +172,8 @@ export default function HookButton({ className, variant = 'card' }) {
               <OnDemandSwitch t={htx} />
             </div>
           )}
-          {/* THE QUOTE MARK HAS ITS OWN ROW (26 Sep 2026). It was a huge glyph
-              pinned to a corner, and a long hook ran straight over it. Now it
-              sits above the words, so no length of hook can touch it. */}
+          {/* THE QUOTE MARK HAS ITS OWN ROW. It was a huge glyph pinned to a corner, and a long hook ran straight over
+              it. Now it sits above the words, so no length of hook can touch it. */}
           <div className="relative overflow-hidden rounded-card bg-gradient-to-br from-brand to-brand-light px-5 pb-6 pt-4 text-white shadow-card sm:px-6">
             <span aria-hidden className="pointer-events-none absolute -right-10 -top-12 h-40 w-40 rounded-full bg-white/10 blur-2xl" />
             <span aria-hidden className="block select-none font-serif text-5xl font-bold leading-none text-white/35">&ldquo;</span>
@@ -208,9 +193,7 @@ export default function HookButton({ className, variant = 'card' }) {
             ) : (
               <p className="relative text-sm font-medium">{tr('No hooks yet.')}</p>
             )}
-            {/* AND A CLOSING MARK, SO THE CARD LEVELS OUT (28 Sep 2026). Ethan:
-                "maybe there should also be quotes at the bottom so it levels
-                out." Its own row again, right-aligned, so a long hook pushes it
+            {/* AND A CLOSING MARK, SO THE CARD LEVELS OUT. Its own row again, right-aligned, so a long hook pushes it
                 down rather than running into it. */}
             <span aria-hidden className="-mb-4 mt-1 block select-none text-right font-serif text-5xl font-bold leading-none text-white/35">&rdquo;</span>
           </div>

@@ -31,10 +31,8 @@ describe('clusterMerges', () => {
 })
 
 describe('the fault this was extracted for', () => {
-  // THE BUG, 28 Sep 2026. Zoomed fully out, every creator in Europe fell into a
-  // single pin reading "130" on the UK. Single linkage is transitive and Europe
-  // is a dense chain of towns, so each country joined the next until the
-  // continent was one group.
+  // THE BUG. Zoomed fully out, every creator in Europe fell into a single pin reading "130" on the UK. Single linkage is
+  // transitive and Europe is a dense chain of towns, so each country joined the next until the continent was one group.
   //
   // These are the real projected distances' shape: a line of countries each
   // within a pin's width of the next, which is what world zoom looks like.

@@ -1,11 +1,9 @@
 import { describe, it, expect } from 'vitest'
 import { thumbUrl } from './avatarUrl'
 
-// A map pin draws a circle 24 units across and was fetching the original
-// upload to fill it: 82,743 bytes, measured on production, times forty pins.
-// Ethan: "it takes a lot of time for the profile pictures to load in on the
-// pins." These pin the rules that keep the rewrite safe to put in front of
-// every `photo_url` in the codebase.
+// A map pin draws a circle 24 units across and was fetching the original upload to fill it: 82,743 bytes, measured on
+// production, times forty pins. These pin the rules that keep the rewrite safe to put in front of every `photo_url` in
+// the codebase.
 
 const OURS = 'https://heuhqqoxyggawuckxocp.supabase.co/storage/v1/object/public/avatars/abc/avatar-1.jpg'
 

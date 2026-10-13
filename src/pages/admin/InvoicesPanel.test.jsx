@@ -1,9 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 
-// The two things Ethan asked for on 28 Sep 2026, and the two things that are
-// easiest to break again: an invoice for somebody who is not on the platform,
-// and an amount box that wears the sign of the currency the invoice is in.
+// The two things the team asked for, and the two things that are easiest to break again: an invoice for somebody who is
+// not on the platform, and an amount box that wears the sign of the currency the invoice is in.
 
 const creatorPrivate = { pay_currency: null }
 
@@ -76,11 +75,10 @@ describe('the invoice composer', () => {
     // EUROS UNLESS TOLD OTHERWISE - and the box says so, which is the bug:
     // "this one seems to be in euros, but it's still showing the pound sign."
     //
-    // THE CURRENCY IS NOT READ OFF THE LABEL ANY MORE (28 Sep 2026). It used to
-    // say "Prize amount (€)" and this test asserted on that, which made the
-    // label the thing under test rather than the behaviour. Ethan had the symbol
-    // removed from the heading - the switch and the box both say it already - so
-    // the assertion is now on the switch's own pressed state and on the totals.
+    // THE CURRENCY IS NOT READ OFF THE LABEL ANY MORE. It used to say "Prize amount (€)" and this test asserted on that,
+    // which made the label the thing under test rather than the behaviour. The team had the symbol removed from the
+    // heading - the switch and the box both say it already - so the assertion is now on the switch's own pressed state
+    // and on the totals.
     expect(screen.getByLabelText('Prize amount')).toBeTruthy()
     expect(screen.getByRole('button', { name: '€ EUR' }).getAttribute('aria-pressed')).toBe('true')
     fireEvent.change(screen.getByLabelText('Prize amount'), { target: { value: '120' } })
@@ -97,10 +95,7 @@ describe('the invoice composer', () => {
 
 // THE CONVERSION NOTE, both halves of it.
 //
-// Ethan: "when I click on GBP, it shows £20 in the invoice, which is correct,
-// but then it shows 'converted from €23 at today's European Central Bank rate'.
-// That doesn't really make sense. It shouldn't be showing up." And then: "if a
-// creator with UK details wins a euro prize, it should be converted to pounds."
+// And then: "if a creator with UK details wins a euro prize, it should be converted to pounds."
 describe('converting a prize', () => {
   const NOTE = /Converted from/
 

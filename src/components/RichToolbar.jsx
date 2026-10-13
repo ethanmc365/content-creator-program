@@ -13,12 +13,10 @@ import { promptText } from '../lib/confirm'
 // keeps a checklist nobody wants on a challenge brief, and the third quietly
 // produces markdown the reader cannot render. One component, one behaviour.
 //
-// IT SHOWS WHAT IS ON. Ethan asked for the active button to light up in Tryp
-// orange, and he is right that it was missing rather than merely unstyled: with
-// no active state, a toolbar tells you what you COULD do and never what you ARE
-// doing. You cannot tell whether the caret is already inside a bullet without
-// typing a character to find out. The state is read from the selection, which is
-// the only thing that actually knows.
+// IT SHOWS WHAT IS ON. The team asked for the active button to light up in Tryp orange, and they are right that it was
+// missing rather than merely unstyled: with no active state, a toolbar tells you what you COULD do and never what you
+// ARE doing. You cannot tell whether the caret is already inside a bullet without typing a character to find out. The
+// state is read from the selection, which is the only thing that actually knows.
 
 const ALL = [
   { label: 'H1', title: 'Heading 1', act: 'h1', block: 'h1' },

@@ -49,8 +49,8 @@ describe('splitMembers', () => {
     expect(memberCount(ROWS)).toBe(3)
   })
 
-  // Ethan runs UK & Ireland and expected to be in its number. He is counted,
-  // as TEAM rather than as a creator, so both numbers stay true.
+  // The team runs UK & Ireland and expected to be in its number. they are counted, as TEAM rather than as a creator, so
+  // both numbers stay true.
   it('counts an admin who runs the market, as team', () => {
     expect(s.team.map((r) => r.profiles.name)).toEqual(['Ethan'])
     expect(s.creators.map((r) => r.profiles.name)).toEqual(['Creator A', 'Creator B'])

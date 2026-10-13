@@ -1,15 +1,9 @@
 // WHO FLIES THIS ROUTE, AND ON WHAT.
 //
-// WHAT THIS IS FOR. Logging a flight used to be seven fields, five of them
-// optional and all of them typed from memory: airline, flight number, aircraft,
-// cabin, duration. Nobody remembers the aircraft. Most people do not remember
-// the flight number an hour after landing. So the log filled up with rows that
-// said "DUB to OSL" and nothing else, and every statistic built on the other
-// columns - airlines flown, aircraft types, time in the air - stayed at zero.
-// Ethan: "can't you get all the flight info from somewhere and track the miles,
-// average flight time etc when someone enters a flight like Dublin to Oslo, and
-// fill everything in automatically, showing the options for the companies that
-// do that route and then choosing the appropriate plane from that."
+// WHAT THIS IS FOR. Logging a flight used to be seven fields, five of them optional and all of them typed from memory:
+// airline, flight number, aircraft, cabin, duration. Nobody remembers the aircraft. Most people do not remember the
+// flight number an hour after landing. So the log filled up with rows that said "DUB to OSL" and nothing else, and every
+// statistic built on the other columns - airlines flown, aircraft types, time in the air - stayed at zero.
 //
 // WHY THIS IS A TABLE AND NOT AN API. There is no free, unauthenticated,
 // CORS-open source of scheduled route data. The ones that exist are paid feeds
@@ -40,10 +34,6 @@
 // because "180 seats" tells somebody what kind of aeroplane it was in a way
 // "A320neo" does not.
 // `year` IS ENTRY INTO SERVICE, NOT FIRST FLIGHT AND NOT THE END OF PRODUCTION.
-//
-// Ethan, on the collection cards: "I would also like to add some more
-// information on the card. I think one piece of good information for each plane
-// would be the year it was manufactured or the year it was released."
 //
 // Of the three dates an aircraft type has - rolled out, first flew, entered
 // passenger service - the last is the only one that answers the question a
@@ -79,12 +69,9 @@ export const AIRCRAFT = {
 
   // ---- THE REST OF WHAT PEOPLE ACTUALLY FLY ----
   //
-  // Ethan: "I want to ensure you have the most common aircrafts here." The list
-  // above was assembled to answer a different question - "what would this
-  // airline send on this route" - so it holds one representative of each family
-  // and skips the variants. A COLLECTION is the opposite: the variant IS the
-  // entry, because somebody who has been on a 787-8 and a 787-9 has been on two
-  // aircraft and wants two cards.
+  // The list above was assembled to answer a different question - "what would this airline send on this route" - so it
+  // holds one representative of each family and skips the variants. A COLLECTION is the opposite: the variant IS the
+  // entry, because somebody who has been on a 787-8 and a 787-9 has been on two aircraft and wants two cards.
   //
   // Everything added here is a type a normal person can plausibly have been on
   // in the last fifteen years, which is the only test that matters for a
@@ -112,9 +99,6 @@ export const AIRCRAFT = {
   dhc6:     { name: 'DHC-6 Twin Otter',  maker: 'De Havilland', range: 1480, seats: 19, cruise: 340, body: 'turboprop', year: 1966 },
 
   // ---- AND THE SEVEN THAT MAKE THE WALL COME OUT EVEN ----
-  //
-  // Ethan: "if there's a few more relatively popular passenger planes exist,
-  // try to add them so it's even with four on each row."
   //
   // The collection page lays each body class out four to a row on a wide
   // screen, so a class holding fourteen ends in a row of two and every one of

@@ -38,8 +38,8 @@ export default function ConfirmHost() {
   const submit = useCallback(() => {
     if (isPrompt) {
       const v = value.trim()
-      // `allowEmpty` (13 Oct 2026): an optional field confirms with '' rather than reading as Cancel. Without it,
-      // declining a market request with no note did nothing at all - the empty box came back as null.
+      // `allowEmpty`: an optional field confirms with '' rather than reading as Cancel. Without it, declining a market
+      // request with no note did nothing at all - the empty box came back as null.
       close(v ? v : state?.options?.allowEmpty ? '' : null)
     } else {
       close(true)

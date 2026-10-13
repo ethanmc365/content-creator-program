@@ -4,10 +4,6 @@ import { COUNTRIES, countryMatches } from './countries'
 
 // THE YEAR IN REVIEW.
 //
-// Ethan, 16 Sep 2026: "a personal, shareable recap in December. Like Spotify
-// Wrapped... The recap should be related to the community, travel and their
-// contributions."
-//
 // WHAT MAKES ONE OF THESE WORK, and it is not the data.
 //
 // Spotify does not say "you listened to 47,283 minutes". It says "you spent 788
@@ -176,11 +172,8 @@ export function buildYearInReview({
     londonSydneys: ft.distance / LHR_SYD_KM,
     collabTrips: myCollab.length,
     collabCities: [...new Set(myCollab.map((c) => c.city).filter(Boolean))],
-    // THE COUNTRY RIDES ALONG SO THE CARD CAN SHOW A FLAG. Ethan: "you show
-    // Botswana, Zimbabwe, Istanbul, etc. I would also show the flags here. I
-    // think it adds a nice bit of color." A city on its own cannot be turned
-    // into a flag - `flagEmoji` needs the country - and the card only had
-    // cities, which is why it was a row of grey chips.
+    // THE COUNTRY RIDES ALONG SO THE CARD CAN SHOW A FLAG. A city on its own cannot be turned into a flag - `flagEmoji`
+    // needs the country - and the card only had cities, which is why it was a row of grey chips.
     collabPlaces: (() => {
       const seen = new Map()
       for (const c of myCollab) {
@@ -215,21 +208,14 @@ export function buildYearInReview({
   const myResults = results.filter((r) => r.creator_id === meId && myChallengeIds.has(r.challenge_id))
   // WHAT A CREATOR'S VIEWS FOR THE YEAR ACTUALLY ARE, AND THE BUG THAT WAS HERE.
   //
-  // Ethan: "it says everything you posted for Tryp.com this year added up,
-  // although this is incorrect, because Jacob I know has got way more than
-  // 3,600 views."
+  // they are right, and by a factor of six. This used to treat `results.final_views` as the VERIFIED TOTAL for a
+  // challenge and let it REPLACE the sum of that creator's own submissions in it. `final_views` is not a total. MEASURED
+  // across every result row in production: `final_views` equals `max(logged_views)` for that creator in that challenge,
+  // in EVERY SINGLE ROW. It is the figure the leaderboard RANKS on - one video, their best - because a creator who
+  // enters nine videos must not out-rank one who entered one.
   //
-  // He is right, and by a factor of six. This used to treat `results.final_views`
-  // as the VERIFIED TOTAL for a challenge and let it REPLACE the sum of that
-  // creator's own submissions in it. `final_views` is not a total. MEASURED
-  // across every result row in production on 20 Sep 2026: `final_views` equals
-  // `max(logged_views)` for that creator in that challenge, in EVERY SINGLE ROW.
-  // It is the figure the leaderboard RANKS on - one video, their best - because
-  // a creator who enters nine videos must not out-rank one who entered one.
-  //
-  // So for anybody who entered more than one video, the recap was throwing away
-  // every video but their biggest and calling the remainder "everything you
-  // posted, added up". Jacob: 14 videos, 23,568 views, shown as 3,646 - his best
+  // So for anybody who entered more than one video, the recap was throwing away every video but their biggest and
+  // calling the remainder "everything you posted, added up". Jacob: 14 videos, 23,568 views, shown as 3,646 - their best
   // one. Lisa: 16,755 shown as 15,200. Denisa: 10,205 shown as 5,439.
   //
   // The rule now: SUM the submissions, and treat the judged figure as a FLOOR
@@ -311,13 +297,11 @@ export function buildYearInReview({
 
   // --------------------------------------------------------------- community
   //
-  // A DM IS A MESSAGE. Ethan: "you can show how many messages, but I think you
-  // should also count DMs here, not just general messages."
+  // A DM IS A MESSAGE.
   //
-  // He is right and the gap was not small. MEASURED 20 Sep 2026: 94 room
-  // messages in the year against 216 direct messages - so the card was showing
-  // under a third of what somebody actually said, and calling the rooms "where
-  // the community actually happens" while most of it happened in DMs.
+  // they are right and the gap was not small. MEASURED: 94 room messages in the year against 216 direct messages - so
+  // the card was showing under a third of what somebody actually said, and calling the rooms "where the community
+  // actually happens" while most of it happened in DMs.
   //
   // COUNTS ONLY. No DM body is read here and none is passed in; the fetch asks
   // for `sender_id, created_at` and nothing else.
@@ -417,11 +401,9 @@ export function buildYearInReview({
 
   // A PERCENTILE FOR ONE VIDEO, not just for the year's total.
   //
-  // Ethan: "on best video showing like top 3%, top 50% for most views for one
-  // video and for the cumulative views." Two different questions - "did you
-  // post a lot that did well" and "did you make ONE that went off" - and only
-  // the first had an answer. A creator with three modest videos and a creator
-  // with one that took off can sit in the same total-views percentile.
+  // Two different questions - "did you post a lot that did well" and "did you make ONE that went off" - and only the
+  // first had an answer. A creator with three modest videos and a creator with one that took off can sit in the same
+  // total-views percentile.
   const bestBy = new Map()
   for (const x of submissions) {
     if (!inYear(x.submitted_at, year) || !peerIds.has(x.creator_id)) continue
@@ -465,17 +447,10 @@ export function buildYearInReview({
 
   // THE PROGRAMME'S YEAR IS BOTH HALVES, AND THIS CARD ONLY HAD ONE.
   //
-  // Ethan: "the views together, which is showing every creator across every
-  // market... I'm not sure why it's only showing 43 because obviously from
-  // analytics, you should see that there's a lot of views. So please properly
-  // do that. Not just taking the data from the challenge on the platform, but
-  // from all the challenge for the year."
-  //
-  // MEASURED, 20 Sep 2026: the platform's own submissions for 2026 carry 43,412
-  // views (which is what "43K" on the card was). `challenge_history` rows with
-  // a null `challenge_id` - the challenges the programme ran BEFORE this app
-  // existed, which is most of them - carry 19,654,970 across 47 contests. The
-  // card was showing 0.2% of the year and calling it "together".
+  // MEASURED: the platform's own submissions for 2026 carry 43,412 views (which is what "43K" on the card was).
+  // `challenge_history` rows with a null `challenge_id` - the challenges the programme ran BEFORE this app existed,
+  // which is most of them - carry 19,654,970 across 47 contests. The card was showing 0.2% of the year and calling it
+  // "together".
   //
   // AdminAnalytics has always summed both halves (see the note there on
   // `history`), which is exactly why the two screens disagreed so wildly.
@@ -489,9 +464,6 @@ export function buildYearInReview({
   const histViews = histInYear.reduce((n, h) => n + Number(h.total_views || 0), 0)
   const histPosts = histInYear.reduce((n, h) => n + Number(h.posts || 0), 0)
   // AND THE PRIZE MONEY, FOR THE SAME REASON THE VIEWS ARE.
-  //
-  // Ethan: "it shows in prizes 292 euro 50, which is clearly not correct. So
-  // you can take some of the data from the all-time analytics."
   //
   // The card was summing `rewards`, which is what this PLATFORM has paid out -
   // 250 EUR, because the platform is two months old. The programme's 2026 is 47

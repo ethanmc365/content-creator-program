@@ -35,12 +35,6 @@ const FX_URL = 'https://api.frankfurter.dev/v1/latest?base=GBP&symbols=EUR'
 
 // SOMEBODY WHO IS NOT ON THE PLATFORM STILL GETS PAID.
 //
-// Ethan: "if there's anything like a challenge run off the platform that we
-// still want to create an invoice for a creator, they can do it super easily on
-// here and download it ... rather than choosing a creator, at the very bottom
-// there should be an option to just click Other, and then you can actually type
-// the specific name of the creator and the prize amount."
-//
 // The picker was the only way to name a payee, and it only listed accounts. A
 // creator who won a prize in a campaign run somewhere else had no account, so
 // the invoice could not be written at all - which meant it was written by hand,
@@ -49,7 +43,7 @@ const FX_URL = 'https://api.frankfurter.dev/v1/latest?base=GBP&symbols=EUR'
 // amount and the bank block are simply typed.
 const OFF_PLATFORM = '__off_platform__'
 
-/** "11/07/2026" -> ISO date "2026-07-11" (null if malformed). */
+/* "11/07/2026" -> ISO date "2026-07-11" (null if malformed). */
 function dateInputToIso(v = '') {
   const m = v.trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/)
   if (!m) return null
@@ -92,10 +86,6 @@ export default function InvoicesPanel({ prefill, onClose, onSent }) {
   const [payee, setPayee] = useState(EMPTY_PAYEE)
   const [hasSaved, setHasSaved] = useState(true) // did the creator save payment details?
   // THE AMOUNT IS TYPED IN THE CURRENCY THE INVOICE IS WRITTEN IN.
-  //
-  // Ethan: "currently it's showing the prize amount in pounds, although it
-  // should be in euros ... this one seems to be in euros, but it's still
-  // showing the pound sign."
   //
   // It was two boxes: type the prize in POUNDS, and a second box underneath
   // showed the euros it converted to. So the field you typed into wore a £ even
@@ -201,10 +191,8 @@ export default function InvoicesPanel({ prefill, onClose, onSent }) {
   // it. No second figure derived from a first one.
   const invoiceAmount = amount
 
-  // THE NOTE DESCRIBES THE DOCUMENT, NOT THE LAST BUTTON PRESS. Ethan: "when I
-  // click on GBP, it shows £20 in the invoice, which is correct, but then it
-  // shows 'converted from €23' ... It shouldn't be showing up." It only shows
-  // when the invoice is in a different currency from the prize.
+  // THE NOTE DESCRIBES THE DOCUMENT, NOT THE LAST BUTTON PRESS. It only shows when the invoice is in a different
+  // currency from the prize.
   const fxNote = conversionNote(source, currency, fxRate)
 
   // Changing the currency converts what is already there instead of clearing
@@ -387,9 +375,6 @@ export default function InvoicesPanel({ prefill, onClose, onSent }) {
 
   // SAVING AN INVOICE IS ONE PRESS, NOT A CEREMONY.
   //
-  // Ethan: "remove this copy, it's not needed, it's not needing to be approved
-  // by another admin."
-  //
   // The form used to explain, at length, that an invoice would sit in a queue
   // until a SECOND admin approved it - and it meant it: the send buttons only
   // appeared on a row somebody else had signed off. For a prize the person
@@ -505,11 +490,7 @@ export default function InvoicesPanel({ prefill, onClose, onSent }) {
     return out
   }
 
-  // THE PLATFORM DOES NOT SEND THE INVOICE ANY MORE (3 Sep 2026).
-  //
-  // Ethan: "the auto 'send to email' isn't gonna be there any more. Pretty much
-  // just gonna download it and click compose in Gmail. It should automatically
-  // create the message and download the file for you to then send."
+  // THE PLATFORM DOES NOT SEND THE INVOICE ANY MORE.
   //
   // `send()` lived here and called `send-invoice` with the PDF as base64, which
   // mailed it through Resend. That is exactly the outbound path that is paused
@@ -641,13 +622,10 @@ export default function InvoicesPanel({ prefill, onClose, onSent }) {
 
             <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
               <div>
-                {/* THE TWO COLUMNS START THEIR INPUTS ON ONE LINE (28 Sep 2026).
-                    Adding the currency switch gave this column a header the
-                    height of a button while "Invoice date" still had a plain
-                    label, so the two boxes sat at different heights and the row
-                    read as crooked. Both headers are now the same fixed height
-                    with their contents sitting on the bottom edge, so the
-                    inputs line up whatever is in the header. */}
+                {/* THE TWO COLUMNS START THEIR INPUTS ON ONE LINE. Adding the currency switch gave this column a header
+                    the height of a button while "Invoice date" still had a plain label, so the two boxes sat at
+                    different heights and the row read as crooked. Both headers are now the same fixed height with their
+                    contents sitting on the bottom edge, so the inputs line up whatever is in the header. */}
                 <div className="flex h-8 items-end justify-between gap-2">
                   {/* NO SYMBOL IN THE LABEL. It said "Prize amount (€)", which
                       was the only way to know the currency before the switch
@@ -759,14 +737,10 @@ export default function InvoicesPanel({ prefill, onClose, onSent }) {
               </div>
             </div>
 
-            {/* THE COPY ABOUT APPROVAL IS GONE (28 Sep 2026).
-                Ethan: "remove this copy, it's not needed, it's not needing to
-                be approved by another admin." It was a paragraph explaining a
-                round trip that no longer happens - saving the invoice signs it
-                off in the same press (see `saveToQueue`). The one case that
-                still needs saying is the one where the database refused to let
-                the same person approve their own submission, and that line only
-                appears when it actually happened. */}
+            {/* THE COPY ABOUT APPROVAL IS GONE. It was a paragraph explaining a round trip that no longer happens -
+                saving the invoice signs it off in the same press (see `saveToQueue`). The one case that still needs
+                saying is the one where the database refused to let the same person approve their own submission, and
+                that line only appears when it actually happened. */}
             {!approvedToSend ? (
               <div className="space-y-3">
                 {stage === 'awaiting_approval' && (

@@ -3,10 +3,7 @@ import Icon from '../Icon'
 import { cx } from '../../lib/utils'
 import { useT } from '../../lib/i18n'
 
-// A SIGNATURE, TWO WAYS (7 Oct 2026).
-//
-// Ethan: "on mobile they could actually type with their finger or just type with the keyboard and then it would show up
-// as an automatic signature ... on desktop they would just type in and it would show up as the automatic signature."
+// A SIGNATURE, TWO WAYS.
 //
 // Either way the result is the same record: the typed full name (always required, it is what a person reads on the
 // register) plus an SVG of the mark - the name set in a handwriting face, or the strokes the finger drew. SVG rather
@@ -64,10 +61,10 @@ export default function SignaturePad({ defaultName = '', onChange }) {
     const r = svgRef.current.getBoundingClientRect()
     return [Math.round(((e.clientX - r.left) / r.width) * 600), Math.round(((e.clientY - r.top) / r.height) * 200)]
   }
-  // THE STROKE IS COPIED INTO A LOCAL BEFORE IT GOES INTO AN UPDATER (7 Oct 2026). React runs a state updater
-  // later, and by then a pointerup may have set `live.current` to null - so a quick stroke stored `null` as a line
-  // and the next render crashed in pathOf ("Cannot read properties of null (reading 'length')"), which is the
-  // "Mayday" page Ethan hit while signing in the Testing Centre.
+  // THE STROKE IS COPIED INTO A LOCAL BEFORE IT GOES INTO AN UPDATER. React runs a state updater later, and by then a
+  // pointerup may have set `live.current` to null - so a quick stroke stored `null` as a line and the next render
+  // crashed in pathOf ("Cannot read properties of null (reading 'length')"), which is the "Mayday" page the team hit
+  // while signing in the Testing Centre.
   const down = (e) => {
     e.preventDefault()
     e.currentTarget.setPointerCapture?.(e.pointerId)
@@ -99,8 +96,8 @@ export default function SignaturePad({ defaultName = '', onChange }) {
       </div>
       <div className="relative overflow-hidden rounded-2xl border-2 border-dashed border-gray-200 bg-white">
         {mode === 'type' ? (
-          // DESCENDERS (13 Oct 2026): truncate clips at the line box, and with leading-none the tails of g, j, y and p
-          // hung below it and were cut off. A taller line and a little bottom padding keep the whole name inside.
+          // DESCENDERS: truncate clips at the line box, and with leading-none the tails of g, j, y and p hung below it
+          // and were cut off. A taller line and a little bottom padding keep the whole name inside.
           <div className="flex h-36 items-center px-5">
             <span className={cx('signature-ink max-w-full truncate pb-[0.22em] pt-[0.08em] text-[44px] leading-[1.3] text-ink transition-opacity duration-300', name.trim() ? 'opacity-100' : 'opacity-25')} style={{ fontFamily: SIGNATURE_FONT }}>
               {name.trim() || tr('Your name')}

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { suggestCity } from '../lib/geocode'
 import { useT } from '../lib/i18n'
 
-// "Did you mean Melbourne, Australia?" under a town field (8 Oct 2026).
+// "Did you mean Melbourne, Australia?" under a town field.
 //
 // Creators type their town freehand, and a typo ("Melbournr", "Canguu", "Subai") meant no pin on the creator map
 // and nobody noticing. The geocoder now corrects spelling (Photon fallback in the `geocode` function); this asks

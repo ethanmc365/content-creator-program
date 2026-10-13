@@ -122,12 +122,9 @@ export function renderMessageBody(body, { rich = false, members = [], onDark = f
       const level = h[1].length
       // A HEADING HAS TO LOOK LIKE A HEADING.
       //
-      // Body copy in a message is 14px. This ladder used to be 16 / 14 / 14 -
-      // so an H2 was the SAME SIZE as the paragraph under it and differed only
-      // in weight, and an H3 differed only in weight by one step. Ethan:
-      // "there's barely a difference in me pressing a heading and just body
-      // text." He is right, and a heading that has to be looked for is not
-      // doing the one job a heading has.
+      // Body copy in a message is 14px. This ladder used to be 16 / 14 / 14 - so an H2 was the SAME SIZE as the
+      // paragraph under it and differed only in weight, and an H3 differed only in weight by one step. they are right,
+      // and a heading that has to be looked for is not doing the one job a heading has.
       //
       // 20 / 17 / 15 against a 14px body. Each step is visible on its own, and
       // the top margin is what actually separates a section from the paragraph
@@ -141,20 +138,17 @@ export function renderMessageBody(body, { rich = false, members = [], onDark = f
           : 'mt-2 block text-[15px] font-bold leading-snug first:mt-0'
       return <span key={`h${i}`} className={cls}>{renderInline(h[2], opts, `h${i}`)}</span>
     }
-    // AN EMPTY LINE IS A BLANK LINE, NOT NOTHING (26 Sep 2026). Ethan: "when
-    // I have spaces and paragraphs in it, and then I send it, it's all joined
-    // together." The text was stored with its blank lines; this drew each one
-    // as an empty block - renderInline('') is an empty list, not null, so the
-    // no-break-space fallback never fired - and an empty block is zero pixels
-    // tall. A paragraph break is a line of height.
+    // AN EMPTY LINE IS A BLANK LINE, NOT NOTHING. The text was stored with its blank lines; this drew each one as an
+    // empty block - renderInline('') is an empty list, not null, so the no-break-space fallback never fired - and an
+    // empty block is zero pixels tall. A paragraph break is a line of height.
     if (!line.trim()) return <span key={`l${i}`} className="block h-[1.25em]" aria-hidden />
     return <span key={`l${i}`} className="block">{renderInline(line, opts, `l${i}`)}</span>
   })
 }
 
-// Plain text for previews and notifications: drop markdown markers, keep @names.
-// Also the notification bell and page (7 Oct 2026): Marta's bold and heading lines showed as stars and hashes there.
-// The database strips new notifications at write (md_plain, migration 360); this covers anything older on a device.
+// Plain text for previews and notifications: drop markdown markers, keep @names. Also the notification bell and page:
+// Marta's bold and heading lines showed as stars and hashes there. The database strips new notifications at write
+// (md_plain, migration 360); this covers anything older on a device.
 export function stripMarkup(body) {
   if (!body) return ''
   return healInlineRuns(body)

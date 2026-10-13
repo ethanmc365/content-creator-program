@@ -5,24 +5,17 @@ import { useSlowNetwork } from '../lib/netQuality'
 import { COUNTRIES } from '../lib/countries'
 import { cx } from '../lib/utils'
 
-// THE MARKET'S OWN COUNTRY, ON THE CARD OF ITS CHALLENGE (1 Oct 2026).
-//
-// Ethan: "I think you could maybe not have the Portugal flag but have the actual zoomed-in map of Europe with Portugal
-// highlighted in the background. It's kind of animated the way we have the worldwide thing rotating in the background
-// ... Properly build that in for all of the markets, showing the appropriate country, obviously. For the Nordics you
-// can show all of them ... a generic card with data for future markets."
+// THE MARKET'S OWN COUNTRY, ON THE CARD OF ITS CHALLENGE.
 //
 // NOTHING IS STORED PER MARKET. A market already says which countries it covers (`country_codes`); this finds those
 // countries in the atlas the rest of the app draws, centres the view on them, and zooms to the width they cover (a
 // small country is shown among its neighbours, a spread of countries like the Nordics fills the frame). So a market
 // created next month has its map the moment it exists, and there is no table of "map settings" to fall out of date.
 //
-// STILL, AND THE WHOLE CARD (1 Oct 2026). Ethan: "I like the worldwide one being dynamic, but this simple one can
-// just be static: just show that Portugal is highlighted and show the map of Europe in the background. It doesn't need
-// to be moving, dynamic, or show aeroplanes or dots." And it was "squared off, cut off behind the leaderboard card":
-// it was a square canvas in one corner, and a square's edges show on a card that is not square. It is now a flat
-// map drawn ONCE (again only when the card changes size) across the whole card, so its only edges are the card's own.
-// That also ends the animation loop each market card used to run, which was half of the platform's lag.
+// STILL, AND THE WHOLE CARD. And it was "squared off, cut off behind the leaderboard card": it was a square canvas in
+// one corner, and a square's edges show on a card that is not square. It is now a flat map drawn ONCE (again only when
+// the card changes size) across the whole card, so its only edges are the card's own. That also ends the animation loop
+// each market card used to run, which was half of the platform's lag.
 
 // Names the atlas spells differently from our own country list.
 const ATLAS_NAME = {

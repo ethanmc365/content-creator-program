@@ -8,7 +8,7 @@ describe('convertAmount', () => {
     expect(convertAmount(20, 'GBP', 'EUR', RATE)).toBeCloseTo(23.076, 3)
   })
 
-  // The half Ethan asked for: a euro prize won by somebody banking in pounds.
+  // The half the team asked for: a euro prize won by somebody banking in pounds.
   it('turns euros into pounds', () => {
     expect(convertAmount(23.08, 'EUR', 'GBP', RATE)).toBeCloseTo(20.003, 3)
   })

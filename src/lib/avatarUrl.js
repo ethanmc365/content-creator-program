@@ -1,7 +1,6 @@
 // A PHOTO THE SIZE IT IS ACTUALLY DRAWN - WITHOUT THE BILLED TRANSFORM ENDPOINT.
 //
-// 30 SEP 2026, WHAT CHANGED AND WHY. Supabase told Ethan the project was over its
-// plan: "Storage Image Transformations", 100 included, 200 used. That meter counts
+// 30 SEP 2026, WHAT CHANGED AND WHY. Supabase told, 100 included, 200 used. That meter counts
 // UNIQUE ORIGIN IMAGES put through `/render/image` in a billing month - not
 // requests, not sizes. ~170 live profile photos plus every replaced one is past
 // 100 the moment each has been drawn once, and it grows with every sign-up. So
@@ -16,8 +15,7 @@
 //
 // (original note)
 //
-// THE BUG. Ethan: "the creator map, it takes a lot of time for the profile
-// pictures to load in on the pins."
+// THE BUG.
 //
 // A map pin draws its avatar in a circle 24 units across. It was fetching the
 // original upload to fill it. Measured on production, three avatars picked at

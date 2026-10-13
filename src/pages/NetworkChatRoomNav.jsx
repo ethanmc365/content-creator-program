@@ -41,23 +41,22 @@ export default function NetworkChatRoomNav({
         // shadow on the wrapper is a shadow at the wrong corner radius,
         // and its four grey arcs poking past the card are what read as
         // an outline down this column.
-        /* THE MARKET IS THE HEADING OF ITS OWN CARD (12 Sep 2026).
-           Ethan: "the way the rooms appear on the left sidebar to choose
-           from, I think you can make the UI better and market names and
-           flags bigger and more clear there."
-
-           They were `text-[11px] font-semibold text-smoke` with the flag
-           emoji inline at that size - which is to say the name of the
-           place was SMALLER and QUIETER than the names of the rooms
-           underneath it (13px ink). The heading was the least legible
-           thing on the card it was the heading of, and a column of six
-           cards read as thirty rooms with grey captions between them.
-
-           Now: a 28px flag tile, the name at 14px bold ink, and a hairline
-           under it so the header is visibly the card's head rather than
-           its first row. The rooms grow to 13.5px and get 2.5px more
-           height each, because this column is 240px wide and was using
-           about half of it. */
+        /*
+         * THE MARKET IS THE HEADING OF ITS OWN CARD.
+         *
+         * They were `text-[11px] font-semibold text-smoke` with the flag
+         * emoji inline at that size - which is to say the name of the
+         * place was SMALLER and QUIETER than the names of the rooms
+         * underneath it (13px ink). The heading was the least legible
+         * thing on the card it was the heading of, and a column of six
+         * cards read as thirty rooms with grey captions between them.
+         *
+         * Now: a 28px flag tile, the name at 14px bold ink, and a hairline
+         * under it so the header is visibly the card's head rather than
+         * its first row. The rooms grow to 13.5px and get 2.5px more
+         * height each, because this column is 240px wide and was using
+         * about half of it.
+         */
         renderItem={(place, { handleProps, dragging }) => {
           const here = place.id === community.id
           const roomBase = place.kind === 'network' ? '/global/chat' : `/c/${place.slug}/chat`
@@ -118,7 +117,8 @@ export default function NetworkChatRoomNav({
                   const isNew = key !== roomKey && unread.has(key)
                   return (
                     <Fragment key={c.id}>
-                    {/* THE SPLIT BETWEEN EVERYDAY AND VIP ROOMS IS A QUIET GREY LINE (5 Oct 2026), not a black "VIP" pill on each row. */}
+                    {/* THE SPLIT BETWEEN EVERYDAY AND VIP ROOMS IS A QUIET GREY LINE, not a black "VIP" pill on each
+                        row. */}
                     {c.visibility === 'vip' && ci > 0 && place.rooms[ci - 1].visibility !== 'vip' && (
                       <div role="separator" aria-hidden className="mx-3 my-1 h-px bg-gray-200" />
                     )}
@@ -153,10 +153,9 @@ export default function NetworkChatRoomNav({
             const here = place.id === community.id
             const roomBase = place.kind === 'network' ? '/global/chat' : `/c/${place.slug}/chat`
             return (
-              // THE VIP CARDS ARE THEIR OWN MATERIAL (2 Oct 2026). Ethan: "you added a slight gradient on it but I
-              // don't like the colour, I want it to be more different." The pale orange wash read as a
-              // slightly-off market card. Now it is the dark VIP surface (index.css `.vip-surface`: ink into a
-              // warm ember, an orange glow in the corner), the same material as the VIP application banner.
+              // THE VIP CARDS ARE THEIR OWN MATERIAL. The pale orange wash read as a slightly-off market card. Now it is
+              // the dark VIP surface (index.css `.vip-surface`: ink into a warm ember, an orange glow in the corner),
+              // the same material as the VIP application banner.
               <div key={place.id} className="rounded-card border border-gray-100 bg-white p-2 shadow-card animate-fade-up">
                 <div className="mb-1.5 flex items-center gap-2 border-b border-gray-100 px-1 pb-2 pt-1">
                   <FlagTile codes={place.country_codes} kind={place.kind} size="h-7 w-7" glyph="text-base" className="rounded-lg" title={place.name} />

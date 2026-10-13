@@ -44,12 +44,10 @@ const EMPTY_GEO = { type: 'FeatureCollection', features: [] }
 
 // HOW FAR IN IT GOES.
 //
-// It was 8, which is nowhere near enough for the flights this log is mostly
-// full of. A Gatwick to Amsterdam arc is about forty pixels long on an
-// 880-wide world map; at 8x that is a three-hundred-pixel line with two dots
-// on it and no way to see which airports they are. Ethan asked to be able to
-// "zoom in on the map more, especially for shorter flights". At 40 a
-// single-country hop fills the frame.
+// It was 8, which is nowhere near enough for the flights this log is mostly full of. A Gatwick to Amsterdam arc is about
+// forty pixels long on an 880-wide world map; at 8x that is a three-hundred-pixel line with two dots on it and no way to
+// see which airports they are. The team asked to be able to "zoom in on the map more, especially for shorter flights".
+// At 40 a single-country hop fills the frame.
 const MAX_ZOOM = 40
 // Past this, the map is looking at one region and there is room for the city
 // names. Below it there is not, and drawing them anyway is the overlapping
@@ -61,14 +59,11 @@ const LABEL_ZOOM = 3.2
 function arcFor(a, b) {
   // A ROUTE WHOSE ENDS DO NOT PROJECT HAS NO PATH, AND MUST SAY SO.
   //
-  // This is the stray aeroplane in the top-left corner. `projection()` returns
-  // null for a point it cannot place and NaN for a null lat/lng, so one airport
-  // row with missing coordinates produced `d="MNaN NaN Q NaN NaN NaN NaN"`.
-  // An `animateMotion` given an unparseable path does not fail loudly - it
-  // simply never moves its parent, and the parent's untransformed position is
-  // the viewBox ORIGIN. Hence: a plane, at 0,0, going nowhere, on a map where
-  // nobody has flown to the top-left corner of the world. Ethan: "occasionally
-  // a random plane icon appears near the top left corner, why is this here."
+  // This is the stray aeroplane in the top-left corner. `projection()` returns null for a point it cannot place and NaN
+  // for a null lat/lng, so one airport row with missing coordinates produced `d="MNaN NaN Q NaN NaN NaN NaN"`. An
+  // `animateMotion` given an unparseable path does not fail loudly - it simply never moves its parent, and the parent's
+  // untransformed position is the viewBox ORIGIN. Hence: a plane, at 0,0, going nowhere, on a map where nobody has flown
+  // to the top-left corner of the world.
   const pa = projection([a.lng, a.lat])
   const pb = projection([b.lng, b.lat])
   if (!pa || !pb) return { d: null, chord: 0 }
@@ -83,9 +78,8 @@ function arcFor(a, b) {
   // The bulge is capped so a Sydney-London arc does not loop over the top of
   // the frame, and it is proportional so a Gatwick-Malaga hop still curves.
   //
-  // CURVED LIKE THE NETWORK MAP (3 Oct 2026). Ethan: "We all have just straight lines ... I want it more like the
-  // creator network map with those nicer animations and nicer style." 0.18 of the chord read as a straight line on
-  // every short European hop; the network map's 0.3 reads as a flight.
+  // CURVED LIKE THE NETWORK MAP. 0.18 of the chord read as a straight line on every short European hop; the network
+  // map's 0.3 reads as a flight.
   const bulge = Math.min(chord * 0.3, 80)
   const cx = mx + (-dy / chord) * bulge
   const cy = my + (dx / chord) * bulge
@@ -140,13 +134,10 @@ const fmtKm = (n) => Math.round(n).toLocaleString('en-GB')
 
 // THE PLANE, AND IT IS THE SAME PLANE AS EVERY OTHER MAP.
 //
-// THE BUG THIS FIXES. This map drew its own aircraft: a two-part path of
-// rectangles meant to read as a jet from above, which at any size under about
-// twenty pixels is a smudge with a notch in it. Ethan: "the animation when you
-// click it shows a weird icon, it should be the proper plane icon like the
-// other maps." CreatorMap's silhouette is the one the rest of the product uses
-// and it is drawn NOSE-UP, so it is rotated 90 degrees onto the direction of
-// travel, exactly as it is there.
+// THE BUG THIS FIXES. This map drew its own aircraft: a two-part path of rectangles meant to read as a jet from above,
+// which at any size under about twenty pixels is a smudge with a notch in it. CreatorMap's silhouette is the one the
+// rest of the product uses and it is drawn NOSE-UP, so it is rotated 90 degrees onto the direction of travel, exactly as
+// it is there.
 const PLANE_D = 'M0 -11 C1.1 -11 1.8 -9 1.8 -6.2 L1.8 -4.4 L10 1 L10 3.1 L1.8 -0.2 L1.8 5 L4.4 7.6 L4.4 9.2 L0 7.7 L-4.4 9.2 L-4.4 7.6 L-1.8 5 L-1.8 -0.2 L-10 3.1 L-10 1 L-1.8 -4.4 L-1.8 -6.2 C-1.8 -9 -1.1 -11 0 -11 Z'
 
 // EVERY ROUTE CARRIES A PLANE, ALL THE TIME.
@@ -155,7 +146,7 @@ const PLANE_D = 'M0 -11 C1.1 -11 1.8 -9 1.8 -6.2 L1.8 -4.4 L10 1 L10 3.1 L1.8 -0
 // requestAnimationFrame that set React state sixty times a second. Two things
 // were wrong with that and this fixes both:
 //
-//   * IT ONLY MOVED WHEN YOU CLICKED. Ethan: "with the line, [I want] a
+//   * IT ONLY MOVED WHEN YOU CLICKED. The team: "with the line, [I want] a
 //     constant animated airplane animation, not just when you click it." A map
 //     of flights whose aircraft are parked is a diagram.
 //   * SETTING STATE EVERY FRAME RE-RENDERED THE WHOLE MAP every frame -
@@ -171,17 +162,13 @@ const PLANE_SPEED = 26 // projection units per second
 
 // HOW BIG A MARKER IS AT A GIVEN ZOOM.
 //
-// Everything on this map was `base / z` with a floor: `Math.max(1.4, 3.4 / z)`.
-// Dividing by z holds a marker at a CONSTANT APPARENT SIZE, which sounds right
-// and is not what the zoom is for here. Ethan: "when I zoom in a lot the
-// circles and planes should also get a bit smaller, for example even with the
-// map zoomed out or in, my flight from Belfast to Dublin can barely be seen."
+// Everything on this map was `base / z` with a floor: `Math.max(1.4, 3.4 / z)`. Dividing by z holds a marker at a
+// CONSTANT APPARENT SIZE, which sounds right and is not what the zoom is for here.
 //
-// He is describing the real failure. BFS to DUB is about six projection units
-// long; two 3.4-unit dots sit on top of the whole route, so the arc between
-// them is invisible - and zooming in did not help, because the dots grew with
-// it. Worse, the `Math.max` floor is in MAP units, so past z ~2.4 they stopped
-// shrinking at all and just got bigger and bigger on screen.
+// they are describing the real failure. BFS to DUB is about six projection units long; two 3.4-unit dots sit on top of
+// the whole route, so the arc between them is invisible - and zooming in did not help, because the dots grew with it.
+// Worse, the `Math.max` floor is in MAP units, so past z ~2.4 they stopped shrinking at all and just got bigger and
+// bigger on screen.
 //
 // Dividing by `z^1.15` makes the apparent size fall gently as you go in: a
 // weight-4 pin is 3.4px across the whole world, about 2.8px at z=4, and holds
@@ -189,20 +176,17 @@ const PLANE_SPEED = 26 // projection units per second
 // disappears. The floor is now small enough to be a genuine last resort.
 // AND THE AEROPLANE STARTS SMALLER THAN THE PINS DO.
 //
-// Ethan: "when fully zoomed out on these maps, the plane icon is too big, it
-// should be a bit smaller." At z=1 a 0.85 marker draws a glyph 18-19 units
-// across the sprite's own box, which on a world map is about the width of
-// Ireland. 0.62 is the same aeroplane at roughly three quarters the size:
-// still unmistakably a plane on a long-haul arc, no longer a landmark.
+// At z=1 a 0.85 marker draws a glyph 18-19 units across the sprite's own box, which on a world map is about the width of
+// Ireland. 0.62 is the same aeroplane at roughly three quarters the size: still unmistakably a plane on a long-haul arc,
+// no longer a landmark.
 const PLANE_BASE = 0.62
 const MARKER_FALLOFF = 1.15
 const scaleAt = (base, z, min) => Math.max(min, base / Math.pow(z, MARKER_FALLOFF))
-// THE SAME SPEED ON SCREEN AT EVERY ZOOM (3 Oct 2026). Ethan: "The plane animations are going way too fast when you
-// zoom in." The duration was the arc's length in MAP units, so at 20x the same flight was crossed in the same seconds
-// over twenty times the screen - the bug the network map fixed on 10 Sep (see `flightDur` in CreatorMap). The duration
-// now follows the length ON SCREEN, rounded to a step of the zoom so a pinch does not restart every aircraft each
-// frame, and the aircraft ride a CSS motion path (`offset-path`, the network map's mechanism) rather than SMIL, which
-// pauses with the page instead of jumping when it is painted again.
+// THE SAME SPEED ON SCREEN AT EVERY ZOOM. The duration was the arc's length in MAP units, so at 20x the same flight was
+// crossed in the same seconds over twenty times the screen - the bug the network map fixed on 10 Sep (see `flightDur` in
+// CreatorMap). The duration now follows the length ON SCREEN, rounded to a step of the zoom so a pinch does not restart
+// every aircraft each frame, and the aircraft ride a CSS motion path (`offset-path`, the network map's mechanism) rather
+// than SMIL, which pauses with the page instead of jumping when it is painted again.
 const CAN_MOTION_PATH = typeof CSS !== 'undefined' && typeof CSS.supports === 'function'
   && CSS.supports('offset-path', 'path("M 0 0 L 1 1")')
 const zoomStep = (z) => Math.pow(2, Math.round(Math.log2(Math.max(1, z)) * 2) / 2)
@@ -232,9 +216,6 @@ function ArcPlane({ path, len, zoom = 1, size, faint = false, delay = 0 }) {
 // second. Nothing about the land depends on the zoom or the selection.
 //
 // AND THE COUNTRIES YOU HAVE BEEN TO ARE COLOURED IN.
-//
-// Ethan: "on the everywhere you've been map, the countries you've been to should
-// also be highlighted, and you can then click on the route or the country."
 //
 // The map already knew this and was not saying it. Every airport in the log
 // carries an ISO-2 country code, so the set of countries you have landed in is
@@ -295,12 +276,9 @@ const Countries = memo(function Countries({ features, land, separator, visited, 
 //
 // AND THEY ARE CLICKABLE NOW, WHICH NEEDED A SECOND CIRCLE PER DOT.
 //
-// Ethan: "I said every airport little dot should be clickable." They were
-// `pointer-events: none` scenery. The difficulty is that the visible dot is
-// measured at 1.5 to 2.4 SCREEN PIXELS - that is the whole point of the sizing
-// work - and a two-pixel tap target does not exist on a phone. So each shown
-// airport also gets an invisible circle at a fixed ~9px of screen, which is
-// what actually receives the press.
+// They were `pointer-events: none` scenery. The difficulty is that the visible dot is measured at 1.5 to 2.4 SCREEN
+// PIXELS - that is the whole point of the sizing work - and a two-pixel tap target does not exist on a phone. So each
+// shown airport also gets an invisible circle at a fixed ~9px of screen, which is what actually receives the press.
 //
 // The hit circles are a SEPARATE GROUP drawn after the visible ones rather than
 // a bigger stroke on each, because they have to overlap each other freely and
@@ -401,15 +379,11 @@ function FlightMap({ routes = [], airports = [], routeExtra = null }) {
   const [position, setPosition] = useState({ coordinates: [12, 8], zoom: 1 })
   // THE COUNTER-SCALE READS THE LIVE ZOOM, NOT THE SETTLED ONE.
   //
-  // THE BUG THIS FIXES. Everything drawn on this map is divided by the zoom to
-  // hold it at a constant size on screen - the aircraft, the pins, the route
-  // strokes, the city labels - and the divisor came from `position`, which was
-  // only ever written by `onMoveEnd`. So for the WHOLE of a pinch or a wheel
-  // gesture the group was scaling up and nothing on it was compensating: at the
-  // end of a zoom from 1 to 6 the aeroplanes were briefly drawn six times too
-  // big, and then snapped back the instant the gesture finished. Ethan: "on the
-  // main map, when zooming in the planes temporarily appear way too big and then
-  // go to normal size."
+  // THE BUG THIS FIXES. Everything drawn on this map is divided by the zoom to hold it at a constant size on screen -
+  // the aircraft, the pins, the route strokes, the city labels - and the divisor came from `position`, which was only
+  // ever written by `onMoveEnd`. So for the WHOLE of a pinch or a wheel gesture the group was scaling up and nothing on
+  // it was compensating: at the end of a zoom from 1 to 6 the aeroplanes were briefly drawn six times too big, and then
+  // snapped back the instant the gesture finished.
   //
   // `onMove` fires inside react-simple-maps' own d3 handler, in the same
   // synchronous event as the setState that actually scales the group, so React
@@ -498,10 +472,10 @@ function FlightMap({ routes = [], airports = [], routeExtra = null }) {
   // now: the dots, the card that opens when you press one, and the country card,
   // which has to be able to say how many airports are in a country rather than
   // how many of them you personally have used.
-  // EVERY AIRPORT IN THE WORLD WAITS FOR THE MAP (3 Oct 2026). Ethan: the flight-log maps are "a bit laggy at the
-  // moment and take a long time to load in." Eight thousand airports were fetched, projected and laid out at the same
-  // moment as the land and your own routes, so the map you came for arrived behind the scenery. They now follow once
-  // your routes have drawn in, when the browser is idle.
+  // EVERY AIRPORT IN THE WORLD WAITS FOR THE MAP. The team: the flight-log maps are "a bit laggy at the moment and take
+  // a long time to load in." Eight thousand airports were fetched, projected and laid out at the same moment as the land
+  // and your own routes, so the map you came for arrived behind the scenery. They now follow once your routes have drawn
+  // in, when the browser is idle.
   const [world, setWorld] = useState([])
   useEffect(() => {
     if (!arrived) return undefined
@@ -541,10 +515,8 @@ function FlightMap({ routes = [], airports = [], routeExtra = null }) {
   const [country, setCountry] = useState(null)
   // A NEW CARD ALWAYS CLOSES THE OLD ONE, IN BOTH DIRECTIONS.
   //
-  // `pickRoute` cleared the country and `pickCountry` did not clear the route,
-  // so the exclusivity only worked one way round: click an arc for its flight
-  // card, then click Spain, and the country card opened ON TOP of it. Ethan:
-  // "clicking a new thing that shows a popup should always close the other one."
+  // `pickRoute` cleared the country and `pickCountry` did not clear the route, so the exclusivity only worked one way
+  // round: click an arc for its flight card, then click Spain, and the country card opened ON TOP of it.
   const pickCountry = useCallback((name, iso) => {
     setSelected(null)
     setPickedAirport(null)
@@ -560,13 +532,10 @@ function FlightMap({ routes = [], airports = [], routeExtra = null }) {
   }, [])
   // "1 AIRPORT HERE" WAS TRUE AND READ AS A LIE.
   //
-  // This counted the airports in YOUR LOG for the country you pressed, and drew
-  // "1 airport · 4 flights through it". Ethan, pressing Ireland: "clicking on
-  // them just shows up information on like one airport, it says one airport
-  // here." Of course it does - he has flown through one. But the map now draws
-  // every airport in the world, so the sentence is sitting next to a dozen
-  // visible dots in that country and the only available reading is that the map
-  // thinks Ireland has one airport.
+  // This counted the airports in YOUR LOG for the country you pressed, and drew "1 airport · 4 flights through it". Of
+  // course it does - they have flown through one. But the map now draws every airport in the world, so the sentence is
+  // sitting next to a dozen visible dots in that country and the only available reading is that the map thinks Ireland
+  // has one airport.
   //
   // So the card now says both numbers, and says which is which.
   const countryDetail = useMemo(() => {
@@ -711,13 +680,10 @@ function FlightMap({ routes = [], airports = [], routeExtra = null }) {
         className="flex h-9 w-9 items-center justify-center rounded-full bg-white text-lg font-semibold text-ink shadow-card transition-transform hover:scale-105 active:scale-95">+</button>
       <button type="button" onClick={() => zoomBy(1 / 1.7)} aria-label={tr("Zoom out")}
         className="flex h-9 w-9 items-center justify-center rounded-full bg-white text-lg font-semibold text-ink shadow-card transition-transform hover:scale-105 active:scale-95">−</button>
-      {/* THE SAME RESET GLYPH EVERY OTHER MAP ON THE PLATFORM USES.
-          This one had a globe, which in a stack under + and − reads as "switch
-          to a globe view" rather than "put it back". Ethan: "the reset icon for
-          this map is a globe rather than the reset icon like on other maps."
-          Inlined rather than added to Icon.jsx because CreatorMap carries the
-          identical inline path - one shape, two call sites, no third source of
-          truth to keep in step. */}
+      {/* THE SAME RESET GLYPH EVERY OTHER MAP ON THE PLATFORM USES. This one had a globe, which in a stack under + and −
+          reads as "switch to a globe view" rather than "put it back". Inlined rather than added to Icon.jsx because
+          CreatorMap carries the identical inline path - one shape, two call sites, no third source of truth to keep in
+          step. */}
       <button type="button" onClick={reset} aria-label={tr("Reset map view")}
         className="flex h-9 w-9 items-center justify-center rounded-full bg-white text-smoke shadow-card transition-transform hover:scale-105 active:scale-95">
         <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9 9 0 0 0-6.7 3M3 4v4h4"/></svg>
@@ -883,16 +849,10 @@ function FlightMap({ routes = [], airports = [], routeExtra = null }) {
           return (
             <g key={a.iata} className={arrived ? undefined : 'flight-pin'} style={{ transformOrigin: `${a.x}px ${a.y}px` }}>
               {/* A PIN IS PRESSABLE, AND UNTIL NOW IT WAS THE ONE DOT ON THE
-                  MAP THAT WAS NOT.
-                  Ethan: "I still seem to be unable to select an airport if a
-                  trip is already from there, it doesn't let me click it on the
-                  map." The world-airport layer puts an invisible finger-sized
-                  hit circle under every dot - but these pins are painted LAST,
-                  they are the biggest circles on the map, and they had no
-                  handler. SVG has no z-index: the last thing painted takes the
-                  press. So every airport you have actually flown from was
-                  covered by a target that did nothing, which is precisely the
-                  set of airports worth pressing. */}
+                  MAP THAT WAS NOT. The world-airport layer puts an invisible finger-sized hit circle under every dot -
+                  but these pins are painted LAST, they are the biggest circles on the map, and they had no handler. SVG
+                  has no z-index: the last thing painted takes the press. So every airport you have actually flown from
+                  was covered by a target that did nothing, which is precisely the set of airports worth pressing. */}
               <circle
                 cx={a.x}
                 cy={a.y}
@@ -907,14 +867,9 @@ function FlightMap({ routes = [], airports = [], routeExtra = null }) {
                 <title>{`${a.iata} · ${a.city} · ${a.weight} ${a.weight === 1 ? 'flight' : 'flights'}`}</title>
               </circle>
 
-              {/* THE NAME, WHEN THERE IS ROOM FOR IT.
-                  Ethan: "highlight the name of the city in small writing, if
-                  they're too close together and it looks odd then it just shows
-                  up when you tap the line or circle, or when you zoom in
-                  further." Both halves of that are here - a label appears once
-                  the map is zoomed past the point where names would collide,
-                  and the two ends of an open route are labelled at any zoom,
-                  because you asked for that one specifically.
+              {/* THE NAME, WHEN THERE IS ROOM FOR IT. Both halves of that are here - a label appears once the map is
+                  zoomed past the point where names would collide, and the two ends of an open route are labelled at any
+                  zoom, because you asked for that one specifically.
 
                   The text COUNTER-SCALES. Everything inside a ZoomableGroup is
                   scaled by the zoom, so a 6px label at 20x is a 120px word
@@ -949,21 +904,13 @@ function FlightMap({ routes = [], airports = [], routeExtra = null }) {
 
   // WHAT A ROUTE ACTUALLY WAS.
   //
-  // Ethan: "clicking on the line on the map should show a popup with info on
-  // the flight you took and when." A route on this map is one line per PAIR of
-  // airports, so it can stand for eight flights - the card names all of them,
-  // newest first, rather than picking one and calling it the answer.
-  // A BIGGER CARD. Ethan: "when you click on a flight on the map it shows up the
-  // little card with info, can you make this card a bit bigger."
-  // It was `max-w-sm` with 11px type and a 44-unit scroller, which on a route
-  // flown eight times showed two and a half rows and then a scrollbar - a card
-  // small enough that reading it was work. `max-w-md`, a size up on every line
-  // and room for four rows before it scrolls; still a popover, but one you can
-  // read at arm's length.
-  // A route's rows, with anything that is not a real flight object dropped.
-  // Belt and braces on top of the FlightCommunity fix: a caller that hands this
-  // map a sparse array should get a shorter list, never a crash inside a
-  // popover.
+  // A route on this map is one line per PAIR of airports, so it can stand for eight flights - the card names all of
+  // them, newest first, rather than picking one and calling it the answer. A BIGGER CARD. It was `max-w-sm` with 11px
+  // type and a 44-unit scroller, which on a route flown eight times showed two and a half rows and then a scrollbar - a
+  // card small enough that reading it was work. `max-w-md`, a size up on every line and room for four rows before it
+  // scrolls; still a popover, but one you can read at arm's length. A route's rows, with anything that is not a real
+  // flight object dropped. Belt and braces on top of the FlightCommunity fix: a caller that hands this map a sparse
+  // array should get a shorter list, never a crash inside a popover.
   const activeRows = (active?.flights || []).filter((f) => f && f.id)
   const activeCount = active ? (active.count ?? active.flights?.length ?? 0) : 0
   // ONE ENTRY PER TRIP, NOT ONE PER LEG.
@@ -983,14 +930,9 @@ function FlightMap({ routes = [], airports = [], routeExtra = null }) {
       <div className="flex items-start gap-3 border-b border-gray-100 px-5 py-4">
         <span className="flex shrink-0 items-center gap-2 text-base font-bold tracking-wider text-brand">
           {active.from.iata}
-          {/* THE AEROPLANE BETWEEN THE TWO CODES IS ORANGE.
-              It was `text-gray-300` - a pale grey glyph between two orange
-              words, which at 14px on a white card is very nearly invisible.
-              Ethan: "the plane icon is grey and hard to see, can you make it
-              orange, maybe the lighter orange to differentiate."
-              BRAND_LIGHT rather than BRAND is the whole point: it reads as
-              part of the same phrase as the airport codes without competing
-              with them for it. */}
+          {/* THE AEROPLANE BETWEEN THE TWO CODES IS ORANGE. It was `text-gray-300` - a pale grey glyph between two
+              orange words, which at 14px on a white card is very nearly invisible. BRAND_LIGHT rather than BRAND is the
+              whole point: it reads as part of the same phrase as the airport codes without competing with them for it. */}
           <Icon name="plane" className="h-4 w-4 text-brand-light" />
           {active.to.iata}
         </span>
@@ -1019,47 +961,38 @@ function FlightMap({ routes = [], airports = [], routeExtra = null }) {
           On the community map a route is a count and nothing else - who flew it
           and when is deliberately not readable (migration 103) - so the card
           says what it can say instead of drawing an empty scroller. */}
-      {/* WHAT THE CALLER CAN ADD. On the community map the per-flight rows are
-          deliberately unavailable (migration 103 - a date and a flight number
-          are somebody's movement history), but WHO flies a route is public, and
-          Ethan asked for the same richer card there: "same for the across the
-          community trips, and it should provide some info, show the creator's
-          name and profile picture." The map does not know how to fetch that, so
-          the page that does hands it down. */}
+      {/* WHAT THE CALLER CAN ADD. On the community map the per-flight rows are deliberately unavailable (migration 103 -
+          a date and a flight number are somebody's movement history), but WHO flies a route is public, and The map does
+          not know how to fetch that, so the page that does hands it down. */}
       {routeExtra?.(active)}
       {activeRows.length === 0 ? (
-        /* ONE LINE. The second sentence - "this is how many times the community
-           has flown the route" - was removed at Ethan's request: the count is
-           already printed two lines above it in the header, so the card was
-           explaining its own heading. */
+        /*
+         * ONE LINE. The second sentence - "this is how many times the community has flown the route" - was removed at
+         * the team's request: the count is already printed two lines above it in the header, so the card was explaining
+         * its own heading.
+         */
         <p className="px-5 py-3.5 text-xs text-smoke">
           {tr("Dates and airlines stay private to whoever logged the flight.")}
         </p>
       ) : (
-      /* Five, then a count. A route somebody flies weekly could be forty rows
-         and this is a popover on a map, not the log.
-         EACH ROW IS THE TRIP, NOT A LINE OF METADATA.
-         Ethan: "when clicking on a trip on your personal map it should show up
-         something more like that with the photo if you logged one and more
-         details, I think it would look better." "That" is the trip sheet at the
-         foot of the log, and he is right that the two were answering the same
-         question at wildly different quality: this card was one grey line per
-         flight naming an airline. It now leads with the photograph where there
-         is one - which is the thing that makes a route on a map worth pressing
-         - and carries the direction, the aircraft, the distance and the note
-         under it. */
+      /*
+       * Five, then a count. A route somebody flies weekly could be forty rows
+       * and this is a popover on a map, not the log.
+       * EACH ROW IS THE TRIP, NOT A LINE OF METADATA. "That" is the trip sheet at the foot of the log, and they are
+       * right that the two were answering the same question at wildly different quality: this card was one grey line per
+       * flight naming an airline. It now leads with the photograph where there is one - which is the thing that makes a
+       * route on a map worth pressing
+       * - and carries the direction, the aircraft, the distance and the note
+       * under it.
+       */
       <ul className="max-h-72 divide-y divide-gray-50 overflow-y-auto overscroll-contain">
         {activeTrips.slice(0, 5).map((t) => {
           // THE CARD DOES NOT SAY THE SAME THING THREE TIMES.
           //
-          // Ethan: "AMS Belfast three times on that, it should only be showing
-          // up once." The header already names the route in codes AND in city
-          // names, so a row that leads with the codes again is the third
-          // printing of one fact. A row therefore says only what is TRUE OF
-          // THIS TRIP and not of the route: when it was, whether it came back,
-          // and what flew it. The codes appear again only when this particular
-          // trip went the OTHER way round from the one the header draws, which
-          // is the one case where they are news.
+          // The header already names the route in codes AND in city names, so a row that leads with the codes again is
+          // the third printing of one fact. A row therefore says only what is TRUE OF THIS TRIP and not of the route:
+          // when it was, whether it came back, and what flew it. The codes appear again only when this particular trip
+          // went the OTHER way round from the one the header draws, which is the one case where they are news.
           const [oFrom] = outboundEnds(t.out)
           const reversed = !!oFrom && oFrom.iata !== active.from.iata
           const carriers = [...new Set(t.legs.map((l) => l.airline).filter(Boolean))]
@@ -1289,14 +1222,11 @@ function FlightMap({ routes = [], airports = [], routeExtra = null }) {
         )}
       </div>
       <PhotoLightbox src={photo} onClose={() => setPhoto(null)} />
-      {/* THE OPENFLIGHTS LINE HAS MOVED, NOT GONE.
-          Ethan asked for it off both map pages, and it is off them. It could
-          not simply be deleted: the six thousand faint airport dots are
-          OpenFlights data under the Open Database Licence, and ODbL requires
-          attribution wherever that data is used - so it now lives once, in the
-          credits on /flights/aircraft, next to the photo credits that are there
-          for the same reason. If it should sit somewhere more prominent that is
-          a decision to take deliberately, not by dropping it. */}
+      {/* THE OPENFLIGHTS LINE HAS MOVED, NOT GONE. The team asked for it off both map pages, and it is off them. It
+          could not simply be deleted: the six thousand faint airport dots are OpenFlights data under the Open Database
+          Licence, and ODbL requires attribution wherever that data is used - so it now lives once, in the credits on
+          /flights/aircraft, next to the photo credits that are there for the same reason. If it should sit somewhere
+          more prominent that is a decision to take deliberately, not by dropping it. */}
     </>
   )
 }

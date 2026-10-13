@@ -6,13 +6,11 @@ import { useCommunity } from '../../../context/CommunityContext'
 import Icon from '../../../components/Icon'
 import { cx } from '../../../lib/utils'
 
-// JOINING ANOTHER MARKET, AS A CREATOR WHO HAS JOINED AND ASKED (13 Oct 2026).
+// JOINING ANOTHER MARKET, AS A CREATOR WHO HAS JOINED AND ASKED.
 //
-// Ethan: "you said you weren't able to see the 'Join a Market' question on a real account, but I want you to actually
-// properly test this up and maybe add it to testing centre so I can actually review it instead ... as a creator that
-// has joined and requested." The demo account is in every market, so it can never see the sheet. These are the real
-// sheet, drawn for a creator whose home market is UK & Ireland, in three states. Nothing here writes: sending shows the
-// confirmation, withdrawing only clears the row on screen.
+// The demo account is in every market, so it can never see the sheet. These are the real sheet, drawn for a creator
+// whose home market is UK & Ireland, in three states. Nothing here writes: sending shows the confirmation, withdrawing
+// only clears the row on screen.
 const find = (chapters, re) => (chapters || []).find((c) => re.test(c.name || ''))
 
 export default function JoinMarketLab() {

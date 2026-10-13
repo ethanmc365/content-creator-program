@@ -55,17 +55,14 @@ export default function AdminChallengeFormScoring({
         ))}
       </div>
 
-      {/* A challenge run under the old prize format keeps it. The option is
-          not offered for a new one, and the warning that used to sit here is
-          gone at Ethan's request - it explained a format nobody is choosing
-          and made an edit screen for a finished contest look alarming. */}
+      {/* A challenge run under the old prize format keeps it. The option is not offered for a new one, and the warning
+          that used to sit here is gone at the team's request - it explained a format nobody is choosing and made an edit
+          screen for a finished contest look alarming. */}
       {form.scoring === 'points' && (
-        // A NEUTRAL PANEL. It was a brand-tinted box holding brand-tinted
-        // controls, which Ethan flagged: everything inside it was the same
-        // pale orange as everything else, so the points values - the one
-        // thing on the panel worth spotting - had nothing to stand out
-        // against. The panel is plain now and the points are the only
-        // orange thing on it.
+        // A NEUTRAL PANEL. It was a brand-tinted box holding brand-tinted controls, which the team flagged: everything
+        // inside it was the same pale orange as everything else, so the points values - the one thing on the panel worth
+        // spotting - had nothing to stand out against. The panel is plain now and the points are the only orange thing
+        // on it.
         <div className="rounded-xl border border-gray-200 bg-cloud/40 p-4 max-sm:!rounded-none max-sm:!border-0 max-sm:!bg-transparent max-sm:!p-0">
           <p className="label">Scoring rules for this challenge</p>
           <p className="mb-4 text-xs text-smoke">
@@ -96,12 +93,8 @@ export default function AdminChallengeFormScoring({
           is the only mode with anything left to decide. */}
 
       {/* ---- GROUPS ----
-          MORE THAN ONE LEADERBOARD INSIDE ONE BRIEF.
-          Ethan: "the way the Spanish community is currently run, they have
-          two groups inside the one challenge."
-          It sits under "How it is won" because that is what it is: not a
-          different contest, a different way of deciding who is racing
-          whom. See lib/challengeGroups and migration 154. */}
+          MORE THAN ONE LEADERBOARD INSIDE ONE BRIEF. It sits under "How it is won" because that is what it is: not a
+          different contest, a different way of deciding who is racing whom. See lib/challengeGroups and migration 154. */}
       <div id="groups" className="scroll-mt-24 border-t border-gray-100 pt-5">
         {/* NO STANDING EXPLANATION - see the note in "Who it is for". */}
         <p className="label mb-3">Leaderboards</p>

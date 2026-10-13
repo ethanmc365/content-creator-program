@@ -1,17 +1,11 @@
 // WHO IS ALLOWED TO SEE THE PRETEND PEOPLE.
 //
-// Ethan: "all the test data accounts you created seem to be in the actual
-// community and viewable to everyone, for example on the creator network page
-// etc, it should not be like this."
-//
-// He is right, and the reason is worth writing down because the obvious fix is
-// the one that caused it. The eight Spanish demo creators were created with
-// `is_test = false` ON PURPOSE: the leaderboard, the roster, the market map,
-// the directory and the spotlight all filter `is_test` out, so flagging them
-// would have made them invisible to the very people the demo was built for.
-// Turning the flag on hides them from the team; leaving it off shows them to
-// forty-five real creators. Neither is acceptable, because the question was
-// never "are these rows test data" - it is "WHO IS LOOKING".
+// they are right, and the reason is worth writing down because the obvious fix is the one that caused it. The eight
+// Spanish demo creators were created with `is_test = false` ON PURPOSE: the leaderboard, the roster, the market map, the
+// directory and the spotlight all filter `is_test` out, so flagging them would have made them invisible to the very
+// people the demo was built for. Turning the flag on hides them from the team; leaving it off shows them to forty-five
+// real creators. Neither is acceptable, because the question was never "are these rows test data" - it is "WHO IS
+// LOOKING".
 //
 // So `is_test` goes back to meaning what it says, every demo person carries it,
 // and visibility is a property of the VIEWER:
@@ -20,7 +14,7 @@
 //                                       database (migration 178), not here, so
 //                                       it holds for anyone talking to
 //                                       PostgREST directly with their own token.
-//   * a real admin (Ethan)            - sees them in /admin, where they have to
+//   * a real admin (the team) - sees them in /admin, where they have to
 //                                       be managed, and NOT in the community
 //                                       pages or the analytics. That is this
 //                                       file's job.

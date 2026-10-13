@@ -49,9 +49,8 @@ export function challengeEconomics(row, { currency = 'GBP', rates = FALLBACK_RAT
   // a prize is split differently, or - always - participation vouchers get
   // handed out, because those are not in the brief's number at all.
   //
-  // PENDING COUNTS. A prize that has been awarded is committed money whether or
-  // not the transfer has cleared, and Ethan wants the result readable the day a
-  // challenge closes rather than the week the bank catches up.
+  // PENDING COUNTS. A prize that has been awarded is committed money whether or not the transfer has cleared, and the
+  // team wants the result readable the day a challenge closes rather than the week the bank catches up.
   const rewardCcy = row.reward_currency || row.prize_currency || 'EUR'
   const conv = (n) => convert(n, rewardCcy, currency, rates)
 
@@ -72,17 +71,15 @@ export function challengeEconomics(row, { currency = 'GBP', rates = FALLBACK_RAT
   // and on its page cannot differ.
   const liveSpend = row.live_spend != null ? conv(Number(row.live_spend)) : null
   const spend = liveSpend != null ? liveSpend : (awarded > 0 ? cashSpend : planned)
-  // "NOT MEASURED" AND "MEASURED AS NONE" ARE DIFFERENT NUMBERS (7 Sep 2026).
+  // "NOT MEASURED" AND "MEASURED AS NONE" ARE DIFFERENT NUMBERS.
   //
   // This was `Number(row.total_views) || 0`, which collapses the two, and the
   // collapse is worth a quarter of the programme's headline figure.
   //
-  // Fourteen of the forty-nine imported challenges are marked Done in Ethan's
-  // spreadsheet with NO view count - "Need to log views", "Views not logged in
-  // source sheet". Their prize money is real and their views are unknown. Read
-  // as zero, they contributed EUR 1,730 of spend to the numerator of the
-  // programme CPM and nothing at all to the denominator, so the page reported
-  // EUR 0.47 where Ethan's own tracker says EUR 0.38. Both were "correct"
+  // Fourteen of the forty-nine imported challenges are marked Done in the team's spreadsheet with NO view count - "Need
+  // to log views", "Views not logged in source sheet". Their prize money is real and their views are unknown. Read as
+  // zero, they contributed EUR 1,730 of spend to the numerator of the programme CPM and nothing at all to the
+  // denominator, so the page reported EUR 0.47 where the team's own tracker says EUR 0.38. Both were "correct"
   // arithmetic; only one of them divides like by like.
   //
   // `viewsKnown` is the distinction, and `blendEconomics` uses it to keep the
@@ -300,10 +297,8 @@ export function rewardsTotal(rows, to = 'EUR', rates = FALLBACK_RATES) {
 
   // ALWAYS REPORTED IN THE ONE CURRENCY, AND NEVER IN CENTS.
   //
-  // The programme settles in euros, so the euro figure is the one a creator is
-  // being asked to recognise even when the row behind it was paid in pounds.
-  // Ethan: "force-converted to euros regardless, but round it to nearest euro,
-  // never give cents for this."
+  // The programme settles in euros, so the euro figure is the one a creator is being asked to recognise even when the
+  // row behind it was paid in pounds.
   //
   // Rounding is not cosmetic. A converted total moves with the FX rate, so
   // "EUR 292.50" claims a precision that would be a different number tomorrow
@@ -347,11 +342,6 @@ export function filterChallenges(rows, { query = '', status = 'all', sort = 'rec
 
 // WHAT IS ACTUALLY RUNNING, WHICH IS A QUESTION ABOUT THE CALENDAR AND NOT
 // ABOUT A STORED STATUS.
-//
-// Ethan (9 Sep 2026): "I like the running now that shows the ones that are
-// currently running... this should obviously update for anyone that are running
-// live in the community, not just ones that have been added from the other
-// platform."
 //
 // THE BUG BEHIND THAT SENTENCE, MEASURED. The pinned block was
 // `status === 'active' || 'draft' || 'scheduled'`, and `admin_challenge_metrics`

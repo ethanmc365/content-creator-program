@@ -59,8 +59,8 @@ function Row({ to, onPick, active, flags, name, badge, hint }) {
       onClick={onPick}
       className={cx(
         'flex items-center gap-3 rounded-2xl px-4 py-3.5 transition-all duration-200',
-        // The picked place is the brand gradient with white on it, the same as "Your markets" on a desktop
-        // (2 Oct 2026); it used to be a pale orange tint.
+        // The picked place is the brand gradient with white on it, the same as "Your markets" on a desktop; it used to
+        // be a pale orange tint.
         active ? 'bg-gradient-to-r from-brand to-brand-light text-white shadow-card animate-selected-in' : 'hover:bg-cloud active:bg-cloud',
       )}
     >
@@ -135,21 +135,14 @@ export default function PlaceSwitcher({ ready = true }) {
           and this is the only way to a market from there, so it has to read as
           the door it is rather than as a label you might not press. The height
           lesson survives - one line, ~44px, not the 68px card. */}
-      {/* IT ARRIVES, LIKE EVERYTHING ELSE ON THE PAGE - AND ON THE SAME FRAME.
-          Ethan: "for mobile, I noticed that the worldwide and the switcher
-          thing at the top doesn't have any animations, so please add them in."
-          Every section of the hub below this bar comes in on a `Reveal`, and
-          the bar - which is above all of them and therefore the first thing you
-          look at - was simply present from frame one. That reads as the page
-          starting halfway through.
-          `animate-fade-up` is the platform's own CSS entrance (index.css), not
-          a motion component: this bar renders on every network page including
-          the eagerly-routed ones, and it is one element. It respects
-          prefers-reduced-motion with everything else in that file.
+      {/* IT ARRIVES, LIKE EVERYTHING ELSE ON THE PAGE - AND ON THE SAME FRAME. Every section of the hub below this bar
+          comes in on a `Reveal`, and the bar - which is above all of them and therefore the first thing you look at -
+          was simply present from frame one. That reads as the page starting halfway through. `animate-fade-up` is the
+          platform's own CSS entrance (index.css), not a motion component: this bar renders on every network page
+          including the eagerly-routed ones, and it is one element. It respects prefers-reduced-motion with everything
+          else in that file.
 
-          `ready` IS THE FIX FOR THE SECOND HALF OF THAT REPORT (1 Sep 2026).
-          Ethan: "you did this but its not in sync with the others, it appears
-          first and the others are delayed."
+          `ready` IS THE FIX FOR THE SECOND HALF OF THAT REPORT.
 
           This is the greeting's bug, one element higher up the page. The bar
           depends on nothing, so its CSS entrance ran on the FIRST PAINTED
@@ -287,9 +280,9 @@ export default function PlaceSwitcher({ ready = true }) {
                   </SheetRow>
                 ))}
 
-                {/* THE VIP COMMUNITIES, UNDER THE MARKETS, FOR THE TEAM (2 Oct 2026). Ethan: on a phone the VIP
-                    communities card "should show up below the other markets ... maybe it only shows up for admins
-                    and not actually VIPs, as VIPs would only be in one and they'll have the VIP tab at the top." */}
+                {/* THE VIP COMMUNITIES, UNDER THE MARKETS, FOR THE TEAM. The team: on a phone the VIP communities card
+                    "should show up below the other markets... maybe it only shows up for admins and not actually VIPs,
+                    as VIPs would only be in one and they'll have the VIP tab at the top." */}
                 {vipAccess && (vipRows || []).length > 0 && (
                   <>
                     <p className="px-4 pb-1 pt-4 text-[11px] font-semibold uppercase tracking-widest text-smoke">
@@ -311,26 +304,17 @@ export default function PlaceSwitcher({ ready = true }) {
                 )}
               </div>
 
-              {/* ALL MARKETS, ALWAYS, AND PINNED TO THE BOTTOM OF THE SHEET.
-                  This used to be a row in the list, and only when there was
-                  something joinable - so an admin already in every market had
-                  no door to the markets page at all, and everyone else had to
-                  scroll past their own markets to find it. The hub's "Your
-                  markets" section is gone on a phone, which makes this sheet
-                  the only route to the rest of the network: it cannot be
-                  conditional and it cannot be somewhere you have to look for.
-                  Ethan: "at the bottom of this popup it should show an all
-                  markets button, and clicking that brings you to the all
-                  markets page where you can see the other markets and request
-                  to join them." */}
+              {/* ALL MARKETS, ALWAYS, AND PINNED TO THE BOTTOM OF THE SHEET. This used to be a row in the list, and only
+                  when there was something joinable - so an admin already in every market had no door to the markets page
+                  at all, and everyone else had to scroll past their own markets to find it. The hub's "Your markets"
+                  section is gone on a phone, which makes this sheet the only route to the rest of the network: it cannot
+                  be conditional and it cannot be somewhere you have to look for. */}
               <div className="shrink-0 border-t border-gray-100 px-3 pt-2">
                 <Link
                   to="/global/markets"
                   onClick={() => setSheet(false)}
-                  // A ROW, NOT AN ORANGE SLAB (12 Oct 2026). Ethan: "we have the
-                  // weird orange background... change the design of that All
-                  // Markets button." White, hairline, the globe as a bare brand
-                  // glyph, a subtitle saying what is behind it, a chevron.
+                  // A ROW, NOT AN ORANGE SLAB. White, hairline, the globe as a bare brand glyph, a subtitle saying what
+                  // is behind it, a chevron.
                   className="flex items-center gap-3 rounded-2xl border border-gray-200 bg-white px-4 py-3 text-left transition-transform duration-200 active:scale-[0.98]"
                 >
                   <Icon name="globe" className="h-5 w-5 shrink-0 text-brand" />

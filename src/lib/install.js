@@ -99,12 +99,10 @@ export const isInAppBrowser = () => {
 }
 
 /**
- * An iPhone browser that is not Safari: Chrome, Firefox, Edge, Opera, the Google
- * app, DuckDuckGo. (24 Sep 2026, Daniela.) Their "Add to Home Screen" makes a
- * shortcut that reopens THAT BROWSER, so `isStandalone()` stays false and the
- * install wall comes back on every launch however many times the steps are
- * followed. Only Safari installs the real app on an iPhone, so the only useful
- * screen is "open this in Safari".
+ * An iPhone browser that is not Safari: Chrome, Firefox, Edge, Opera, the Google app, DuckDuckGo. (Daniela.) Their "Add
+ * to Home Screen" makes a shortcut that reopens THAT BROWSER, so `isStandalone()` stays false and the install wall comes
+ * back on every launch however many times the steps are followed. Only Safari installs the real app on an iPhone, so the
+ * only useful screen is "open this in Safari".
  */
 export const isIOSOtherBrowser = () =>
   isIOS() && /CriOS|FxiOS|EdgiOS|OPiOS|OPT\/|GSA\/|DuckDuckGo|YaBrowser|Brave/i.test(ua())
@@ -157,28 +155,17 @@ export async function promptInstall() {
   }
 }
 
-// THE "THEY SKIPPED IT" FLAG IS GONE (3 Sep 2026).
+// THE "THEY SKIPPED IT" FLAG IS GONE.
 //
-// `skippedInstall` / `skipInstall` / `clearInstallSkip` stored a per-device
-// note that somebody had pressed "Continue in the browser for now", and the old
-// `InstallGate` (deleted 10 Sep 2026) lifted the gate for good once it was set.
-// That is what made the gate an ask.
+// `skippedInstall` / `skipInstall` / `clearInstallSkip` stored a per-device note that somebody had pressed "Continue in
+// the browser for now", and the old `InstallGate` (deleted) lifted the gate for good once it was set. That is what made
+// the gate an ask.
 //
-// Ethan asked for a wall: "they shouldn't be able to enter the app unless they
-// follow the steps to add it to their home screen." A wall that remembers being
-// walked around is a door, so there is nothing left to remember. The gate now
-// asks one question - is this phone running the installed app - and that
-// question answers itself correctly every time without any stored state.
+// A wall that remembers being walked around is a door, so there is nothing left to remember. The gate now asks one
+// question - is this phone running the installed app - and that question answers itself correctly every time without any
+// stored state.
 
-// THE ACTUAL TAPS, ON THE ACTUAL PHONE (4 Sep 2026).
-//
-// Ethan, walking it on his own iPhone: "you've drawn the wrong symbols. First
-// off, you have to click the three dots in the bottom right corner. You click
-// that, and then you click on the share icon, which is like a square with a
-// little arrow coming out of it. Then you press View More, which is a little
-// arrow pointing down. And then you click Add to Home Screen, which is like a
-// rounded square with a plus in it. From there you click Add in the top right,
-// and that is it."
+// THE ACTUAL TAPS, ON THE ACTUAL PHONE.
 //
 // The old iOS list was three steps and every one of them was wrong for a
 // current iPhone: Safari's toolbar collapsed into a "..." menu, so there is no
@@ -187,17 +174,13 @@ export async function promptInstall() {
 // following instructions that do not match what they can see concludes the app
 // is broken, not that the instructions are old.
 //
-// The five iOS steps below are exactly what he described, in his order, with
-// the glyph each one actually wears (see components/Icon - `iosShare` and
-// `addToHome` were drawn for this). Android's four are Chrome's real path: the
-// overflow is a VERTICAL ellipsis in the TOP right (the old copy said "menu in
-// the top right" but drew the horizontal iOS dots), and the item reads "Install
-// app" on modern Chrome with "Add to Home screen" as the older wording.
+// The five iOS steps below are exactly what he described, in their order, with the glyph each one actually wears (see
+// components/Icon - `iosShare` and `addToHome` were drawn for this). Android's four are Chrome's real path: the overflow
+// is a VERTICAL ellipsis in the TOP right (the old copy said "menu in the top right" but drew the horizontal iOS dots),
+// and the item reads "Install app" on modern Chrome with "Add to Home screen" as the older wording.
 //
-// BOTH LISTS ARE THE SAME LENGTH ON PURPOSE. Ethan: "when clicking from Android
-// to iPhone, the card jumps in size a bit - I would have it always the same
-// size." Five and four differ by one row; the card reserves the taller of the
-// two (see AddToHomePrompt), so the toggle changes the words and nothing else.
+// BOTH LISTS ARE THE SAME LENGTH ON PURPOSE. Five and four differ by one row; the card reserves the taller of the two
+// (see AddToHomePrompt), so the toggle changes the words and nothing else.
 export const IOS_STEPS = [
   { icon: 'dots', text: 'Tap the three dots in the bottom right of Safari' },
   { icon: 'iosShare', text: 'Tap the Share icon, a square with an arrow out of the top' },
@@ -232,25 +215,12 @@ export const SAFARI_STEPS = [
 // EFFECT AND ONE OF THEM SILENTLY TURNED THE WHOLE FEATURE OFF FOR THE PERSON
 // MOST LIKELY TO NOTICE.
 //
-// Ethan (9 Sep 2026): "previously we had it set up so that if you logged in on
-// a mobile browser you just immediately get that pop up that says how to add it
-// as an app on your home screen... but for some reason that just doesn't work
-// anymore. Did you take it away? This should always be here permanently."
+// It was taken away, from them specifically, and here is the exact line. On 7 Sep an `if (profile.is_admin) return` was
+// added to AddToHomePrompt. The ask it was written for was the NOTIFICATIONS one - "admins are excluded from the
+// constant notification pop-ups as well" - and it was extended to the install wall on a defensible worry: the wall has
+// no close button, so an admin who opens /admin from an email on their phone would be locked out of it.
 //
-// It was taken away, from him specifically, and here is the exact line. On
-// 7 Sep an `if (profile.is_admin) return` was added to AddToHomePrompt. The ask
-// it was written for was the NOTIFICATIONS one - "admins are excluded from the
-// constant notification pop-ups as well" - and it was extended to the install
-// wall on a defensible worry: the wall has no close button, so an admin who
-// opens /admin from an email on their phone would be locked out of it.
-//
-// THE ADMIN ESCAPE HATCH IS NOW GONE TOO (9 Sep 2026, later the same day).
-// Ethan, having seen the dismissible version on his own phone: "currently it
-// shows 'not now, keep me in the browser'. We don't want that at all. We want
-// that pop up to be persistent, and they have to add it to home screen because
-// we want them to only use that. Remove the x at the top and remove the 'not
-// now, keep me in the browser'... ensure that pops up every single time they
-// are logged in and entering the browser."
+// THE ADMIN ESCAPE HATCH IS NOW GONE TOO (later the same day).
 //
 // So there is ONE answer for everybody on a phone in a browser now, and it is
 // the wall. The worry it replaced is real and has one answer: an admin installs

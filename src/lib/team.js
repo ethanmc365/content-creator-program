@@ -4,12 +4,6 @@ import { profilesApi } from '../api/profiles'
 
 // WHO TO WRITE TO, IN ONE PLACE.
 //
-// Ethan, 7 Sep 2026: "for error pages and policies, terms and conditions etc, I
-// think we had the contact email as info@tryp.com or my personal email,
-// ethantryp.com@gmail.com. I now have a Google Workspace account, so I want you
-// to change all those emails to ethan@tryp.com - that way it looks professional
-// to any creators trying to reach out to me."
-//
 // It was in six files under three different spellings, which is the whole
 // reason it drifted in the first place: the terms said `info@`, the error
 // screen said a gmail address, and the compliance record said a third thing.
@@ -28,10 +22,9 @@ export const SUPPORT_EMAIL = 'ethan@tryp.com'
 // address alone does not answer the question somebody stuck actually has, which
 // is "is a human going to read this". A name, a job title and a face do.
 //
-// The photo is a FILE in `public/` rather than the live `profiles.photo_url`,
-// because the first place this renders is the error screen - which draws when
-// the app has already failed and often has no session to query with. Copied
-// from Ethan's own avatar; re-run the copy if he changes it.
+// The photo is a FILE in `public/` rather than the live `profiles.photo_url`, because the first place this renders is
+// the error screen - which draws when the app has already failed and often has no session to query with. Copied from the
+// team's own avatar; re-run the copy if he changes it.
 export const TEAM_LEAD = {
   name: 'Ethan',
   role: 'Content Creator Community Lead',
@@ -41,12 +34,10 @@ export const TEAM_LEAD = {
 
 // EVERYONE ELSE IS READ FROM THE DATABASE, NOT LISTED HERE.
 //
-// Ethan asked for "the whole Tryp.com team listed there, and they can
-// specifically click to DM them". A hard-coded list of names would be wrong
-// within a week - Casandra was promoted on 6 September and Jesus was removed
-// before that - and a help page naming somebody who has left is worse than no
-// help page. `is_admin` is already the platform's definition of "on the team";
-// this reads it.
+// The team asked for "the whole Tryp.com team listed there, and they can specifically click to DM them". A hard-coded
+// list of names would be wrong within a week - Casandra was promoted on 6 September and Jesus was removed before that -
+// and a help page naming somebody who has left is worse than no help page. `is_admin` is already the platform's
+// definition of "on the team"; this reads it.
 //
 // `is_test` is filtered through `testFlags()` for the same reason the directory
 // does it: the QA demo account is an admin and is not a person to write to.
@@ -59,11 +50,9 @@ export function useTeam(myId) {
   // the owner changes. `platform_role = 'owner'` is already the platform's
   // definition of that person.
   //
-  // It is NOT filtered by `myId` the way the list below is: Ethan reading his
-  // own help page should still see the card, because it is what every creator
-  // sees and he is the one who has to approve it. The two buttons on it are
-  // hidden for him instead - see HelpTeam - because "message yourself" is not
-  // help.
+  // It is NOT filtered by `myId` the way the list below is: the team reading their own help page should still see the
+  // card, because it is what every creator sees and they are the one who has to approve it. The two buttons on it are
+  // hidden for them instead - see HelpTeam - because "message yourself" is not help.
   const [lead, setLead] = useState(null)
   const [loading, setLoading] = useState(true)
   useEffect(() => {

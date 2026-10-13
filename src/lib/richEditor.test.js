@@ -104,13 +104,10 @@ describe('richEditor markdown <-> html', () => {
 // ---------------------------------------------------------------------------
 // SECURITY: the markdown renderer must not be able to emit an attribute.
 //
-// Found by audit, 22 Aug 2026. escapeHtml covered &, < and > - enough for text
-// that lands in element CONTENT, and not enough for text that lands in an
-// ATTRIBUTE. The mention rule writes the matched name into `data-mention="..."`,
-// so a creator whose DISPLAY NAME contained a double quote could close that
-// attribute and open an event handler. It reaches an admin through
-// RichEditable's dangerouslySetInnerHTML, so the attacker is any creator and
-// the victim is the team.
+// Found by audit. escapeHtml covered &, < and > - enough for text that lands in element CONTENT, and not enough for text
+// that lands in an ATTRIBUTE. The mention rule writes the matched name into `data-mention="..."`, so a creator whose
+// DISPLAY NAME contained a double quote could close that attribute and open an event handler. It reaches an admin
+// through RichEditable's dangerouslySetInnerHTML, so the attacker is any creator and the victim is the team.
 //
 // These assert on a PARSED DOM rather than on the string: a regex looking for
 // `onmouseover=` cannot tell the difference between an attribute that exists

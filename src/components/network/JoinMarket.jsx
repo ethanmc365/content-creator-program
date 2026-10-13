@@ -11,15 +11,13 @@ import { cx } from '../../lib/utils'
 import { useT } from '../../lib/i18n'
 import { marketsApi } from '../../api/markets'
 
-// CREATING FOR ANOTHER MARKET (10 Oct 2026, migration 378).
+// CREATING FOR ANOTHER MARKET (migration 378).
 //
-// Ethan: "there is a Portuguese creator that also creates content in Spanish but currently she's only in the Portugal
-// community. We have the function for them to request to join other markets but it's quite hidden." It was a small
-// outlined button at the foot of each card on Explore markets, two screens deep. Now it is one sheet, opened from the
-// avatar menu, the Worldwide right column and the Markets page: pick the market, say why in a line, send. The creator
-// keeps every market they are in; the team sees it highlighted under Applications and answers yes or no, and both
-// answers reach the creator's bell. A VIP or official creator never sees it - their market is set by the team (and the
-// database refuses the request anyway).
+// It was a small outlined button at the foot of each card on Explore markets, two screens deep. Now it is one sheet,
+// opened from the avatar menu, the Worldwide right column and the Markets page: pick the market, say why in a line,
+// send. The creator keeps every market they are in; the team sees it highlighted under Applications and answers yes or
+// no, and both answers reach the creator's bell. A VIP or official creator never sees it - their market is set by the
+// team (and the database refuses the request anyway).
 //
 // One sheet for the whole app: `openJoinMarket()` from anywhere, `<JoinMarketHost />` mounted once in AppLayout.
 
@@ -54,7 +52,7 @@ export function JoinMarketHost() {
   const can = useCanJoinMarkets()
   const location = useLocation()
   const navigate = useNavigate()
-  // A NOTIFICATION CAN OPEN IT (12 Oct 2026): "Tell us more about joining Germany" links to ?join=<market>.
+  // A NOTIFICATION CAN OPEN IT: "Tell us more about joining Germany" links to ?join=<market>.
   const asked = new URLSearchParams(location.search).get('join')
   useEffect(() => {
     if (!asked || !can) return
@@ -67,9 +65,9 @@ export function JoinMarketHost() {
   return <JoinMarketSheet initial={pick} onClose={close} />
 }
 
-// `demo` (13 Oct 2026, Testing Centre): { mine: [market ids], requests: [rows] } draws the sheet as that creator would see
-// it and writes nothing - sending shows the "Request sent" screen, withdrawing only removes the row on screen. `inline`
-// draws it in a card instead of a dialog, so the lab can show several states side by side.
+// `demo` (Testing Centre): { mine: [market ids], requests: [rows] } draws the sheet as that creator would see it and
+// writes nothing - sending shows the "Request sent" screen, withdrawing only removes the row on screen. `inline` draws
+// it in a card instead of a dialog, so the lab can show several states side by side.
 function JoinMarketSheet({ initial, onClose, demo = null, inline = false }) {
   const tr = useT()
   const { user } = useAuth()
@@ -181,9 +179,7 @@ function JoinMarketSheet({ initial, onClose, demo = null, inline = false }) {
 
           {target && (
             <div className="space-y-5 animate-rise">
-              {/* THREE QUESTIONS (12 Oct 2026). Ethan: "a lot of creators requesting to join other markets that don't even
-                  speak the language ... They just say they want to visit there sometime." The team sees every answer,
-                  next to the languages on the creator's profile. */}
+              {/* THREE QUESTIONS. The team sees every answer, next to the languages on the creator's profile. */}
               <fieldset>
                 <legend className="label">{tr('How well do you speak {l}?', { l: tr(marketLanguage(target)) })}</legend>
                 <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
@@ -278,14 +274,14 @@ export function JoinMarketPreview({ mine, requests = [], initial = null }) {
   return <JoinMarketSheet inline demo={{ mine, requests }} initial={initial} onClose={() => {}} />
 }
 
-/** THE WORLDWIDE RIGHT COLUMN'S DOOR (10 Oct 2026): a small card that says the thing out loud. */
+/* THE WORLDWIDE RIGHT COLUMN'S DOOR: a small card that says the thing out loud. */
 export function JoinMarketCard({ className }) {
   const tr = useT()
   const can = useCanJoinMarkets()
   const { isAdmin } = useAuth()
   const navigate = useNavigate()
-  // THE TEAM SEES IT TOO (11 Oct 2026). Ethan could not find this card because it is for creators only, so the team now
-  // sees the same card, marked as what creators see, and it opens the requests they send instead of the sheet.
+  // THE TEAM SEES IT TOO. The team could not find this card because it is for creators only, so the team now sees the
+  // same card, marked as what creators see, and it opens the requests they send instead of the sheet.
   if (!can && !isAdmin) return null
   return (
     <button type="button" onClick={() => (can ? openJoinMarket() : navigate('/admin/applications?tab=markets'))}

@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { pinToBottom, isPinning, stickToBottom } from './chatScroll'
 
-// THE REGRESSION THIS FILE EXISTS FOR (3 Sep 2026).
+// THE REGRESSION THIS FILE EXISTS FOR.
 //
 // A chat opened scrolled up, on both surfaces, across refreshes, for months.
 // The cause was not the pinning loop - it was the reader's own `onScroll`
@@ -99,7 +99,7 @@ describe('pinToBottom', () => {
 })
 
 // ---------------------------------------------------------------------------
-// THE CAP MUST NOT REVEAL A THREAD IN THE WRONG PLACE (3 Sep 2026).
+// THE CAP MUST NOT REVEAL A THREAD IN THE WRONG PLACE.
 //
 // The loop converges when the height settles. When it does NOT - a room full of
 // photographs on mobile data - `MAX_MS` fires and reveals the thread anyway.
@@ -164,7 +164,7 @@ describe('pinToBottom: the reveal is always at the bottom', () => {
 })
 
 // ---------------------------------------------------------------------------
-// STICKING TO THE BOTTOM AFTER THE ARRIVAL LOOP HAS GONE (3 Sep 2026).
+// STICKING TO THE BOTTOM AFTER THE ARRIVAL LOOP HAS GONE.
 //
 // The rooms render live poll, game and resource cards, and each fetches its own
 // contents and grows from nothing to ~150px whenever that returns - long after
@@ -239,13 +239,7 @@ describe('stickToBottom', () => {
     expect(() => stickToBottom(() => null, () => true)()).not.toThrow()
   })
 
-  // THE KEYBOARD CASE, WHICH THE RESIZE SIGNAL WAS NAMED AFTER AND DID NOT
-  // COVER (12 Sep 2026).
-  //
-  // Ethan: "when I click on a chat and view it and then click on the text box
-  // to type something, the keyboard shows up and the last chat gets partly
-  // hidden behind it. This shouldn't be the case - when the keyboard shows up,
-  // the bottom of the last chat should still show up just above, not cut off."
+  // THE KEYBOARD CASE, WHICH THE RESIZE SIGNAL WAS NAMED AFTER AND DID NOT COVER.
   //
   // The RESIZE observer was already attached and its comment already said
   // "keyboard". `check` then opened with `if (e.scrollHeight === last) return`,

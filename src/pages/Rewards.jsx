@@ -35,13 +35,11 @@ export default function Rewards() {
   // to check whether they have been paid. It was the loudest control on the
   // page and it answered a question nobody had come here to ask.
   //
-  // AND THE COMPONENTS ARE NOW DELETED (20 Sep 2026), not parked. `Certificate`
-  // and `CertificateModal` were a SECOND, hard-coded certificate - one design,
-  // its words in the markup, its own bar along the bottom - kept in the tree on
-  // the theory that it might come back somewhere. `certificate/CertificateCard`
-  // is the certificate now, it can make six layouts out of a stored design, and
-  // a second implementation of the same object is the exact thing `domSnapshot`
-  // exists to stop. `CertificateWall`, below, is where a creator finds theirs.
+  // AND THE COMPONENTS ARE NOW DELETED, not parked. `Certificate` and `CertificateModal` were a SECOND, hard-coded
+  // certificate - one design, its words in the markup, its own bar along the bottom - kept in the tree on the theory
+  // that it might come back somewhere. `certificate/CertificateCard` is the certificate now, it can make six layouts out
+  // of a stored design, and a second implementation of the same object is the exact thing `domSnapshot` exists to stop.
+  // `CertificateWall`, below, is where a creator finds theirs.
 
   useEffect(() => {
     moneyApi
@@ -55,17 +53,13 @@ export default function Rewards() {
       })
   }, [whose])
 
-  // THE VOUCHERS, AS TICKETS (24 Sep 2026). The code used to travel by DM after
-  // "distributed"; it is on the reward row now and the creator ticks it off
-  // themselves once spent (set_reward_used, migration 255).
+  // THE VOUCHERS, AS TICKETS. The code used to travel by DM after "distributed"; it is on the reward row now and the
+  // creator ticks it off themselves once spent (set_reward_used, migration 255).
   //
-  // THE CODE IS NO LONGER WHAT MAKES IT A VOUCHER (29 Sep 2026). This filter
-  // used to require `voucher_code`, which meant an awarded voucher the team had
-  // not yet typed a code into was missing from the wallet entirely - it existed
-  // only as a grey ledger row further down the page. Six were in exactly that
-  // state in production. A voucher a creator has been awarded belongs in their
-  // wallet whether or not the code has been written yet, saying honestly which
-  // of the two it is.
+  // THE CODE IS NO LONGER WHAT MAKES IT A VOUCHER. This filter used to require `voucher_code`, which meant an awarded
+  // voucher the team had not yet typed a code into was missing from the wallet entirely - it existed only as a grey
+  // ledger row further down the page. Six were in exactly that state in production. A voucher a creator has been awarded
+  // belongs in their wallet whether or not the code has been written yet, saying honestly which of the two it is.
   //
   // THE WALLET SPLITS IN TWO, BECAUSE THE TWO HALVES ANSWER DIFFERENT
   // QUESTIONS. "What can I spend?" is the reason anybody opens this page. "What
@@ -120,9 +114,9 @@ export default function Rewards() {
         <>
           {/* The two figures arrive as a pair, then the ledger under them.
               This page drew itself on one frame; see the note in Reveal. */}
-          {/* ONE CARD FOR THE TWO FIGURES (3 Oct 2026). Ethan: the rewards page "needs to be improved for the
-              creators". What you have received and what is on its way, on the brand card, with where it came from
-              underneath - challenges, milestones, referrals - so the page answers "for what" as well as "how much". */}
+          {/* ONE CARD FOR THE TWO FIGURES. The team: the rewards page "needs to be improved for the creators". What you
+              have received and what is on its way, on the brand card, with where it came from underneath - challenges,
+              milestones, referrals - so the page answers "for what" as well as "how much". */}
           <Reveal className="mb-10">
             <section className="relative overflow-hidden rounded-card bg-gradient-to-br from-brand to-brand-light p-5 text-white shadow-card sm:p-7">
               <span aria-hidden className="pointer-events-none absolute -right-12 -top-16 h-56 w-56 rounded-full bg-white/15 blur-2xl" />
@@ -236,8 +230,8 @@ export default function Rewards() {
                       {r.status === 'distributed'
                         ? tr('Distributed {date}', { date: formatDate(r.distributed_at) })
                         : sentInvoice(r)
-                          // YOUR INVOICE HAS ALREADY GONE (3 Oct 2026). A creator asked whether they should send it to
-                          // finance themselves. The team sends every invoice; this says it has been sent and when.
+                          // YOUR INVOICE HAS ALREADY GONE. A creator asked whether they should send it to finance
+                          // themselves. The team sends every invoice; this says it has been sent and when.
                           ? tr('Your invoice was sent to Tryp.com finance on {date}. Nothing for you to do, it is paid within 7 days.', { date: formatDate(sentInvoice(r).sent_at) })
                           : tr('Added {date}', { date: formatDate(r.created_at) })}
                     </p>
@@ -257,7 +251,7 @@ export default function Rewards() {
               why a certificate button on every reward ROW was removed and why
               a section of its own is a different thing. Draws nothing at all
               until somebody has one. */}
-          {/* WIDER THAN THE LEDGER (12 Oct 2026): "You can make that page even wider, maybe for the certificate part". */}
+          {/* WIDER THAN THE LEDGER: "You can make that page even wider, maybe for the certificate part". */}
           <CertificateWall profileId={whose} className="mt-12" readOnly={viewing} />
         </>
       )}
@@ -272,10 +266,9 @@ function sentInvoice(r) {
   return list.find((i) => i.stage === 'sent' && i.sent_at) || null
 }
 
-// A VIP'S MONEY IS NOT A COMMUNITY REWARD (13 Oct 2026). Ethan: "the VIP rewards page that they have: is it different? ...
-// ensure that it's different for VIPs and not the same as the general community." A VIP or official creator is paid by
-// views into a balance they withdraw from, so their Rewards page opens on that: the balance, what they have earned, what
-// has gone out, and the way to their payouts. Community vouchers and certificates follow underneath as before.
+// A VIP'S MONEY IS NOT A COMMUNITY REWARD. A VIP or official creator is paid by views into a balance they withdraw from,
+// so their Rewards page opens on that: the balance, what they have earned, what has gone out, and the way to their
+// payouts. Community vouchers and certificates follow underneath as before.
 function VipEarningsCard() {
   const { profile } = useAuth()
   if (!profile?.is_vip) return null

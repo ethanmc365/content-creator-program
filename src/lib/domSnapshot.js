@@ -1,11 +1,9 @@
 // A PICTURE OF SOMETHING THE APP ALREADY DRAWS.
 //
-// The shareable result used to be re-drawn on a canvas: a second implementation
-// of the podium, in a different language, kept in step with the real one by
-// hand. It drifted, because that is what a second implementation does - the
-// canvas version had no "Watch" chips, no card behind it, its own bar heights
-// and its own idea of what a leaderboard row looks like. Ethan compared the two
-// and picked the real one, which is the correct answer.
+// The shareable result used to be re-drawn on a canvas: a second implementation of the podium, in a different language,
+// kept in step with the real one by hand. It drifted, because that is what a second implementation does - the canvas
+// version had no "Watch" chips, no card behind it, its own bar heights and its own idea of what a leaderboard row looks
+// like. The team compared the two and picked the real one, which is the correct answer.
 //
 // So this takes a photograph of the real component instead. The node is cloned,
 // every computed style is written onto the clone (no stylesheet is fetched, so
@@ -204,13 +202,11 @@ async function inlineImages(clone) {
  */
 export async function snapshotNode(node, { scale = 2, background = '#ffffff', type = 'png', quality = 0.92 } = {}) {
   if (!node) return null
-  // THE NODE'S OWN SIZE, NOT ITS SIZE ON SCREEN (28 Sep 2026). Every caller
-  // photographs a certificate or a card that is drawn at full size and SCALED
-  // DOWN by a transform on a parent to fit the page - and
-  // `getBoundingClientRect` reports the scaled box. A 1000x707 certificate in a
-  // 400px preview came out as a 400x283 picture of its top-left corner, with
-  // the rest missing ("it seems like there's still a white border around
-  // that"). `offsetWidth` is the layout size, which transforms do not touch.
+  // THE NODE'S OWN SIZE, NOT ITS SIZE ON SCREEN. Every caller photographs a certificate or a card that is drawn at full
+  // size and SCALED DOWN by a transform on a parent to fit the page - and `getBoundingClientRect` reports the scaled
+  // box. A 1000x707 certificate in a 400px preview came out as a 400x283 picture of its top-left corner, with the rest
+  // missing ("it seems like there's still a white border around that"). `offsetWidth` is the layout size, which
+  // transforms do not touch.
   const rect = node.getBoundingClientRect()
   const width = Math.ceil(node.offsetWidth || rect.width)
   const height = Math.ceil(node.offsetHeight || rect.height)
@@ -260,13 +256,11 @@ export async function snapshotNode(node, { scale = 2, background = '#ffffff', ty
   // cards of flat colour and type, where PNG is both smaller AND sharper, and
   // JPEG would put ringing around every letter.
   //
-  // The portfolio PDF is the other case and it is the opposite in every
-  // respect. Its pages are PHOTOGRAPHS - a cover portrait and up to four video
-  // frames a page - which is what PNG is worst at, and the file has a job that
-  // a big file fails at: Ethan's own description of the feature is "a media kit
-  // you can send to a brand". Measured on a real ten-video portfolio: six pages
-  // at 2x came to 9.2MB as PNG, which several mail servers will refuse outright
-  // and every recipient will notice.
+  // The portfolio PDF is the other case and it is the opposite in every respect. Its pages are PHOTOGRAPHS - a cover
+  // portrait and up to four video frames a page - which is what PNG is worst at, and the file has a job that a big file
+  // fails at: the team's own description of the feature is "a media kit you can send to a brand". Measured on a real
+  // ten-video portfolio: six pages at 2x came to 9.2MB as PNG, which several mail servers will refuse outright and every
+  // recipient will notice.
   return new Promise((resolve) => canvas.toBlob(resolve, `image/${type}`, quality))
 }
 

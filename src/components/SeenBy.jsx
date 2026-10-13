@@ -51,8 +51,8 @@ export default function SeenBy({
   // person in the room and naming the count is noise.
   singular = false,
   className,
-  // A POLL MESSAGE SPLITS ITS READERS IN TWO (5 Oct 2026). Ethan: "the 'seen by' for this should show who's voted and who's just seen it and
-  // hasn't voted." Given a poll id, the list is "Voted" (with what each picked) and "Seen, not voted yet".
+  // A POLL MESSAGE SPLITS ITS READERS IN TWO. Given a poll id, the list is "Voted" (with what each picked) and "Seen,
+  // not voted yet".
   pollId = null,
 }) {
   const tr = useT()

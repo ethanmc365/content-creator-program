@@ -1,18 +1,15 @@
 // ONE URL FOR BROWSERS, AND NEVER A WORD TO AN INSTALLED APP.
 //
-// THE BUG THIS EXISTS TO UNDO (3 Sep 2026, same day it was created).
+// THE BUG THIS EXISTS TO UNDO (same day it was created).
 //
-// The platform answers on two origins - `trypcreators.vercel.app` and
-// `content-creator-program.vercel.app` - and Ethan asked for one. I did it in
-// `vercel.json` with a 308 on the second host, verified every path redirected,
-// and broke every installed app on the platform.
+// The platform answers on two origins - `trypcreators.vercel.app` and `content-creator-program.vercel.app` - and the
+// team asked for one. I did it in `vercel.json` with a 308 on the second host, verified every path redirected, and broke
+// every installed app on the platform.
 //
-// A HOME-SCREEN APP IS SCOPED TO THE ORIGIN IT WAS ADDED FROM. Launching it
-// opens `start_url` on that origin; a 308 to a DIFFERENT origin is a navigation
-// out of scope, and both iOS and Android answer that by handing the page to the
-// browser. So a creator who had installed from the old origin tapped their icon
-// and got Safari: address bar at the top, share and reload at the bottom. Which
-// is exactly the photograph Ethan sent.
+// A HOME-SCREEN APP IS SCOPED TO THE ORIGIN IT WAS ADDED FROM. Launching it opens `start_url` on that origin; a 308 to a
+// DIFFERENT origin is a navigation out of scope, and both iOS and Android answer that by handing the page to the
+// browser. So a creator who had installed from the old origin tapped their icon and got Safari: address bar at the top,
+// share and reload at the bottom. Which is exactly the photograph the team sent.
 //
 // It cannot be fixed on the server, because an installed launch and a browser
 // tab send byte-identical requests - `Sec-Fetch-Mode: navigate`,

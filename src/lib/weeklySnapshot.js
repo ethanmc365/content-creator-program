@@ -1,8 +1,7 @@
 // THE WEEKLY SNAPSHOT: one picture (SVG) and one paragraph (text) of the numbers a country-manager meeting needs.
 //
-// 9 Oct 2026. Ethan: "I'm running these weekly meetings with all the country managers, and currently I have to bring a lot of info
-// ... Give me a weekly snapshot somewhere ... and an SVG that I can share on the Meet." Every figure comes from the one RPC,
-// `admin_views_gained`, so the picture, the text and the page can never disagree. Pure functions: no network, no DOM.
+// 9 Oct 2026. Every figure comes from the one RPC, `admin_views_gained`, so the picture, the text and the page can never
+// disagree. Pure functions: no network, no DOM.
 
 const ORANGE = '#d94407'
 const ORANGE_LIGHT = '#f5853f'

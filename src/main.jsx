@@ -33,10 +33,9 @@ goCanonical()
 
 // THE PAGE TRANSLATOR CANNOT BE ALLOWED TO KILL A SIGNUP.
 //
-// Before React, for the same reason the pinch guard is: a translator can reach
-// the first painted frame, and a patch applied after the first commit leaves
-// the boot window unguarded. Three creators lost an application form to this
-// between 11 and 15 Sep 2026; the whole story is in lib/translationGuard.
+// Before React, for the same reason the pinch guard is: a translator can reach the first painted frame, and a patch
+// applied after the first commit leaves the boot window unguarded. Three creators lost an application form to this
+// between 11 and; the whole story is in lib/translationGuard.
 installTranslationGuard()
 
 // Start error monitoring as early as possible (no-op without VITE_SENTRY_DSN).
@@ -88,11 +87,11 @@ else applyAppIcon()
 function promoteAppCss() {
   const links = [...document.querySelectorAll('link[data-app-css]')]
   if (links.length === 0) return Promise.resolve()
-  // NEVER MOUNT INTO AN UNSTYLED PAGE (3 Oct 2026). Ethan opened the app on weak wifi and got bare blue links
-  // and a giant globe icon. This waited 1.2 seconds for the stylesheet and then mounted anyway, and when the
-  // service worker had booted a cached page from an older deploy its stylesheet no longer existed at all - so
-  // the page stayed unstyled for good. Now it waits as long as the boot skeleton is showing (up to 12s), and a
-  // stylesheet that FAILS means the shell is stale: drop it from the cache and load a fresh one, once.
+  // NEVER MOUNT INTO AN UNSTYLED PAGE. The team opened the app on weak wifi and got bare blue links and a giant globe
+  // icon. This waited 1.2 seconds for the stylesheet and then mounted anyway, and when the service worker had booted a
+  // cached page from an older deploy its stylesheet no longer existed at all - so the page stayed unstyled for good. Now
+  // it waits as long as the boot skeleton is showing (up to 12s), and a stylesheet that FAILS means the shell is stale:
+  // drop it from the cache and load a fresh one, once.
   return new Promise((resolve) => {
     let left = links.length
     let failed = false
@@ -150,20 +149,16 @@ function mount() {
 // THE LOADER LEAVES ONCE THERE IS SOMETHING BEHIND IT.
 //
 // index.html paints `#boot` on the first frame - a white page carrying the
-// SHAPE OF THE APP SHELL in the same greys the app's own skeletons use - so the
-// gap before React mounts shows the page arriving rather than a blank. It was a
-// flying plane and the word "Loading" until 4 Sep 2026; see the long note in
-// index.html for why that had to go, and why an orange splash was tried here
-// and reverted (a layer that is not the same colour as the canvas under it
-// always has a frame where they disagree).
+// SHAPE OF THE APP SHELL in the same greys the app's own skeletons use - so the gap before React mounts shows the page
+// arriving rather than a blank. It was a flying plane and the word "Loading"; see the long note in index.html for why
+// that had to go, and why an orange splash was tried here and reverted (a layer that is not the same colour as the
+// canvas under it always has a frame where they disagree).
 //
-// IT WAITS FOR CONTENT, NOT FOR A TIMER. This used to fade after two animation
-// frames or 400ms, whichever came first, which is a guess at when React has
-// something to show - and it is the wrong guess, because React commits a
-// SUSPENSE FALLBACK that fast. The boot layer therefore left mid-boot with the
-// app's own full-page loader already underneath it, and the two were centred on
-// different boxes, so both were on screen a few dozen pixels apart for the
-// length of the fade. Ethan sent the photograph.
+// IT WAITS FOR CONTENT, NOT FOR A TIMER. This used to fade after two animation frames or 400ms, whichever came first,
+// which is a guess at when React has something to show - and it is the wrong guess, because React commits a SUSPENSE
+// FALLBACK that fast. The boot layer therefore left mid-boot with the app's own full-page loader already underneath it,
+// and the two were centred on different boxes, so both were on screen a few dozen pixels apart for the length of the
+// fade. The team sent the photograph.
 //
 // `whenAppLoadersIdle` fires when no full-page loader is mounted, so the
 // handover is to a real screen. Every such loader draws nothing while `#boot`

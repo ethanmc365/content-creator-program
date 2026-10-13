@@ -31,15 +31,11 @@ export const MOON_KM = 384400
 
 // THE CABIN PICKER IS GONE, AND SO IS THE RATING.
 //
-// Both for the same reason, given twice by the same person: a field is worth
-// asking for only if something on the page COUNTS it, and neither of these
-// earned its place on the form. The cabin was never counted at all. The rating
-// bought two tiles - "your best flight" and "the airline you rate" - and cost
-// every single person filling in the form a decision about a flight they had
-// already stopped thinking about. Ethan: "remove the 'how was it'."
-// Both COLUMNS are left in place and simply unwritten. Dropping a column to
-// remove a control would throw away whatever anybody has already logged, for no
-// gain at all.
+// Both for the same reason, given twice by the same person: a field is worth asking for only if something on the page
+// COUNTS it, and neither of these earned its place on the form. The cabin was never counted at all. The rating bought
+// two tiles - "your best flight" and "the airline you rate" - and cost every single person filling in the form a
+// decision about a flight they had already stopped thinking about. Both COLUMNS are left in place and simply unwritten.
+// Dropping a column to remove a control would throw away whatever anybody has already logged, for no gain at all.
 
 // Why the trip happened. Six options and no more: the value of this field is
 // that it can be counted, and a taxonomy nobody can hold in their head is a
@@ -50,13 +46,10 @@ export const PURPOSES = [
   { key: 'leisure', label: 'Holiday', icon: 'sun' },
   { key: 'work', label: 'Work', icon: 'briefcase' },
   { key: 'family', label: 'Family', icon: 'heart' },
-  // SOLO TRAVEL, NOT COMMUTE (migration 152). Ethan: "redo the 'commute'
-  // option and icon to Solo Travel instead as I'd say that's a more popular
-  // option." A commute is a handful of creators flying the same hop for work;
-  // travelling alone is something a large part of this community does and had
-  // nowhere to go but Holiday or Other. The stored value changed with the
-  // label - see the migration for why printing a new word over an old key is
-  // the version of this that goes wrong later.
+  // SOLO TRAVEL, NOT COMMUTE (migration 152). A commute is a handful of creators flying the same hop for work;
+  // travelling alone is something a large part of this community does and had nowhere to go but Holiday or Other. The
+  // stored value changed with the label - see the migration for why printing a new word over an old key is the version
+  // of this that goes wrong later.
   { key: 'solo', label: 'Solo travel', icon: 'user' },
   { key: 'other', label: 'Other', icon: 'dots' },
 ]
@@ -81,17 +74,12 @@ export const PURPOSE_LABEL = Object.fromEntries(PURPOSES.map((p) => [p.key, p.la
 // too, so there is no list of fields to keep in step in three places.
 // THERE IS NO `share` FIELD ANY MORE.
 //
-// It was a tick-box at the foot of the form - "Count this towards the
-// community" - defaulting to on. Ethan: "don't have a separate button saying
-// count this to the community, everything will show up in the community, don't
-// need to say anything." Every flight is written with
-// `share_with_community: true` now and the control is gone.
-// What that does and does not mean is unchanged and worth restating, because
-// removing a consent control is not a small thing: the community pages read
-// ONLY who flew, how many times, how far and between which airports. Never a
-// date, a seat, a flight number, a note or a photograph, and never a flight
-// that has not happened yet. See migrations 103 and 104 for the policy that
-// enforces it rather than promising it.
+// It was a tick-box at the foot of the form - "Count this towards the community" - defaulting to on. Every flight is
+// written with `share_with_community: true` now and the control is gone. What that does and does not mean is unchanged
+// and worth restating, because removing a consent control is not a small thing: the community pages read ONLY who flew,
+// how many times, how far and between which airports. Never a date, a seat, a flight number, a note or a photograph, and
+// never a flight that has not happened yet. See migrations 103 and 104 for the policy that enforces it rather than
+// promising it.
 export const BLANK_FORM = {
   from_iata: '', to_iata: '', flown_on: '', airline: '', flight_number: '',
   aircraft: '', note: '', seat: '', purpose: '', purpose_note: '',
@@ -197,10 +185,8 @@ export function RecordCard({ icon, label, value, detail, tone = 'plain' }) {
 export function LoyaltyRow({ a, max }) {
   return (
     <div className="flex items-center gap-3 rounded-card border border-gray-100 bg-white px-4 py-3 shadow-card transition-transform duration-200 hover:-translate-y-0.5">
-      {/* THE AIRLINE, NOT ITS POSITION IN A LIST OF THREE.
-          Ethan: "we don't need that because it's already filtered and has the
-          number of times you fly on the right side." A rank badge on a sorted
-          list is a label for something the order already says. */}
+      {/* THE AIRLINE, NOT ITS POSITION IN A LIST OF THREE. A rank badge on a sorted list is a label for something the
+          order already says. */}
       <AirlineMark iata={a.iata} name={a.name} size={28} />
       <span className="min-w-0 flex-1">
         <span className="block truncate text-sm font-semibold">{a.name}</span>

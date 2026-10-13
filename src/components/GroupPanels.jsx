@@ -26,11 +26,8 @@ import { useT } from '../lib/i18n'
 export function GroupAvatar({ conversation, members = [], size = 'md' }) {
   const px = size === 'lg' ? 'h-12 w-12' : size === 'sm' ? 'h-8 w-8' : 'h-10 w-10'
   const text = size === 'lg' ? 'text-xl' : size === 'sm' ? 'text-sm' : 'text-base'
-  // A PHOTOGRAPH TAKES THE WHOLE CIRCLE (migration 165). Ethan: "an option to
-  // upload a photo that then just takes up the whole circle, so there's no icon
-  // or background colour, just the photo you upload." So it is not drawn ON the
-  // accent, it replaces it - a tint showing at the edge of somebody's picture
-  // is the product asserting itself over the thing they chose.
+  // A PHOTOGRAPH TAKES THE WHOLE CIRCLE (migration 165). So it is not drawn ON the accent, it replaces it - a tint
+  // showing at the edge of somebody's picture is the product asserting itself over the thing they chose.
   if (conversation?.photo_url) {
     return (
       <img
@@ -122,12 +119,7 @@ const ICON_GROUPS = [
   { name: 'Odds and ends', emoji: ['🔥', '⭐️', '🎉', '💡', '💬', '❤️', '🤝', '🏆', '💰', '🔑', '🚀', '🦄', '🐧', '🐬', '🐝', '🌻'] },
 ]
 
-// ONE TIDY GRID, AND A PHOTOGRAPH IS ONE OF THE CHOICES (2 Sep 2026).
-//
-// Ethan: "I don't like the way there's a row of them, and then two ones just on
-// their own and then a more icons button. Just have the row of the travel ones
-// at the top. And I want an option to upload a photo that takes up the whole
-// circle, so there's no icon or background colour, just the photo."
+// ONE TIDY GRID, AND A PHOTOGRAPH IS ONE OF THE CHOICES.
 //
 // The orphans were a wrap: twelve 36px tiles in a `flex-wrap` inside a modal
 // come out ten and two at most widths, so the shortlist read as a row plus two

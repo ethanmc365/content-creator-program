@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { officialWords } from './vip'
 
-// The official creators reuse every VIP screen; these are the swaps those screens rely on (migration 376 / 11 Oct 2026).
+// The official creators reuse every VIP screen; these are the swaps those screens rely on (migration 376 /).
 describe('officialWords', () => {
   it('swaps the English VIP words, keeping sentence case', () => {
     expect(officialWords('Active VIPs', 'en')).toBe('Active official creators')

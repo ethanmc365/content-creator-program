@@ -13,12 +13,10 @@ import { t } from './i18n'
 //
 // SO THE REASONS ARE WRITTEN, NOT GENERATED.
 //
-// Every phrasing below is a fixed sentence with at most a name or a place
-// dropped into it, in the plain words somebody would use out loud. No
-// "based on your interests", no "you may also like", no percentage match, no
-// three-clause sentence that begins "As someone who". Ethan's note was that they
-// must not read as written by a machine, and the way to guarantee that is to
-// have a person write all of them in advance.
+// Every phrasing below is a fixed sentence with at most a name or a place dropped into it, in the plain words somebody
+// would use out loud. No "based on your interests", no "you may also like", no percentage match, no three-clause
+// sentence that begins "As someone who". The team's note was that they must not read as written by a machine, and the
+// way to guarantee that is to have a person write all of them in advance.
 //
 // AND "NO REASON" IS AN HONEST REASON.
 //
@@ -27,14 +25,10 @@ import { t } from './i18n'
 // the card says there is nothing real to say and suggests them anyway. That is
 // how introductions work between people.
 //
-// STABLE FOR A DAY, AND DIFFERENT TOMORROW (2 Sep 2026).
+// STABLE FOR A DAY, AND DIFFERENT TOMORROW.
 //
-// It was stable for a WEEK, on the reasoning that three new strangers every
-// time you refresh is a slot machine rather than an introduction. That half is
-// still true and the pick is still stable within a day. But Ethan: "it's
-// showing the same creators every single day. I want this to refresh daily, or
-// even every couple of hours - obviously in future it can show the same
-// creators, but we don't want it showing them constantly."
+// It was stable for a WEEK, on the reasoning that three new strangers every time you refresh is a slot machine rather
+// than an introduction. That half is still true and the pick is still stable within a day. But
 //
 // A DAY SEED ON ITS OWN WOULD NOT HAVE FIXED IT, which is the part worth
 // writing down. The ranking ladder below is deterministic: if four people have
@@ -47,10 +41,7 @@ import { t } from './i18n'
 
 const WEEK_MS = 7 * 86400000
 
-// EVERY REASON IS A WHOLE SENTENCE WITH PLACEHOLDERS IN IT (2 Sep 2026).
-//
-// Ethan: "the things on the creator suggestions where it says you both speak
-// Irish - that should obviously be translated to the user's language."
+// EVERY REASON IS A WHOLE SENTENCE WITH PLACEHOLDERS IN IT.
 //
 // They were template literals, which cannot be translated at all: a dictionary
 // keyed on the English sentence never sees `You both speak ${x}.` because the

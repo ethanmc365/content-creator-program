@@ -40,15 +40,11 @@ import Reveal from './Reveal'
 // moment the rail hits its end, which is the other half of the same complaint.
 // `ready` IS WHAT MAKES THE TWO COLUMNS ARRIVE TOGETHER.
 //
-// THE BUG THIS FIXES. Everything in the article is behind `if (!data)`, because
-// a page that draws sections and then inserts four more into the middle of them
-// is a page that jumps. The rail was not - it rendered immediately with a
-// skeleton inside its top card - so the right-hand column ran its whole entrance
-// on the first frame, the data landed a few hundred milliseconds later, and only
-// then did the left column begin to move. That is exactly Ethan's report: "the
-// bigger cards on the left side are delayed, the cards on the right and the left
-// should appear in smoothly at the same time." It was never the delay ladder;
-// the two columns were waiting for different things.
+// THE BUG THIS FIXES. Everything in the article is behind `if (!data)`, because a page that draws sections and then
+// inserts four more into the middle of them is a page that jumps. The rail was not - it rendered immediately with a
+// skeleton inside its top card - so the right-hand column ran its whole entrance on the first frame, the data landed a
+// few hundred milliseconds later, and only then did the left column begin to move. That is exactly It was never the
+// delay ladder; the two columns were waiting for different things.
 //
 // So the rail waits for the same thing the article waits for. Until then the
 // aside holds a plain skeleton with NO Reveal on it - mounting the Reveal early
@@ -75,9 +71,9 @@ export default function NetworkLayout({ children, switcher = true, rail = null, 
               // a permanent grey gutter down the side of five white cards reads
               // as a seam. The region is still keyboard and wheel scrollable.
               'lg:[scrollbar-width:none] lg:[&::-webkit-scrollbar]:hidden',
-              // Room for every card's shadow, which a hard overflow edge would otherwise slice off. The LEFT side matters
-              // most (11 Oct 2026): with no room there the cards' shadows were cut on one straight vertical line that ran
-              // down the gaps between them, a grey seam joining "Your markets", "Video Ideas" and the rest. The negative
+              // Room for every card's shadow, which a hard overflow edge would otherwise slice off. The LEFT side
+              // matters most: with no room there the cards' shadows were cut on one straight vertical line that ran down
+              // the gaps between them, a grey seam joining "Your markets", "Video Ideas" and the rest. The negative
               // margin keeps the cards exactly where they were.
               'lg:-mx-3 lg:-mt-2 lg:px-3 lg:pb-4 lg:pt-2',
             )}

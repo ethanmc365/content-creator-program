@@ -33,14 +33,10 @@ import { teamApi } from '../../api/team'
 //
 // ONE SENTENCE, AND IT SAYS THE SAME KIND OF THING EVERY TIME.
 //
-// Ethan's report: "rather than saying quiet for a month or two, just say last
-// active, two months ago". He is right, and the reason is that "Quiet for 2
-// months" and "Active 3 hours ago" are two different sentences about the same
-// measurement - one phrased as a duration of absence, the other as a moment in
-// the past - so a column of them cannot be scanned. Every row now reads "Last
-// active <when>", and the only thing the 30-day judgement changes is the
-// colour. Online is the one exception, because "last active 4 seconds ago" is a
-// clumsy way of saying somebody is here.
+// they are right, and the reason is that "Quiet for 2 months" and "Active 3 hours ago" are two different sentences about
+// the same measurement - one phrased as a duration of absence, the other as a moment in the past - so a column of them
+// cannot be scanned. Every row now reads "Last active <when>", and the only thing the 30-day judgement changes is the
+// colour. Online is the one exception, because "last active 4 seconds ago" is a clumsy way of saying somebody is here.
 function PresenceChip({ when, online, quiet, detail = false }) {
   if (online) {
     return (
@@ -90,19 +86,17 @@ export default function AdminCreators() {
   const [marketOf, setMarketOf] = useState({}) // creator id -> [market name]
   const [marketFilter, setMarketFilter] = useState('')
   const [toast, setToast] = useState('')
-  // WHO, AS WELL AS WHERE (7 Oct 2026). Ethan: "Everyone and VIPs should be separated ... The VIP should actually look
-  // the same as the current worldwide, Spain, UK and Ireland toggle." The VIPs used to be a second tab with its own
-  // card UI; now they are a filter on the same roster, in the same pill row as the markets: Total, Community, VIPs.
+  // WHO, AS WELL AS WHERE. The VIPs used to be a second tab with its own card UI; now they are a filter on the same
+  // roster, in the same pill row as the markets: Total, Community, VIPs.
   const [group, setGroupRaw] = useState('all')
-  // THE VIP SIDE (8 Oct 2026). Ethan: "under Members ... it's not showing correctly who's in the team ... I don't even
-  // see Marta here" and "whenever I click on VIPs, rather than showing up as Worldwide Spain, it should show only the
-  // communities we have". So: which VIP community each person is in (members AND the staff who run one), who is on
-  // the Tryp.com team there (team creators, migration 365, and staff), and the pills under VIPs are VIP communities.
+  // THE VIP SIDE. and "whenever I click on VIPs, rather than showing up as Worldwide Spain, it should show only the
+  // communities we have". So: which VIP community each person is in (members AND the staff who run one), who is on the
+  // Tryp.com team there (team creators, migration 365, and staff), and the pills under VIPs are VIP communities.
   const [vipOf, setVipOf] = useState({}) // profile id -> ['VIP Spain', ...]
   const [teamOf, setTeamOf] = useState({}) // profile id -> 'staff' | 'creator'
   const setGroup = (g) => { setGroupRaw(g); setMarketFilter('') }
-  // OFFICIAL CREATORS ARE THEIR OWN GROUP (11 Oct 2026): `profiles.vip_kind` says which paid programme somebody is in, so
-  // the VIPs pill is the VIP community (and the staff who run it) and the official Tryp.com creators sit apart.
+  // OFFICIAL CREATORS ARE THEIR OWN GROUP: `profiles.vip_kind` says which paid programme somebody is in, so the VIPs
+  // pill is the VIP community (and the staff who run it) and the official Tryp.com creators sit apart.
   const isOfficialCreator = (c) => c.vip_kind === 'official'
   const inVip = (c) => (!!c.is_vip && !isOfficialCreator(c)) || teamOf[c.id] === 'staff'
   const paidGroup = (g) => g === 'vip' || g === 'official'
@@ -144,13 +138,7 @@ export default function AdminCreators() {
     }
     setVipOf(Object.fromEntries(Object.entries(vips).map(([k, v]) => [k, [...v].sort()])))
     setTeamOf(team)
-    // THE ROSTER IS THE COMMUNITY, NOT THE QUEUE (4 Sep 2026).
-    //
-    // Ethan: "if you go to the creators in the admin panel it shows the
-    // creators that partly signed up. This should not be showing up here. The
-    // only ones to drop here are creators that are actually accepted into the
-    // community. For these ones that partly signed up, I want them on the
-    // applications thing instead."
+    // THE ROSTER IS THE COMMUNITY, NOT THE QUEUE.
     //
     // This page pulled EVERY profile row, so a country manager opening their
     // roster read past everybody who had ever half-filled a signup form to find
@@ -174,10 +162,7 @@ export default function AdminCreators() {
 
   useEffect(() => { load() }, [])
 
-  // `?open=<id>` OPENS THAT CREATOR'S SHEET (8 Sep 2026).
-  //
-  // Ethan: "when clicking on the Full admin record, this should open the
-  // creator page correctly."
+  // `?open=<id>` OPENS THAT CREATOR'S SHEET.
   //
   // CreatorPeek's "Full admin record" button has linked to
   // `/admin/creators?open=<id>` since it was written, and this page has never
@@ -301,7 +286,7 @@ export default function AdminCreators() {
     load()
   }
 
-  // `acceptCreator` IS DELETED, AND IT WAS A HAZARD (4 Sep 2026).
+  // `acceptCreator` IS DELETED, AND IT WAS A HAZARD.
   //
   // It approved somebody with a bare `update({ status: 'active' })` - no market
   // placement at all - which is precisely the "approved but in no market" state
@@ -321,11 +306,10 @@ export default function AdminCreators() {
   }
 
   function dmCreator(creator) {
-    // A DM IS OPENED, NOT CREATED (9 Sep 2026). This used to look for a
-    // conversation and INSERT one when it found none, so pressing Message and
-    // then changing your mind left an empty thread in two inboxes. Three such
-    // rows exist in production. `/messages?to=` opens the thread either way and
-    // Messages.jsx creates the row on the first send. See `ensureConversation`.
+    // A DM IS OPENED, NOT CREATED. This used to look for a conversation and INSERT one when it found none, so pressing
+    // Message and then changing your mind left an empty thread in two inboxes. Three such rows exist in production.
+    // `/messages?to=` opens the thread either way and Messages.jsx creates the row on the first send. See
+    // `ensureConversation`.
     navigate(`/messages?to=${creator.id}`)
   }
 
@@ -390,14 +374,11 @@ export default function AdminCreators() {
 
   // A BADGE EVERY ROW CARRIES IS NOT A BADGE.
   //
-  // Ethan: "the active indicator seems to show up for absolutely everyone in the
-  // community so we should get rid of it". Nearly every account in the programme
-  // is `active`, so a green "active" pill on nearly every row was pure ink: it
-  // could not distinguish anybody from anybody, and sitting beside "Quiet for 2
-  // months" it read as a contradiction. The badge is now drawn only when the
-  // status is something a person would want to know - pending, incomplete,
-  // muted, suspended, being deleted. A row with no badge is a normal member,
-  // which is what the absence of a flag has always meant everywhere else.
+  // Nearly every account in the programme is `active`, so a green "active" pill on nearly every row was pure ink: it
+  // could not distinguish anybody from anybody, and sitting beside "Quiet for 2 months" it read as a contradiction. The
+  // badge is now drawn only when the status is something a person would want to know - pending, incomplete, muted,
+  // suspended, being deleted. A row with no badge is a normal member, which is what the absence of a flag has always
+  // meant everywhere else.
   const badgeWorthShowing = (c) => c.status !== 'active' || !!c.deletion_requested_at
   const isDeleting = (c) => !!c.deletion_requested_at
 
@@ -557,20 +538,13 @@ export default function AdminCreators() {
       {(
         <>
       {/* THE MARKET IS A ROW OF PILLS AGAIN, AND IT IS THE SAME ONE EVERY OTHER
-          ADMIN PAGE USES (10 Sep 2026).
+          ADMIN PAGE USES.
 
-          Ethan: "the way it shows All markets when we select from there - I
-          think it's weird, because normally we have the markets where you just
-          click from. So it's better to have that in and remove that."
-
-          He is right, and the note this replaces was wrong for a reason worth
-          keeping: it argued that "an unbounded list is not a row of buttons",
-          which is true of a list that grows without limit and false of this
-          one. There are seven markets and there will be a handful more; that is
-          a control, not a list. And the same question - which market am I
-          reading - is answered by `MarketScope` on Analytics, Rewards, Email,
-          the challenge log and the video tracker. A country manager who learns
-          it on one page should not meet a dropdown on this one.
+          they are right, and the note this replaces was wrong for a reason worth keeping: it argued that "an unbounded
+          list is not a row of buttons", which is true of a list that grows without limit and false of this one. There
+          are seven markets and there will be a handful more; that is a control, not a list. And the same question -
+          which market am I reading - is answered by `MarketScope` on Analytics, Rewards, Email, the challenge log and
+          the video tracker. A country manager who learns it on one page should not meet a dropdown on this one.
 
           IT TAKES NAMES, NOT IDS, HERE ALONE. `marketOf` maps a creator to the
           market NAMES they belong to (that is what the export column wants), so
@@ -613,10 +587,7 @@ export default function AdminCreators() {
               value={search} onChange={(e) => setSearch(e.target.value)} aria-label="Search creators"
             />
           </div>
-          {/* SQUARED OFF, LIKE THE FIELD BESIDE IT. Ethan: "we can still have
-              the toggle for most recently active, quietest first, newest
-              members, name A to Z - but I would make that match the style more,
-              square it out like the search bar."
+          {/* SQUARED OFF, LIKE THE FIELD BESIDE IT.
 
               `variant="field"` is exactly that: the same radius, the same
               padding and the same 16px-on-mobile as `.input`, so the two
@@ -697,8 +668,8 @@ export default function AdminCreators() {
                       <span className="truncate">{c.name}</span>
                       {c.is_admin && <Badge tone="light">Admin</Badge>}
                       {c.is_vip && !teamOf[c.id] && <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-gray-900 px-2 py-0.5 text-[10px] font-semibold text-white"><Icon name="star" className="h-2.5 w-2.5" />VIP</span>}
-                      {/* ONE BADGE (11 Oct 2026). An official creator is also a team member of the official programme, so
-                          the row used to say "Official" AND "Tryp.com team creator". Ethan wants only the second, in his words. */}
+                      {/* ONE BADGE. An official creator is also a team member of the official programme, so the row used
+                          to say "Official" AND "Tryp.com team creator". The team wants only the second, in their words. */}
                       {(isOfficialCreator(c) || teamOf[c.id] === 'creator') && <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-brand px-2 py-0.5 text-[10px] font-semibold text-white"><Icon name="badge" className="h-2.5 w-2.5" />Tryp.com Team Creator</span>}
                       {teamOf[c.id] === 'staff' && group === 'vip' && <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-brand px-2 py-0.5 text-[10px] font-semibold text-brand">VIP team</span>}
                     </p>
@@ -750,8 +721,7 @@ export default function AdminCreators() {
       )}
 
       {/* ---------- Creator detail modal ---------- */}
-      {/* ON A PHONE (12 Oct 2026, Ethan: "that popup on mobile is so hard to use, the text is all over the place, buttons
-          are overlapping"): no second copy of the name in the sheet's title bar, a centred identity with the three things
+      {/* ON A PHONE (): no second copy of the name in the sheet's title bar, a centred identity with the three things
           you open it for as equal buttons, and the account controls as a tidy two-column grid. */}
       <Modal open={!!selected} onClose={() => setSelected(null)} title={isPhone ? 'Creator' : (selected?.name ?? '')} wide>
         {selected && (
@@ -780,8 +750,7 @@ export default function AdminCreators() {
                   </p>
                 )}
               </div>
-              {/* MESSAGE, TOP RIGHT ON A DESKTOP (13 Oct 2026). Ethan: "I want the message button up there ... rather than
-                  at the very bottom." On a phone it stays the full-width button above the account actions. */}
+              {/* MESSAGE, TOP RIGHT ON A DESKTOP. On a phone it stays the full-width button above the account actions. */}
               <button onClick={() => dmCreator(selected)} className="btn-primary hidden shrink-0 !py-2 text-xs sm:inline-flex">
                 <Icon name="chat" className="h-4 w-4" /> Message {selected.name?.split(' ')[0] || 'them'}
               </button>
@@ -808,15 +777,10 @@ export default function AdminCreators() {
                 does not answer this: that is a blank account, and the question
                 is always about a specific person's history.
 
-                FOUR TILES, NOT FIVE PILLS, AND ONE OF THE FIVE WAS A DUPLICATE.
-                "Their milestones" was rendered TWICE - once with a trophy and
-                once with an aeroplane, both linking to the same route - which
-                is how the row came to wrap four-then-one. Ethan: "I don't like
-                how there's four buttons on one row and then one button on the
-                next row, it just looks bad." The duplicate is gone and the rest
-                are a fixed four-column grid, which cannot wrap into an orphan
-                at any width. Same tiles as the profile popup; see
-                components/admin/creatorSheet. */}
+                FOUR TILES, NOT FIVE PILLS, AND ONE OF THE FIVE WAS A DUPLICATE. "Their milestones" was rendered TWICE -
+                once with a trophy and once with an aeroplane, both linking to the same route - which is how the row came
+                to wrap four-then-one. The duplicate is gone and the rest are a fixed four-column grid, which cannot wrap
+                into an orphan at any width. Same tiles as the profile popup; see components/admin/creatorSheet. */}
             {!selected.is_admin && <ChallengeParticipation profileId={selected.id} isVip={!!selected.is_vip} />}
 
             <CreatorMarketsBlock creator={selected} onChanged={load} />
@@ -834,13 +798,11 @@ export default function AdminCreators() {
               </div>
             </div>
 
-            {/* ---- CONTACT DETAILS, AND THIS IS THE ONLY PLACE THEY APPEAR ----
-                Ethan's rule: the admin-only details - their number above all -
-                show here and nowhere else, not on their profile. A phone number
-                is the one field on this platform a creator has not chosen to
-                publish to anybody, so it belongs behind a deliberate act (open
-                the roster, open the person) rather than on a page a colleague
-                might have open on a shared screen.
+            {/* ---- CONTACT DETAILS, AND THIS IS THE ONLY PLACE THEY APPEAR ---- the team's rule: the admin-only details
+                 - their number above all - show here and nowhere else, not on their profile. A phone number is the one
+                 field on this platform a creator has not chosen to publish to anybody, so it belongs behind a deliberate
+                 act (open the roster, open the person) rather than on a page a colleague might have open on a shared
+                 screen.
 
                 THE ORANGE CARD IS GONE, AND SO IS THE TWO-UP GRID. Both were
                 asked for by name: "you don't need that orange background card

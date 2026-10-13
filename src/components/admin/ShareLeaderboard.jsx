@@ -19,16 +19,11 @@ import { marketsApi } from '../../api/markets'
 //                   graphic cannot show, and the thing most creators are
 //                   actually looking for.
 //
-// BOTH ARE PHOTOGRAPHS OF THE REAL COMPONENTS (lib/domSnapshot.js), not drawings
-// of them. They were drawn on a canvas, which meant a second implementation of
-// the podium that drifted from the first, and Ethan, comparing the picture with
-// the board it came from, picked the board. So the picture IS the board now.
+// BOTH ARE PHOTOGRAPHS OF THE REAL COMPONENTS (lib/domSnapshot.js), not drawings of them. They were drawn on a canvas,
+// which meant a second implementation of the podium that drifted from the first, and the team, comparing the picture
+// with the board it came from, picked the board. So the picture IS the board now.
 //
-// THE ROOMS ARE THE CHALLENGE'S OWN ROOMS, FETCHED, NOT ASSUMED (1 Sep 2026).
-//
-// Ethan: "ensure that the admin can select the correct market, if its a global
-// challenge the options should be from the global rooms, if its a spanish
-// challenge the options from the spanish rooms."
+// THE ROOMS ARE THE CHALLENGE'S OWN ROOMS, FETCHED, NOT ASSUMED.
 //
 // It used to render a hard-coded list of three room KEYS and label them with the
 // market's name. Three things were wrong with that, and only one of them was
@@ -42,14 +37,10 @@ import { marketsApi } from '../../api/markets'
 // Now the dialog asks the database which rooms this challenge's community has,
 // and every option is a room that demonstrably exists.
 //
-// THE LIVE BOARD IS THE DEFAULT, THE PICTURE IS STILL THERE (22 Sep 2026).
+// THE LIVE BOARD IS THE DEFAULT, THE PICTURE IS STILL THERE.
 //
-// Ethan: "I still want the option to just download the image and share it
-// elsewhere, but whenever sharing it as an announcement or in general I would
-// like to embed the actual leaderboard in the chats... it would update live."
-// "Live leaderboard" posts a message carrying the challenge (migration 251) and
-// the room draws `LiveLeaderboardCard`, which moves with every sync. The podium
-// and table pictures are unchanged, and "Download the image" photographs the
+// "Live leaderboard" posts a message carrying the challenge (migration 251) and the room draws `LiveLeaderboardCard`,
+// which moves with every sync. The podium and table pictures are unchanged, and "Download the image" photographs the
 // table whenever the live board is the one picked.
 //
 // A SPLIT CHALLENGE HAS MORE THAN ONE RESULT, so it gets a board chooser. This
@@ -88,9 +79,8 @@ export default function ShareLeaderboard({
         communityId = net?.id ?? null
       }
       if (!communityId) { if (!dead) setRooms([]); return }
-      // `label`, NOT `name`: channels has no `name` column, and asking for one
-      // failed the whole query, so every challenge said "no rooms to post
-      // into yet" (22 Sep 2026, the Global Challenge's first share).
+      // `label`, NOT `name`: channels has no `name` column, and asking for one failed the whole query, so every
+      // challenge said "no rooms to post into yet" (the Global Challenge's first share).
       const { data, error } = await chatApi
         .channels()
         .select('id, key, label, icon, community_id, communities:community_id(name, slug, kind)')
@@ -280,8 +270,8 @@ export default function ShareLeaderboard({
 
           <div>
             <p className="label">What to share</p>
-            {/* LIVE FIRST, BOTH WAYS (12 Oct 2026): the podium moves in the chat like the board does. The pictures stay
-                for downloading and posting elsewhere. */}
+            {/* LIVE FIRST, BOTH WAYS: the podium moves in the chat like the board does. The pictures stay for
+                downloading and posting elsewhere. */}
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               {[
                 { key: 'live', title: 'Live board', hint: 'The podium and every place. Moves with every sync.', icon: 'sparkles' },

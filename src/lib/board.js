@@ -10,23 +10,19 @@ import { contentApi } from '../api/content'
 
 // THE FOUR TAGS.
 //
-// Ethan's four, and the labels are written as a person would say them out loud -
-// "About a country", not "COUNTRY" - because they appear as chips on the card
-// and as a choice in the composer, and a chip that reads like a database value
+// The team's four, and the labels are written as a person would say them out loud - "About a country", not "COUNTRY" -
+// because they appear as chips on the card and as a choice in the composer, and a chip that reads like a database value
 // makes the whole thing feel like a form.
 //
 // `other` is deliberately last and deliberately vague. A tag list with no escape
 // hatch does not produce better tagging, it produces questions filed under
 // whichever of the three was least wrong.
 //
-// NO `hint` ON A TAG ANY MORE. Each of these carried a line of examples -
-// "Filming, editing, hooks, brands, rates, growing an account" and three more
-// like it - printed under the label in the composer. Four labels with four
-// subtitles is sixteen lines of type in front of somebody who has already
-// decided what they want to ask, and the labels ("About a country", "About
-// making content") say the whole thing on their own. Ethan: "remove that
-// description from them as its not needed." Removing them is also most of what
-// made the ask dialog too tall.
+// NO `hint` ON A TAG ANY MORE. Each of these carried a line of examples - "Filming, editing, hooks, brands, rates,
+// growing an account" and three more like it - printed under the label in the composer. Four labels with four subtitles
+// is sixteen lines of type in front of somebody who has already decided what they want to ask, and the labels ("About a
+// country", "About making content") say the whole thing on their own. Removing them is also most of what made the ask
+// dialog too tall.
 export const BOARD_TAGS = [
   { key: 'country', label: 'About a country', short: 'Country', icon: 'globe' },
   { key: 'travelling', label: 'About travelling', short: 'Travelling', icon: 'plane' },
@@ -83,11 +79,9 @@ export async function askQuestion({ authorId, title, body, tag, country }) {
 /**
  * Edit a question you asked.
  *
- * WHY THIS EXISTS. Ethan asked for it, and a board without it is a board where
- * the only fix for a typo in a question forty people have read is to delete it
- * and lose the answers with it. The RLS policy already allowed the author (and
- * admins) to update the row, so this needed no migration - only the fact that
- * nothing in the app ever called it.
+ * WHY THIS EXISTS. The team asked for it, and a board without it is a board where the only fix for a typo in a question
+ * forty people have read is to delete it and lose the answers with it. The RLS policy already allowed the author (and
+ * admins) to update the row, so this needed no migration - only the fact that nothing in the app ever called it.
  *
  * `country` is nulled whenever the tag moves off `country`, exactly as the
  * insert does, so a question re-filed under Travelling does not keep a stray

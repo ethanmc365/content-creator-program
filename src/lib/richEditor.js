@@ -84,7 +84,7 @@ export function mdToHtml(md = '', opts = {}) {
 
   lines.forEach((line) => {
     if (/^\s*---\s*$/.test(line)) { flush(); out.push('<hr>'); return }
-    // AN IMAGE IS ITS OWN BLOCK (7 Oct 2026, the FAQ): a picture the editor cannot type into, kept as markdown.
+    // AN IMAGE IS ITS OWN BLOCK (the FAQ): a picture the editor cannot type into, kept as markdown.
     const img = line.match(IMG_LINE)
     if (img) { flush(); out.push(`<figure contenteditable="false" data-img="${escAttr(img[2])}" data-alt="${escAttr(img[1])}"><img src="${escAttr(img[2])}" alt="${escAttr(img[1])}"></figure>`); return }
     const h = line.match(/^(#{1,3})\s+(.*)$/)
@@ -190,13 +190,10 @@ const oneLine = (el) => clean(inlineToMd(el)).replace(/\s*\n\s*/g, ' ').trim()
 function blocksOf(container) {
   const blocks = []
   let pending = ''
-  // A BLANK LINE INSIDE A RUN IS A BLANK LINE (24 Sep 2026). Ethan: "whenever
-  // I hit Enter to leave a space and write another line... sometimes, when I
-  // send it, these spaces just disappear." They did whenever the break was a
-  // <br> rather than a new <div> - Shift+Enter on a desktop, a paste, and any
-  // line inside a block the formatting buttons had made - because this dropped
-  // every empty line in a run. Only the browser's TRAILING <br> (the
-  // placeholder that ends a line) is not a line of its own.
+  // A BLANK LINE INSIDE A RUN IS A BLANK LINE. They did whenever the break was a <br> rather than a new <div> -
+  // Shift+Enter on a desktop, a paste, and any line inside a block the formatting buttons had made - because this
+  // dropped every empty line in a run. Only the browser's TRAILING <br> (the placeholder that ends a line) is not a line
+  // of its own.
   const flushPending = () => {
     if (!pending) return
     const text = clean(pending)

@@ -6,10 +6,7 @@ import { cx, timeAgo } from '../../../lib/utils'
 import { FILL } from '../../../components/charts/chartTheme'
 import { teamApi } from '../../../api/team'
 
-// DID THE PUSH GO OUT, AND DID ANYONE OPEN IT? (30 Sep 2026, migration 283)
-//
-// Ethan: "can we see who actually opened them, clicked on them etc, or ensure they were all sent
-// correctly to everyone that has push enabled."
+// DID THE PUSH GO OUT, AND DID ANYONE OPEN IT? (migration 283)
 //
 // The funnel reads left to right and every step is a different fact:
 //   Notifications   rows created for creators in the window (the bell always gets one)
@@ -27,10 +24,10 @@ const TYPE = { challenge: 'Challenge', announcement: 'Announcement', results: 'R
 const PAGE = 50
 const pushCache = new Map()
 
-// WHAT EACH NUMBER MEANS, in the words Ethan asked for (1 Oct 2026): not "land"; a push goes to a
-// DEVICE (a phone or a laptop); "Tapped" is somebody pressing the push itself; "Read in the app"
-// is the bell item being read, however they got there. The funnel only counts from the moment the
-// ledger started, which the RPC now does itself (migration 286), so the steps add up.
+// WHAT EACH NUMBER MEANS, in the words the team asked for: not "land"; a push goes to a DEVICE (a phone or a laptop);
+// "Tapped" is somebody pressing the push itself; "Read in the app" is the bell item being read, however they got there.
+// The funnel only counts from the moment the ledger started, which the RPC now does itself (migration 286), so the steps
+// add up.
 export default function PushDelivery() {
   const [days, setDays] = useState(30)
   const [data, setData] = useState(null)
@@ -38,10 +35,9 @@ export default function PushDelivery() {
   const [loadingMore, setLoadingMore] = useState(false)
   const [err, setErr] = useState('')
 
-  // SWITCHING 7 / 30 / 90 KEEPS THE PAGE (2 Oct 2026). Ethan: "Clicking between 7 days and 30
-  // days causes a weird glitch where it temporarily disappears and then comes back". It blanked to a
-  // skeleton on every press. Now the numbers already on screen stay (dimmed) until the new ones are
-  // in, a window seen once paints at once from memory, and the other two are fetched ahead.
+  // SWITCHING 7 / 30 / 90 KEEPS THE PAGE. It blanked to a skeleton on every press. Now the numbers already on screen
+  // stay (dimmed) until the new ones are in, a window seen once paints at once from memory, and the other two are
+  // fetched ahead.
   const [fetching, setFetching] = useState(false)
   useEffect(() => {
     let alive = true
@@ -70,12 +66,10 @@ export default function PushDelivery() {
   }
 
   const t = data?.totals
-  // "SHOWN" IS ONLY MEASURED WHERE IT CAN BE (2 Oct 2026, migration 309). Ethan: "why is it showing
-  // so many were sent to devices that have them on but not actually reached the device?" They were
-  // whole people, not stray pushes: creators who have not opened the app since delivery tracking
-  // began still run the old service worker, which never reports a push shown. Those sends are now
-  // "Not confirmed yet" (they may well have arrived), and "Shown" is a share of the sends to people
-  // whose phones do report.
+  // "SHOWN" IS ONLY MEASURED WHERE IT CAN BE (migration 309). They were whole people, not stray pushes: creators who
+  // have not opened the app since delivery tracking began still run the old service worker, which never reports a push
+  // shown. Those sends are now "Not confirmed yet" (they may well have arrived), and "Shown" is a share of the sends to
+  // people whose phones do report.
   const sentReporting = t?.sent_reporting ?? t?.sent ?? 0
   const steps = t ? [
     ['Notifications', t.notifications, null, 'created for creators'],
@@ -166,7 +160,7 @@ export default function PushDelivery() {
             </div>
           )}
 
-          {/* FIVE IN VIEW, FIFTY IN THE BOX, MORE ON REQUEST (1 Oct 2026). */}
+          {/* FIVE IN VIEW, FIFTY IN THE BOX, MORE ON REQUEST. */}
           <div className="overflow-hidden rounded-card border border-gray-100 bg-white shadow-card">
             <div className="flex items-center justify-between border-b border-gray-50 px-4 py-3 sm:px-5">
               <p className="text-sm font-semibold">Latest notifications</p>

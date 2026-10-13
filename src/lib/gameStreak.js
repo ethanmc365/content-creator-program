@@ -3,9 +3,8 @@ import { gamesApi } from '../api/games'
 
 // ONE STREAK, ONE DEFINITION, ONE PLACE IT IS WORKED OUT.
 //
-// THE BUG THIS FIXES. The hub's pill said "8 days" and the games page said "36"
-// on the same afternoon, for the same person. Ethan: "why is it only an 8 day
-// streak if I then click in and it says 36 day streak on the games section."
+// THE BUG THIS FIXES. The hub's pill said "8 days" and the games page said "36" on the same afternoon, for the same
+// person.
 //
 // They were not disagreeing about the arithmetic, they were answering two
 // different questions:
@@ -15,10 +14,8 @@ import { gamesApi } from '../api/games'
 //   THE GAMES PAGE called `my_game_streak`, which counts EVERY game in
 //   `game_scores` - practice modes included - and honours streak freezes.
 //
-// The rule Ethan wrote is the second one: "you have to play at least one travel
-// game every day for your streak to go up, this can be daily puzzle game or
-// another travel game." So the server is right and the hub was undercounting,
-// which is why the smaller number was the one that looked wrong to him.
+// The rule So the server is right and the hub was undercounting, which is why the smaller number was the one that looked
+// wrong to them.
 //
 // Everything reads this now. A number that appears on two screens must not be
 // computed twice, whatever the two answers happen to be.

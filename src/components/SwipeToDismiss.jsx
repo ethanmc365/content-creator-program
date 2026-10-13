@@ -2,7 +2,7 @@ import { useRef } from 'react'
 import Icon from './Icon'
 import { cx } from '../lib/utils'
 
-// SWIPE A ROW AWAY (1 Oct 2026). Ethan: "for mobile we should have a swipe to clear notifications."
+// SWIPE A ROW AWAY.
 //
 // Touch only: a mouse keeps the X button, and nothing here listens to it. The row follows the finger sideways
 // (either way); let go past a third of its width, or flick it, and it slides off and is dismissed; anything less and

@@ -77,12 +77,7 @@ export default function TourGate() {
   // them, so doing it here is safe and is the only place early enough.
   setTourScope(user?.id)
   const isPhone = useIsPhone()
-  // CLOSING IT IS NOT FINISHING IT (4 Sep 2026).
-  //
-  // Ethan: "on desktop it should always show up the interactive tutorial as
-  // soon as you open the site for the first time, or until you've actually
-  // completed the tutorial - maybe you opened it and then closed it
-  // immediately."
+  // CLOSING IT IS NOT FINISHING IT.
   //
   // `finish` took a reason and ignored it, so pressing the X wrote
   // `tour_completed_at` exactly as reaching the last card did. One tap on the
@@ -145,25 +140,21 @@ export default function TourGate() {
   // Migration 107 backfilled every creator who was already here as done, so the
   // existing community cannot be walked round by accident even if the setting
   // is flipped.
-  // THE TERMS FIRST (7 Oct 2026): a walk does not start under an agreement sheet; it starts once that is accepted.
+  // THE TERMS FIRST: a walk does not start under an agreement sheet; it starts once that is accepted.
   const agreementUp = useSyncExternalStore(onTourRunning, agreementHolding, () => false)
   useEffect(() => {
     let alive = true
     if (dismissedHere.current || agreementUp) return undefined
-    // A PHONE IN A BROWSER IS ABOUT TO BE WALLED, SO DO NOT WALK IT ROUND.
-    // AddToHomePrompt shows a non-dismissible "add it to your home screen"
-    // screen there, and the walkthrough is per-layout and runs once - spending
-    // it on the mobile website, behind a wall, is spending it on nothing. It
-    // starts on the first open of the installed app instead, which is the
-    // order Ethan asked for. Desktop is untouched.
+    // A PHONE IN A BROWSER IS ABOUT TO BE WALLED, SO DO NOT WALK IT ROUND. AddToHomePrompt shows a non-dismissible "add
+    // it to your home screen" screen there, and the walkthrough is per-layout and runs once - spending it on the mobile
+    // website, behind a wall, is spending it on nothing. It starts on the first open of the installed app instead, which
+    // is the order the team asked for. Desktop is untouched.
     if (isMobileDevice() && !isStandalone()) return undefined
     if (!profile || profile.tour_completed_at || profile.is_admin) return undefined
     tourEnabled().then((enabled) => {
       if (!alive) return
       if (!shouldAutoStart({ profile, enabled, layout })) return
-      // THE FIRST RUN IS THE ONE THAT CANNOT BE WALKED AWAY FROM. Ethan: "the
-      // tutorial is non-skippable the very first time you do it. If you redo
-      // it, yes, you can exit out of it."
+      // THE FIRST RUN IS THE ONE THAT CANNOT BE WALKED AWAY FROM.
       setRequired(true)
       setRequiredHint(true)
       markWalkOpen(layout)
@@ -190,11 +181,7 @@ export default function TourGate() {
     // Leaving it behind would put somebody who restarts it from Settings back
     // at the step they abandoned a month ago.
     clearStep(layout)
-    // FINISHING PUTS THEM SOMEWHERE, AND IT IS NOT THE LAST STOP (8 Sep 2026).
-    //
-    // Ethan: "at the end of the [walkthrough] when they click finish, bring
-    // them back to the Worldwide tab rather than still on the notifications
-    // page."
+    // FINISHING PUTS THEM SOMEWHERE, AND IT IS NOT THE LAST STOP.
     //
     // The walk ends on notifications because that is the one hard gate and it
     // has to be last. But the SETTINGS page is where the tour has to stand to

@@ -34,7 +34,7 @@ describe('vip helpers', () => {
     expect(top).toMatch(/voucher/)
     expect(describeRule({ kind: 'milestone', amount: 15, reward: 'cash', conditions: { metric: 'lifetime_views', threshold: 250000 } }, tr)).toMatch(/once/)
   })
-  // MORE THINGS A MILESTONE CAN BE (4 Oct 2026, migration 322): every metric the close can measure has a sentence and a unit.
+  // MORE THINGS A MILESTONE CAN BE (migration 322): every metric the close can measure has a sentence and a unit.
   it('says a milestone on every metric the database can measure, in its own unit', () => {
     for (const m of MILESTONE_METRICS) {
       const line = describeRule({ kind: 'milestone', amount: 20, reward: 'voucher', conditions: { metric: m.key, threshold: 6 } }, tr)

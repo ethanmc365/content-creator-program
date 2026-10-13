@@ -5,13 +5,12 @@ import { testFlags } from './testData'
 import { profilesApi } from '../api/profiles'
 import { chatApi } from '../api/chat'
 
-// THE DM INBOX, AS ONE FUNCTION (2 Oct 2026).
+// THE DM INBOX, AS ONE FUNCTION.
 //
 // It lived inside pages/Messages, which meant it could only start once the DM tab had mounted - two round trips
-// (conversations, then everyone in them) after the tap. Ethan: "clicking on challenges, or DMs etc takes a bit too
-// long to load." Out here it can also be run AHEAD of the tap (lib/warmPages, once the app is idle), so the first
-// visit to the tab paints the inbox from lib/pageCache on its first frame like every later visit already did. The
-// page still calls it on every mount; nothing is skipped.
+// (conversations, then everyone in them) after the tap. Out here it can also be run AHEAD of the tap (lib/warmPages,
+// once the app is idle), so the first visit to the tab paints the inbox from lib/pageCache on its first frame like every
+// later visit already did. The page still calls it on every mount; nothing is skipped.
 
 // See the long note in pages/Messages: an abandoned 1:1 with no message is not an inbox row; a group always is,
 // and so is a thread this page has just created.
@@ -75,12 +74,12 @@ export async function fetchInbox(userId, justCreated) {
   }
 }
 
-// EVERYONE YOU COULD MESSAGE, AND WHICH OF THEM YOU ARE CONNECTED TO (2 Oct 2026).
+// EVERYONE YOU COULD MESSAGE, AND WHICH OF THEM YOU ARE CONNECTED TO.
 //
-// Feeds the inbox search and the desktop "Connect with someone new" pane. It lives here, beside fetchInbox, so the
-// idle warm-up (lib/warmPages) can run it before the DM tab is opened and the pane paints from the page cache on its
-// first frame. Ethan: the big right column "takes a while to load". Same visibility rules as the directory, newest
-// activity first.
+// Feeds the inbox search and the desktop "Connect with someone new" pane. It lives here, beside fetchInbox, so the idle
+// warm-up (lib/warmPages) can run it before the DM tab is opened and the pane paints from the page cache on its first
+// frame. The team: the big right column "takes a while to load". Same visibility rules as the directory, newest activity
+// first.
 export const DM_PEOPLE_CACHE_KEY = 'dm-people'
 
 export async function fetchDmPeople(userId) {

@@ -13,14 +13,10 @@ function gapDays(app) {
   return Math.floor((new Date(app.submitted_at) - new Date(app.created_at)) / 86400000)
 }
 
-// THE "WHAT IS MISSING" CHIPS ARE GONE (4 Sep 2026). Ethan: "the very short
-// bio pointer - actually, I don't think we need any of those pointers at all.
-// You can just remove them, because obviously we can see it ourselves. And we
-// want to make this card more compact and simple."
+// THE "WHAT IS MISSING" CHIPS ARE GONE.
 //
-// He is right, and `gapsIn` was solving a problem the card no longer has: the
-// bio, the links, the photo and the languages are all ON the card, so a second
-// row of chips saying "no links" under a row that visibly has no links is the
+// they are right, and `gapsIn` was solving a problem the card no longer has: the bio, the links, the photo and the
+// languages are all ON the card, so a second row of chips saying "no links" under a row that visibly has no links is the
 // page explaining itself to somebody who can already see.
 
 export function ApplicationCard({
@@ -33,10 +29,8 @@ export function ApplicationCard({
   // (mirror_dob_to_private) moves it into creator_private and derives
   // `profiles.age` from it. Reading dob here printed no age for anybody.
   const age = app.age ?? ageFromDob(app.dob)
-  // Suggested first, the rest in their given order.
-  // `suggested` is `{ market, why, langs }` since 8 Sep 2026 - see the note on
-  // `suggestion`. Unwrapped once here so the rest of the card reads the same as
-  // it did when it was a bare market.
+  // Suggested first, the rest in their given order. `suggested` is `{ market, why, langs }` - see the note on
+  // `suggestion`. Unwrapped once here so the rest of the card reads the same as it did when it was a bare market.
   const suggestedMarket = suggested?.market ?? null
   const orderedMarkets = suggestedMarket
     ? [...markets].sort((a, b) => (a.slug === suggestedMarket.slug ? -1 : b.slug === suggestedMarket.slug ? 1 : 0))
@@ -51,21 +45,19 @@ export function ApplicationCard({
       (app.team_application || app.is_vip) && '!border-brand/50 shadow-lift',
       selected && 'ring-2 ring-brand/40',
     )}>
-      {/* A VIP APPLICATION LOOKS LIKE ONE (30 Sep 2026). Ethan: "ensure that the application funnel shows whenever
-          it's a VIP signed up, differentiated from a normal creator." They came through the one VIP link; approving
-          them places them with their own market's VIP programme, where they are paid by views, not by challenges. */}
+      {/* A VIP APPLICATION LOOKS LIKE ONE. They came through the one VIP link; approving them places them with their own
+          market's VIP programme, where they are paid by views, not by challenges. */}
       {app.is_vip && !app.team_application && (
-        // PURE BLACK, NO GRADIENT (1 Oct 2026). Ethan: "you have a gradient where it shows up black. Maybe just keep it
-        // pure black rather than show the gradient, so it stands out more."
+        // PURE BLACK, NO GRADIENT.
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 bg-black px-4 py-2.5 text-white sm:px-6">
           <Icon name="star" className="h-4 w-4 shrink-0 text-brand-light" />
           <span className="text-sm font-bold">VIP creator application</span>
           <span className="text-xs text-white/80">Signed up with the VIP link. Pick the VIP market to approve them into.</span>
         </div>
       )}
-      {/* A TEAM APPLICATION LOOKS LIKE ONE (29 Sep 2026). Ethan: on the applications page
-          they "just appear as a normal creator", but approving them gives them admin
-          access. So the card says it in solid brand colour before anything else does. */}
+      {/* A TEAM APPLICATION LOOKS LIKE ONE. The team: on the applications page they "just appear as a normal creator",
+          but approving them gives them admin access. So the card says it in solid brand colour before anything else
+          does. */}
       {app.team_application && (
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 bg-gradient-to-r from-brand to-brand-light px-4 py-2.5 text-white sm:px-6">
           <Icon name="shield" className="h-4 w-4 shrink-0" />
@@ -78,18 +70,11 @@ export function ApplicationCard({
       )}
 
       {/* ------------------------------------------------------- the summary */}
-      {/* A GRID, SO THE WORDS GET THE WIDTH (22 Sep 2026).
-          Ethan, on a phone: "each card is taking up so much space, this is
-          mostly due to their bio display and each word being on a new line...
-          all the UI seems squished and some almost overlapping." The summary
-          was ONE flex row - tick, 80px face, the text, and the dates column -
-          and the text was `flex-1` with a zero basis, so on a 375px screen it
-          got what was left: about 100px. Every sentence of a bio became a
-          column of single words.
-          Now the face, the name and when they applied are a header row, and
-          everything you READ (email, bio, links, languages) runs the full
-          width of the card underneath it. From `sm` up the same grid puts
-          them back under the name, with the dates on the right. */}
+      {/* A GRID, SO THE WORDS GET THE WIDTH. The summary was ONE flex row - tick, 80px face, the text, and the dates
+          column - and the text was `flex-1` with a zero basis, so on a 375px screen it got what was left: about 100px.
+          Every sentence of a bio became a column of single words. Now the face, the name and when they applied are a
+          header row, and everything you READ (email, bio, links, languages) runs the full width of the card underneath
+          it. From `sm` up the same grid puts them back under the name, with the dates on the right. */}
       <div className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-start gap-x-3 gap-y-3 p-4 sm:grid-cols-[auto_auto_minmax(0,1fr)_auto] sm:gap-x-4 sm:gap-y-0 sm:p-6">
         <PickTick selected={selected} onSelect={onSelect} name={app.name} />
         {/* The face is a button when there is a photo to open, and a plain
@@ -166,15 +151,10 @@ export function ApplicationCard({
             )}
           </div>
 
-          {/* LANGUAGES: THE FIRST ONE IS THEIR MAIN LANGUAGE (26 Sep 2026).
-              Ethan: "it still shows certain languages like Portuguese and
-              Spanish in orange and English in grey, and I don't really
-              understand which is their main language." The orange meant
-              "spoken in one of our markets", which nobody could guess. Now the
-              one colour means the one thing a reader expects: the language
-              they picked FIRST is their main language, solid and labelled;
-              the rest are grey. Which market a language points at is still in
-              the tooltip, and still drives the "Approve into" suggestion. */}
+          {/* LANGUAGES: THE FIRST ONE IS THEIR MAIN LANGUAGE. The orange meant "spoken in one of our markets", which
+              nobody could guess. Now the one colour means the one thing a reader expects: the language they picked FIRST
+              is their main language, solid and labelled; the rest are grey. Which market a language points at is still
+              in the tooltip, and still drives the "Approve into" suggestion. */}
           {app.languages?.length > 0 && (
             <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
               <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">Speaks</span>
@@ -249,19 +229,13 @@ export function ApplicationCard({
           {app.favourite_quote && (
             <p className="border-l-2 border-brand/30 pl-3 text-sm italic text-smoke">“{app.favourite_quote}”</p>
           )}
-          {/* NO COPY ICONS ON THESE ROWS, AND NO TIMEZONE (4 Sep 2026).
-              Ethan: "the copy icon doesn't even show what it's copying - it
-              turns out it's copying the email, but it's not clear. We just need
-              the copy buttons off that detail section." A bare icon at the end
-              of a row is a control with no label, and there were four of them
-              doing four different things. The one copy that is actually wanted
-              is on the decision bar, where it says the word Email on it.
+          {/* NO COPY ICONS ON THESE ROWS, AND NO TIMEZONE. A bare icon at the end of a row is a control with no label,
+              and there were four of them doing four different things. The one copy that is actually wanted is on the
+              decision bar, where it says the word Email on it.
 
-              And: "I don't get why it's showing his timezone - it doesn't even
-              ask for the timezone, you just take it automatically." Right on
-              both counts. It is taken from the browser at submit, so it is
-              never a fact about the applicant that an admin is judging, and
-              printing "Not given" for it on an older row invents a gap that
+              And: "I don't get why it's showing their timezone - it doesn't even ask for the timezone, you just take it
+              automatically." Right on both counts. It is taken from the browser at submit, so it is never a fact about
+              the applicant that an admin is judging, and printing "Not given" for it on an older row invents a gap that
               does not exist. Gone. */}
           <dl className="grid gap-x-6 gap-y-2 sm:grid-cols-2">
             <Fact label="Email" value={email} copy />
@@ -276,12 +250,9 @@ export function ApplicationCard({
       {/* ------------------------------------------------------- the decision */}
       <div className="border-t border-gray-100 bg-white px-4 py-4 sm:px-6">
         {/* THE MARKET IS CHOSEN WITH CHIPS, AND YOU CAN PICK SEVERAL.
-            (4 Sep 2026.)
 
-            Ethan: "if I click on this button it shows up the weird OS dropdown.
-            Remember I told you all buttons need to match the platform style."
-            And: "I seem to be unable to choose multiple ones, which I want to
-            be able to do - like UK & Ireland and Spain."
+            And: "I seem to be unable to choose multiple ones, which I want to be able to do - like UK & Ireland and
+            Spain."
 
             Both are answered by the same control. A native `<select>` renders
             the operating system's own picker - a grey iOS wheel on a phone,
@@ -324,13 +295,9 @@ export function ApplicationCard({
         ) : (
           <>
         <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">Approve into</p>
-        {/* THE SUGGESTED ONE IS ALWAYS FIRST (4 Sep 2026). Ethan: "it should
-            always show the very first one as whatever the suggested one is, on
-            the very left, and then I can click the other ones if I want."
-            It was alphabetical, so the market the page is recommending could
-            be the sixth chip along - which makes the recommendation something
-            you have to hunt for, and makes the row's first item look like the
-            default when it is not. */}
+        {/* THE SUGGESTED ONE IS ALWAYS FIRST. It was alphabetical, so the market the page is recommending could be the
+            sixth chip along - which makes the recommendation something you have to hunt for, and makes the row's first
+            item look like the default when it is not. */}
         <div className="mt-2 flex flex-wrap gap-1.5">
           {orderedMarkets.map((m) => {
             const on = placeIn.includes(m.slug)
@@ -360,9 +327,6 @@ export function ApplicationCard({
           })}
         </div>
         {/* WHY IT IS SUGGESTING WHAT IT IS SUGGESTING, ON ITS OWN LINE.
-            Ethan: "then it should be like a little line below saying 'because
-            they speak German'... it's just making it more clear, because it's
-            easy to miss."
 
             It used to be the third sentence of one grey paragraph that also
             carried the home-market rule and the "would work too" list, so the
@@ -395,26 +359,18 @@ export function ApplicationCard({
           </>
         )}
 
-        {/* EVERY CONTROL LOOKS LIKE A CONTROL, AND THE ONE THAT IS NOT USEFUL
-            IS GONE. Ethan: "the Full profile button looks like it's not even a
-            button" - it was `btn-ghost`, which is text with padding - and "I
-            don't get the Message button, because obviously we can't message
-            them before they're accepted in." He is right: a DM needs a
-            conversation between two members, and this person is not one yet. */}
-        {/* NO COPY ICON HERE. Ethan: "we still have that copy button beside
-            Full profile, which I said we don't need. The only place we need it
-            is beside their email and the phone number that shows up when you
-            open the details." An unlabelled icon in a row of labelled buttons
-            is the one control nobody can predict. It lives on the two rows it
-            is about now - see `Fact`. */}
+        {/* EVERY CONTROL LOOKS LIKE A CONTROL, AND THE ONE THAT IS NOT USEFUL IS GONE. - it was `btn-ghost`, which is
+            text with padding - and "I don't get the Message button, because obviously we can't message them before
+            they're accepted in." they are right: a DM needs a conversation between two members, and this person is not
+            one yet. */}
+        {/* NO COPY ICON HERE. An unlabelled icon in a row of labelled buttons is the one control nobody can predict. It
+            lives on the two rows it is about now - see `Fact`. */}
         <div className="mt-4 grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center sm:justify-end">
           <Link to={`/profile/${app.id}`} className="btn-secondary justify-center !py-2 text-xs">Full profile</Link>
           <button onClick={onDecline} disabled={busy} className="btn-danger justify-center !py-2 text-xs">Decline</button>
-          {/* A TEAM APPLICATION IS APPROVED ONTO THE TEAM, NOT INTO A MARKET
-              (29 Sep 2026). They came through an invite link, which grants
-              nothing; the ordinary Approve puts somebody into a market as a
-              creator, and this person is not one. Different button, different
-              function. */}
+          {/* A TEAM APPLICATION IS APPROVED ONTO THE TEAM, NOT INTO A MARKET. They came through an invite link, which
+              grants nothing; the ordinary Approve puts somebody into a market as a creator, and this person is not one.
+              Different button, different function. */}
           <button
             onClick={app.team_application ? onApproveTeam : onApprove}
             disabled={busy}

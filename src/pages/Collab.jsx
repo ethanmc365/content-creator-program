@@ -73,9 +73,6 @@ function tripInMonth(p, ym) {
 // arrives as a prop.
 // EVERY CARD ON THE BOARD IS THE SAME SIZE.
 //
-// Ethan: "ensure every creator/trip card on the collab board is the same size,
-// as currently they are different sizes depending on text etc."
-//
 // Three separate things were making them differ, and the fix for each is the
 // same one the creator directory's cards needed: give the variable part a FIXED
 // number of lines rather than hoping the content behaves.
@@ -102,22 +99,17 @@ const TripCard = memo(function TripCard({
   const [reading, setReading] = useState(false)
   const person = p.profiles || {}
   const selectedCountries = useMemo(() => (mapCountry ? [mapCountry] : []), [mapCountry])
-  // THE CREATOR ON THE MAP (12 Oct 2026). Ethan: "Show a profile picture on
-  // the map." Where the trip has a city position the creator's face is pinned
-  // there, pulsing, like a profile map shows somebody travelling.
+  // THE CREATOR ON THE MAP. Where the trip has a city position the creator's face is pinned there, pulsing, like a
+  // profile map shows somebody travelling.
   const here = useMemo(() => (p.city_lat != null && p.city_lng != null && Number.isFinite(Number(p.city_lat)) && Number.isFinite(Number(p.city_lng))
     ? { lat: Number(p.city_lat), lng: Number(p.city_lng), photo: person.photo_url, name: person.name, travelling: true }
     : null), [p.city_lat, p.city_lng, person.photo_url, person.name])
   const flag = flagForCountry(p.country) || flagForCountry(mapCountry)
     || (/^[A-Za-z]{2}$/.test((p.country || '').trim()) ? flagFromIso(p.country.trim()) : '')
   if (!past) {
-    // THE LIVE CARD, REDESIGNED (12 Oct 2026). Ethan: "for some of them, there
-    // are different links and descriptions, so there's a lot of white space
-    // under it... improve the whole design. Maybe colour some of the buttons."
-    // The destination is the headline (flag, city, country), the dates sit on
-    // it, the map is shorter with the creator's face on it, the note takes the
-    // height it needs (the board is a masonry, so nothing is padded to match a
-    // neighbour) and the two actions are coloured, side by side.
+    // THE LIVE CARD, REDESIGNED. The destination is the headline (flag, city, country), the dates sit on it, the map is
+    // shorter with the creator's face on it, the note takes the height it needs (the board is a masonry, so nothing is
+    // padded to match a neighbour) and the two actions are coloured, side by side.
     return (
       <div className="flex h-full min-w-0 flex-col overflow-hidden rounded-card border border-gray-100 bg-white shadow-card transition-shadow hoverable:hover:shadow-lift">
         <div className="flex items-center gap-3 px-4 pt-4">
@@ -200,9 +192,8 @@ const TripCard = memo(function TripCard({
 
         {!mine ? (
           <div className="mt-auto grid grid-cols-2 gap-2 p-4">
-            {/* THE ASK IS THE ORANGE BUTTON (12 Oct 2026). Ethan: "the I'm interested button ... should be Tryp orange,
-                because currently the way the button looks, it's like you've already pressed it." An orange outline read
-                as a picked option. Now: solid orange to ask; once pressed it settles to a quiet white with a tick. */}
+            {/* THE ASK IS THE ORANGE BUTTON. An orange outline read as a picked option. Now: solid orange to ask; once
+                pressed it settles to a quiet white with a tick. */}
             <button
               onClick={() => onToggleInterest(p.id)}
               aria-pressed={iAmInterested}
@@ -245,15 +236,11 @@ const TripCard = memo(function TripCard({
             </p>
           </div>
         </Link>
-        {/* AN ADMIN CAN REMOVE A TRIP AND CAN NO LONGER REWRITE ONE.
-            Ethan: "admins should no longer be able to edit other creators' trip
-            cards, but still be able to delete them."
-            The two are genuinely different powers and it was a mistake to give
-            them out together. Removing somebody's post is moderation - it is
-            visible, it is final, and everybody understands what happened.
-            EDITING it is putting words in their mouth: the card still carries
-            their face and their name, and nothing anywhere says the text under
-            it is not theirs. Nobody needs that, so nobody has it. */}
+        {/* AN ADMIN CAN REMOVE A TRIP AND CAN NO LONGER REWRITE ONE. The two are genuinely different powers and it was a
+            mistake to give them out together. Removing somebody's post is moderation - it is visible, it is final, and
+            everybody understands what happened. EDITING it is putting words in their mouth: the card still carries their
+            face and their name, and nothing anywhere says the text under it is not theirs. Nobody needs that, so nobody
+            has it. */}
         {(canEdit || canDelete) && (
           <div className="flex shrink-0 items-center gap-1">
             {canEdit && (
@@ -293,11 +280,7 @@ const TripCard = memo(function TripCard({
         )
       )}
 
-      {/* THE NOTE BOX IS NOT RESERVED ON A PAST CARD. (1 Sep 2026.)
-
-          Ethan, of the archive: "the ui needs to be improved, it doesn't show
-          the ui anymore which is good but there's still a big blank space so
-          just improve it."
+      {/* THE NOTE BOX IS NOT RESERVED ON A PAST CARD.
 
           The blank space is this box plus the `gap-4` where the map used to be.
           `reserveNote` exists so that one creator's paragraph cannot make their
@@ -384,17 +367,12 @@ export default function Collab() {
   // "Who's travelling now" map data: creators currently mid-trip, with their
   // home location + current destination, mirroring the creators-map feature.
   //
-  // NULL UNTIL IT HAS LOADED, AND THAT IS THE FIX FOR "IT SHOWS A DIFFERENT MAP
-  // FIRST". This used to start as `{ creators: [], trips: {} }`, which is
-  // exactly the shape of a LOADED board on which nobody happens to be
-  // travelling - so on the first frame the section took the "no one's mid-trip
-  // right now" branch and drew the countries WorldMap, and a moment later the
-  // query landed and replaced it with the creator map. Ethan: "on the travel
-  // collab board the first time it loads it shows up a different map and then
-  // the correct one."
-  // An empty state is a CLAIM and a claim needs the data first; the same rule
-  // that governs "Live now" on the hub. Null is "we do not know yet" and the
-  // section draws a placeholder the size of the map instead of guessing.
+  // NULL UNTIL IT HAS LOADED, AND THAT IS THE FIX FOR "IT SHOWS A DIFFERENT MAP FIRST". This used to start as `{
+  // creators: [], trips: {} }`, which is exactly the shape of a LOADED board on which nobody happens to be travelling -
+  // so on the first frame the section took the "no one's mid-trip right now" branch and drew the countries WorldMap, and
+  // a moment later the query landed and replaced it with the creator map. An empty state is a CLAIM and a claim needs
+  // the data first; the same rule that governs "Live now" on the hub. Null is "we do not know yet" and the section draws
+  // a placeholder the size of the map instead of guessing.
   const [travellers, setTravellers] = useState(null)
   const [form, setForm] = useState({ city: '', country: '', start_date: '', end_date: '', note: '' })
   const [busy, setBusy] = useState(false)
@@ -573,10 +551,8 @@ export default function Collab() {
   // memo was there to spare.
   // DELETING A TRIP ASKS FIRST, and it asks with the trip in the question.
   //
-  // Ethan: "when pressing delete it should show a popup to confirm first so no
-  // accidental deletion." It removed the card the instant the bin was pressed,
-  // with no undo and no dialog - and the bin sits two pixels from the pencil in
-  // the corner of a card an admin is scrolling past on a touchscreen.
+  // It removed the card the instant the bin was pressed, with no undo and no dialog - and the bin sits two pixels from
+  // the pencil in the corner of a card an admin is scrolling past on a touchscreen.
   //
   // `confirm()` from lib/confirm, never the native one: Chrome's "don't show
   // again" makes `window.confirm` return false silently and for ever, which
@@ -632,13 +608,9 @@ export default function Collab() {
 
   // PRESSING "I'M INTERESTED" ASKS WHY, RATHER THAN JUST COUNTING YOU.
   //
-  // It used to be a toggle that inserted a row and fired a notification saying
-  // somebody was interested, which left the trip owner with a bell and no way
-  // to do anything about it, and the sender with no way to say the one thing
-  // that would have made it useful ("I am in Lisbon those exact dates"). Ethan:
-  // "the I'm interested button does seemingly nothing, just sends a
-  // notification. I think when you press I'm interested you should fill in a
-  // little popup to say why."
+  // It used to be a toggle that inserted a row and fired a notification saying somebody was interested, which left the
+  // trip owner with a bell and no way to do anything about it, and the sender with no way to say the one thing that
+  // would have made it useful ("I am in Lisbon those exact dates").
   //
   // Pressing it when you have ALREADY said so still withdraws it, with no
   // dialog: taking something back should be one press.
@@ -697,11 +669,10 @@ export default function Collab() {
   // Open the 1:1 conversation with a poster, and jump into it.
   const message = useCallback((creatorId) => {
     if (creatorId === user.id) return
-    // A DM IS OPENED, NOT CREATED (9 Sep 2026). This used to look for a
-    // conversation and INSERT one when it found none, so pressing Message and
-    // then changing your mind left an empty thread in two inboxes. Three such
-    // rows exist in production. `/messages?to=` opens the thread either way and
-    // Messages.jsx creates the row on the first send. See `ensureConversation`.
+    // A DM IS OPENED, NOT CREATED. This used to look for a conversation and INSERT one when it found none, so pressing
+    // Message and then changing your mind left an empty thread in two inboxes. Three such rows exist in production.
+    // `/messages?to=` opens the thread either way and Messages.jsx creates the row on the first send. See
+    // `ensureConversation`.
     navigate(`/messages?to=${creatorId}`)
   }, [navigate, user.id])
 
@@ -735,9 +706,6 @@ export default function Collab() {
         action={canPost && (
           <div className="flex flex-wrap gap-2">
             {/* THE OTHER WAY IN, AND IT IS THE BETTER ONE WHEN IT APPLIES.
-                Ethan: "as we're building the functionality into the flight log,
-                the post a trip button should be linked to that or something. I
-                want you to figure out the best way to do this."
 
                 A trip you are going on is almost always a flight you have
                 booked, and the two were separate things to type in two places
@@ -796,19 +764,12 @@ export default function Collab() {
               <input id="city" className="input" placeholder={tr("Lisbon")} value={form.city}
                 onChange={(e) => setForm((f) => ({ ...f, city: e.target.value }))} maxLength={60} />
             </div>
-            {/* A COMPACT SEARCHABLE PICKER, NOT THE BROWSER'S OWN LIST.
-                This was an `<input list=...>` with a `<datalist>` of every
-                country, and a datalist is rendered by the BROWSER: Chrome draws
-                it as a bare column that runs from the top of the viewport to
-                the bottom, unstyled and unscrollable-looking. Ethan: "the super
-                long list shows up on the side and reaches the top and bottom of
-                the page. Instead open up a cleaner better designed list in a
-                smaller card that has a search bar at the top."
-                `Combobox` is that, and it already exists - it is what the
-                directory's filters use. `allowClear` is off because a trip has
-                a country and "any" is not an answer here.
-                "(shows on the map)" went with it: the map is right there, and
-                the trip shows on it whether or not the label says so. */}
+            {/* A COMPACT SEARCHABLE PICKER, NOT THE BROWSER'S OWN LIST. This was an `<input list=...>` with a
+                `<datalist>` of every country, and a datalist is rendered by the BROWSER: Chrome draws it as a bare
+                column that runs from the top of the viewport to the bottom, unstyled and unscrollable-looking.
+                `Combobox` is that, and it already exists - it is what the directory's filters use. `allowClear` is off
+                because a trip has a country and "any" is not an answer here. "(shows on the map)" went with it: the map
+                is right there, and the trip shows on it whether or not the label says so. */}
             <div>
               <label htmlFor="country" className="label">{tr("Country")}</label>
               <Combobox
@@ -820,10 +781,9 @@ export default function Collab() {
                 allowClear={false}
               />
             </div>
-            {/* The last two `<input type="date">` on the platform. Every other
-                date box is the shared typed field, and a creator meeting the OS
-                picker here after typing everywhere else is the inconsistency
-                Ethan asked to close. Both already store ISO, so it drops in. */}
+            {/* The last two `<input type="date">` on the platform. Every other date box is the shared typed field, and a
+                creator meeting the OS picker here after typing everywhere else is the inconsistency the team asked to
+                close. Both already store ISO, so it drops in. */}
             <DateField id="start" label={tr("From")} min={todayYmd()}
               value={form.start_date}
               futureError="Trips are for dates still to come."
@@ -833,12 +793,9 @@ export default function Collab() {
               futureError="The trip would end before it starts."
               onChange={(v) => setForm((f) => ({ ...f, end_date: v }))} />
           </div>
-          {/* THE NOTE IS REQUIRED NOW.
-              Ethan: "when posting a trip on the collab board, the note should
-              be required not optional." A trip with no note is a row on a map
-              saying somebody will be in Lisbon, which nobody can act on - the
-              whole board runs on somebody reading what you are up for and
-              saying "me too". Optional was quietly making the feature worse. */}
+          {/* THE NOTE IS REQUIRED NOW. A trip with no note is a row on a map saying somebody will be in Lisbon, which
+              nobody can act on - the whole board runs on somebody reading what you are up for and saying "me too".
+              Optional was quietly making the feature worse. */}
           <div className="mt-4">
             <label htmlFor="note" className="label">{tr("What are you up for?")}</label>
             <textarea id="note" className="input min-h-[80px]" maxLength={300}
@@ -901,11 +858,10 @@ export default function Collab() {
             <MapSkeleton className="mt-5" />
           ) : travellers.creators.length > 0 ? (
             <>
-              {/* NO STRAPLINE. It read "Everyone on the move: a filled plane for
-                  creators who are there now, a hollow one for trips in the next
-                  three months", which is a legend for a map that does not need
-                  one - a plane on a place means somebody is going there, and
-                  every pin is tappable for the rest. Ethan asked for it gone. */}
+              {/* NO STRAPLINE. It read "Everyone on the move: a filled plane for creators who are there now, a hollow
+                  one for trips in the next three months", which is a legend for a map that does not need one - a plane
+                  on a place means somebody is going there, and every pin is tappable for the rest. The team asked for it
+                  gone. */}
               {/* Deferred like the card maps. This one is the heaviest thing on
                   the page - the atlas plus a pin and a flight path per traveller
                   - and laying it out on the same frames as the cards above are
@@ -926,23 +882,16 @@ export default function Collab() {
               </WhenVisible>
             </>
           )}
-          {/* THE COUNTRY CHIPS UNDER THE MAP ARE GONE, on every width.
-              They listed every country on the board as a row of orange pills -
-              which on a busy board is four lines of text restating what the map
-              directly above had just drawn in orange. Ethan: "we can all
-              visually see the countries on the map, remove those countries from
-              mobile and desktop."
-              Nothing is lost: they were a country FILTER, and there is a
-              proper "Filter by country" select further down the page that does
-              the same job with none of the height. */}
+          {/* THE COUNTRY CHIPS UNDER THE MAP ARE GONE, on every width. They listed every country on the board as a row
+              of orange pills - which on a busy board is four lines of text restating what the map directly above had
+              just drawn in orange. Nothing is lost: they were a country FILTER, and there is a proper "Filter by
+              country" select further down the page that does the same job with none of the height. */}
         </section>
       )}
 
 
       {/* ---- Meet-ups in the making ----
-          DIRECTLY UNDER THE MAP, FOR BOTH SIDES, which is where Ethan asked for
-          it: "it will appear on the top of the collab board page under the map
-          for both you that sent it and the creator."
+          DIRECTLY UNDER THE MAP, FOR BOTH SIDES, which is where
 
           This is the half of "I'm interested" that was missing. The button used
           to insert a row and send a notification, and a notification is a thing
@@ -1059,19 +1008,14 @@ export default function Collab() {
         <EmptyState icon={<Icon name="magnifier" className="h-7 w-7" />} title={tr("No trips match those filters")} hint={tr("Try a different month or country.")} />
       ) : (
         <>
-          {/* A MASONRY, NOT A GRID (12 Oct 2026): each card is as tall as its
-              own note, so there is no blank space under a short one. */}
-          {/* ONE SIZE AGAIN (13 Oct 2026). Ethan: "some of the cards are different sizes, like Telias' one and Noemi's
-              one ... They should all be the same size ... whenever I click on the text, it should show the full card".
-              A grid of equal cards; a long note is three lines and opens in full when pressed. */}
+          {/* A MASONRY, NOT A GRID: each card is as tall as its own note, so there is no blank space under a short one. */}
+          {/* ONE SIZE AGAIN. A grid of equal cards; a long note is three lines and opens in full when pressed. */}
           <Reveal className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
             {(expanded ? filteredUpcoming : filteredUpcoming.slice(0, TRIPS_PREVIEW)).map((p) => (
               <TripCard key={p.id} {...cardProps(p)} />
             ))}
           </Reveal>
-          {/* "View more upcoming trips (15 more)" said the number twice, once
-              in words and once in a bracket. Ethan: "I want it to say View 15
-              more upcoming trips, I think it looks cleaner." */}
+          {/* "View more upcoming trips (15 more)" said the number twice, once in words and once in a bracket. */}
           {filteredUpcoming.length > TRIPS_PREVIEW && (
             <button
               type="button"

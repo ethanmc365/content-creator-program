@@ -172,11 +172,10 @@ export function MentionMenu({ query, members, onPick, onClose, isAdmin = false }
     }
   }, [anchor, query])
 
-  // A POP-UP OVER THE PAGE, JUST ABOVE THE MESSAGE BOX (12 Oct 2026). Ethan: "whenever I type in the @ symbol to actually
-  // tag a creator, it shows up at the very, very top, and I can't even click it." It was `absolute bottom-full` with no
-  // positioned parent in between, so it hung off whichever ancestor was positioned - the room's top - under the header.
-  // Now an invisible marker sits where the menu used to be and the menu is drawn into <body>, fixed above that marker,
-  // so no scroller, transform or header can move or cover it. A press keeps the caret in the box (mousedown is held).
+  // A POP-UP OVER THE PAGE, JUST ABOVE THE MESSAGE BOX. It was `absolute bottom-full` with no positioned parent in
+  // between, so it hung off whichever ancestor was positioned - the room's top - under the header. Now an invisible
+  // marker sits where the menu used to be and the menu is drawn into <body>, fixed above that marker, so no scroller,
+  // transform or header can move or cover it. A press keeps the caret in the box (mousedown is held).
   return (
     <>
       <span ref={setAnchor} aria-hidden className="block h-0 w-full" />

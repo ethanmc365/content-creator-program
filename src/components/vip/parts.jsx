@@ -13,13 +13,14 @@ import { BONUS_KINDS, describeRule, money, monthLabel, nf, perK, prizesByPlace, 
 import { CountUp, VIP_COUNT_MS } from '../network/Motion'
 import { safeUrl } from '../../lib/safeUrl'
 
-// THE PIECES OF A VIP'S PAGE (2 Oct 2026). Kept together because they share one vocabulary - views gained
-// this month, what they are worth, what the statement says - and a screen reads best when every piece uses
-// the same words for the same number.
+// THE PIECES OF A VIP'S PAGE. Kept together because they share one vocabulary - views gained this month, what they are
+// worth, what the statement says - and a screen reads best when every piece uses the same words for the same number.
 
-/** COPY A VIDEO'S LINK IN ONE PRESS (10 Oct 2026). Ethan, on "the videos that gained the most": "I want a quick link icon to
- *  copy". A round frosted button that sits on the thumbnail, outside the link it copies (a button inside an <a> is not
- *  allowed), turns into a tick for a moment and says so. `tone="light"` is the white version for a white card. */
+/**
+ * COPY A VIDEO'S LINK IN ONE PRESS. The team, on "the videos that gained the most": "I want a quick link icon to copy".
+ * A round frosted button that sits on the thumbnail, outside the link it copies (a button inside an <a> is not allowed),
+ * turns into a tick for a moment and says so. `tone="light"` is the white version for a white card.
+ */
 export function CopyLinkChip({ url, className, tone = 'glass' }) {
   const tr = useKindT()
   const [done, setDone] = useState(false)
@@ -85,8 +86,10 @@ export function askingRules(rules, month) {
   return (rules || []).filter((r) => r.active !== false && r.prompt && ruleRunsIn(r, month))
 }
 
-/** ONE QUESTION, YES OR NO (10 Oct 2026). Ethan: VIP challenges should "ask the creator if this video is about X topic",
- *  like the community challenges' bonus questions. Two pills, the picked one solid brand; the bonus it is for underneath. */
+/**
+ * ONE QUESTION, YES OR NO. The team: VIP challenges should "ask the creator if this video is about X topic", like the
+ * community challenges' bonus questions. Two pills, the picked one solid brand; the bonus it is for underneath.
+ */
 function QuestionRow({ rule, value, onChange, disabled }) {
   const tr = useKindT()
   return (
@@ -107,13 +110,15 @@ function QuestionRow({ rule, value, onChange, disabled }) {
   )
 }
 
-/** Add a video: paste a link, the platform is read from it, and a refusal is said in words.
+/**
+ * Add a video: paste a link, the platform is read from it, and a refusal is said in words.
  *
- * REDONE (1 Oct 2026). Ethan: the browser's own "Please enter a URL" bubble appeared over the form (it was an
- * `<input type="url">`), and the box should look like the rest of the page. The form now checks the link itself and
- * says what is wrong in the same red line every other refusal uses. Only videos posted in THIS month are taken, and
- * once one is added its views are read straight away (migration 307 asks for a reading on insert); the page asks
- * again every few seconds until the first reading lands, so the number appears without a refresh. */
+ * REDONE. The team: the browser's own "Please enter a URL" bubble appeared over the form (it was an `<input
+ * type="url">`), and the box should look like the rest of the page. The form now checks the link itself and says what is
+ * wrong in the same red line every other refusal uses. Only videos posted in THIS month are taken, and once one is added
+ * its views are read straight away (migration 307 asks for a reading on insert); the page asks again every few seconds
+ * until the first reading lands, so the number appears without a refresh.
+ */
 export function VipSubmit({ disabled, onAdded, month, rules = null }) {
   const tr = useKindT()
   const [url, setUrl] = useState('')
@@ -177,8 +182,8 @@ export function VipSubmit({ disabled, onAdded, month, rules = null }) {
             disabled={disabled}
             aria-label={tr('Link to your video')}
             aria-invalid={!!err}
-            // A DISABLED BOX STILL TAKES THE TAP (12 Oct 2026): a disabled input swallows clicks, so the walkthrough's
-            // "Tap the box to add a video" could never be done on the preview. The press now lands on the box around it.
+            // A DISABLED BOX STILL TAKES THE TAP: a disabled input swallows clicks, so the walkthrough's "Tap the box to
+            // add a video" could never be done on the preview. The press now lands on the box around it.
             className="min-w-0 flex-1 bg-transparent px-3 py-3 text-[15px] text-ink outline-none placeholder:text-gray-400 disabled:pointer-events-none"
           />
           {looksLink && (
@@ -221,8 +226,8 @@ export function VipVideoRow({ video, cpm, currency, onRemoved, delay = 0 }) {
 
   return (
     <li className={cx('group flex gap-3.5 rounded-card border bg-white p-3 shadow-card transition-all duration-300 animate-rise hoverable:hover:-translate-y-0.5 hoverable:hover:shadow-lift sm:p-3.5', out ? 'border-red-100 opacity-80' : 'border-gray-100')} style={{ animationDelay: `${delay}ms` }}>
-      {/* THE VIDEO'S OWN COVER (3 Oct 2026), framed like a phone screen, with the platform's mark on it. On hover it only grows a
-          little and stays clickable: no play button (6 Oct 2026, Ethan). */}
+      {/* THE VIDEO'S OWN COVER, framed like a phone screen, with the platform's mark on it. On hover it only grows a
+          little and stays clickable: no play button. */}
       <a href={safeUrl(video.url)} target="_blank" rel="noopener noreferrer" className="relative block w-[4.5rem] shrink-0 overflow-hidden rounded-xl shadow-card sm:w-20" aria-label={tr('Open the video')}>
         <VideoThumb url={video.url} platform={video.platform} thumbnailUrl={video.thumb} className="aspect-[9/16] w-full transition-transform duration-500 group-hover:scale-105" />
       </a>
@@ -249,9 +254,7 @@ export function VipVideoRow({ video, cpm, currency, onRemoved, delay = 0 }) {
 }
 
 /**
- * A VIDEO AS A SMALL CARD (6 Oct 2026). Ethan: "for My videos it should show them but it should be smaller cards and a better interface so 3
- * videos fit per line ... hovering over the videos shouldn't show a play button, just magnify slightly and be clickable." The cover leads,
- * the numbers sit under it, and the whole card opens the video.
+ * A VIDEO AS A SMALL CARD. The cover leads, the numbers sit under it, and the whole card opens the video.
  */
 export function VipVideoCard({ video, cpm, currency, onRemoved, delay = 0, rules = null, month = null }) {
   const tr = useKindT()
@@ -333,13 +336,14 @@ export function VipVideoCard({ video, cpm, currency, onRemoved, delay = 0, rules
   )
 }
 
-/** This month's VIPs by views: the top three as a podium, everyone else as a list, the prizes beside their places.
+/**
+ * This month's VIPs by views: the top three as a podium, everyone else as a list, the prizes beside their places.
  *
- * REDRAWN (3 Oct 2026). Ethan: "that leaderboard graphic I think can be improved." It was three white blocks on a slab
- * of orange. Now it is a light stage: each of the top three stands on a step of its own height that rises in, the
- * leader's step in the brand gradient with a crown of light behind the photo, second and third in soft tints, the views
- * counting up and the prize as a chip under the name. The rest of the board is a list with each row's share of the
- * leader's views drawn as a thin bar. */
+ * REDRAWN. It was three white blocks on a slab of orange. Now it is a light stage: each of the top three stands on a
+ * step of its own height that rises in, the leader's step in the brand gradient with a crown of light behind the photo,
+ * second and third in soft tints, the views counting up and the prize as a chip under the name. The rest of the board is
+ * a list with each row's share of the leader's views drawn as a thin bar.
+ */
 export function VipBoardList({ rows, rules, currency, month = null }) {
   const tr = useKindT()
   const prizes = useMemo(() => {
@@ -359,9 +363,9 @@ export function VipBoardList({ rows, rules, currency, month = null }) {
   const rest = rows.slice(3)
   const lead = Math.max(1, Number(rows[0]?.views) || 0)
   // Second, first, third: the winner in the middle and tallest.
-  // AN EMPTY STEP IS SHOWN, NOT DROPPED (11 Oct 2026). With two creators counted the podium used to be two columns and
-  // looked broken (Ethan, of the official board). Now a free place is drawn as an open step, so it always reads as a
-  // podium, and the third person to post fills it.
+  // AN EMPTY STEP IS SHOWN, NOT DROPPED. With two creators counted the podium used to be two columns and looked broken
+  // (the team, of the official board). Now a free place is drawn as an open step, so it always reads as a podium, and
+  // the third person to post fills it.
   const ghost = (rank) => ({ rank, ghost: true })
   const order = [top[1] ?? ghost(2), top[0], top[2] ?? ghost(3)]
   const step = { 1: 'h-28 sm:h-32', 2: 'h-20 sm:h-24', 3: 'h-14 sm:h-16' }
@@ -371,9 +375,10 @@ export function VipBoardList({ rows, rules, currency, month = null }) {
     3: 'bg-gradient-to-b from-cloud to-white text-smoke ring-1 ring-gray-200/70',
   }
   return (
-    // ONE CARD, FULLY ROUNDED (6 Oct 2026). Ethan: the podium was "kind of a half visible gradient card and the bottom edges are sharp." The
-    // gradient used to fade out into the page with nothing round it, and the steps were cut flat at the bottom. Now the podium and the list
-    // are one white card with a border and a soft shadow; the gradient lives inside it, and every step is rounded all the way round.
+    // ONE CARD, FULLY ROUNDED. The team: the podium was "kind of a half visible gradient card and the bottom edges are
+    // sharp." The gradient used to fade out into the page with nothing round it, and the steps were cut flat at the
+    // bottom. Now the podium and the list are one white card with a border and a soft shadow; the gradient lives inside
+    // it, and every step is rounded all the way round.
     <div className="overflow-hidden rounded-card border border-gray-100 bg-white shadow-card">
       <div className="relative bg-gradient-to-b from-brand-tint via-brand-tint/30 to-white px-3 pb-5 pt-7 sm:px-6">
         <span aria-hidden className="pointer-events-none absolute left-1/2 top-2 h-40 w-40 -translate-x-1/2 rounded-full bg-brand/15 blur-3xl" />
@@ -441,9 +446,9 @@ export function VipEarn({ rules, overview, currency, onAnswer }) {
     }
     return null
   }
-  // WHAT IS THEIRS ALONE comes first (2 Oct 2026, migration 311): a monthly fee and their own rate ladder, set per
-  // creator by the team. And if the market's bonuses are switched off for them, the page says so rather than
-  // listing bonuses they cannot earn.
+  // WHAT IS THEIRS ALONE comes first (migration 311): a monthly fee and their own rate ladder, set per creator by the
+  // team. And if the market's bonuses are switched off for them, the page says so rather than listing bonuses they
+  // cannot earn.
   const m = overview.member || {}
   const own = []
   if (Number(m.monthly_fee) > 0) {
@@ -458,8 +463,8 @@ export function VipEarn({ rules, overview, currency, onAnswer }) {
   if (!shown.length && !own.length) {
     return <p className="rounded-card border border-dashed border-gray-200 px-6 py-10 text-center text-sm text-smoke animate-rise">{m.bonuses_on === false ? tr('Your agreement is your views pay. Market bonuses are not part of it.') : tr('No bonuses are running right now. Your views pay is the whole story until the team adds some.')}</p>
   }
-  // Each card rises in a beat after the one above it, so switching to this section reads as the list arriving
-  // rather than appearing (Ethan: clicking Earn more "doesn't have clean animations").
+  // Each card rises in a beat after the one above it, so switching to this section reads as the list arriving rather
+  // than appearing (the team: clicking Earn more "doesn't have clean animations").
   const rise = (i) => ({ className: 'animate-rise', style: { animationDelay: `${Math.min(i, 8) * 55}ms` } })
   return (
     <ul className="space-y-3">
@@ -503,8 +508,10 @@ export function VipEarn({ rules, overview, currency, onAnswer }) {
   )
 }
 
-/** A BONUS WITH A QUESTION, LIVE (10 Oct 2026, migration 377): the question, how many of their own videos said yes, and who is
- *  ahead on the videos that count - the same board the close pays from. */
+/**
+ * A BONUS WITH A QUESTION, LIVE (migration 377): the question, how many of their own videos said yes, and who is ahead
+ * on the videos that count - the same board the close pays from.
+ */
 function RuleQuestionStandings({ rule, overview, onAnswer }) {
   const tr = useKindT()
   const { data } = useOptionalRpc('vip_rule_standings', { p_rule: rule.id }, `rule-${rule.id}`)
@@ -537,10 +544,12 @@ function RuleQuestionStandings({ rule, overview, onAnswer }) {
   )
 }
 
-/** A nudge that costs nothing to ignore until money is waiting: payment details.
+/**
+ * A nudge that costs nothing to ignore until money is waiting: payment details.
  *
- * IN THE PAGE'S OWN COLOURS (1 Oct 2026). Ethan asked for its colour to change: it was the amber of a warning, the
- * only amber card on a page of white and orange. It is a white card with the brand's tile, like every other card. */
+ * IN THE PAGE'S OWN COLOURS. The team asked for its colour to change: it was the amber of a warning, the only amber card
+ * on a page of white and orange. It is a white card with the brand's tile, like every other card.
+ */
 export function PaymentBanner() {
   const tr = useKindT()
   return (

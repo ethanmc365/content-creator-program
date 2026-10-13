@@ -10,9 +10,8 @@ import { moneyApi } from '../../api/money'
 
 // EVERY VOUCHER, IN ONE PLACE, WITH THE THINGS A TEAM ACTUALLY DOES TO ONE.
 //
-// Ethan: a creator who wins a EUR 10 voucher and then another EUR 10 in the next
-// challenge should end up holding ONE EUR 20 voucher; but if they have spent the
-// first, that has to be recorded, and a voucher may need re-coding or marking
+// The team: a creator who wins a EUR 10 voucher and then another EUR 10 in the next challenge should end up holding ONE
+// EUR 20 voucher; but if they have spent the first, that has to be recorded, and a voucher may need re-coding or marking
 // used on their behalf. So a voucher here can be:
 //
 //   given a code        the code is what the creator sees on their ticket
@@ -25,13 +24,12 @@ import { moneyApi } from '../../api/money'
 // own challenge, so what a challenge paid out never moves; they share a group and a
 // code, and every action here reaches the whole group (see migration 281).
 
-// ONE LIST, THE JOBS FIRST (1 Oct 2026). Ethan: "To hand over" does not make sense - "there's a
-// voucher that needs the code. We give the code, and then it's done" - and there should be no
-// Not used / Used filters, just All, with what needs doing at the top and the newest first. The
-// cards were also "taking up a lot of space". So: a voucher that has not been handed over and one
-// handed over with no code are the SAME state, "Needs a code"; the list is one compact card of
-// rows, needs-a-code first, then spendable, then used; and combining is a bar that appears once
-// two of one creator's vouchers are ticked, in any currency (a mix is worth its euro total).
+// ONE LIST, THE JOBS FIRST. does not make sense - "there's a voucher that needs the code. We give the code, and then
+// it's done" - and there should be no Not used / Used filters, just All, with what needs doing at the top and the newest
+// first. The cards were also "taking up a lot of space". So: a voucher that has not been handed over and one handed over
+// with no code are the SAME state, "Needs a code"; the list is one compact card of rows, needs-a-code first, then
+// spendable, then used; and combining is a bar that appears once two of one creator's vouchers are ticked, in any
+// currency (a mix is worth its euro total).
 const STATES = {
   needs_code: { label: 'Needs a code', tone: 'amber' },
   chat: { label: 'Sent by chat', tone: 'grey' },
@@ -145,8 +143,8 @@ export default function VouchersPanel({ rewards, loading, onChanged, onHandOver 
         <input type="search" className="input !py-2 !pl-9 text-sm" placeholder="Search creators…" value={search} onChange={(e) => setSearch(e.target.value)} />
       </div>
 
-      {/* THE COMBINE BAR, AT THE TOP (2 Oct 2026). Ethan: "I'd rather it show up at the top". It sits
-          over the list, sticky under the header, as soon as two of one creator's vouchers are ticked. */}
+      {/* THE COMBINE BAR, AT THE TOP. It sits over the list, sticky under the header, as soon as two of one creator's
+          vouchers are ticked. */}
       {selected.length >= 2 && (
         <div className="sticky top-20 z-20 mb-3 flex flex-wrap items-center gap-3 rounded-card bg-ink px-4 py-3 text-white shadow-lift animate-pop-in">
           <Avatar src={selected[0].profiles?.photo_url} name={selected[0].profiles?.name} size="xs" />

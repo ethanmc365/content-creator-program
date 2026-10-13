@@ -105,14 +105,11 @@ export default function WhoToMeet({ className }) {
       // ADMINS RUN OUT OF STRANGERS, AND THAT IS NOT A REASON TO HIDE THE
       // SECTION FROM THEM.
       //
-      // The filter below is the whole point of the feature for a creator: never
-      // suggest somebody you already know. But the programme lead is connected
-      // to essentially every creator on the platform by the second week, so
-      // `candidates` came back empty, `picks` came back empty, and the component
-      // returned null - on Ethan's hub only. It looked like the section was
-      // broken; it was working exactly as written and had simply run out of
-      // people. A test creator with two connections saw it fine, which is why it
-      // read as an account-specific bug.
+      // The filter below is the whole point of the feature for a creator: never suggest somebody you already know. But
+      // the programme lead is connected to essentially every creator on the platform by the second week, so `candidates`
+      // came back empty, `picks` came back empty, and the component returned null - on the team's hub only. It looked
+      // like the section was broken; it was working exactly as written and had simply run out of people. A test creator
+      // with two connections saw it fine, which is why it read as an account-specific bug.
       //
       // So for an admin, and ONLY when the strict pass finds nobody, we fall
       // back to the full pool. A creator's rule is untouched.
@@ -131,11 +128,9 @@ export default function WhoToMeet({ className }) {
     return () => { alive = false }
   }, [user?.id, profile])
 
-  // A DM IS OPENED, NOT CREATED (9 Sep 2026). `openConversation` INSERTS a row,
-  // so pressing Message and then changing your mind left an empty thread in two
-  // inboxes. `/messages?to=` opens the thread either way and Messages.jsx
-  // creates the row on the first send - see `ensureConversation` there. It is
-  // also instant, which the round trip this replaced was not.
+  // A DM IS OPENED, NOT CREATED. `openConversation` INSERTS a row, so pressing Message and then changing your mind left
+  // an empty thread in two inboxes. `/messages?to=` opens the thread either way and Messages.jsx creates the row on the
+  // first send - see `ensureConversation` there. It is also instant, which the round trip this replaced was not.
   function message(id) {
     navigate(`/messages?to=${id}`)
   }
@@ -152,10 +147,8 @@ export default function WhoToMeet({ className }) {
         <SectionTitle icon="users" to="/creators" label={tr('Everyone')}>{tr("Who to meet")}</SectionTitle>
       </div>
 
-      {/* TO MEET, REDESIGNED (12 Oct 2026). Ethan: "I think you can design
-          them much, much better." The old card was a centred avatar, a name,
-          a boxed reason and two equal buttons - three stacked full-width
-          blocks on a phone, one screen of scrolling for three people.
+      {/* TO MEET, REDESIGNED. The old card was a centred avatar, a name, a boxed reason and two equal buttons - three
+          stacked full-width blocks on a phone, one screen of scrolling for three people.
 
           Now the reason LEADS: a small brand label naming the overlap ("Same
           trip", "Both speak") above the sentence, because that is what makes
@@ -180,10 +173,8 @@ export default function WhoToMeet({ className }) {
                 className="absolute inset-0 z-0 rounded-card"
                 aria-label={`${creator.name}'s profile`}
               />
-              {/* THE BRAND BAND ALONG THE TOP, THICKER AND RUNNING DOWN INTO THE CARD (12 Oct 2026). Ethan: "you added this
-                  orange, just a little gradient line at the top, which looks good. Although it's too thin, it should be a
-                  bit thicker, so make it go down more." A solid band, then a soft wash of the same colour fading out behind
-                  the avatar. It fades for the "no particular reason" pick. */}
+              {/* THE BRAND BAND ALONG THE TOP, THICKER AND RUNNING DOWN INTO THE CARD. A solid band, then a soft wash of
+                  the same colour fading out behind the avatar. It fades for the "no particular reason" pick. */}
               <span aria-hidden className={cx('h-2.5 w-full bg-gradient-to-r from-brand to-[#f5853f]', chance && 'opacity-30')} />
               <span aria-hidden className={cx('pointer-events-none absolute inset-x-0 top-2.5 h-16 bg-gradient-to-b from-[#f5853f]/25 via-brand-tint/40 to-transparent', chance && 'opacity-40')} />
 

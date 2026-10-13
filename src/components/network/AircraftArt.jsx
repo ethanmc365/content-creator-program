@@ -2,11 +2,9 @@ import { cx } from '../../lib/utils'
 
 // AN AIRCRAFT, DRAWN AS A CUT-OUT.
 //
-// WHY THESE ARE DRAWINGS AND NOT PHOTOGRAPHS. Ethan asked for "an actual clean
-// image of the airplane, all the images should be like a cut out plane in the
-// same style, so the design looks clean" and for the picture to be right for the
-// type. The second half of that is the achievable half, and photographs are the
-// one thing this cannot be:
+// WHY THESE ARE DRAWINGS AND NOT PHOTOGRAPHS. The team asked for "an actual clean image of the airplane, all the images
+// should be like a cut out plane in the same style, so the design looks clean" and for the picture to be right for the
+// type. The second half of that is the achievable half, and photographs are the one thing this cannot be:
 //
 //   * EVERY GOOD PHOTOGRAPH OF AN AIRLINER IS SOMEBODY'S. Airliner photography
 //     is a hobby with a licensing culture, and shipping thirty of them because

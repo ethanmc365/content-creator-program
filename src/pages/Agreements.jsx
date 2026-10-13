@@ -11,14 +11,13 @@ import { useAuth } from '../context/AuthContext'
 import { notice } from '../lib/confirm'
 import { agreementsApi } from '../api/agreements'
 
-// SETTINGS > AGREEMENTS (7 Oct 2026). Ethan: "Maybe there's a place in settings or somewhere where the creators can
-// actually go back in and review these if they want to." Every document that applies to you, whether you have accepted
-// its current version, and every version you ever accepted or signed - with the signature and the exact text, which
-// you can print or save as a PDF from the browser.
+// SETTINGS > AGREEMENTS. Every document that applies to you, whether you have accepted its current version, and every
+// version you ever accepted or signed - with the signature and the exact text, which you can print or save as a PDF from
+// the browser.
 const when = (iso) => new Date(iso).toLocaleString(dateTag(), { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })
 
-// YOUR SIGNED COPY, AS A PDF (10 Oct 2026). Ethan: "a copy for us and a copy for them in settings etc that they can download".
-// The exact text signed, the signature and the record of signing - the same file the team downloads from the register.
+// YOUR SIGNED COPY, AS A PDF. The exact text signed, the signature and the record of signing - the same file the team
+// downloads from the register.
 function useSignedPdf() {
   const { user } = useAuth()
   const [busy, setBusy] = useState(null)
@@ -88,7 +87,7 @@ export default function Agreements() {
         </div>
       ) : (
         <>
-          {/* WHERE YOU STAND, IN ONE LINE (7 Oct 2026). */}
+          {/* WHERE YOU STAND, IN ONE LINE. */}
           <div className="mb-4 flex items-center gap-3 rounded-card border border-gray-100 bg-white px-5 py-4 shadow-card animate-rise">
             <span className="relative h-11 w-11 shrink-0">
               <svg viewBox="0 0 36 36" className="h-11 w-11 -rotate-90">

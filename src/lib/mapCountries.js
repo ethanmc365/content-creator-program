@@ -16,9 +16,7 @@ import { isSlowNetwork } from './netQuality'
 //
 // SERVED BY US, NOT BY A CDN WE DO NOT CONTROL, AND TRIMMED.
 //
-// It used to be fetched from jsdelivr on first use. Ethan: "the map everywhere
-// across the platforms loads very slowly." Three things were wrong with that
-// and this fixes all three:
+// It used to be fetched from jsdelivr on first use. Three things were wrong with that and this fixes all three:
 //
 //   * A THIRD-PARTY ORIGIN COSTS A DNS LOOKUP AND A TLS HANDSHAKE before a byte
 //     of the file moves, and it happens on the frame a map mounts - which is
@@ -98,8 +96,8 @@ export function atlasReady() { return !!featureCache }
 
 export function warmMapAtlas() {
   if (featureCache || topoInflight) return
-  // ON A SLOW CONNECTION THE ATLAS WAITS TO BE ASKED FOR (1 Oct 2026): it is
-  // ~170kB that would otherwise compete with the page the creator is waiting on.
+  // ON A SLOW CONNECTION THE ATLAS WAITS TO BE ASKED FOR: it is ~170kB that would otherwise compete with the page the
+  // creator is waiting on.
   if (isSlowNetwork()) return
   const go = () => { loadMapFeatures().catch(() => {}) }
   if (typeof requestIdleCallback === 'function') requestIdleCallback(go, { timeout: 3000 })
@@ -135,9 +133,9 @@ export function loadMapCountryNames() {
 
 // Resolve free-text (e.g. "portugal") to the canonical map name ("Portugal"),
 // or null if it doesn't match a country on the map.
-// WHAT PEOPLE ACTUALLY TYPE (12 Oct 2026). Ethan: "some of them don't have maps. They should all be showing maps." Trips
-// on the board said "ID", "DK", "MA", "CZ" (the country picker stores codes) and "South africa"; only exact map names
-// drew a map. Codes are turned into names, and the usual short forms land on the map's own spelling.
+// WHAT PEOPLE ACTUALLY TYPE. Trips on the board said "ID", "DK", "MA", "CZ" (the country picker stores codes) and "South
+// africa"; only exact map names drew a map. Codes are turned into names, and the usual short forms land on the map's own
+// spelling.
 const ALIAS = {
   usa: 'United States of America', us: 'United States of America', 'united states': 'United States of America', america: 'United States of America',
   uk: 'United Kingdom', 'great britain': 'United Kingdom', britain: 'United Kingdom', england: 'United Kingdom', scotland: 'United Kingdom', wales: 'United Kingdom', 'northern ireland': 'United Kingdom',

@@ -12,10 +12,6 @@ import { eventsApi } from '../../api/events'
 
 // YOUR OWN DATES, ON THE SAME CALENDAR.
 //
-// Ethan: "I want the ability for everyone to be able to create personal events,
-// for example: Content days you set for yourself. A private personal event
-// type: 'edit the video from Paris'."
-//
 // It is a row in `events` with `owner_id` set, and a RESTRICTIVE RLS policy
 // makes it invisible to everybody else including admins - see migration 107.
 // Reusing the events table rather than inventing a second one is what gets it
@@ -116,8 +112,7 @@ export default function PersonalEventModal({ open, onClose, editing, onSaved }) 
   return (
     <Modal open={open} onClose={onClose} title={editing ? 'Edit your event' : 'Add a personal event'}>
       <form onSubmit={save} className="space-y-5">
-        {/* JUST THE ONE FACT (28 Sep 2026). Ethan: "All I would say is 'Only
-            you can see this.' That's all I would add there." */}
+        {/* JUST THE ONE FACT. */}
         <p className="inline-flex items-center gap-1.5 rounded-full bg-brand-tint/70 px-3 py-1.5 text-xs font-semibold text-brand">
           <Icon name="lock" className="h-3.5 w-3.5 shrink-0" />
           {tr('Only you can see this.')}

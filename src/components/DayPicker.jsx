@@ -2,10 +2,9 @@ import { useState } from 'react'
 import Icon from './Icon'
 import { cx } from '../lib/utils'
 
-// A MONTH YOU TAP DAYS ON (12 Oct 2026). Ethan, on the voucher days dialog: "the UI of that calendar is like the old Apple
-// UI. It should be the proper platform style." The native date box opened the OS picker and took one date at a time; this
-// is a month grid in the platform's own look, where a tapped day turns solid brand (the picked-option rule) and several
-// days can be picked at once. Days in `taken` are already used and cannot be picked; days before `min` are greyed.
+// A MONTH YOU TAP DAYS ON. The native date box opened the OS picker and took one date at a time; this is a month grid in
+// the platform's own look, where a tapped day turns solid brand (the picked-option rule) and several days can be picked
+// at once. Days in `taken` are already used and cannot be picked; days before `min` are greyed.
 const ymd = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 
 export default function DayPicker({ value = [], onChange, multiple = true, taken = [], min = null, locale = 'en-GB' }) {

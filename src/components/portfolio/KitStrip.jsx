@@ -12,15 +12,10 @@ import { certificatesApi } from '../../api/certificates'
 
 // THE GRAPHICS, WHERE THE CREATOR ALREADY IS.
 //
-// Ethan: "by the way I think these graphics should be somewhere on the
-// portfolio page for the creators to use."
-//
-// He is right, and it is worth saying why rather than just doing it: the
-// portfolio is the one page in this product a creator opens when they are
-// thinking about how they LOOK to people outside the community. That is the
-// same thought that makes somebody post "I'm officially a Tryp.com Content
-// Creator" on their story. A library page elsewhere would be a place these
-// files are stored; here it is a thing to do next.
+// they are right, and it is worth saying why rather than just doing it: the portfolio is the one page in this product a
+// creator opens when they are thinking about how they LOOK to people outside the community. That is the same thought
+// that makes somebody post "I'm officially a Tryp.com Content Creator" on their story. A library page elsewhere would be
+// a place these files are stored; here it is a thing to do next.
 //
 // DOWNLOAD, NOT OPEN IN A TAB. `<a download>` on a cross-origin URL is ignored
 // by the browser - it navigates instead - and on iOS a navigation to an image
@@ -37,13 +32,10 @@ function labelOf(row, tr) {
   return kinds.map((k) => tr(KIND_LABEL[k] || 'Graphic')).join(' · ')
 }
 
-// THE CARD DRAWS THE SMALL COPY (12 Oct 2026). Ethan: "whenever this page
-// first loads, those cards show blank and then they appear a few seconds
-// later." Each graphic is a 2.4MB PNG; eight of them on a phone is ~19MB before
-// the first one paints. The card now loads the 540px JPEG beside it
-// (`lib/kitThumb`, ~40KB), eagerly for the first three, and fades it in the
-// moment it decodes. No thumbnail yet (an upload from before this) falls back
-// to the original once. Save still hands over the full-size original.
+// THE CARD DRAWS THE SMALL COPY. Each graphic is a 2.4MB PNG; eight of them on a phone is ~19MB before the first one
+// paints. The card now loads the 540px JPEG beside it (`lib/kitThumb`, ~40KB), eagerly for the first three, and fades it
+// in the moment it decodes. No thumbnail yet (an upload from before this) falls back to the original once. Save still
+// hands over the full-size original.
 function KitThumb({ row, index }) {
   const thumb = supabase.storage.from('creator-kit').getPublicUrl(kitThumbPath(row.path)).data.publicUrl
   const full = supabase.storage.from('creator-kit').getPublicUrl(row.path).data.publicUrl
@@ -74,10 +66,7 @@ export default function KitStrip({ className }) {
   const [edges, setEdges] = useState({ start: true, end: true })
   const [rows, setRows] = useState(null)
   const [busy, setBusy] = useState(null)
-  // Which graphic is open full-screen. Ethan: "whenever you click in the photo,
-  // it should show a pop-up of it so you can see what the photo actually is
-  // without having to download it." Downloading a file to find out whether you
-  // want it is the wrong order.
+  // Which graphic is open full-screen. Downloading a file to find out whether you want it is the wrong order.
   const [open, setOpen] = useState(null)
 
   useEffect(() => {
@@ -125,16 +114,10 @@ export default function KitStrip({ className }) {
   if (rows === null) return <Skeleton className={cx('h-56 w-full rounded-card', className)} />
   if (rows.length === 0) return null
 
-  // ONE ROW, THREE AT A TIME (21 Sep 2026). The Year in Review card that sat
-  // beside it is its own card now - see `YearTeaser` below.
+  // ONE ROW, THREE AT A TIME. The Year in Review card that sat beside it is its own card now - see `YearTeaser` below.
   //
-  // Ethan: "rather than having that on multiple lines, it should only be one
-  // line. Those four cards there, and rather than having the other four cards
-  // below, it should just be a horizontal scroll to view the other cards.
-  // Ensure everything's the same size... this doesn't take up as much space."
-  // And: "just show 3 there... on that right side have a separate smaller card
-  // that shows that it's going to be unlocked... your Year in Review on
-  // 3 December, so they know that this is an actual thing."
+  // And: "just show 3 there... on that right side have a separate smaller card that shows that it's going to be
+  // unlocked... your Year in Review on 3 December, so they know that this is an actual thing."
   //
   // Every tile is the same width and the same 4:5 frame with the graphic
   // contained inside, so a story and a post line up and every Save sits on one
@@ -215,21 +198,13 @@ export default function KitStrip({ className }) {
   )
 }
 
-// THE YEAR IN REVIEW, ANNOUNCED BEFORE IT EXISTS. Ethan: "a separate smaller
-// card that shows that it's going to be unlocked, like the [locked] preview...
-// so they know that this is an actual thing." It is `YearInReviewLocked` in
-// miniature - the same orange, the same lock, the same sentence - so on
-// 3 December the real thing is recognisably the card they have been looking
-// at. Not a link: there is nothing to open yet.
+// THE YEAR IN REVIEW, ANNOUNCED BEFORE IT EXISTS. It is `YearInReviewLocked` in miniature - the same orange, the same
+// lock, the same sentence - so on 3 December the real thing is recognisably the card they have been looking at. Not a
+// link: there is nothing to open yet.
 //
-// ITS OWN CARD, IN THE EDITOR'S COLUMN (21 Sep 2026). It used to sit inside the
-// graphics card, at the end of the row. Ethan: "rather than having this in the
-// same card, I would like it in a separate card... the editing screen size to
-// match the size of the 'Your Year Is Still Happening' card, and the share card
-// to match the size of the portfolio." So the page lays the two out in the same
-// `1fr / 360px` grid as the deck and the editor below, and this fills its cell.
-// `compact` is the phone's version: one row, at the foot of the page, so the
-// graphics and then the portfolio are what a phone opens on.
+// ITS OWN CARD, IN THE EDITOR'S COLUMN. It used to sit inside the graphics card, at the end of the row. So the page lays
+// the two out in the same `1fr / 360px` grid as the deck and the editor below, and this fills its cell. `compact` is the
+// phone's version: one row, at the foot of the page, so the graphics and then the portfolio are what a phone opens on.
 export function YearTeaser({ className, compact = false, tiny = false }) {
   const tr = useT()
   const now = new Date()

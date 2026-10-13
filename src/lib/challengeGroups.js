@@ -1,9 +1,6 @@
 // ONE CHALLENGE, MORE THAN ONE LEADERBOARD.
 //
-// Spain runs a single brief with the community split in two, each half racing
-// its own board for its own prize. Ethan: "we need to build this feature into
-// challenges when creating them and also the functionality and the UI to have
-// multiple leaderboards for the same challenge."
+// Spain runs a single brief with the community split in two, each half racing its own board for its own prize.
 //
 // A group is a PARTITION OF THE ENTRANTS, not a copy of the contest - see
 // migration 154 for why that distinction is the whole design. Everything in
@@ -101,10 +98,6 @@ export function totalsFor(submissions = []) {
 /**
  * The comparison table behind a challenge's analytics: one row per board plus
  * the combined figure, with each board's share of the total.
- *
- * Ethan: "the analytics page should combine the data as just the one challenge,
- * but clicking in on the challenge data should reveal more data and analytics
- * from the different groups and comparing each."
  *
  * The combined row is computed from the SAME submissions the per-group rows
  * come from, so the two can never disagree - it is not a second query.

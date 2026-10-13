@@ -65,12 +65,9 @@ function savePinnedConversations(ids) {
 // A short label for a DM when it's quoted in a reply.
 // A PREVIEW IS PLAIN TEXT, NOT MARKDOWN.
 //
-// Replying to a message written with the formatting buttons put the RAW body in
-// the quote strip, so a reply to a heading read "## Content tips" and a reply to
-// bold text read "**this**". Ethan: "when you reply to a message it doesn't show
-// the correct bold message headings, but rather it shows hashtags and stars."
-// `stripMarkup` is the one place that knows how to undo the markers, and it
-// keeps @names intact, which is what a one-line quote actually needs.
+// Replying to a message written with the formatting buttons put the RAW body in the quote strip, so a reply to a heading
+// read "## Content tips" and a reply to bold text read "**this**". `stripMarkup` is the one place that knows how to undo
+// the markers, and it keeps @names intact, which is what a one-line quote actually needs.
 function dmPreview(m) {
   if (!m) return 'Message unavailable'
   if (m.body) return stripMarkup(m.body)
@@ -97,17 +94,11 @@ function dmPreview(m) {
 // is something that happened TO you and belongs in your inbox. Opening a 1:1 and
 // changing your mind is something you did, to nobody.
 //
-// AT MODULE SCOPE so the CACHED inbox can be strained through it too. A device
-// that wrote its page cache before this shipped is holding rows with the old
-// `now()` timestamp, and without this they would be on screen until the fetch
-// came back - which is precisely the "shows on mobile, not on desktop" Ethan
-// reported, one more time and for one more second.
-// AND A THREAD YOU HAVE JUST CREATED IS LISTABLE BEFORE ITS FIRST MESSAGE
-// LANDS (14 Sep 2026).
-//
-// Ethan: "when sending a DM, after I type and press send, it temporarily shows
-// the panel with the suggested creators to message while the message is
-// sending, then shows the chat again. It should always be showing the chat."
+// AT MODULE SCOPE so the CACHED inbox can be strained through it too. A device that wrote its page cache before this
+// shipped is holding rows with the old `now()` timestamp, and without this they would be on screen until the fetch came
+// back - which is precisely the "shows on mobile, not on desktop" the team reported, one more time and for one more
+// second.
+// AND A THREAD YOU HAVE JUST CREATED IS LISTABLE BEFORE ITS FIRST MESSAGE LANDS.
 //
 // `last_message_at` is written by a trigger when a message row appears, and
 // `ensureConversation` creates the conversation BEFORE the message is queued -
@@ -138,13 +129,7 @@ export default function Messages() {
   const navigate = useNavigate()
   const location = useLocation()
 
-  // BACK OUT OF A THREAD AND YOU ARE IN THE INBOX, WHEREVER YOU CAME FROM
-  // (10 Sep 2026).
-  //
-  // Ethan, on his iPhone: "if I'm on a DM of Jacob and then click the back
-  // button, it should obviously just take me back to the screen I was on, which
-  // is probably gonna be the DM screen. But instead it takes you back to the
-  // Worldwide page."
+  // BACK OUT OF A THREAD AND YOU ARE IN THE INBOX, WHEREVER YOU CAME FROM.
   //
   // Both halves of that are true and they are not in conflict: the browser was
   // doing exactly what a browser does. A thread is reached from four places -
@@ -213,10 +198,10 @@ export default function Messages() {
   // "what did Jacob say about the Lisbon shoot" - so they are two controls.
   const [threadSearch, setThreadSearch] = useState('')
   const [threadSearchOpen, setThreadSearchOpen] = useState(false)
-  // THE HEADER'S X CLOSES THE SEARCH (13 Oct 2026). Ethan: with the keyboard up, "that X in the top right, when I press
-  // it, nothing happens". On a phone the press blurs the search field first, an empty field closes itself on blur, and
-  // the click that follows toggled it straight back open. The X now only ever closes, and a click within half a second of
-  // the field closing itself is that same press, not a request to open it again.
+  // THE HEADER'S X CLOSES THE SEARCH. The team: with the keyboard up, "that X in the top right, when I press it, nothing
+  // happens". On a phone the press blurs the search field first, an empty field closes itself on blur, and the click
+  // that follows toggled it straight back open. The X now only ever closes, and a click within half a second of the
+  // field closing itself is that same press, not a request to open it again.
   const searchClosedAt = useRef(0)
   const closeThreadSearch = useCallback(() => { searchClosedAt.current = Date.now(); setThreadSearchOpen(false); setThreadSearch('') }, [])
   useEffect(() => { setThreadSearchOpen(false); setThreadSearch('') }, [conversationId])
@@ -269,7 +254,7 @@ export default function Messages() {
     }
   }, [queued])
 
-  // TRANSLATE A MESSAGE (2 Oct 2026): only for a reader on another language, original first.
+  // TRANSLATE A MESSAGE: only for a reader on another language, original first.
   const mt = useMessageTranslations()
   const [actionsFor, setActionsFor] = useState(null) // message id with actions revealed (mobile tap)
   const [editingId, setEditingId] = useState(null)   // message being edited in place
@@ -318,8 +303,8 @@ export default function Messages() {
   const [activeRelation, setActiveRelation] = useState(null)
   // Inbox search + the people it searches over (every creator you could DM).
   const [search, setSearch] = useState('')
-  // A CACHED PEOPLE LIST COUNTS AS LOADED (2 Oct 2026): it is this session's own answer (written by the last visit
-  // or by the idle warm-up in lib/warmPages), so the pane paints at once and the live read below only corrects it.
+  // A CACHED PEOPLE LIST COUNTS AS LOADED: it is this session's own answer (written by the last visit or by the idle
+  // warm-up in lib/warmPages), so the pane paints at once and the live read below only corrects it.
   const cachedPeople = useCachedPage(DM_PEOPLE_CACHE_KEY)
   const [people, setPeople] = useState(() => cachedPeople?.people ?? [])
   // "HAVE WE LOOKED YET" IS NOT THE SAME QUESTION AS "IS IT EMPTY", and the
@@ -330,10 +315,6 @@ export default function Messages() {
   const [starting, setStarting] = useState(null) // creator id being opened
   // ---------------------------------------------------------------------
   // A THREAD YOU HAVE OPENED BUT NOT YET WRITTEN IN DOES NOT EXIST YET.
-  //
-  // Ethan (9 Sep 2026): "Creator shows up on DM even if you acted like you were
-  // going to message them but then stopped. They should only show when you
-  // actually send a message."
   //
   // Pressing Message ran `openConversation`, which INSERTS a `conversations`
   // row on the spot - so changing your mind left a permanent empty thread in
@@ -400,12 +381,6 @@ export default function Messages() {
   // THE APP HEADER SLIDES AWAY WHILE YOU ARE READING A DM, exactly as it does
   // in a room.
   //
-  // Ethan: "I would incorporate the same animation and structure for DMs on
-  // mobile - whenever you click on a DM, the header on the top smoothly
-  // animates away and it just shows the person's name and the search bar in the
-  // top right at the top instead. You can see more messages. And if you're near
-  // the top it brings it back, and going back brings it back."
-  //
   // The thread already HAS the right top bar - a back arrow, the other person's
   // face and name, and the search - so the app header above it was a second
   // 64px bar carrying a logo, a bell and an avatar that nobody is using while
@@ -458,9 +433,8 @@ export default function Messages() {
   // Hiding on scroll alone is not enough: a short conversation never scrolls,
   // so the room this was copied from used to keep its chrome for ever in
   // exactly the threads that had the least to show.
-  // BEFORE THE FIRST FRAME, WITHOUT THE SLIDE (13 Oct 2026). Ethan: "when i click on a dm, it briefly shows the header
-  // animation going away even though the header was never there". As an effect this ran after the thread had painted
-  // with the header and a gap for it, then slid it away. A layout effect lands before paint; `instant` skips the slide.
+  // BEFORE THE FIRST FRAME, WITHOUT THE SLIDE. As an effect this ran after the thread had painted with the header and a
+  // gap for it, then slid it away. A layout effect lands before paint; `instant` skips the slide.
   useLayoutEffect(() => {
     setChatChromeHidden(isMobile && threadOpen, { instant: true })
     setChromeHidden(isMobile && threadOpen)
@@ -479,14 +453,10 @@ export default function Messages() {
         top: topGone ? 0 : 'calc(4rem + env(safe-area-inset-top))',
         // One px height for both states, glided on keyboard changes (useChatOverlayHeight).
         height: `${overlayH}px`,
-        // Clamp to >= 0: on iOS a downward pull at the top makes offsetTop go
-        // negative, which would ride the overlay up above the header.
-        // `transform` is written frame by frame by useViewportPin (12 Oct 2026), not here.
+        // Clamp to >= 0: on iOS a downward pull at the top makes offsetTop go negative, which would ride the overlay up
+        // above the header. `transform` is written frame by frame by useViewportPin, not here.
         paddingTop: topGone ? 'env(safe-area-inset-top)' : undefined,
-        // THE OVERLAY SNAPS. ONLY THE HEADER ANIMATES. (12 Sep 2026.)
-        //
-        // Ethan, of the DMs: "try to smooth out the UI, lag, between these
-        // happening."
+        // THE OVERLAY SNAPS. ONLY THE HEADER ANIMATES.
         //
         // This is the same fault the rooms had and fixed on 1 Sep, in the file
         // the rooms were copied FROM - it said `transition: top 300ms, height
@@ -701,7 +671,7 @@ export default function Messages() {
 
   // ---------- `/messages?to=<creator>` ----------
   //
-  // "MESSAGE THIS PERSON" HAD NO LANDING PLACE (7 Sep 2026).
+  // "MESSAGE THIS PERSON" HAD NO LANDING PLACE.
   //
   // Connections has linked to `/messages?to=${id}` for weeks and this page has
   // never read the parameter, so the link opened the inbox and did nothing
@@ -714,11 +684,9 @@ export default function Messages() {
   // guard the challenge page's `?submit=1` uses.
   const [searchParams] = useSearchParams()
   const toParam = searchParams.get('to')
-  //
-  // AND IT NO LONGER CREATES ANYTHING (9 Sep 2026). `startConversation` used to
-  // insert a conversation row, so every `?to=` link - from a profile, from
-  // Connections, from Get help - wrote a thread into two inboxes whether or not
-  // a word was ever typed. It opens a draft now; see `ensureConversation`.
+  // AND IT NO LONGER CREATES ANYTHING. `startConversation` used to insert a conversation row, so every `?to=` link -
+  // from a profile, from Connections, from Get help - wrote a thread into two inboxes whether or not a word was ever
+  // typed. It opens a draft now; see `ensureConversation`.
   //
   // IT WAITS FOR THE INBOX. `startConversation` checks the loaded conversations
   // for an existing thread before opening a draft, so running it against an
@@ -736,27 +704,21 @@ export default function Messages() {
 
   // Restore any half-written draft when the open conversation changes, so a
   // message you started isn't lost when you flick away to check something.
-  // THE DRAFT IS KEPT PER PERSON, AND THE SEND BUTTON READS THE SAME ONE (13 Oct 2026). Ethan: "I started writing a chat to
-  // a creator and then left. I searched back for their name, went back to the chat, tried to finish writing it and press
-  // send, but the send button was greyed out." A first message (no conversation yet) was saved under 'dm-null' - one key
-  // shared by every unsent first message - and the composer showed it, but this effect restored '' for a thread with no
-  // id, so the text was on screen and `body` was empty. Both now use the same key, one per person.
+  // THE DRAFT IS KEPT PER PERSON, AND THE SEND BUTTON READS THE SAME ONE. A first message (no conversation yet) was
+  // saved under 'dm-null' - one key shared by every unsent first message - and the composer showed it, but this effect
+  // restored '' for a thread with no id, so the text was on screen and `body` was empty. Both now use the same key, one
+  // per person.
   useEffect(() => {
     setBody(loadDraft(dmDraftKey(conversationId, draftTo?.id)))
   }, [conversationId, draftTo?.id])
 
   // ---------- Active thread ----------
   useEffect(() => {
-    // A DRAFT HAS NO HISTORY (26 Sep 2026). Ethan: "if I'm on a DM chat and I
-    // search for a creator I haven't messaged before, I open that chat. It then
-    // shows the message that I was just on with the other creator." Going from
-    // a thread to a draft (`/messages?to=`) leaves `conversationId` empty, and
-    // this used to return early - leaving the PREVIOUS thread's messages in
-    // state under the new person's name. Clear it the moment the thread goes,
-    // and when switching straight to another thread too, so the old one never
-    // shows for the length of a round trip.
-    // Not when a draft has just BECOME this thread: the first message is
-    // already on screen and belongs to it (see ensureConversation).
+    // A DRAFT HAS NO HISTORY. Going from a thread to a draft (`/messages?to=`) leaves `conversationId` empty, and this
+    // used to return early - leaving the PREVIOUS thread's messages in state under the new person's name. Clear it the
+    // moment the thread goes, and when switching straight to another thread too, so the old one never shows for the
+    // length of a round trip. Not when a draft has just BECOME this thread: the first message is already on screen and
+    // belongs to it (see ensureConversation).
     if (!justCreatedRef.current.has(conversationId)) {
       setThread([])
       setReactions([])
@@ -772,10 +734,9 @@ export default function Messages() {
         .eq('conversation_id', conversationId)
         .order('created_at', { ascending: true })
       if (cancelled) return
-      // THE MESSAGES ARE ON SCREEN THE MOMENT THEY ARRIVE (1 Oct 2026). Ethan: "clicking on a DM ... seems to take a
-      // long time to load." The reactions, the entry cards and the read marks were three round trips run one after
-      // another BEFORE the spinner stopped, so a thread waited for things it can draw without. They run alongside now
-      // and fill in when they land.
+      // THE MESSAGES ARE ON SCREEN THE MOMENT THEY ARRIVE. The reactions, the entry cards and the read marks were three
+      // round trips run one after another BEFORE the spinner stopped, so a thread waited for things it can draw without.
+      // They run alongside now and fill in when they land.
       setThread(data ?? [])
       setLoadingThread(false)
       const ids = (data ?? []).map((m) => m.id)
@@ -929,12 +890,7 @@ export default function Messages() {
       .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'dm_reactions' }, (payload) => {
         setReactions((prev) => prev.filter((r) => r.id !== payload.old.id))
       })
-      // THE INBOX IS LIVE TOO, NOT JUST THE THREAD (7 Sep 2026).
-      //
-      // Ethan: "I deleted the group test DM but it's showing up again on
-      // desktop even though I deleted it on my phone. Everything should be
-      // synced and connected - if I delete something there, it should update
-      // here too."
+      // THE INBOX IS LIVE TOO, NOT JUST THE THREAD.
       //
       // This channel has always carried messages and reactions and never the
       // LIST, so a conversation that ended - deleted, or left - stayed on every
@@ -1122,16 +1078,10 @@ export default function Messages() {
     savePinnedConversations(next)
   }
   async function deleteConversation(c) {
-    // LEAVING A GROUP IS NOT DELETING IT. A long-press that ended everybody
-    // else's conversation because one member wanted it out of their inbox would
-    // be a genuinely destructive accident, and RLS refuses it anyway unless you
-    // own the group - so the gesture means "leave" here, and deleting for
-    // everyone lives behind a named button in the settings panel.
-    // A WRITE THAT IS NOT CHECKED IS A ROW THAT COMES BACK (7 Sep 2026).
-    //
-    // Ethan: "I deleted the group test DM, but it's showing up again on desktop
-    // even though I deleted it on my phone. Everything should be synced - if I
-    // delete something there, it should update here too."
+    // LEAVING A GROUP IS NOT DELETING IT. A long-press that ended everybody else's conversation because one member
+    // wanted it out of their inbox would be a genuinely destructive accident, and RLS refuses it anyway unless you own
+    // the group - so the gesture means "leave" here, and deleting for everyone lives behind a named button in the
+    // settings panel. A WRITE THAT IS NOT CHECKED IS A ROW THAT COMES BACK.
     //
     // Both halves of that were broken and they are different bugs.
     //
@@ -1145,11 +1095,10 @@ export default function Messages() {
     //             not to the conversation list, so a second window found out on
     //             its next cold load. See the realtime effect below.
     //
-    // And the result of both writes is now READ. `supabase-js` resolves on a
-    // rejected write, so `await ...delete()` with nothing looking at the result
-    // is indistinguishable from success: the row stays on the server, the list
-    // has already dropped it, and it reappears on the next load looking like a
-    // sync problem. It was not a sync problem. It was a silent refusal.
+    // And the result of both writes is now READ. `supabase-js` resolves on a rejected write, so `await...delete()` with
+    // nothing looking at the result is indistinguishable from success: the row stays on the server, the list has already
+    // dropped it, and it reappears on the next load looking like a sync problem. It was not a sync problem. It was a
+    // silent refusal.
     const restore = () => {
       setConversations((prev) => (prev.some((x) => x.id === c.id)
         ? prev
@@ -1195,10 +1144,6 @@ export default function Messages() {
   // start of a new gesture, so a new gesture is what it means.
   // HOLDING A ROW OFFERS BOTH THINGS YOU CAN DO TO IT.
   //
-  // Ethan: "holding down on mobile correctly brings up the do you want to
-  // delete this conversation, as well as this, you can add it to the ui for
-  // mobile here the ability to pin the person."
-  //
   // It went straight to the delete confirmation, which made a hold on a
   // conversation mean exactly one thing - and the most destructive one. It
   // opens a two-item sheet now, so the hold means "what can I do with this"
@@ -1206,11 +1151,9 @@ export default function Messages() {
   //
   // Pinning had no route at all on a phone: the pin button only appears on
   // hover, and there is no hover.
-  // THE MENU OPENS BESIDE THE CHAT YOU HELD (26 Sep 2026). Ethan: holding a
-  // creator "highlights the entire page in this weird grey box ... It should
-  // highlight just the person's name ... in orange". The row's box is kept so
-  // the menu can sit right under it (or above, near the foot of the screen),
-  // with no dimmed backdrop - the held row itself turns orange.
+  // THE MENU OPENS BESIDE THE CHAT YOU HELD. The team: holding a creator "highlights the entire page in this weird grey
+  // box... It should highlight just the person's name... in orange". The row's box is kept so the menu can sit right
+  // under it (or above, near the foot of the screen), with no dimmed backdrop - the held row itself turns orange.
   const openConvMenu = (c, el) => {
     const r = el?.getBoundingClientRect?.()
     setConvSheet({ ...c, _anchor: r ? { top: r.top, bottom: r.bottom, left: r.left, width: r.width } : null })
@@ -1246,13 +1189,11 @@ export default function Messages() {
 
   // A THREAD DOES NOT OPEN HALFWAY UP ITSELF AND THEN CORRECT ITSELF.
   //
-  // Every re-pin above is a CORRECTION, and a correction you can watch is
-  // indistinguishable from a bug: the first paint lands at the top of the
-  // conversation, the frame pin drags it to the bottom, and each of the four
-  // timers yanks it again as another avatar or photo arrives. Ethan reported
-  // it in the rooms first - "it'll show up the messages in a different layer or
-  // scrolled up and then suddenly load or fix itself and jump to the bottom" -
-  // and the DMs are the same code doing the same thing.
+  // Every re-pin above is a CORRECTION, and a correction you can watch is indistinguishable from a bug: the first paint
+  // lands at the top of the conversation, the frame pin drags it to the bottom, and each of the four timers yanks it
+  // again as another avatar or photo arrives. The team reported it in the rooms first - "it'll show up the messages in a
+  // different layer or scrolled up and then suddenly load or fix itself and jump to the bottom" - and the DMs are the
+  // same code doing the same thing.
   //
   // The thread is not SHOWN until it is where it belongs. Opacity only: the
   // messages are laid out and measured the whole time, which is exactly what
@@ -1356,12 +1297,9 @@ export default function Messages() {
   const onScrollMessages = useCallback(() => {
     const el = scrollerRef.current
     if (!el) return
-    // WHILE A PIN IS IN FLIGHT, THIS EVENT IS NOT THE READER (3 Sep 2026).
-    // Identical fault to the rooms - see lib/chatScroll's 3 Sep note. Here it
-    // was worse than a stranded scroll: `setAtBottom(false)` and `setFarUp`
-    // also raised the "jump to latest" pill over a thread the reader had not
-    // touched. Ethan: "I've clicked on a DM with Mirsu and it just started
-    // scrolled up rather than me to scroll to the bottom."
+    // WHILE A PIN IS IN FLIGHT, THIS EVENT IS NOT THE READER. Identical fault to the rooms - see lib/chatScroll's 3 Sep
+    // note. Here it was worse than a stranded scroll: `setAtBottom(false)` and `setFarUp` also raised the "jump to
+    // latest" pill over a thread the reader had not touched.
     if (isPinning(el)) return
     const gap = distanceFromBottom(el)
     const near = gap < 90
@@ -1370,10 +1308,9 @@ export default function Messages() {
     setFarUp(gap > jumpThreshold(el, 5))
     if (near) setNewBelow(0)
     // REACHING THE TOP OF THE THREAD IS WHERE YOU HAVE RUN OUT OF MESSAGES AND
-    // ARE LOOKING FOR SOMETHING ELSE, so the chrome comes back there and goes
-    // away everywhere else. Same rule as the rooms.
-    // Only for a scroll the reader made - see lib/chatChrome (the translate shake).
-    // Same hysteresis as the rooms (13 Oct 2026): back only at the very top moving up, away only after a real scroll down.
+    // ARE LOOKING FOR SOMETHING ELSE, so the chrome comes back there and goes away everywhere else. Same rule as the
+    // rooms. Only for a scroll the reader made - see lib/chatChrome (the translate shake). Same hysteresis as the rooms:
+    // back only at the very top moving up, away only after a real scroll down.
     const top = el.scrollTop
     const dy = top - lastTopRef.current
     lastTopRef.current = top
@@ -1542,10 +1479,8 @@ export default function Messages() {
 
   // PINNED THREADS RIDE ON TOP, IN THE ORDER YOU PINNED THEM.
   //
-  // Everything else keeps the order the query gave it (most recent first), so a
-  // new message in an unpinned thread still climbs to just under the pins -
-  // which is the behaviour Ethan described: "pins the chat to the top and
-  // always remains there, new messages will come in below it".
+  // Everything else keeps the order the query gave it (most recent first), so a new message in an unpinned thread still
+  // climbs to just under the pins - which is the behaviour
   //
   // A stable sort is what makes that true: `Array.prototype.sort` has been
   // required to be stable since ES2019, so returning 0 for two unpinned threads
@@ -1573,11 +1508,6 @@ export default function Messages() {
 
   // WHO THE BIG EMPTY PANE OFFERS, AND WHY IT IS NOT THE RAIL'S LIST.
   //
-  // Ethan (4 Sep 2026): "the preview that shows before clicking a chat - it
-  // just says 'open a conversation', which doesn't really make sense. Show some
-  // suggested people to message, maybe some new ones, or people you haven't
-  // connected with yet. Also you can remove the icon."
-  //
   // The pane HAD a grid of people and it was taken out this morning, because it
   // was drawing the same names the rail beside it was already drawing - see the
   // note on the pane below. That reasoning was right and it is exactly what
@@ -1587,28 +1517,18 @@ export default function Messages() {
   //
   // Ordered by `last_seen_at` already (see the query), so the top of it is
   // whoever has been around most recently.
-  // SIX FACES, STRANGERS FIRST, AND NEVER FEWER THAN THREE (7 Sep 2026).
+  // SIX FACES, STRANGERS FIRST, AND NEVER FEWER THAN THREE.
   //
-  // Ethan, on the first version: "the Connect with someone new is only showing
-  // two creators even though I'm not connected with absolutely everyone... it
-  // should always show at least three even if you're connected with everyone.
-  // It can show two that you are and one that you're not."
+  // The pane was doing exactly what it was told and what it was told was too strict. Measured on their own account: 44
+  // visible creators, 20 connections, and 42 OPEN CONVERSATIONS - so "not connected and never messaged" left precisely
+  // two people. For the person who runs the community, the strictest possible definition of "somebody new" is nearly
+  // always going to be empty, and an almost-empty grid is worse than a slightly looser one.
   //
-  // The pane was doing exactly what it was told and what it was told was too
-  // strict. Measured on his own account: 44 visible creators, 20 connections,
-  // and 42 OPEN CONVERSATIONS - so "not connected and never messaged" left
-  // precisely two people. For the person who runs the community, the strictest
-  // possible definition of "somebody new" is nearly always going to be empty,
-  // and an almost-empty grid is worse than a slightly looser one.
-  //
-  // So the list is strangers FIRST and then topped up with people he has met,
-  // to a target of six and a floor of three. Every card says which it is, so
-  // the mix is legible rather than a fudge: a stranger is badged, somebody he
+  // So the list is strangers FIRST and then topped up with people they have met, to a target of six and a floor of
+  // three. Every card says which it is, so the mix is legible rather than a fudge: a stranger is badged, somebody he
   // already knows is not.
   //
-  // AND IT DOES NOT GUESS BEFORE THE DATA LANDS. Ethan: "whenever it first
-  // loads it briefly flashes up a different screen that says 'Say hello to
-  // someone' and some other creators, and then the new screen shows up."
+  // AND IT DOES NOT GUESS BEFORE THE DATA LANDS.
   //
   // That flash was this memo answering with `people` still `[]`: no strangers
   // in an empty list, so it fell to the "you have met everybody" branch and
@@ -1621,24 +1541,16 @@ export default function Messages() {
   const DISCOVER_TARGET = 6
   const newHereCutoff = nowTick - NEW_HERE_DAYS * 86400000
   const discover = useMemo(() => {
-    // BOTH HALVES OF "STRANGER" HAVE TO HAVE LANDED, NOT ONE (8 Sep 2026).
-    //
-    // Ethan: "whenever you click in, the panel connecting with someone new,
-    // the first frame shows something different and then it flashes... it
-    // flashes up Julia and Marty and shows I haven't met them, and then it
-    // flashes up something different."
+    // BOTH HALVES OF "STRANGER" HAVE TO HAVE LANDED, NOT ONE.
     //
     // `peopleLoaded` fixed HALF of this in September and left the other half in
     // place, because a stranger is defined by two facts from two different
     // queries: NOT A CONNECTION (arrives with `people`, same Promise.all) and
-    // NOT SOMEBODY I HAVE MESSAGED (`talkingTo`, derived from the INBOX query,
-    // which is a separate and slower round trip). The moment `people` landed
-    // this memo answered with `conversations` still empty - so every creator he
-    // has an open thread with passed the stranger test, got the "Not met"
-    // badge, and sorted to the FRONT of the list. Then the inbox landed, half
-    // of them stopped being strangers, and the grid re-ordered and re-badged
-    // itself under his eyes. Exactly the same class of bug as the first one,
-    // one query further down.
+    // NOT SOMEBODY I HAVE MESSAGED (`talkingTo`, derived from the INBOX query, which is a separate and slower round
+    // trip). The moment `people` landed this memo answered with `conversations` still empty - so every creator they have
+    // an open thread with passed the stranger test, got the "Not met" badge, and sorted to the FRONT of the list. Then
+    // the inbox landed, half of them stopped being strangers, and the grid re-ordered and re-badged itself under their
+    // eyes. Exactly the same class of bug as the first one, one query further down.
     //
     // An empty computation means "I could not work this out", never "there is
     // nothing" - and here that rule has to hold for BOTH inputs.
@@ -1747,13 +1659,7 @@ export default function Messages() {
         {/* ---------- Thread ---------- */}
         <section className={cx('min-w-0 flex-1 flex-col sm:flex', threadOpen ? 'flex' : 'hidden')}>
           {!threadOpen ? (
-            // THE EMPTY PANE DOES SOMETHING NOW (1 Sep 2026).
-            //
-            // Ethan: "on dms when you first click on the tab and haven't opened
-            // a dm yet it shows 'Pick a conversation. Or start a new one from
-            // any creator's profile.' I think this is okay but something
-            // better, more engaging, motivating etc could be here, or some
-            // function, so think of this and improve it."
+            // THE EMPTY PANE DOES SOMETHING NOW.
             //
             // It was an instruction to go somewhere else, on the largest empty
             // rectangle in the product, sent to somebody who is already exactly
@@ -1765,10 +1671,7 @@ export default function Messages() {
             // It reuses `discover`, which the inbox's own empty state also
             // reads, so there is one definition of "who should I talk to" and
             // no second query.
-            // AND IT IS A PANEL NOW, NOT A DRIFT OF CENTRED THINGS
-            // (2 Sep 2026). Ethan: "when you click on the DMs, the open
-            // conversation thing, your connections - everything's weirdly
-            // centred and there are weird lines. It just doesn't make sense."
+            // AND IT IS A PANEL NOW, NOT A DRIFT OF CENTRED THINGS.
             //
             // Every word of that was accurate. The people were `rounded-full`
             // chips in a `flex-wrap justify-center` row, so eight of them wrap
@@ -1788,34 +1691,25 @@ export default function Messages() {
             // The heading block above it stays centred - a title and one line
             // of explanation over a centred card is the one thing on this pane
             // that was never the problem.
-            /* THE SUGGESTIONS ARE ALREADY ON THE LEFT (4 Sep 2026).
-               Ethan: "on the DMs screen, because it shows up suggestions on the
-               left bar, there is no need to also show them on the big screen.
-               You can just have the copy 'Say hello to someone' with a nice
-               animation, no need for the copy etc."
-
-               He is right: the same list of people was rendered twice, side by
-               side, on one screen - a grid of names in the middle of the pane
-               and the identical names in the rail next to it. The empty pane's
-               job is to say the pane is empty and point at where the answer is,
-               and the answer is two inches to the left.
-
-               What is left is one line and a mark that moves: the envelope
-               drifts and its ring breathes, so the pane reads as waiting rather
-               than as unfinished. CSS keyframes, not a runtime. */
-            /* AND NOW IT OFFERS PEOPLE AGAIN - DIFFERENT PEOPLE (4 Sep 2026).
-               Ethan: "it just says open a conversation, which doesn't really
-               make sense. Show some suggested people to message, maybe some new
-               ones, or people you haven't connected with yet. Also you can
-               remove the icon."
-               "Open a conversation" is an instruction to do the thing the pane
-               is for, printed on the pane, with no way to do it from there - so
-               the largest rectangle in the product was a label. The envelope
-               above it was decoration on an empty screen. What is here now is
-               `discoverPeople`: creators you are NOT connected to and have NOT
-               messaged, which is a genuinely different list from the rail's
-               connections, so the screen no longer says the same thing twice.
-               A press starts the thread. */
+            /*
+             * THE SUGGESTIONS ARE ALREADY ON THE LEFT.
+             *
+             * they are right: the same list of people was rendered twice, side by side, on one screen - a grid of names
+             * in the middle of the pane and the identical names in the rail next to it. The empty pane's job is to say
+             * the pane is empty and point at where the answer is, and the answer is two inches to the left.
+             *
+             * What is left is one line and a mark that moves: the envelope
+             * drifts and its ring breathes, so the pane reads as waiting rather
+             * than as unfinished. CSS keyframes, not a runtime.
+             */
+            /*
+             * AND NOW IT OFFERS PEOPLE AGAIN - DIFFERENT PEOPLE. "Open a conversation" is an instruction to do the thing
+             * the pane is for, printed on the pane, with no way to do it from there - so the largest rectangle in the
+             * product was a label. The envelope above it was decoration on an empty screen. What is here now is
+             * `discoverPeople`: creators you are NOT connected to and have NOT messaged, which is a genuinely different
+             * list from the rail's connections, so the screen no longer says the same thing twice. A press starts the
+             * thread.
+             */
             <MessagesEmptyThread
               discover={discover}
               discoverPeople={discoverPeople}
@@ -1874,7 +1768,7 @@ export default function Messages() {
                   </Link>
                 )}
                 {isMobile ? (
-                  // ON A PHONE THE SEARCH OPENS WHERE THE MESSAGE BOX IS (12 Oct 2026): see ComposerSearch.
+                  // ON A PHONE THE SEARCH OPENS WHERE THE MESSAGE BOX IS: see ComposerSearch.
                   <button
                     type="button"
                     onPointerDown={(e) => e.preventDefault()}

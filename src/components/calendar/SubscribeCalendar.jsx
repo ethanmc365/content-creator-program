@@ -8,11 +8,6 @@ import { eventsApi } from '../../api/events'
 
 // SUBSCRIBE ONCE, AND IT KEEPS ITSELF UP TO DATE.
 //
-// Ethan: "it's a pain having to just click add events... download the file and
-// then click to open the file, it would be much smoother if you could build in
-// a way to actually automatically show the events on the creators personal
-// calendars too."
-//
 // This is that, and it is worth being precise about what it is and is not.
 //
 //   IT IS NOT the Google Calendar API. That is OAuth, an app-verification
@@ -71,13 +66,10 @@ export default function SubscribeCalendar({ open, onClose }) {
   const webcal = https.replace(/^https?:\/\//, 'webcal://')
   // GOOGLE'S `cid` WANTS A CALENDAR ID, NOT AN https URL.
   //
-  // `calendar/r?cid=<https://...ics>` is the form everyone copies off the web
-  // and it is why this button answered "check the URL": handed an http(s)
-  // string, Google tries to resolve it as one of ITS OWN calendar ids, fails,
-  // and blames the address. The same parameter carrying `webcal://` is read as
-  // "subscribe to this external feed" and opens the add dialog properly - which
-  // is exactly the screen Ethan reached by hand through
-  // Settings -> Add calendar -> From URL.
+  // `calendar/r?cid=<https://...ics>` is the form everyone copies off the web and it is why this button answered "check
+  // the URL": handed an http(s) string, Google tries to resolve it as one of ITS OWN calendar ids, fails, and blames the
+  // address. The same parameter carrying `webcal://` is read as "subscribe to this external feed" and opens the add
+  // dialog properly - which is exactly the screen the team reached by hand through Settings -> Add calendar -> From URL.
   //
   // That handshake holds, so the card is now just a card. It used to copy the
   // link on click and carry a "Google fussy? Add calendar -> From URL" note
@@ -168,14 +160,10 @@ export default function SubscribeCalendar({ open, onClose }) {
             </a>
           </div>
 
-          {/* NO RAW LINK. Three buttons that just work, and a fourth option
-              that was a URL to copy, a warning about who could read it if you
-              copied it into the wrong place, and a code block. Ethan: "we only
-              need Apple, Google and Outlook options."
-              Resetting stays, because it is the one thing you cannot do from
-              inside a calendar app - it is what you press when a device you no
-              longer have is still subscribed. It says what it does now that
-              there is no visible link for it to refer to. */}
+          {/* NO RAW LINK. Three buttons that just work, and a fourth option that was a URL to copy, a warning about who
+              could read it if you copied it into the wrong place, and a code block. Resetting stays, because it is the
+              one thing you cannot do from inside a calendar app - it is what you press when a device you no longer have
+              is still subscribed. It says what it does now that there is no visible link for it to refer to. */}
           <button
             type="button" onClick={reset} disabled={busy}
             className="text-xs font-semibold text-smoke transition-colors hover:text-ink"

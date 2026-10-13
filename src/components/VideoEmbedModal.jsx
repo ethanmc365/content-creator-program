@@ -40,8 +40,8 @@ export default function VideoEmbedModal({ url, platform, title, onClose, footer 
 
   const label = platform || embed?.type || 'the original post'
 
-  // PORTALLED (1 Oct 2026): inside a page it was trapped in the page's own layer, so the app
-  // header and the page title painted on top of the dimmed backdrop.
+  // PORTALLED: inside a page it was trapped in the page's own layer, so the app header and the page title painted on top
+  // of the dimmed backdrop.
   return createPortal((
     <div className="fixed inset-0 z-[60] flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-label={title || 'Video'}>
       <button aria-label={tr("Close")} className="absolute inset-0 bg-ink/70 backdrop-blur-sm" onClick={onClose} />

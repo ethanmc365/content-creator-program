@@ -6,8 +6,8 @@ const EARTH_KM = 40_075
 const at = (km) => ({ timesRoundEarth: km / EARTH_KM, distance: km })
 
 describe('distanceLine', () => {
-  // Ethan asked for one yardstick - the way round the Earth - instead of the
-  // three it used to switch between (laps, London-Sydney, laps of the M25).
+  // The team asked for one yardstick - the way round the Earth - instead of the three it used to switch between (laps,
+  // London-Sydney, laps of the M25).
   it('says "once" rather than "1.0 times"', () => {
     expect(distanceLine(at(EARTH_KM))).toBe('That is once around the world.')
     expect(distanceLine(at(EARTH_KM * 1.04))).toBe('That is once around the world.')

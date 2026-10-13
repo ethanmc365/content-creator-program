@@ -80,11 +80,8 @@ export default function MarketMap({ marketId, marketName, showOnMapOnly = true }
       // fit effect in CreatorMap.
       maxFitZoom={22}
       controls={false}
-      // MOVE ABOUT IN IT WITHOUT OPENING IT FULL SCREEN (12 Sep 2026).
-      // Ethan: "seems to be no ability to move about or zoom in or out on the
-      // map, this functionality should be there too." Drag to pan, a +/-/reset
-      // stack, pinch on a phone. The wheel is still the page's on every map -
-      // that rule was written about a scroll trap and it still holds.
+      // MOVE ABOUT IN IT WITHOUT OPENING IT FULL SCREEN. Drag to pan, a +/-/reset stack, pinch on a phone. The wheel is
+      // still the page's on every map - that rule was written about a scroll trap and it still holds.
       navigable
       // ...but it still opens full screen. A market map is the smallest map in
       // the app and the one most likely to be a single city's worth of pins.

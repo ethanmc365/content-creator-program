@@ -11,15 +11,10 @@ import { useT } from '../../lib/i18n'
 //
 // YOU OPEN IT BY PRESSING THE MESSAGE. THERE IS NO HOVER.
 //
-// This is the third answer to "when should the bar be visible", and it is the
-// one the phones had all along. Hover-on-contact opened every message a cursor
-// crossed while scrolling, and each of those re-flows moved the thread under the
-// cursor, which opened the next one. Hover-with-a-delay fixed the scrolling but
-// left a control that appears because you paused, disappears because you moved,
-// and can never be relied on to still be there when you reach for it. Ethan:
-// "I prefer how it is on mobile, and I want this to be implemented for desktop
-// too... rather than just hovering over a message it shouldn't show up. Only
-// clicking on the actual message."
+// This is the third answer to "when should the bar be visible", and it is the one the phones had all along.
+// Hover-on-contact opened every message a cursor crossed while scrolling, and each of those re-flows moved the thread
+// under the cursor, which opened the next one. Hover-with-a-delay fixed the scrolling but left a control that appears
+// because you paused, disappears because you moved, and can never be relied on to still be there when you reach for it.
 //
 // So: press a message, the bar opens under it and STAYS. Press the message
 // again, or do anything with the bar, and it closes. One rule, one code path,
@@ -59,11 +54,7 @@ import { useT } from '../../lib/i18n'
 // the DMs are eagerly routed, so pulling the animation runtime in for an
 // open/close state would cost every creator on their first paint.
 //
-// AND THE FACE BESIDE THE MESSAGE BELONGS TO THE MESSAGE, NOT TO THE ROW
-// (28 Sep 2026). Ethan: "if you click on a chat a creator sent so that it shows
-// up the functions to reply/react to the message, it moves their profile
-// picture down. This shouldn't move their profile picture, it should stay where
-// it is."
+// AND THE FACE BESIDE THE MESSAGE BELONGS TO THE MESSAGE, NOT TO THE ROW.
 //
 // The avatar was a sibling of this whole component in a flex row, aligned to the
 // BOTTOM of that row (`self-end`). Making space under the bubble grows the row,
@@ -117,9 +108,7 @@ export default function MessageActions({
   // inside the collapsed box the next time the message was opened.
   useEffect(() => { if (!open) setPicking(false) }, [open])
 
-  // A BAR THAT OPENS BELOW THE FOLD IS BROUGHT INTO VIEW (12 Oct 2026). Ethan: "if I click on a chat bubble at the
-  // bottom of the screen, those extra tools open but can be hidden under the bottom ... it should always scroll up
-  // slightly so those tools are clickable and visible". Measured once the row has finished growing (220ms), against
+  // A BAR THAT OPENS BELOW THE FOLD IS BROUGHT INTO VIEW. Measured once the row has finished growing (220ms), against
   // the thread's own scroller, and only ever scrolled by what is hidden plus a little air.
   const barRef = useRef(null)
   useEffect(() => {
@@ -191,15 +180,11 @@ export default function MessageActions({
           )}
         >
           {/* THE CLIP IS RELEASED WHILE THE EMOJI PANEL IS UP, AND THAT IS THE
-              WHOLE REACTION BUG.
-              The overflow hider is what makes 0fr actually hide something - but
-              the panel is rendered inside the bar, so it was also clipping a
-              17rem popover to the bar's own 40px. You pressed the smiley and got
-              a two-pixel strip of its top edge. Ethan: "whenever I click it
-              nothing happens, it does show up like a faint gray box". The
-              handler was never broken. Clipping is only needed while the height
-              is animating, and the panel can only be opened once the bar has
-              finished opening, so the two never need to be true at once. */}
+              WHOLE REACTION BUG. The overflow hider is what makes 0fr actually hide something - but the panel is
+              rendered inside the bar, so it was also clipping a 17rem popover to the bar's own 40px. You pressed the
+              smiley and got a two-pixel strip of its top edge. The handler was never broken. Clipping is only needed
+              while the height is animating, and the panel can only be opened once the bar has finished opening, so the
+              two never need to be true at once. */}
           <div style={{ overflow: picking ? 'visible' : 'hidden' }}>
             <div className={cx('pt-1.5', mine && 'flex justify-end')}>
               {/* THE PILL HAS NO SHADOW, and that is deliberate. `shadow-card`

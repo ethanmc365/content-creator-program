@@ -31,33 +31,31 @@ import { vipApi } from '../api/vip'
 import { profilesApi } from '../api/profiles'
 import { marketsApi } from '../api/markets'
 
-// THE VIP PAGE (2 Oct 2026, migration 294).
+// THE VIP PAGE (migration 294).
 //
-// Ethan: VIP creators "are paid by views. They're not winning challenges ... They'll have their own section
-// inside the community, so they'll have their own tab."
+// The team: VIP creators "are paid by views. They're not winning challenges... They'll have their own section inside the
+// community, so they'll have their own tab."
 //
 // It answers four questions in the order a creator asks them: what have I earned this month (a live counter:
 // views gained in the month x the rate), am I on track (my target, my rank, how it projects), what do I do
 // next (add a video), and what have I been paid (every month's statement with its invoice). The rules that
 // decide every number live in the database, so this page, the team's page and the invoice agree.
-// THE TEAM SEES THE REAL PAGE (2 Oct 2026, migration 310). Ethan: the VIP tab "opens a VIP in a test preview,
-// but I want it to be the actual VIP view." Somebody with VIP access who is not a VIP themselves no longer gets
-// signed into the sandbox VIP: they stay themselves and see each market's real VIP page - the month so far
-// across every VIP there, the real leaderboard, announcements, briefs, library, map and rooms - with the
-// market switch at the top. The sections that are one person's own (videos, stats, payouts, perks) are hidden.
+// THE TEAM SEES THE REAL PAGE (migration 310). The team: the VIP tab "opens a VIP in a test preview, but I want it to be
+// the actual VIP view." Somebody with VIP access who is not a VIP themselves no longer gets signed into the sandbox VIP:
+// they stay themselves and see each market's real VIP page - the month so far across every VIP there, the real
+// leaderboard, announcements, briefs, library, map and rooms - with the market switch at the top. The sections that are
+// one person's own (videos, stats, payouts, perks) are hidden.
 const STAFF_HIDDEN = new Set(['videos', 'stats', 'payouts', 'perks', 'recap'])
 const PREVIEW_HIDDEN = new Set(['recap'])
 const STAFF_PICK = 'tryp_vip_staff_programme'
-// ...AND THEN EXACTLY THE CREATOR'S PAGE (2 Oct 2026, migration 311). Ethan: "the VIP page for admins is not useful,
-// as it doesn't show it up the way it should, it should show everything the creators can see, see it how they can
-// exactly." The team view above is kept one press away, but the page now OPENS as a creator sees it: a real VIP of the
-// market (picked from a list, the test account included) through `vip_preview`, which runs that creator's own
-// database functions as them, read-only. A market with no VIPs yet shows a new VIP's first day.
-// TWO VIEWS FOR THE TEAM, NOT THREE (3 Oct 2026). Ethan: "I don't really understand why we have the buttons ... As a
-// creator and Team overview ... I guess they should all be merged into one ... You can remove the 'as a creator'." So
-// the team has the VIP PAGE (the market's real page, every VIP at once) and the VIP TOOLS. Seeing one creator's exact
-// page is a tool now ("See as a VIP" in VIP tools), which opens it here as `mode=as&who=<id>` behind a banner that
-// says whose page it is and leads back. Old links with mode=creator|team land on the VIP page.
+// ...AND THEN EXACTLY THE CREATOR'S PAGE (migration 311). The team view above is kept one press away, but the page now
+// OPENS as a creator sees it: a real VIP of the market (picked from a list, the test account included) through
+// `vip_preview`, which runs that creator's own database functions as them, read-only. A market with no VIPs yet shows a
+// new VIP's first day.
+// TWO VIEWS FOR THE TEAM, NOT THREE. So the team has the VIP PAGE (the market's real page, every VIP at once) and the
+// VIP TOOLS. Seeing one creator's exact page is a tool now ("See as a VIP" in VIP tools), which opens it here as
+// `mode=as&who=<id>` behind a banner that says whose page it is and leads back. Old links with mode=creator|team land on
+// the VIP page.
 
 // The first day of a brand new VIP in this market: the market's own rate and month, nothing posted yet.
 function sampleOverview(s) {
@@ -108,7 +106,7 @@ export default function VipHub() {
     try { localStorage.setItem(STAFF_PICK, id); if (kind) localStorage.setItem(`${STAFF_PICK}_${kind}`, id) } catch { /* private mode */ }
     if (mode === 'as') setParams({}, { replace: true })
   }
-  // VIP COMMUNITY OR OFFICIAL CREATORS (10 Oct 2026): each space remembers the market last opened in it.
+  // VIP COMMUNITY OR OFFICIAL CREATORS: each space remembers the market last opened in it.
   const pickSpace = (kind, firstId) => {
     const list = (staffOv?.programmes || []).filter((p) => (p.kind || 'vip') === kind)
     let id = firstId
@@ -161,8 +159,8 @@ export default function VipHub() {
   const [board, setBoard] = useState(null)
   const [rules, setRules] = useState(null)
 
-  // THE FLAGS BELONG TO A COMMUNITY AND ARE NULL UNTIL THAT ONE LOADS (4 Oct 2026). They started as an empty list, and an empty
-  // list draws the globe - so "VIP Spain" opened with a globe that swapped to the Spanish flag a moment later.
+  // THE FLAGS BELONG TO A COMMUNITY AND ARE NULL UNTIL THAT ONE LOADS. They started as an empty list, and an empty list
+  // draws the globe - so "VIP Spain" opened with a globe that swapped to the Spanish flag a moment later.
   const [codesFor, setCodesFor] = useState({ id: null, codes: null })
   const [boardView, setBoardView] = useState('mine')
   const [look, setLook] = useState(null)
@@ -196,9 +194,8 @@ export default function VipHub() {
   useEffect(() => { loadMore() }, [loadMore])
 
   const refresh = (opts) => { reload(); loadMore(); if (opts?.watch) setWatching((n) => n + 1) }
-  // A NEW VIDEO'S FIRST READING, WITHOUT A REFRESH (1 Oct 2026). Ethan: "It seems to take a really long time to read
-  // the views ... I guess I should update immediately." The reading is asked for the moment a video is added; this
-  // asks the page again every few seconds until every new video has its first number (or two minutes pass).
+  // A NEW VIDEO'S FIRST READING, WITHOUT A REFRESH. The reading is asked for the moment a video is added; this asks the
+  // page again every few seconds until every new video has its first number (or two minutes pass).
   const [watching, setWatching] = useState(0)
   const waiting = (overview?.videos || []).some((v) => v.status === 'tracking' && !v.synced_at && !v.error)
   useEffect(() => {
@@ -208,7 +205,7 @@ export default function VipHub() {
     return () => { clearInterval(id); clearTimeout(stop) }
   }, [watching, waiting, reload])
 
-  // ADMIN PREVIEW OF THE LOCKED PAGE (9 Oct 2026): `?locked=1` shows what a creator who is not a VIP sees, for the Testing Centre.
+  // ADMIN PREVIEW OF THE LOCKED PAGE: `?locked=1` shows what a creator who is not a VIP sees, for the Testing Centre.
   // Admin only, so the address does nothing for anybody else.
   if (isAdmin && params.get('locked') === '1') return <VipLockedPage />
   if (overview === undefined) {
@@ -220,7 +217,7 @@ export default function VipHub() {
       </div>
     )
   }
-  // NOT A VIP AND NOT THE TEAM: the locked VIP community page (7 Oct 2026), not a dead end.
+  // NOT A VIP AND NOT THE TEAM: the locked VIP community page, not a dead end.
   if (overview === null) return <VipLockedPage />
 
   const { programme, member, month, stats } = overview
@@ -243,13 +240,12 @@ export default function VipHub() {
       <PageHeader
         title={official ? tr('Official creators') : tr('VIP')}
         inlineAction
-        // THE FLAG, IN WHITE (1 Oct 2026). Ethan: "Maybe show the flag instead in a different colour. Don't make that
-        // orange colour."
-        // ON A PHONE THE MARKETS MOVE INTO THE CONTROL CARD (12 Oct 2026), as a row that scrolls - see below.
-        // ONE CONTROL IN BOTH SPACES, AND IT CROSS-FADES (12 Oct 2026). Ethan: switching from VIP community to official
-        // creators, "Tryp.com Official Spain" in the top right had a UI bug. The VIP space drew the market switch and the
-        // official space (one market) a differently shaped pill, swapped in on the same frame. For the team the same
-        // switch is drawn either way (one market = one lit chip), keyed by the space so it rises in.
+        // THE FLAG, IN WHITE.
+        // ON A PHONE THE MARKETS MOVE INTO THE CONTROL CARD, as a row that scrolls - see below.
+        // ONE CONTROL IN BOTH SPACES, AND IT CROSS-FADES. The team: switching from VIP community to official creators,
+        // "Tryp.com Official Spain" in the top right had a UI bug. The VIP space drew the market switch and the official
+        // space (one market) a differently shaped pill, swapped in on the same frame. For the team the same switch is
+        // drawn either way (one market = one lit chip), keyed by the space so it rises in.
         action={staffMode && spaceProgrammes.length > 0
           ? (isMobile && spaceProgrammes.length > 1 ? null : (
             <span key={space} className="inline-flex animate-tab-in">
@@ -259,14 +255,13 @@ export default function VipHub() {
           : <ProgrammePill name={programme.name} codes={codes} official={official} />}
       />
 
-      {/* ONE CONTROL CARD FOR THE TEAM (11 Oct 2026): which community, then page or tools - side by side on a desktop,
-          stacked on a phone. It was two cards and a sentence, four rows of navigation before anything to read. */}
+      {/* ONE CONTROL CARD FOR THE TEAM: which community, then page or tools - side by side on a desktop, stacked on a
+          phone. It was two cards and a sentence, four rows of navigation before anything to read. */}
       {staffMode && (mode === 'as'
         ? <PreviewBanner name={whoName} market={programme.name} fromCreators={params.get('from') === 'creators'} onBack={() => (params.get('from') === 'creators' ? navigate(-1) : setParams({ mode: 'tools', tab: 'preview' }, { replace: true }))} />
         : (
-          // THE PHONE'S CONTROL CARD (12 Oct 2026). Ethan: "The VIP section on mobile needs a big revamp... a lot of these
-          // things are really cramped." Three plain rows, each the full width: which community, which market (a row
-          // that scrolls), then page or tools as two equal halves. The desktop keeps its one-line card.
+          // THE PHONE'S CONTROL CARD. Three plain rows, each the full width: which community, which market (a row that
+          // scrolls), then page or tools as two equal halves. The desktop keeps its one-line card.
           isMobile ? (
             <div className="relative z-20 mb-4 space-y-2 rounded-card border border-gray-100 bg-white p-2 shadow-card animate-rise">
               <SpaceSwitch bare programmes={programmes} value={space} onChange={pickSpace} />
@@ -283,10 +278,9 @@ export default function VipHub() {
           )
         ))}
 
-      {/* PAGE AND TOOLS CROSS OVER, THEY DO NOT CUT (7 Oct 2026). Ethan: "whenever I click from the VIP page to VIP
-          tools, the screen just appears, and it's really flashy." Each view arrives in its own keyed wrapper with a
-          short fade and lift (`vip-mode-in`), the tools' code and markets are already warm (above), and the fallback
-          is the tools' own outline rather than one grey block. */}
+      {/* PAGE AND TOOLS CROSS OVER, THEY DO NOT CUT. Each view arrives in its own keyed wrapper with a short fade and
+          lift (`vip-mode-in`), the tools' code and markets are already warm (above), and the fallback is the tools' own
+          outline rather than one grey block. */}
       {toolsMode && staffMode ? <div key="tools" className="vip-mode-in"><Suspense fallback={<VipToolsFallback />}><VipTools programmeId={staffOv?.programme?.id || programme.id} /></Suspense></div> : (<div key="page" className="vip-mode-in">
 
       {/* ---------------- this month, live ---------------- */}
@@ -343,8 +337,7 @@ export default function VipHub() {
           <div className="vip-stage space-y-5">
             {isStaff && <TeamPulse programme={programme} onTool={(t) => setParams({ mode: 'tools', tab: t }, { replace: true })} />}
             <VipAnnouncements programmeId={programme.id} />
-            {/* SUBMITTING COMES FIRST (3 Oct 2026). Ethan: "I like the submitted video thing, but maybe that should be at
-                the very top ... because that's obviously the most important thing." */}
+            {/* SUBMITTING COMES FIRST. */}
             {!isStaff && <VipSubmit disabled={paused || previewing} month={month} rules={rules} onAdded={refresh} />}
             <VipChallengeCard overview={overview} />
 
@@ -363,7 +356,7 @@ export default function VipHub() {
               </>
             ) : (
               <>
-                {/* SMALL, THEN THE TARGET, THEN THE PAY (3 Oct 2026): the stay-in rule is a one-row card now. */}
+                {/* SMALL, THEN THE TARGET, THEN THE PAY: the stay-in rule is a one-row card now. */}
                 {official ? <FeeProgressCard member={member} stats={stats} cur={cur} /> : <StayInCard compact />}
                 <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]">
                   <TargetCard member={member} stats={stats} onSetGoal={previewing ? null : () => go('stats')} />
@@ -404,7 +397,7 @@ export default function VipHub() {
           <div className="vip-stage space-y-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <h2 className="flex items-center gap-2 text-lg font-bold text-ink"><Icon name="trophy" className="h-5 w-5 text-brand" />{tr('Leaderboard')}</h2>
-              {/* ONLY THE TEAM COMPARES MARKETS (6 Oct 2026). A VIP sees their own market's board and nothing from other countries. */}
+              {/* ONLY THE TEAM COMPARES MARKETS. A VIP sees their own market's board and nothing from other countries. */}
               {isStaff && (
                 <Segmented
                   value={boardView}
@@ -448,8 +441,8 @@ export default function VipHub() {
       </div>
 
       {/* Desktop: the sections, in a column that stays in view. */}
-      {/* NO QUICK LINKS CARD (3 Oct 2026). Ethan: the links to the VIP rooms "are unnecessary. You can remove the quick
-          link card entirely and just have the other right column"; a VIP's recap and portfolio join the sections. */}
+      {/* NO QUICK LINKS CARD. The team: the links to the VIP rooms "are unnecessary. You can remove the quick link card
+          entirely and just have the other right column"; a VIP's recap and portfolio join the sections. */}
       <aside className={cx('hidden space-y-4 lg:block', tab !== 'videos' && 'lg:sticky lg:top-24')}>
         <VipSideNav value={tab} onChange={go} hidden={hiddenTabs} links={isStaff ? null : VIP_LINKS} official={official} />
         {!isStaff && <VipBalanceMini onOpen={() => go('payouts')} />}
@@ -463,9 +456,9 @@ export default function VipHub() {
 
       </div>)}
 
-      {/* NO TERMS SHEET HERE ANY MORE (7 Oct 2026). Ethan: the VIP page's own terms "shouldn't be here anymore if we have
-          the other one" - the signed VIP agreement, asked for by AgreementGate once it is published on Admin >
-          Agreements. `terms_ok` now means "signed the published VIP agreement" (vip_terms_ok, migration 360). */}
+      {/* NO TERMS SHEET HERE ANY MORE. The team: the VIP page's own terms "shouldn't be here anymore if we have the
+          other one" - the signed VIP agreement, asked for by AgreementGate once it is published on Admin > Agreements.
+          `terms_ok` now means "signed the published VIP agreement" (vip_terms_ok, migration 360). */}
     </div>
     </ProgrammeKindContext.Provider>
     </VipPreviewContext.Provider>
@@ -534,19 +527,17 @@ function ProgrammeFlags({ codes }) {
   return codes?.length ? <span className="text-[13px] leading-none">{codes.slice(0, 2).map((c) => String.fromCodePoint(...[...c.toUpperCase()].map((ch) => 127397 + ch.charCodeAt(0)))).join('')}</span> : null
 }
 
-// HOW THEY ARE PAID, AS FACTS (3 Oct 2026). Ethan: "where it shows how VIPs here are paid. It shows rate, what counts and
-// paid ... clean up the design of that ... have a lot of space in that card whenever the leaderboard shows up." For the
-// team it is one strip of tiles across the page instead of a tall card beside the leaderboard; for a VIP it is the same
-// tiles in a card beside their target. Every rate shows its cents: €0.30, never €0.3.
+// HOW THEY ARE PAID, AS FACTS. For the team it is one strip of tiles across the page instead of a tall card beside the
+// leaderboard; for a VIP it is the same tiles in a card beside their target. Every rate shows its cents: €0.30, never
+// €0.3.
 function PayStrip({ member, programme, stats, month, cur, staff = false }) {
   const tr = useKindT()
   const official = programme.kind === 'official'
   const steps = member.tiers?.length ? member.tiers : !member.cpm ? programme.tiers : null
   const cap = member.monthly_cap || programme.monthly_cap
-  // AN OFFICIAL CREATOR'S DEAL IS THEIR OWN (11 Oct 2026). Ethan: "how the official creators are paid, just the rate in
-  // your videos monthly, but the UI is a bit weird there." For the team it said one programme rate, while every official
-  // creator is on their own rate and monthly fee (Marta 80 + 0.30, Ariakna 100 + 0.30 for 30 videos...). So the team sees
-  // the shared rules once and then each creator's deal, one row each.
+  // AN OFFICIAL CREATOR'S DEAL IS THEIR OWN. For the team it said one programme rate, while every official creator is on
+  // their own rate and monthly fee (Marta 80 + 0.30, Ariakna 100 + 0.30 for 30 videos...). So the team sees the shared
+  // rules once and then each creator's deal, one row each.
   const [deals, setDeals] = useState(null)
   useEffect(() => {
     if (!staff || !official) return undefined
@@ -608,8 +599,8 @@ function PayStrip({ member, programme, stats, month, cur, staff = false }) {
   )
 }
 
-// THE MONTHLY FEE, AS A GOAL (11 Oct 2026). An official creator's contract pays a fixed fee for a month with enough videos
-// (Ariakna: EUR 100 for 30). That is what they are working towards, so it takes the place the VIP stay-in card has.
+// THE MONTHLY FEE, AS A GOAL. An official creator's contract pays a fixed fee for a month with enough videos (Ariakna:
+// EUR 100 for 30). That is what they are working towards, so it takes the place the VIP stay-in card has.
 function FeeProgressCard({ member, stats, cur }) {
   const tr = useKindT()
   const fee = Number(member.monthly_fee) || 0

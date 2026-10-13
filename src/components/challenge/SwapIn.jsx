@@ -1,21 +1,14 @@
 import { useEffect, useRef, useState } from 'react'
 
-// ONE SLOT, AND WHAT LEAVES IT LEAVES VISIBLY (26 Sep 2026).
+// ONE SLOT, AND WHAT LEAVES IT LEAVES VISIBLY.
 //
-// The badge beside a challenge's tabs is the live bonus on Brief and Entries
-// and the board status on Leaderboard. Ethan wanted it "expanding in and out"
-// like the leaderboard card. Entrances are CSS (`board-status`); an exit needs
-// the old node kept on screen for the length of its animation, which is all
-// this does: when `swapKey` changes it holds the previous children, marks them
-// `board-status-out`, and swaps once they have gone.
+// The badge beside a challenge's tabs is the live bonus on Brief and Entries and the board status on Leaderboard. The
+// team wanted it "expanding in and out" like the leaderboard card. Entrances are CSS (`board-status`); an exit needs the
+// old node kept on screen for the length of its animation, which is all this does: when `swapKey` changes it holds the
+// previous children, marks them `board-status-out`, and swaps once they have gone.
 const OUT_MS = 200
 
-// ONE SHAPE FOR WHATEVER IS IN THE SLOT (29 Sep 2026).
-//
-// Ethan: "the bonus on the challenge page shows up as running until a certain
-// date, and then I click on Leaderboard and it shows the card saying 'Current
-// leaderboard' ... they need to all be the same size. Currently the bonus
-// points one is slightly bigger, and it just makes the page move slightly."
+// ONE SHAPE FOR WHATEVER IS IN THE SLOT.
 //
 // The two cards had grown their own padding and their own icon sizes - 36px in
 // one, 28px in the other - so the row was four pixels taller on two of the

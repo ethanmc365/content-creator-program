@@ -1,10 +1,6 @@
 import { useSyncExternalStore } from 'react'
 
-// IS THIS A SLOW CONNECTION? MEASURED, NOT GUESSED (1 Oct 2026).
-//
-// Ethan: "when on a slightly slower wifi connection, the entire platform
-// becomes super laggy and almost unusable. I want you to really try improve
-// this and ensure there's an optimised version for lower wifi signals too."
+// IS THIS A SLOW CONNECTION? MEASURED, NOT GUESSED.
 //
 // The browser's own answer (`navigator.connection`) does not exist on an
 // iPhone, which is where the report came from. So the answer is MEASURED from
@@ -18,11 +14,12 @@ import { useSyncExternalStore } from 'react'
 // and globes that are a megabyte of geometry, longer polling. Nothing a creator
 // can DO is switched off - only the things that spend bandwidth on their behalf.
 
-// THE CONNECTION IS MEASURED WITH A PROBE, NOT BY TIMING THE APP'S OWN QUERIES (5 Oct 2026). Ethan: "the weak signal pop-up is still showing up
-// even when my Wi-Fi is actually good." Every fix before this kept judging the line by how long a database READ took - and a read is slow for a
-// dozen reasons that have nothing to do with the line: a heavy select, a cold database, an RLS policy walking a big table, an edge function waking
-// up. A creator on perfect wifi opening a heavy page was "on a weak signal". So the verdict now comes from a tiny static file on our own origin
-// (a few hundred bytes from a CDN edge): if THAT is slow or fails, the line is weak; if it is quick, nothing a query does can say otherwise.
+// THE CONNECTION IS MEASURED WITH A PROBE, NOT BY TIMING THE APP'S OWN QUERIES. Every fix before this kept judging the
+// line by how long a database READ took - and a read is slow for a dozen reasons that have nothing to do with the line:
+// a heavy select, a cold database, an RLS policy walking a big table, an edge function waking up. A creator on perfect
+// wifi opening a heavy page was "on a weak signal". So the verdict now comes from a tiny static file on our own origin
+// (a few hundred bytes from a CDN edge): if THAT is slow or fails, the line is weak; if it is quick, nothing a query
+// does can say otherwise.
 const SLOW_MS = 1200 // a tiny CDN file taking longer than this, on average, is a slow connection
 const FAST_MS = 500 // and quicker than this is a recovered one (a gap, so it does not flicker)
 const MIN_SAMPLES = 3

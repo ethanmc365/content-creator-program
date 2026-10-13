@@ -3,11 +3,7 @@ import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import process from 'node:process'
 
-// THE MARKET PAGE THAT FROZE THE WHOLE APP (18 Sep 2026).
-//
-// Ethan: "if you click on any country in the 'your markets' section, it opens
-// and then you are stuck there, none of the other buttons function any more, no
-// matter what you click."
+// THE MARKET PAGE THAT FROZE THE WHOLE APP.
 //
 // `CreatorMap` declared `trips = {}` in its parameter list, and MarketMap is the
 // only caller that passes no `trips` - a market page has no travel layer. A

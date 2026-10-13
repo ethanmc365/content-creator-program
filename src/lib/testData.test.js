@@ -39,8 +39,8 @@ describe('who is allowed to see test data', () => {
     expect(seesTestData()).toBe(false)
   })
 
-  // Ethan is a real admin. He manages the demo accounts in /admin (the database
-  // lets him read them) and he must not meet them in his own community pages.
+  // The team is a real admin. They manages the demo accounts in /admin (the database lets them read them) and he must
+  // not meet them in their own community pages.
   it('hides it from a real admin', () => {
     adoptTestDataVisibility(REAL_ADMIN)
     expect(seesTestData()).toBe(false)

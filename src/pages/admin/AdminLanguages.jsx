@@ -17,11 +17,8 @@ import { contentApi } from '../../api/content'
 
 // THE PLATFORM'S WORDS, EDITED BY THE PEOPLE WHO SPEAK THEM.
 //
-// Ethan: "can we have the ability for a country manager to edit this like an admin? ...
-// there could be a section on the admin panel for languages, and they can edit the
-// translation across the entire platform just for Spanish ... Build it so whenever we
-// build future languages it's easy." And on 29 Sep: "improve the language edit tool,
-// design it better, make it easier to use, improve functionality and UI."
+// And on 29 Sep: "improve the language edit tool, design it better, make it easier to use, improve functionality and
+// UI."
 //
 // THREE DECISIONS MAKE THIS SMALL, AND THEY ARE ALL DOWNSTREAM OF ONE THING: the
 // dictionary is keyed on the ENGLISH SENTENCE (lib/i18n).
@@ -58,12 +55,11 @@ const screenLabel = (name) => name
   .replace(/^creator /, 'Creator ')
 const isAdminScreen = (name) => name.startsWith('Admin · ')
 
-// THE SCREENS GROUPED THE WAY THE PLATFORM IS (30 Sep 2026). Ethan: the list on the left "is quite hard
-// to find ... Maybe section it better in the actual main section of the platform, like the worldwide
-// section, challenges section, room section, messages, calendar, and the other pages." ~170 files in
-// one alphabetical list became one list per part of the app, in the order of the app's own nav, each
-// folding open. A screen goes to the first section whose words it matches; anything unmatched is
-// "Shared pieces".
+// THE SCREENS GROUPED THE WAY THE PLATFORM IS. The team: the list on the left "is quite hard to find... Maybe section it
+// better in the actual main section of the platform, like the worldwide section, challenges section, room section,
+// messages, calendar, and the other pages." ~170 files in one alphabetical list became one list per part of the app, in
+// the order of the app's own nav, each folding open. A screen goes to the first section whose words it matches; anything
+// unmatched is "Shared pieces".
 const SECTIONS = [
   { key: 'home', label: 'Home and getting started', icon: 'home', re: /^(Dashboard|Landing|Onboarding|Signing in|Settings|Global Settings|Notifications)$|Signing in|Tour Host|Add To Home|App Layout|App Icon|Intro (Card|Prompt)|Timezone Prompt|Notification (Bell|Preferences)|Offline Screen|Error Screen|Protected Route|Turnstile|Google Button|Command Palette|Help Team/ },
   { key: 'worldwide', label: 'Worldwide and markets', icon: 'globe', re: /Global Home|Explore Markets|Chapter Home|Directory|Market (Members|Header|Map|Picker|Activity)|Manage Chapter|Creator (Map|Card|Spotlight)|Country Panel|World Map|Who To Meet|Place Switcher|Group Panels|Global Challenge Strip|Connect|Connections/ },
@@ -94,11 +90,11 @@ const holesProblem = (source, text) => {
     : 'This sentence has no {placeholders}, so there should be none here.'
 }
 
-// THE SCREEN LIST FITS THE WINDOW, WHEREVER THE PAGE IS SCROLLED (2 Oct 2026).
+// THE SCREEN LIST FITS THE WINDOW, WHEREVER THE PAGE IS SCROLLED.
 //
-// Ethan: opening the last section "I'm not able to scroll down through it. On the left column I should
-// be able to scroll, but I have to scroll on the right column to see the bottom" and "sometimes that
-// card on the left becomes a big card that shows all the headings."
+// The team: opening the last section "I'm not able to scroll down through it. On the left column I should be able to
+// scroll, but I have to scroll on the right column to see the bottom" and "sometimes that card on the left becomes a big
+// card that shows all the headings."
 //
 // TWO CAUSES, ONE BOX. (1) The list was a grid item, and grid items STRETCH to the row: with a long
 // screen of sentences beside it the card grew to the height of that column (capped only by its max
@@ -222,10 +218,9 @@ export default function AdminLanguages() {
     return { done, all: all.size }
   }, [withExtras, statusOf])
 
-  // COUNTED ONCE, NOT ON EVERY KEYSTROKE (2 Oct 2026). Ethan: "it can be laggy when clicking".
-  // This walked every sentence of every screen on each render - and typing in one box re-renders
-  // the page - so a keystroke cost a few thousand lookups. Now it only reruns when a translation
-  // actually lands.
+  // COUNTED ONCE, NOT ON EVERY KEYSTROKE. This walked every sentence of every screen on each render - and typing in one
+  // box re-renders the page - so a keystroke cost a few thousand lookups. Now it only reruns when a translation actually
+  // lands.
   const screenCounts = useMemo(() => {
     const out = {}
     for (const [name, list] of Object.entries(withExtras || {})) {
@@ -309,8 +304,7 @@ export default function AdminLanguages() {
 
   return (
     <div className={cx('page', tab === 'content' ? 'max-w-7xl' : 'max-w-6xl')}>
-      {/* NO DESCRIPTION, EVERYTHING UP (1 Oct 2026). Ethan: "You can remove the description and move
-          everything up." */}
+      {/* NO DESCRIPTION, EVERYTHING UP. */}
       <PageHeader title={tr('Languages')} />
 
       {/* THE LANGUAGE, WITH HOW FINISHED IT IS. */}
@@ -336,8 +330,7 @@ export default function AdminLanguages() {
             )
           })}
         </div>
-        {/* A LINE OF TEXT, NOT A BAR (2 Oct 2026). Ethan: "the green progress bar seems unnecessary
-            on every single thing". */}
+        {/* A LINE OF TEXT, NOT A BAR. */}
         {!loading && tab === 'interface' && (
           <span className="ml-auto whitespace-nowrap text-xs font-semibold tabular-nums text-smoke animate-page-in">
             {totals.all - totals.done === 0
@@ -497,9 +490,9 @@ export default function AdminLanguages() {
                       />
                     ))}
                   </ul>
-                  {/* 40 AT A TIME (30 Sep 2026). Ethan: the editor "is a bit laggy". A screen can
-                      hold several hundred sentences, each a self-measuring text box; drawing all of
-                      them at once was the lag. The rest are one press away. */}
+                  {/* 40 AT A TIME. The team: the editor "is a bit laggy". A screen can hold several hundred sentences,
+                      each a self-measuring text box; drawing all of them at once was the lag. The rest are one press
+                      away. */}
                   {ordered.length > visible.length && (
                     <button type="button" onClick={() => setLimit((n) => n + 30)} className="btn-secondary mx-auto mt-4 !py-2 text-sm">
                       {tr('Show {n} more', { n: Math.min(30, ordered.length - visible.length) })}
@@ -550,9 +543,7 @@ const StringRow = memo(function StringRow({ index = 0, source, bundled, override
     onSave(source, text.trim() === bundled ? '' : text)
   }
 
-  // ONLY WHAT SOMEBODY CHANGED IS COLOURED (30 Sep 2026). Ethan: "it doesn't make sense that
-  // they're all green, of course they should all have translations, the ones admins edit should be
-  // highlighted." A shipped translation is the ordinary state and looks ordinary; an edit made
+  // ONLY WHAT SOMEBODY CHANGED IS COLOURED. A shipped translation is the ordinary state and looks ordinary; an edit made
   // here is tinted and tagged; only a missing one is amber.
   const status = override ? 'edited' : current ? 'shipped' : 'todo'
   return (
@@ -607,12 +598,7 @@ const StringRow = memo(function StringRow({ index = 0, source, bundled, override
 // speaks the language can read it and correct anything. A corrected one is marked as
 // reviewed and is never overwritten. Deleting one makes the next reader's view translate it
 // afresh - the way to redo a bad one.
-// WHAT IS LIVE NOW, THEN EVERYTHING ELSE (1 Oct 2026).
-//
-// Ethan: "I do like the way recent content is separated ... but only for brief messages. Whenever a
-// brief message or whatever is gone, it's no longer needed, then it shouldn't show up here at the
-// top. Just the newest one should show up at the top ... and everything should be done
-// automatically."
+// WHAT IS LIVE NOW, THEN EVERYTHING ELSE.
 //
 // So the tab asks what creators can actually read TODAY - the briefs, rules and bonus lines of every
 // challenge that is running or about to, the live surveys and the upcoming events - and puts only the
@@ -795,13 +781,11 @@ function ContentTab({ locale, userId, onError }) {
   )
 }
 
-// ONE ORIGINAL AND ITS TRANSLATION, SIDE BY SIDE, ON WHITE (2 Oct 2026). Ethan: "the UI just doesn't look
-// right ... there's a weird grey box that doesn't fit nicely with the UI, and scrolling down, there's
-// actually a lot of space that we're not utilising." The original used to sit in a grey panel with its
-// own 16rem scroll box beside a text box that grew to 20rem, so the two columns were never the same
-// height and every row carried a band of dead space, plus a whole extra line for two buttons. Now the
-// original is plain text with a thin rule down its side (nothing to scroll), the two buttons sit under
-// the translation in the same column, and rows share one card per live item instead of one card each.
+// ONE ORIGINAL AND ITS TRANSLATION, SIDE BY SIDE, ON WHITE. The original used to sit in a grey panel with its own 16rem
+// scroll box beside a text box that grew to 20rem, so the two columns were never the same height and every row carried a
+// band of dead space, plus a whole extra line for two buttons. Now the original is plain text with a thin rule down its
+// side (nothing to scroll), the two buttons sit under the translation in the same column, and rows share one card per
+// live item instead of one card each.
 function ContentRow({ row, kind, busy, onSave, onRedo }) {
   const tr = useT()
   const [text, setText] = useState(row.value)

@@ -3,11 +3,7 @@ import { Modal, Spinner } from './ui'
 import Icon from './Icon'
 import { useT } from '../lib/i18n'
 
-// POSITION AND ZOOM A PROFILE PHOTO BEFORE IT UPLOADS (28 Sep 2026).
-//
-// Ethan: "whenever uploading their profile photo, I would like to have the
-// option to move it around a bit and zoom in a bit, so whenever they actually
-// upload it, they can make it appear exactly how they want it."
+// POSITION AND ZOOM A PROFILE PHOTO BEFORE IT UPLOADS.
 //
 // A square stage with the circle the avatar will be cut to. Drag to move, and
 // zoom with the slider, a pinch, or the scroll wheel. The picture always covers

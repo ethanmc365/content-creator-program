@@ -72,15 +72,10 @@ export default function MarketHeader({ market, memberCount, canManage, tab }) {
 
   return (
     <div>
-      {/* ON A PHONE THE PLACE SWITCHER ALREADY SAYS WHERE YOU ARE.
-          The bar at the top of every network page names the market and opens a
-          sheet to change it, so a 36px heading repeating that name, plus a
-          paragraph explaining what a market is, was the first two thirds of a
-          375px screen spent before anything happened. Ethan: "because we have
-          the bar at the top that shows the market name, you don't need to say
-          it again directly below, and you can remove this description and the
-          other descriptions." Both are kept from `sm` up, where there is room
-          and no switcher bar. */}
+      {/* ON A PHONE THE PLACE SWITCHER ALREADY SAYS WHERE YOU ARE. The bar at the top of every network page names the
+          market and opens a sheet to change it, so a 36px heading repeating that name, plus a paragraph explaining what
+          a market is, was the first two thirds of a 375px screen spent before anything happened. Both are kept from `sm`
+          up, where there is room and no switcher bar. */}
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <h1 className="hidden flex-wrap items-center gap-x-3 gap-y-1 text-3xl font-bold tracking-tight sm:flex sm:text-4xl">
@@ -150,15 +145,12 @@ export default function MarketHeader({ market, memberCount, canManage, tab }) {
               <Icon name="shield" className="h-4 w-4" /> {tr("Manage")}
             </Link>
           )}
-          {/* THE "LEAVE THIS MARKET" MENU IS GONE.
-              Which market somebody is in is not a preference, it is a
-              placement: it decides which briefs they can enter, which rooms
-              they read, whose leaderboard they are on and which currency they
-              are paid in. A creator who taps it out of curiosity has removed
-              themselves from the programme's working unit, and the only way
-              back is to ask. Ethan's rule, and the right one: adding and
-              removing people from a market is an admin action, done from
-              Manage market where it is deliberate and audited. */}
+          {/* THE "LEAVE THIS MARKET" MENU IS GONE. Which market somebody is in is not a preference, it is a placement:
+              it decides which briefs they can enter, which rooms they read, whose leaderboard they are on and which
+              currency they are paid in. A creator who taps it out of curiosity has removed themselves from the
+              programme's working unit, and the only way back is to ask. The team's rule, and the right one: adding and
+              removing people from a market is an admin action, done from Manage market where it is deliberate and
+              audited. */}
         </div>
       </div>
 

@@ -1,10 +1,6 @@
 import { useEffect, useState } from 'react'
 
-// A QR CODE, DRAWN BY US FROM ZXING'S MATRIX (28 Sep 2026).
-//
-// Ethan, on the boarding-pass certificate: "rather than the barcode, I was
-// thinking you should have a QR code, and maybe the QR code could actually take
-// you to the certificate ID website ... verifying it whenever you scan it."
+// A QR CODE, DRAWN BY US FROM ZXING'S MATRIX.
 //
 // zxing-wasm is already the platform's barcode READER (lib/scanPass); its
 // writer half encodes. The writer is 650 kB of WebAssembly, so it is imported

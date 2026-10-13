@@ -6,12 +6,10 @@ import { socialHref, linkHref } from '../../lib/socialLinks'
 import { useT } from '../../lib/i18n'
 import { safeUrl } from '../../lib/safeUrl'
 
-// THE PORTFOLIO'S OWN WORDS, IN THE READER'S LANGUAGE (30 Sep 2026). Ethan: "the portfolio pages will
-// need to have the ability to translate ... the actual text they write should just be in the language
-// they write it in. We translate the titles and the things with the buttons", and it "should obviously
-// also be in the language picker for the country managers to change". So a slot the creator left as it
-// came (or saved unchanged) is the default sentence through `tr` - which also puts every one of these
-// in the Languages editor - and anything they wrote themselves is printed exactly as written.
+// THE PORTFOLIO'S OWN WORDS, IN THE READER'S LANGUAGE., and it "should obviously also be in the language picker for the
+// country managers to change". So a slot the creator left as it came (or saved unchanged) is the default sentence
+// through `tr` - which also puts every one of these in the Languages editor - and anything they wrote themselves is
+// printed exactly as written.
 export function copyIn(tr, copy, key) {
   const written = copy?.[key]
   if (typeof written === 'string' && written.trim() && written !== DEFAULT_COPY[key]) return written
@@ -41,10 +39,6 @@ export function copyIn(tr, copy, key) {
 // ---------------------------------------------------------------------------
 // THE 21 SEP REDESIGN: THE PLATFORM'S OWN LOOK, NOT A TEMPLATE'S
 //
-// Ethan: "I don't like the color you've done - a really dark gradient. The
-// fonts again really bad, weird fonts. I want it to match the style of the
-// platform and the Tryp.com brand, using the correct fonts and styles."
-//
 // So every page is now built from the three things the product itself is made
 // of, and nothing else:
 //
@@ -61,8 +55,8 @@ export function copyIn(tr, copy, key) {
 //
 //   THE ROUTE. A dotted flight path and the Tryp plane, as on the milestone
 //   route and the plane over the hub card. It replaces both small orange bars
-//   Ethan did not get - the stub under each title and the band along the foot.
-// ---------------------------------------------------------------------------
+//   The team did not get - the stub under each title and the band along the foot.
+//   ---------------------------------------------------------------------------
 
 const INK = '#1A1A1A'
 const SMOKE = '#5E6068'
@@ -206,7 +200,7 @@ function Label({ children, color = FAINT }) {
   )
 }
 
-/** Wordmark bottom-left on every page. No page numbers (Ethan: "not necessary"). */
+/* Wordmark bottom-left on every page. No page numbers ( ). */
 // eslint-disable-next-line no-unused-vars
 function Footer({ name, n, total, t }) {
   return (
@@ -239,16 +233,10 @@ export function Cover({ creator, copy, videos, extraPlatforms }) {
       <GradientPanel t={t} style={{ left: 36, top: 36, bottom: 36, width: 520 }}>
         <img src="/brand/tryp-wordmark-white.svg" alt="Tryp.com" crossOrigin="anonymous"
           style={{ position: 'absolute', top: 40, left: 44, height: 26, width: 'auto' }} />
-        {/* A ROUTE THE WHOLE WAY THROUGH, CORNER TO CORNER (21 Sep 2026).
-            Ethan: "remove that Trip.com plane [on the first slide] and instead
-            have the dotted line going up the other corner, just like going the
-            whole way through." In at the bottom left, round under the portrait,
-            out through the top right. */}
-        {/* AND IT CURLS (21 Sep 2026). Ethan: "It doesn't look good the way it
-            currently is, so maybe more curls, just behind the profile picture."
-            Two loops - one low on the left as it comes in, one high on the
-            right as it leaves - and the middle of the route runs BEHIND the
-            portrait (it is drawn first), so the photo sits on the flight. */}
+        {/* A ROUTE THE WHOLE WAY THROUGH, CORNER TO CORNER. In at the bottom left, round under the portrait, out through
+            the top right. */}
+        {/* AND IT CURLS. Two loops - one low on the left as it comes in, one high on the right as it leaves - and the
+            middle of the route runs BEHIND the portrait (it is drawn first), so the photo sits on the flight. */}
         <Route width={520} height={722} d={COVER_ROUTE} />
         <div style={{
           position: 'absolute', left: '50%', top: '53%', transform: 'translate(-50%, -50%)',
@@ -431,9 +419,8 @@ function PlatformRow({ row }) {
   return <a href={safeUrl(row.url)} target="_blank" rel="noopener noreferrer" style={style}>{inner}</a>
 }
 
-// ------------------------------------------------------------------- work ---
-// Ethan liked this page's cards and callout and asked for better copy and
-// finish. The tiles keep their shape (four true 9:16 frames a page) and gain a
+// ------------------------------------------------------------------- work --- the team liked this page's cards and
+//  callout and asked for better copy and finish. The tiles keep their shape (four true 9:16 frames a page) and gain a
 // RANK - "#1" is the first thing a brand wants to know about a list sorted by
 // views - and the header says what the list is instead of a grey chip.
 export function Work({ creator, copy, videos, n, total, offset = 0 }) {
@@ -441,11 +428,9 @@ export function Work({ creator, copy, videos, n, total, offset = 0 }) {
   const t = theme(copy)
   return (
     <div style={page({ padding: '48px 64px 0' })}>
-      {/* JUST THE HEADING (2 Oct 2026). Ethan: the line under it ("Most watched videos from Trip.com
-          challenges...") "is not needed", the "Videos 1 to 4 of 12" pill is "unnecessary", and "No
-          need to say at the top, 'Most viewed first'... just 'Videos'". And every page after the first
-          says "Videos" too (30 Sep 2026, Ethan: "on the next page it shows Continue. I would still just
-          show videos above this"). */}
+      {/* JUST THE HEADING. The team: the line under it ("Most watched videos from Trip.com challenges...") "is not
+          needed", the "Videos 1 to 4 of 12" pill is "unnecessary", and "No need to say at the top, 'Most viewed
+          first'... just 'Videos'". And every page after the first says "Videos" too (). */}
       <div style={{ minWidth: 0 }}>
         <Kicker color={t.ink}>{tr('Videos')}</Kicker>
         <SlideTitle size={38}>{copyIn(tr, copy, 'work_title')}</SlideTitle>
@@ -453,11 +438,8 @@ export function Work({ creator, copy, videos, n, total, offset = 0 }) {
 
       <div style={{ display: 'flex', gap: 32, marginTop: 30 }}>
         {videos.map((v, i) => <VideoTile key={v.id} video={v} rank={offset + i + 1} t={t} />)}
-        {/* NOTHING BUT THE WORDS WHEN THERE IS NO WORK YET (21 Sep 2026).
-            This was a peach card with a dotted route and a plane on it. Ethan:
-            "it shows a weird orange card. I would remove that... remove the
-            plane icon, the dotted line, and the other card. It's not
-            necessary." The two lines are the whole message. */}
+        {/* NOTHING BUT THE WORDS WHEN THERE IS NO WORK YET. This was a peach card with a dotted route and a plane on it.
+            The two lines are the whole message. */}
         {videos.length === 0 && (
           <div style={{
             flex: 1, height: 460,
@@ -514,11 +496,7 @@ function VideoTile({ video, rank, t }) {
         #{rank}
       </span>
 
-      {/* EVERY CARD THE SAME SIZE (21 Sep 2026). Ethan: "the cards for the
-          selected work... are different sizes. Some of them show UK Ireland on
-          it, and some of them don't. I would remove UK Ireland from it
-          altogether and just show [the challenge] and the views." A fixed
-          height, the views, and the challenge on two clamped lines. */}
+      {/* EVERY CARD THE SAME SIZE. A fixed height, the views, and the challenge on two clamped lines. */}
       <div style={{
         position: 'absolute', left: 12, right: 12, bottom: 12, height: 84, boxSizing: 'border-box',
         borderRadius: 16, background: '#ffffff', padding: '12px 14px',
@@ -596,10 +574,6 @@ export function Awards({ creator, copy, certificates, n, total }) {
 }
 
 // ---------------------------------------------------------------- contact ---
-// Ethan: "a little small orange bar at the bottom, I don't get the way it
-// looks. It should be bigger or just a new design. You can add some curves,
-// some airplane style dotted line features and an airplane icon, just really
-// make it flow nicely."
 //
 // So the last page ends on the hub card: a tall gradient panel on the right
 // with a dotted route sweeping up through it to the Tryp plane, a few stops
@@ -640,21 +614,13 @@ export function Contact({ creator, copy, videos, extraPlatforms }) {
         </div>
       </div>
 
-      {/* THE CLOSING PANEL (21 Sep 2026). Ethan: "round it more to the left on
-          the top and have the plane look like the dotted line is coming out of
-          the plane... it should be coming out the back, more realistic." The
-          plane faces LEFT, so its tail is on its right: the trail leaves the
-          tail, loops round to the right and sweeps down and away to the left. */}
+      {/* THE CLOSING PANEL. The plane faces LEFT, so its tail is on its right: the trail leaves the tail, loops round to
+          the right and sweeps down and away to the left. */}
       <GradientPanel t={t} style={{ right: 36, top: 36, bottom: 36, width: 440 }}>
-        {/* LEVEL, AND THE TRAIL LEAVES THE TAIL ITSELF (21 Sep 2026). Ethan:
-            "The aeroplane is too tilted down. The aeroplane should be
-            horizontal and level, and the dotted line should be coming right
-            out of the back tail of it. Currently, it's a bit far away." The
-            livery photo's fuselage already climbs ~5 degrees towards the tail,
-            so +5 is what makes it level; at -8 it pointed nose-down. The tail
-            cone ends at (1150, 237) of the 1200 x 471 image, which at 196px
-            wide and 5 degrees about the centre is (242, 117) in the panel -
-            the route starts there and leaves along the fuselage's own line. */}
+        {/* LEVEL, AND THE TRAIL LEAVES THE TAIL ITSELF. The livery photo's fuselage already climbs ~5 degrees towards
+            the tail, so +5 is what makes it level; at -8 it pointed nose-down. The tail cone ends at (1150, 237) of the
+            1200 x 471 image, which at 196px wide and 5 degrees about the centre is (242, 117) in the panel - the route
+            starts there and leaves along the fuselage's own line. */}
         <Plane width={196} style={{ left: 54, top: 70, transform: 'rotate(5deg)' }} />
         <Route width={440} height={648} d="M 242 117 C 318 117, 402 150, 396 232 S 300 330, 214 350 S 60 400, -20 470" />
         {[[396, 232], [214, 350]].map(([x, y]) => (
@@ -706,7 +672,7 @@ function ContactCard({ row, t, wide = false }) {
         </span>
       </span>
       <span style={{
-        // BARE GLYPHS (12 Oct 2026): no tinted disc or orange tile behind an icon, the platform's icon rule.
+        // BARE GLYPHS: no tinted disc or orange tile behind an icon, the platform's icon rule.
         flexShrink: 0, width: 28, height: 28, borderRadius: 999, background: 'transparent', color: SMOKE,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
       }}>
@@ -725,9 +691,6 @@ function ContactCard({ row, t, wide = false }) {
 
 /**
  * EVERY PLACE THIS CREATOR POSTS, AS ONE LIST, WITH THE LINK ON IT.
- *
- * Ethan: "remember, you can take a lot of this data from their profile and add
- * it on here."
  *
  * Three sources, in order of how much they are worth:
  *

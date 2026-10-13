@@ -49,8 +49,7 @@ export const cardHover = {
 // what breaks the mobile chat overlay (see the note on `page-in` in
 // tailwind.config.js). Do not add y or scale here.
 export const pageFade = {
-  // A getter, read where it is spread: a page you are coming BACK to is not faded in again (lib/navReturn). Ethan, on
-  // swiping out of a room: "the entire page seems to flash, like to update".
+  // A getter, read where it is spread: a page you are coming BACK to is not faded in again (lib/navReturn).
   get initial() { return isReturnVisit() ? false : { opacity: 0 } },
   animate: { opacity: 1 },
   transition: { duration: 0.25, ease: 'easeOut' },

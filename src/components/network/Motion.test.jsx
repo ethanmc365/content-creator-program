@@ -55,13 +55,10 @@ describe('countEase', () => {
 
   // THE REGRESSION THESE TWO GUARD, AND IT IS THE ONE THAT WAS REPORTED LAST.
   //
-  // Smoothstep passed every test above and still looked wrong, because none of
-  // them asked the question the eye was asking. The readout is an INTEGER, so
-  // what a viewer actually sees is how many FRAMES each whole number is on
-  // screen for, and on a curve with zero slope at both ends that varies wildly:
-  // under smoothstep a count to six holds 0 for eleven frames and flicks
-  // through 3 in three. Ethan: "they seem to pause on certain numbers for
-  // different amounts of time and it looks bad."
+  // Smoothstep passed every test above and still looked wrong, because none of them asked the question the eye was
+  // asking. The readout is an INTEGER, so what a viewer actually sees is how many FRAMES each whole number is on screen
+  // for, and on a curve with zero slope at both ends that varies wildly: under smoothstep a count to six holds 0 for
+  // eleven frames and flicks through 3 in three.
   //
   // A constant rate is the only curve where every integer gets the same dwell,
   // so that is what is asserted - directly, in frames, on the smallest count on
@@ -83,8 +80,8 @@ describe('countEase', () => {
   }
 
   it('holds every number on the way for the same number of frames', () => {
-    // 44 creators: the smallest of the hub's four figures that still has enough
-    // numbers in it for a rhythm to be audible, and the one Ethan was watching.
+    // 44 creators: the smallest of the hub's four figures that still has enough numbers in it for a rhythm to be
+    // audible, and the one the team was watching.
     const held = dwellFrames(44, countEase)
     expect(Math.max(...held) - Math.min(...held)).toBeLessThanOrEqual(1)
   })
@@ -110,14 +107,11 @@ describe('countEase', () => {
 })
 
 // ---------------------------------------------------------------------------
-// THE COUNTER RUNS ON THE CARD'S CLOCK (19 Sep 2026).
+// THE COUNTER RUNS ON THE CARD'S CLOCK.
 //
-// Ethan, on the worldwide page: "sometimes it shows the numbers counting up in
-// the animated format, other times it shows 0 and counts up a few seconds
-// later, and other times the numbers just immediately show." Three orderings of
-// three timers that had nothing to do with each other - see lib/revealContext.
-// These pin the two halves of the fix: the count starts when the CARD says it
-// is arriving, and the figure itself is never left to requestAnimationFrame.
+// Three orderings of three timers that had nothing to do with each other - see lib/revealContext. These pin the two
+// halves of the fix: the count starts when the CARD says it is arriving, and the figure itself is never left to
+// requestAnimationFrame.
 describe('CountUp', () => {
   let frames
   beforeEach(() => {

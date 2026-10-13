@@ -102,11 +102,8 @@ export default function Challenges() {
       // currency and shown per currency. No baseline, no conversion, nothing
       // invented. Test accounts excluded, because they win things constantly.
       //
-      // AND IT INCLUDES THE 47 CHALLENGES BEFORE THE PLATFORM (22 Sep 2026).
-      // Ethan: "EUR 290 won by creators so far ... is incorrect, it's way
-      // higher because we added in the other analytics." `prizes_won_total`
-      // (migration 248) adds `challenge_history` - which creators cannot read
-      // directly - to the rewards, per currency.
+      // AND IT INCLUDES THE 47 CHALLENGES BEFORE THE PLATFORM. `prizes_won_total` (migration 248) adds
+      // `challenge_history` - which creators cannot read directly - to the rewards, per currency.
       loadPrizesWon()
 
       setGalleries(await loadWinnerGalleries(all))
@@ -117,7 +114,7 @@ export default function Challenges() {
   // WHO IS AHEAD IN EACH LIVE CHALLENGE. See the Leaders block in
   // LiveChallengeCard for why a live card carries a top three at all.
   //
-  // IT READS `results`, WHICH IS THE BOARD (3 Sep 2026).
+  // IT READS `results`, WHICH IS THE BOARD.
   //
   // This used to sum `submissions.logged_views` per creator and sort by that -
   // its own private opinion about who was winning, computed in a component. On
@@ -167,8 +164,8 @@ export default function Challenges() {
     return () => { cancelled = true }
   }, [challenges])
 
-  // THE BOARDS OF A SPLIT LIVE CHALLENGE, AND WHICH ONE IS MINE (1 Oct 2026).
-  // Almost always empty: one cheap read for the groups and one for my own row.
+  // THE BOARDS OF A SPLIT LIVE CHALLENGE, AND WHICH ONE IS MINE. Almost always empty: one cheap read for the groups and
+  // one for my own row.
   const [liveGroups, setLiveGroups] = useState(cached?.liveGroups ?? { groups: {}, mine: {} })
   useEffect(() => {
     const liveIds = challenges
@@ -248,11 +245,9 @@ export default function Challenges() {
   // not to do currency arithmetic in their head. Most markets settle in euros
   // now, so euros is the number.
   //
-  // ROUNDED, and deliberately so. Converting £250 at a rate that moves daily
-  // and printing "€292" claims a precision that does not exist - it would be a
-  // different number tomorrow with nothing having happened. Ethan: "don't give
-  // the exact figure if you're converting, always round it to the nearest ten."
-  // Under ten it is left alone, because rounding €4 to €0 says nothing was won.
+  // ROUNDED, and deliberately so. Converting £250 at a rate that moves daily and printing "€292" claims a precision that
+  // does not exist - it would be a different number tomorrow with nothing having happened. Under ten it is left alone,
+  // because rounding €4 to €0 says nothing was won.
   const prizeTotalEur = useMemo(() => {
     const total = Object.entries(prizesAwarded ?? {})
       .reduce((sum, [currency, amount]) => sum + (convert(amount, currency, 'EUR') || 0), 0)
@@ -287,30 +282,23 @@ export default function Challenges() {
   // bigger thing it is.
   const isGlobal = (c) => !!networkId && c.community_id === networkId
   const live = mine.filter(isLive).sort((a, b) => Number(isGlobal(b)) - Number(isGlobal(a)))
-  // A DRAFT IS NOT A PAST CHALLENGE. It has not run, it has no winners and no
-  // entries, and filing it under "Past challenges" said it had finished.
-  // Ethan: "this shouldn't be under past challenges, a separate section called
-  // drafts should show up above the past challenges section but below the live
-  // challenge cards".
+  // A DRAFT IS NOT A PAST CHALLENGE. It has not run, it has no winners and no entries, and filing it under "Past
+  // challenges" said it had finished.
   //
-  // ONLY ADMINS EVER SEE ONE, and that is enforced in the DATABASE rather than
-  // here: the `challenges: read published` policy is
-  // `is_admin() OR (is_member() AND status <> 'draft' AND ...)`. Rehearsed
-  // 20 Sep 2026 as a real non-admin creator inside a rolled-back transaction -
-  // one draft in the table, zero rows visible. This section cannot leak one
-  // because the row never arrives; the `isAdmin` guard below is about not
-  // drawing an empty heading, not about access.
+  // ONLY ADMINS EVER SEE ONE, and that is enforced in the DATABASE rather than here: the `challenges: read published`
+  // policy is `is_admin() OR (is_member() AND status <> 'draft' AND...)`. Rehearsed as a real non-admin creator inside a
+  // rolled-back transaction - one draft in the table, zero rows visible. This section cannot leak one because the row
+  // never arrives; the `isAdmin` guard below is about not drawing an empty heading, not about access.
   const drafts = mine.filter((c) => !isLive(c) && c.status === 'draft')
-  // THE OTHER MARKETS' LIVE CHALLENGES (1 Oct 2026). The team reads them off
-  // this page's own rows (RLS lets an admin read every market); a creator's
-  // come from an RPC inside the component. See OtherMarketChallenges.
+  // THE OTHER MARKETS' LIVE CHALLENGES. The team reads them off this page's own rows (RLS lets an admin read every
+  // market); a creator's come from an RPC inside the component. See OtherMarketChallenges.
   const othersLive = isAdmin
     ? challenges.filter((c) => isLive(c) && c.community_id && c.community_id !== networkId && !inScope(scopeIds, c.community_id))
     : null
   const othersSection = <OtherMarketChallenges staffRows={othersLive} communities={communities} />
   const past = mine.filter((c) => !isLive(c) && c.status !== 'draft')
 
-  // YOUR RECAP, ON THE PAGE YOU ACTUALLY OPEN (29 Sep 2026).
+  // YOUR RECAP, ON THE PAGE YOU ACTUALLY OPEN.
   //
   // Outstanding from the brief. The recap banner has only ever lived on a
   // challenge's own page, which means a creator finds it by navigating to a
@@ -410,19 +398,9 @@ export default function Challenges() {
               challenges", which reads as a page that has stopped rather than a
               programme between briefs. It is a panel and not a card: there is
               nowhere to go yet, and a card is a promise of a destination. */}
-          {/* NOTHING LIVE, DRAWN THE WAY THE MARKETS DRAW IT (4 Sep 2026).
-              Ethan: "on the challenges page, when there's no challenge running,
-              rather than just that weird icon I want an actual nice page
-              similar to how the market ones are. Use that same copy, but
-              obviously just say no challenge - don't say the market name. And
-              the button for admins to create a challenge would be nice. And
-              that nice Tryp.com animated plane, you can have it nice and big
-              there."
-              It was a flag glyph in a tinted square on a grey panel, which is
-              the generic empty state this app uses for lists that are empty by
-              accident. An empty board is the NORMAL state between briefs, and
-              the market cards have said so properly for weeks. One component
-              now. */}
+          {/* NOTHING LIVE, DRAWN THE WAY THE MARKETS DRAW IT. It was a flag glyph in a tinted square on a grey panel,
+              which is the generic empty state this app uses for lists that are empty by accident. An empty board is the
+              NORMAL state between briefs, and the market cards have said so properly for weeks. One component now. */}
           {live.length === 0 && (
             <Reveal from="down" delay={0.12}>
               <NoLiveChallenge
@@ -459,14 +437,14 @@ export default function Challenges() {
           )}
 
           {/* ---------- Live ----------
-              THREE OR MORE AT ONCE (2 Oct 2026): the global challenge stays big at the top and the market ones sit
-              side by side, compact, from `lg` (a phone stacks them exactly as before). */}
+              THREE OR MORE AT ONCE: the global challenge stays big at the top and the market ones sit side by side,
+              compact, from `lg` (a phone stacks them exactly as before). */}
           {(() => {
-            // EQUAL CARDS SIDE BY SIDE (2 Oct 2026). Ethan: the two compact cards were "slightly different in size".
-            // `h-full` sat on the Reveal, but Reveal wraps each child in its own `.reveal-item`, and that wrapper was
-            // as tall as its content - so the grid stretched the Reveal and nothing inside it. The wrapper is full
-            // height now too, every card reserves the participation bar when any of its neighbours has one, and the
-            // title and brief keep two lines each so the clocks and buttons line up across the row.
+            // EQUAL CARDS SIDE BY SIDE. The team: the two compact cards were "slightly different in size". `h-full` sat
+            // on the Reveal, but Reveal wraps each child in its own `.reveal-item`, and that wrapper was as tall as its
+            // content - so the grid stretched the Reveal and nothing inside it. The wrapper is full height now too,
+            // every card reserves the participation bar when any of its neighbours has one, and the title and brief keep
+            // two lines each so the clocks and buttons line up across the row.
             const reserveBar = live.length >= 3 && live.some((c) => !isGlobal(c) && participation[c.id])
             const card = (c, compact = false, i = 0) => (
               <Reveal key={c.id} from="down" delay={0.12 + i * 0.06} as="div" data-tour="challenge-card" className={compact ? 'h-full' : undefined} itemClassName={compact ? 'h-full' : ''}>
@@ -513,12 +491,9 @@ export default function Challenges() {
                   // none of those because it has never run. What an admin wants
                   // from this row is "what is it, when is it meant to run, let
                   // me finish it" - so it links straight to the editor.
-                  // EVERY DRAFT THE SAME SIZE (21 Sep 2026). Ethan: "the
-                  // Portugal draft card is a different size to the Global
-                  // Challenge draft." A two-line title or a missing description
-                  // made each card its own height. `h-full` fills the grid cell
-                  // Reveal stretches, the title and blurb hold two lines each
-                  // whether they use them or not, and the link sits at the foot.
+                  // EVERY DRAFT THE SAME SIZE. A two-line title or a missing description made each card its own height.
+                  // `h-full` fills the grid cell Reveal stretches, the title and blurb hold two lines each whether they
+                  // use them or not, and the link sits at the foot.
                   <div key={c.id} className="card group relative flex h-full flex-col border-dashed transition-all hover:-translate-y-0.5 hover:shadow-lift">
                     <Link
                       to={`/admin/challenges/${c.id}/edit`}

@@ -17,12 +17,9 @@ import { useT } from '../../lib/i18n'
 // somebody who already has the habit. A section on the hub, between the
 // announcement and the map, is the whole intervention.
 //
-// ONE CARD, THREE PUZZLES ACROSS - the same shape the old UK home page used
-// (`components/DailyGamesCard`, deleted with pages/Home.jsx on 7 Sep 2026 when
-// /home became a redirect to /global). It was three separate stacked cards here,
-// which on a hub already made of full-width cards read as three more sections
-// to scroll past rather than one thing to do. Ethan: "instead of being 3
-// separate cards, one card where the 3 puzzles are side by side."
+// ONE CARD, THREE PUZZLES ACROSS - the same shape the old UK home page used (`components/DailyGamesCard`, deleted with
+// pages/Home.jsx when /home became a redirect to /global). It was three separate stacked cards here, which on a hub
+// already made of full-width cards read as three more sections to scroll past rather than one thing to do.
 //
 // WHY THREE AND NOT "the one you have not played". It used to offer the single
 // unplayed puzzle, which sounds tidier and is worse: it hid the fact that there
@@ -50,24 +47,16 @@ import { useT } from '../../lib/i18n'
 // green with a tick in it is the fastest read on the card, and with it gone the
 // only signal was a small pill at the end of a line of text.
 //
-// Ethan, holding the UK home card next to this one: "I'm gonna share a
-// screenshot of how the one that's currently on the UK community looks, I think
-// it looks better... you can condense how the UK one looks slightly, still fit
-// it in, and I think it will look much better. Keep the same structure like the
-// icon shows green with the little tick whenever it's played."
-//
 // So this is that UK card laid out horizontally at every
 // width, with the sizes taken in one notch: a 36px tile rather than 40,
 // px-4 rather than px-5, and the count line at 11px. THE HUB IS NARROWER THAN
 // THE UK HOME PAGE, by the width of the right rail, and that is the only reason
 // the two files are not now identical.
 //
-// The old rule this replaces - "the button is the only thing that turns green",
-// which came from Ethan objecting to a green RING appearing around the orange
-// tile - is not contradicted by any of this. A ring around an orange tile is a
-// decoration on an unchanged thing; a tile that becomes green and holds a tick
-// is the state itself, drawn once. The card behind them stays white either way,
-// which is what that rule was really protecting.
+// The old rule this replaces - "the button is the only thing that turns green", which came from the team objecting to a
+// green RING appearing around the orange tile - is not contradicted by any of this. A ring around an orange tile is a
+// decoration on an unchanged thing; a tile that becomes green and holds a tick is the state itself, drawn once. The card
+// behind them stays white either way, which is what that rule was really protecting.
 //
 // NO MOTION IMPORT. The hub is eagerly routed; entrance animation is the page's
 // own `Reveal`, which is CSS-only for exactly this reason. What motion the card
@@ -110,11 +99,9 @@ function PuzzleColumn({ puzzle, done, count, first }) {
             with a tick in it, so finishing one puzzle truncates the other two.
             Spanish is longer again.
 
-            Wrapping to two lines was tried and rejected (Ethan, 21 Sep: "goes
-            onto two lines which I don't like"). So the ROOM is made instead: 13px
-            names, a notch less padding and gap from `sm`, and a slimmer button,
-            which is what gives "Guess the language" its 143px. `truncate` stays
-            as the backstop for Spanish, not as the plan. */}
+            Wrapping to two lines was tried and rejected ( ). So the ROOM is made instead: 13px names, a notch less
+            padding and gap from `sm`, and a slimmer button, which is what gives "Guess the language" its 143px.
+            `truncate` stays as the backstop for Spanish, not as the plan. */}
         <span className="block truncate text-sm font-semibold leading-tight text-ink sm:text-[13px]">{tr(puzzle.title)}</span>
         <span className="mt-0.5 block truncate text-[11px] leading-tight text-smoke">
           {/* The count is the point, so it wins the line whenever there is one.
@@ -178,12 +165,10 @@ export default function DailyPuzzleCallout({ className }) {
           same idea, same lit flame, but "8 day streak" against the UK card's
           "8 days", and 10px against 11px. Two near-identical chips is one chip
           that will drift again, so there is one. */}
-      {/* `items-center`, NOT `items-baseline`. Same fault as GlobalHome's
-          SectionHead and the same 5.5px of droop: this h2 is itself a flex
-          container, so its baseline is its FIRST FLEX ITEM's - the 20px icon,
-          which has no text baseline and contributes its bottom edge instead.
-          The link aligned to that and sat below the words. Ethan asked for
-          these centred on the title line; measured at 0.0px now. */}
+      {/* `items-center`, NOT `items-baseline`. Same fault as GlobalHome's SectionHead and the same 5.5px of droop: this
+          h2 is itself a flex container, so its baseline is its FIRST FLEX ITEM's - the 20px icon, which has no text
+          baseline and contributes its bottom edge instead. The link aligned to that and sat below the words. The team
+          asked for these centred on the title line; measured at 0.0px now. */}
       {/* The title is the way to every game (components/network/SectionTitle);
           the "All games →" link beside it is gone. */}
       <div className="mb-3 flex items-center gap-2">

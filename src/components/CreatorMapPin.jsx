@@ -21,9 +21,7 @@ export function Pin({ group, zoom, active, dim, onSelect, landing = false, queue
           below would silently throw the counter-scale away for the length of
           the animation and every pin would balloon on arrival. This g carries
           only the animation; the one inside it carries only the scale. */}
-      {/* THE PINS COME DOWN IN A SHOWER, NOT ALL ON ONE FRAME (4 Sep 2026).
-          Ethan: "you can make this map stand out more, adding more animations
-          to it, like the nice UI of the pins falling in."
+      {/* THE PINS COME DOWN IN A SHOWER, NOT ALL ON ONE FRAME.
 
           They already drop and squash; they all dropped on the SAME frame,
           which reads as one object appearing rather than as forty-four pins
@@ -39,16 +37,12 @@ export function Pin({ group, zoom, active, dim, onSelect, landing = false, queue
         style={{ cursor: 'pointer', opacity: dim ? 0.25 : 1, transition: 'opacity 0.2s' }}
       >
         {/* THE SHADOW IS PAINTED, NOT FILTERED.
-            THE BUG THIS FIXES: this was `filter: drop-shadow(...)` on every
-            pin, which is a separate offscreen render pass per pin per frame.
-            With forty-five pins on a map that is survivable inside a 700px
-            card and it is not survivable full screen, where the same forty-five
-            passes are run at twice the linear size - four times the pixels -
-            on every frame of a drag. That is most of Ethan's "when I click on
-            full screen now it's really laggy, a lot of glitching".
-            The same shape drawn twice, once offset and translucent, is two
-            ordinary fills. It reads identically at this size and it composites
-            like anything else on the map. */}
+            THE BUG THIS FIXES: this was `filter: drop-shadow(...)` on every pin, which is a separate offscreen render
+            pass per pin per frame. With forty-five pins on a map that is survivable inside a 700px card and it is not
+            survivable full screen, where the same forty-five passes are run at twice the linear size - four times the
+            pixels - on every frame of a drag. That is most of the team's "when I click on full screen now it's really
+            laggy, a lot of glitching". The same shape drawn twice, once offset and translucent, is two ordinary fills.
+            It reads identically at this size and it composites like anything else on the map. */}
         <g fill="rgba(20,20,30,0.22)" transform="translate(0 1.8)">
           <path d={body} />
           <circle cx={0} cy={cy} r={disc} />
@@ -70,13 +64,11 @@ export function Pin({ group, zoom, active, dim, onSelect, landing = false, queue
           fontSize={r * 0.8} fontWeight="600" fill={BRAND}>{initials(lead.name)}</text>
         {lead.photo_url && (
           <image
-            // AT PIN SIZE, NOT AT UPLOAD SIZE. See lib/avatarUrl: forty pins
-            // were pulling about two and a half megabytes of full-resolution
-            // photographs to fill circles 24 units across, which is Ethan's
-            // "it takes a lot of time for the profile pictures to load in on
-            // the pins". 64 is generous for the default zoom and still sharp
-            // deep into one: the pin counter-scales at `zoom^0.3`, so it is
-            // about 72 CSS pixels across at the maximum zoom this map allows.
+            // AT PIN SIZE, NOT AT UPLOAD SIZE. See lib/avatarUrl: forty pins were pulling about two and a half megabytes
+            // of full-resolution photographs to fill circles 24 units across, which is the team's "it takes a lot of
+            // time for the profile pictures to load in on the pins". 64 is generous for the default zoom and still sharp
+            // deep into one: the pin counter-scales at `zoom^0.3`, so it is about 72 CSS pixels across at the maximum
+            // zoom this map allows.
             href={thumbUrl(lead.photo_url, 64)}
             x={-r} y={cy - r} width={r * 2} height={r * 2}
             clipPath="url(#creator-pin-clip)"

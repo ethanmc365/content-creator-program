@@ -2,11 +2,9 @@ import { rewardsTotal } from './programme'
 
 // WHAT IS IN A CREATOR'S VOUCHER WALLET.
 //
-// This lived inline on the Rewards page as a filter with four conditions, one
-// of which was wrong: it required `voucher_code`, so a voucher the team had
-// awarded but not yet typed a code into was in no list at all. Six were in
-// that state in production on 29 Sep 2026 - six creators told they had won a
-// voucher, opening Rewards, and not finding it.
+// This lived inline on the Rewards page as a filter with four conditions, one of which was wrong: it required
+// `voucher_code`, so a voucher the team had awarded but not yet typed a code into was in no list at all. Six were in
+// that state in production - six creators told they had won a voucher, opening Rewards, and not finding it.
 //
 // It is a function with a test now because that failure was invisible: the
 // page rendered perfectly, the rows existed, and the only symptom was an
@@ -22,13 +20,12 @@ export const awaitingCode = (r) =>
   isWalletVoucher(r) && !r.voucher_code?.trim() && r.issued_via !== 'chat'
 
 /**
- * COMBINED VOUCHERS DRAW AS ONE TICKET (29 Sep 2026).
+ * COMBINED VOUCHERS DRAW AS ONE TICKET.
  *
- * Ethan: two EUR 10 vouchers from two challenges become ONE EUR 20 voucher. The
- * rows keep their own challenge and amount (so what each challenge paid out never
- * moves) and share a `voucher_group` and a code; the wallet shows the group as a
- * single ticket worth the sum, with `parts` saying what it is made of.
- * `rewardIds` is every row behind it, which is what a local state update needs.
+ * The team: two EUR 10 vouchers from two challenges become ONE EUR 20 voucher. The rows keep their own challenge and
+ * amount (so what each challenge paid out never moves) and share a `voucher_group` and a code; the wallet shows the
+ * group as a single ticket worth the sum, with `parts` saying what it is made of. `rewardIds` is every row behind it,
+ * which is what a local state update needs.
  */
 export function ticketsOf(rewards) {
   const vouchers = (rewards || []).filter(isWalletVoucher)

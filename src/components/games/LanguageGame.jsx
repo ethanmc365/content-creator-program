@@ -13,18 +13,15 @@ import { gamesApi } from '../../api/games'
 
 // GUESS THE LANGUAGE: read a phrase, name the language. NOW A DAILY PUZZLE.
 //
-// Renamed from "Say hello" at Ethan's request, and the new name is the better
-// one: the old one described the phrases (they are greetings) rather than the
-// task, so a creator scanning the menu could not tell what they were being
-// asked to do.
+// Renamed from "Say hello" at the team's request, and the new name is the better one: the old one described the phrases
+// (they are greetings) rather than the task, so a creator scanning the menu could not tell what they were being asked to
+// do.
 //
-// WHY IT MOVED TO THE DAILY SHELF. It was a practice mode you could replay all
-// evening, which is the format that makes a bank of 34 languages feel finite
-// fast. As one of three puzzles a day it is the opposite: ten phrases, once,
-// the same ten everybody else got, and a leaderboard that means something
-// because everyone answered the same questions. That is Ethan's call and it is
-// the right one - this game was always more of a shared thing to talk about
-// than a score to grind.
+// WHY IT MOVED TO THE DAILY SHELF. It was a practice mode you could replay all evening, which is the format that makes a
+// bank of 34 languages feel finite fast. As one of three puzzles a day it is the opposite: ten phrases, once, the same
+// ten everybody else got, and a leaderboard that means something because everyone answered the same questions. That is
+// the team's call and it is the right one - this game was always more of a shared thing to talk about than a score to
+// grind.
 //
 // The shape is deliberately the opposite way round from the rest of the games
 // here. Flags, airports and currencies all start from a COUNTRY and ask you to
@@ -111,10 +108,6 @@ export default function LanguageGame({ onExit }) {
   const [done, setDone] = useState(stored ? { correct: stored.correct, total: stored.total, timeMs: stored.timeMs } : null)
   const [checking, setChecking] = useState(!stored)
   // NOBODY SCROLLS THE CARD INTO VIEW ANY MORE, AND THAT IS THE FIX.
-  //
-  // Ethan: "when clicking on the language game it immediately opens [part way
-  // down] - it should have been at the top, so I could view the time, the
-  // number of questions, and then still be able to click the phrase."
   //
   // There were TWO mechanisms trying to place this page and they disagreed.
   // Game.jsx scrolls the WINDOW to zero whenever the screen changes, which is
@@ -290,9 +283,8 @@ export default function LanguageGame({ onExit }) {
 
   return (
     <div ref={cardRef} className="space-y-5">
-      {/* The same header every other mode has. This game's own progress bar was
-          the one Ethan liked, so it became the shared one rather than staying
-          the exception. */}
+      {/* The same header every other mode has. This game's own progress bar was the one the team liked, so it became the
+          shared one rather than staying the exception. */}
       <GameChrome
         icon="chat"
         title={tr("Guess the language")}
@@ -307,11 +299,9 @@ export default function LanguageGame({ onExit }) {
       <AnswerFlash
         key={`l${i}`}
         state={picked ? (right ? 'right' : 'wrong') : null}
-        // TIGHTER ON A PHONE. Ethan: "the languages game, making a phrase and
-        // reading it needs a scroll each way." A 40px-padded card holding a
-        // large phrase block, four stacked answers and then an explanation is
-        // well over one screen at 375px, so playing a single question meant
-        // scrolling down to answer and scrolling again to read what it meant.
+        // TIGHTER ON A PHONE. A 40px-padded card holding a large phrase block, four stacked answers and then an
+        // explanation is well over one screen at 375px, so playing a single question meant scrolling down to answer and
+        // scrolling again to read what it meant.
         className="card flex flex-col items-center gap-5 !py-6 text-center sm:gap-7 sm:!py-10"
       >
         <div className="w-full">

@@ -84,12 +84,7 @@ export default function Onboarding() {
 
   // THE DRAFT IS SEEDED ONCE AND THE PROFILE USUALLY ARRIVES AFTER IT.
   //
-  // THE BUG THIS FIXES (7 Sep 2026). Ethan: "whenever someone's completed the
-  // profile they exit the tab after they submit it, and now their profile is
-  // approved and they come back on the tab. It's showing 'Welcome to the team'
-  // and completing the onboarding again, adding profile photo etc. There's a
-  // button to go to review but it still says everything is missing and is
-  // asking me to put it in again."
+  // THE BUG THIS FIXES.
   //
   // Two separate faults, and they compound into exactly that screen.
   //
@@ -104,7 +99,7 @@ export default function Onboarding() {
   //   THE DATE OF BIRTH, which is null on `profiles` FOR EVERYONE, BY DESIGN.
   //   A BEFORE trigger (`mirror_dob_to_private`) copies any dob into
   //   `creator_private.dob`, derives `profiles.age`, and then sets
-  //   `new.dob := null` so the public row never carries a full date of birth.
+  //   `new.dob:= null` so the public row never carries a full date of birth.
   //   So seeding `dob` from `auth.profile.dob` reads null on a finished profile
   //   and `draftProblems` reports "Add your date of birth" for ever. This is
   //   the third time this trigger has done this - it cost EditProfile three
@@ -115,14 +110,11 @@ export default function Onboarding() {
   // few hundred milliseconds before the profile landed. `hydrated` makes it
   // run once whatever else re-renders.
   //
-  // `hydratedDone` IS A SECOND FLAG AND IT IS NOT REDUNDANT (8 Sep 2026).
-  // `hydrated` is set BEFORE the await, because its job is to stop the effect
-  // running twice. `hydratedDone` is set AFTER the row has landed, because the
-  // autosave added today needs a different question answered: "has this form
-  // finished reading what was already saved". Writing the draft to the profile
-  // in the gap between those two would blank a returning applicant's name and
-  // bio with the empty strings the form was still holding. One flag cannot mean
-  // both things.
+  // `hydratedDone` IS A SECOND FLAG AND IT IS NOT REDUNDANT. `hydrated` is set BEFORE the await, because its job is to
+  // stop the effect running twice. `hydratedDone` is set AFTER the row has landed, because the autosave added today
+  // needs a different question answered: "has this form finished reading what was already saved". Writing the draft to
+  // the profile in the gap between those two would blank a returning applicant's name and bio with the empty strings the
+  // form was still holding. One flag cannot mean both things.
   const hydrated = useRef(false)
   const hydratedDone = useRef(false)
   useEffect(() => {
@@ -219,10 +211,7 @@ export default function Onboarding() {
 
   const market = useMemo(() => resolveMarket(draft.country_code, markets || []), [draft.country_code, markets])
 
-  // THE EXAMPLE TOWN IS A TOWN IN THEIR COUNTRY (4 Sep 2026).
-  //
-  // Ethan: "even if I select Portugal as my country, it shows the town example
-  // being Bristol. Shouldn't the example match whatever country they select?"
+  // THE EXAMPLE TOWN IS A TOWN IN THEIR COUNTRY.
   //
   // Yes - a placeholder is an example of the answer, and an English city under
   // a field on a form that has just been told you live in Portugal is an
@@ -271,10 +260,9 @@ export default function Onboarding() {
     })
   }, [user?.id, refreshProfile])
 
-  // A VIP SIGN-UP (2 Oct 2026). The same nine screens and the same profile - the team reads the same
-  // application - but the link they came through makes them a VIP as they finish, and the welcome says so.
-  // Same two sources as the team invite: the profile once the claim has landed, the token put aside by the
-  // sign-up page before there was a session.
+  // A VIP SIGN-UP. The same nine screens and the same profile - the team reads the same application - but the link they
+  // came through makes them a VIP as they finish, and the welcome says so. Same two sources as the team invite: the
+  // profile once the claim has landed, the token put aside by the sign-up page before there was a session.
   const [vipApplication, setVipApplication] = useState(() => {
     try { return !!localStorage.getItem('tryp_vip_invite') } catch { return false }
   })
@@ -292,9 +280,9 @@ export default function Onboarding() {
     })
   }, [user?.id, refreshProfile, demo, auth.profile])
 
-  // THE VIP MARKET, NOT THE COMMUNITY ONE (1 Oct 2026). Ethan signed up on the VIP link, picked his country and was
-  // told "your market is UK & Ireland". A VIP's market is the VIP programme that covers their country (or the default
-  // one): that is what the screen says, and what they are put in when they finish (vip_settle_home, migration 307).
+  // THE VIP MARKET, NOT THE COMMUNITY ONE. The team signed up on the VIP link, picked their country and was told "your
+  // market is UK & Ireland". A VIP's market is the VIP programme that covers their country (or the default one): that is
+  // what the screen says, and what they are put in when they finish (vip_settle_home, migration 307).
   const [vipHome, setVipHome] = useState(null)
   useEffect(() => {
     if (!vipApplication || demo) return undefined
@@ -363,10 +351,6 @@ export default function Onboarding() {
 
   // ------------------------------------------------------------ movement ----
   // THE ANSWERS ARE ON THE PROFILE ROW, AND UNTIL TODAY THEY WERE NOT.
-  //
-  // Ethan, 8 Sep 2026, about the logo above the progress bar: "clicking that
-  // should bring you back to the login sign up page and obviously save their
-  // data if they're entering with the same email."
   //
   // That was already what the screen CLAIMED. The old header said "your answers
   // are saved as you go" and the comment beside its exit link said "nothing is
@@ -438,11 +422,6 @@ export default function Onboarding() {
 
   // LEAVING IS A SAVE, AND THEN IT IS A SIGN-OUT.
   //
-  // Ethan: "we already have that Tryp.com logo in the middle of the screen up
-  // there. Clicking that should bring you back to the login sign up page... in
-  // the top corner we shouldn't have a logout button, because all we need is
-  // that Tryp.com button to work - because that is, like, logging them out."
-  //
   // Order matters and it is the whole of this function: the save has to finish
   // BEFORE the session is torn down, or the write goes out with no auth and RLS
   // refuses it - which would make the one gesture that is supposed to protect
@@ -470,11 +449,10 @@ export default function Onboarding() {
     if (!complete) { setError(tr('There are still a few things to fill in.')); setStep(steps.findIndex((s) => s.key === 'review')); return }
     // THE LAST GATE BEFORE THE WRITE, AND IT SAYS SO IN WORDS.
     //
-    // `problemsFor` already blocks the date-of-birth step, so reaching here
-    // means the date was changed afterwards or the flow was re-entered - and
-    // this is the one refusal on the form that is not "you missed something",
-    // it is "you cannot join yet". That deserves a dialog and a reason rather
-    // than a red line under a field, which is exactly what Ethan asked for.
+    // `problemsFor` already blocks the date-of-birth step, so reaching here means the date was changed afterwards or the
+    // flow was re-entered - and this is the one refusal on the form that is not "you missed something", it is "you
+    // cannot join yet". That deserves a dialog and a reason rather than a red line under a field, which is exactly what
+    // the team asked for.
     const age = ageFromDob(draft.dob)
     if (age != null && age < MIN_AGE) {
       setStep(steps.findIndex((s) => s.key === 'based'))
@@ -507,7 +485,7 @@ export default function Onboarding() {
     if (coords) { update.city_lat = coords.lat; update.city_lng = coords.lng }
 
     // THE SAVE IS CHECKED. IT WAS NOT, AND THAT IS HOW EVERY APPLICATION WAS
-    // LOST FOR A FORTNIGHT (4 Sep 2026).
+    // LOST FOR A FORTNIGHT.
     //
     // This was a bare `await Promise.all([...])` with no reference to the
     // result. supabase-js RESOLVES on a rejected write - the error is a field
@@ -577,20 +555,12 @@ export default function Onboarding() {
   }
 
   // ---------------------------------------------------------------- views ---
-  // ONE SCREEN AFTER SUBMIT, NOT TWO (3 Sep 2026).
+  // ONE SCREEN AFTER SUBMIT, NOT TWO.
   //
-  // Ethan: "for some reason it temporarily shows up that Tryp.com automated
-  // plane, and then it shows up a different screen that says application
-  // submitted. I would just skip that automated plane page and jump to the page
-  // that says application submitted, saying that the admins have been notified
-  // and they will review it."
-  //
-  // He was watching a handover nobody had looked at end to end. This page drew
-  // a flying-plane scene while the save was in flight; the save finished,
-  // `refreshProfile` ran, the router sent him to /home, and ProtectedRoute drew
-  // ITS pending screen - which was a second flying-plane scene with almost the
-  // same sentence on it. Two full-screen animations for one action, with a
-  // navigation between them.
+  // they were watching a handover nobody had looked at end to end. This page drew a flying-plane scene while the save
+  // was in flight; the save finished, `refreshProfile` ran, the router sent them to /home, and ProtectedRoute drew ITS
+  // pending screen - which was a second flying-plane scene with almost the same sentence on it. Two full-screen
+  // animations for one action, with a navigation between them.
   //
   // The in-flight state is now the SAME CARD as the finished one, with a
   // spinner where the tick goes. Nothing swaps, nothing flies, and the only
@@ -622,18 +592,7 @@ export default function Onboarding() {
   return (
     <div className="min-h-screen bg-cloud/50 px-5 py-8 sm:py-14">
       <div className="mx-auto max-w-2xl">
-        {/* THE HEADER ROW IS GONE, AND THE LOGO ABOVE THE BAR IS THE EXIT
-            (8 Sep 2026).
-
-            Ethan: "the back-to-Tryp.com button on the top left shows a really
-            squished Tryp.com logo. This isn't necessary at all. Instead, we
-            already have that Tryp.com logo in the middle of the screen up
-            there - clicking that should bring you back to the login/sign-up
-            page... we don't need that log out button... it doesn't need to say
-            your answers are saved as you go... all we need is that button just
-            above the progress bar, that when clicking it brings you back. Also
-            hovering over that button should raise it so it actually shows that
-            it's a clickable button."
+        {/* THE HEADER ROW IS GONE, AND THE LOGO ABOVE THE BAR IS THE EXIT.
 
             Three controls, two of which said the same thing. A 32px logo beside
             "Back to Tryp.com", a sentence promising an autosave that did not
@@ -654,17 +613,12 @@ export default function Onboarding() {
             writes the draft before it drops the session. See `saveDraft`. */}
         <Progress step={step} total={steps.length} barPct={barPct} current={current} onLeave={leave} leaving={leaving} userId={demo ? null : user?.id} />
 
-        {/* THE CARD DOES NOT REMOUNT AND ITS HEIGHT IS ANIMATED (4 Sep 2026).
-            Ethan: "going from slide to slide, it's like everything seems very
-            juttery - just improve that flow."
-            Two things were juddering and only one of them was the slide. The
-            `key` was on the CARD, so every step tore down and rebuilt the white
-            box itself - border, shadow and all - and the card's HEIGHT then
-            snapped from one step's to the next's in a single frame while the
-            content was still sliding in. A 300px jump under a 320ms slide is
-            the judder. `StepFrame` keeps one card, measures the step inside it
-            and transitions between the two heights on the same curve, so the
-            box grows into the new screen while the new screen arrives. */}
+        {/* THE CARD DOES NOT REMOUNT AND ITS HEIGHT IS ANIMATED. Two things were juddering and only one of them was the
+            slide. The `key` was on the CARD, so every step tore down and rebuilt the white box itself - border, shadow
+            and all - and the card's HEIGHT then snapped from one step's to the next's in a single frame while the
+            content was still sliding in. A 300px jump under a 320ms slide is the judder. `StepFrame` keeps one card,
+            measures the step inside it and transitions between the two heights on the same curve, so the box grows into
+            the new screen while the new screen arrives. */}
         <div className="card !p-6 sm:!p-10">
           <StepFrame stepKey={current.key} dir={dir}>
             <StepHead step={current} pending={pending} team={teamApplication} />
@@ -745,17 +699,11 @@ export default function Onboarding() {
               <div className="space-y-7">
                 <div>
                   <label htmlFor="bio" className="label">{tr("One-line bio")} <Req /></label>
-                  {/* AN <input> HID THE END OF THE SENTENCE (3 Sep 2026).
-                      Ethan: "the one line bio and the favourite quote - the
-                      text is cut off, I don't know how many scroll to the right
-                      there." A single-line input scrolls HORIZONTALLY, so on a
-                      375px screen a 120-character bio is legible about forty
-                      characters at a time and there is no way to see the whole
-                      of what you wrote before submitting it.
-                      It wraps now. It is still ONE line of bio - newlines are
-                      stripped on the way in, because the field's whole promise
-                      is that it fits under a name everywhere - it is simply
-                      allowed to occupy two rows on screen while you write it. */}
+                  {/* AN <input> HID THE END OF THE SENTENCE. A single-line input scrolls HORIZONTALLY, so on a 375px
+                      screen a 120-character bio is legible about forty characters at a time and there is no way to see
+                      the whole of what you wrote before submitting it. It wraps now. It is still ONE line of bio -
+                      newlines are stripped on the way in, because the field's whole promise is that it fits under a name
+                      everywhere - it is simply allowed to occupy two rows on screen while you write it. */}
                   <AutoTextarea
                     id="bio" maxLength={120} minRows={2} className="input leading-relaxed" value={draft.bio}
                     onChange={(e) => set({ bio: e.target.value.replace(/[\r\n]+/g, ' ') })}

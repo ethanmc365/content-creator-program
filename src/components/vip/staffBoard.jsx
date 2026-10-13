@@ -10,14 +10,12 @@ import { PERIODS, periodRange } from '../../lib/analyticsPeriod'
 import { cx, formatDate, formatViews } from '../../lib/utils'
 import { money, vipRpc, useKindT } from '../../lib/vip'
 
-// THE TEAM'S BOARD, OVER ANY DAYS (10 Oct 2026).
+// THE TEAM'S BOARD, OVER ANY DAYS.
 //
-// Ethan: "Marta will need to check the views of the VIP and the official team weekly, so can you add a date filter, last 7
-// days etc." The month's board (podium and prizes) is what creators see and stays the first answer. One press on the
-// picker turns it into the same people ranked by the views they GAINED in the days picked - read from
-// `vip_range_analytics`, the numbers the analytics use - with the change against the stretch before, the videos they
-// posted in it and what the views are worth at their rate. Last week's figures are kept while the next stretch loads, so
-// nothing jumps.
+// The month's board (podium and prizes) is what creators see and stays the first answer. One press on the picker turns
+// it into the same people ranked by the views they GAINED in the days picked - read from `vip_range_analytics`, the
+// numbers the analytics use - with the change against the stretch before, the videos they posted in it and what the
+// views are worth at their rate. Last week's figures are kept while the next stretch loads, so nothing jumps.
 const BOARD_PERIODS = ['this_month', 'last_7', 'this_week', 'last_week', 'last_30', 'last_month', 'custom']
 const PICKER = BOARD_PERIODS.map((k) => PERIODS.find((p) => p.key === k)).filter(Boolean)
 const ymd = (d) => format(d, 'yyyy-MM-dd')

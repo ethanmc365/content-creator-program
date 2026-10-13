@@ -46,11 +46,7 @@ export default function Directory() {
   // "My connections" filter: when on, the map + grid show only the viewer's
   // accepted connections. Mutually exclusive with the travel view for clarity.
   const [connectionsOnly, setConnectionsOnly] = useState(false)
-  // WHO YOU HAVE AND HAVE NOT MET, AS A FILTER OF ITS OWN (2 Sep 2026).
-  //
-  // Ethan: "on the filters I want the option to filter by my connections, or by
-  // people I haven't connected with before, or just everyone. It doesn't seem
-  // to be an option here."
+  // WHO YOU HAVE AND HAVE NOT MET, AS A FILTER OF ITS OWN.
   //
   // Half of it existed and was reachable only from the MAP's view stack (the
   // `connectionsOnly` toggle above) - so the answer to "show me my connections"
@@ -167,12 +163,9 @@ export default function Directory() {
 
   // A FILTER FILTERS THE MAP TOO.
   //
-  // Ethan: "any filters you add should filter not just the creators below but
-  // also the map above." The four fields used to apply to the card grid only,
-  // so choosing "Filter by language: Portuguese" left a map of all 43 pins
-  // sitting above six cards - and the map is the half of this page that answers
-  // "where are the Portuguese speakers", which is the question you were asking
-  // when you picked the filter.
+  // The four fields used to apply to the card grid only, so choosing "Filter by language: Portuguese" left a map of all
+  // 43 pins sitting above six cards - and the map is the half of this page that answers "where are the Portuguese
+  // speakers", which is the question you were asking when you picked the filter.
   //
   // Only the FIELD filters go through here. Who is travelling, near me and my
   // connections are already the map's own controls (it takes them as props and
@@ -237,36 +230,23 @@ export default function Directory() {
   return (
     <div className="page">
       <BackLink />
-      {/* NO "MY CONNECTIONS" BUTTON. It was put here as a door to a page
-          nothing pointed at, which was a real problem at the time and is not
-          one any more: Connections is its own page in its own right, reachable
-          from the avatar menu and from every empty state that has a reason to
-          send you there. Ethan: "we can remove the My connections button at the
-          top - we have its own page for it, we don't need it at the top of the
-          map." A header button that duplicates navigation is a second answer to
-          a question the nav already answers. The map's own "My connections"
-          FILTER stays; that is a different thing, and it narrows this page
-          rather than leaving it. */}
+      {/* NO "MY CONNECTIONS" BUTTON. It was put here as a door to a page nothing pointed at, which was a real problem at
+          the time and is not one any more: Connections is its own page in its own right, reachable from the avatar menu
+          and from every empty state that has a reason to send you there. A header button that duplicates navigation is a
+          second answer to a question the nav already answers. The map's own "My connections" FILTER stays; that is a
+          different thing, and it narrows this page rather than leaving it. */}
       <PageHeader
         title={tr("Creator Network")}
         subtitle={tr("Discover the community. Connect with creators, start conversations, make friends, plan trips together and collab.")}
       />
 
-      {/* THE MAP HAS NO HEADING OF ITS OWN.
-          It had "Creator map" over it in 24px type, which is a label on the one
-          object on the page that needs no label. Ethan: "we don't need a
-          separate title saying creator map, you can remove it. Instead the 45
-          creators from around the world could be a small but long horizontal
-          card above the map, same width."
+      {/* THE MAP HAS NO HEADING OF ITS OWN. It had "Creator map" over it in 24px type, which is a label on the one
+          object on the page that needs no label.
 
-          THE COUNT IS PART OF THE MAP CARD, NOT A STRIP ABOVE IT. It used to be
-          this page's own brand-tinted bar with `rounded-t-card border-b-0`,
-          stacked on a map that draws its own white card with its own grey
-          border - two borders, two colours, two corner radii meeting in the
-          middle. Ethan: "the card above the map where it shows 45 creators
-          around the world does not look right, it's a different colour and it
-          doesn't sit cleanly integrated with the map card." It is passed INTO
-          the map now and drawn inside its frame, so there is one card.
+          THE COUNT IS PART OF THE MAP CARD, NOT A STRIP ABOVE IT. It used to be this page's own brand-tinted bar with
+          `rounded-t-card border-b-0`, stacked on a map that draws its own white card with its own grey border - two
+          borders, two colours, two corner radii meeting in the middle. It is passed INTO the map now and drawn inside
+          its frame, so there is one card.
 
           It still counts WHAT IS ON THE MAP: it used to say "43 creators from
           around the world" over a map showing six of them, which is a caption
@@ -287,10 +267,8 @@ export default function Directory() {
                     handed " creators from around the world" has no sentence to
                     put it in, and Spanish would not agree the verb the same
                     way. The number keeps its weight through a nested span. */}
-                {/* THE SAME NUMBER AS THE WORLDWIDE CARD (3 Oct 2026). Ethan: "167 creators worldwide on the main
-                    card, but on the creator network it shows 175 ... there are obviously inconsistencies." The eight
-                    were the Tryp.com team, who are on the map (pins) but are not creators. Both now count active
-                    creators only: no team, no test accounts, nobody leaving. */}
+                {/* THE SAME NUMBER AS THE WORLDWIDE CARD. The eight were the Tryp.com team, who are on the map (pins)
+                    but are not creators. Both now count active creators only: no team, no test accounts, nobody leaving. */}
                 <span className="text-sm text-smoke">
                   {fieldFilterOn
                     ? (mapCreators.length === 1
@@ -333,13 +311,9 @@ export default function Directory() {
         )}
       </section>
 
-      {/* SEARCH, AND THE FILTERS BEHIND ONE BUTTON (12 Oct 2026). Ethan: "just
-          have Search by Name on one, and then, to the very right of that... a
-          filter button. Clicking that will then show the filters." Four
-          stacked fields were a whole phone screen before the first creator.
-          The panel opens in place under the search (no sheet, so the field
-          dropdowns and the keyboard behave), and the button carries a count
-          of the filters that are on so a filtered list never looks broken. */}
+      {/* SEARCH, AND THE FILTERS BEHIND ONE BUTTON. Four stacked fields were a whole phone screen before the first
+          creator. The panel opens in place under the search (no sheet, so the field dropdowns and the keyboard behave),
+          and the button carries a count of the filters that are on so a filtered list never looks broken. */}
       <div className="mb-3 flex items-center gap-2">
         <div className="relative min-w-0 flex-1">
           <Icon name="magnifier" className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
@@ -407,11 +381,8 @@ export default function Directory() {
         </div>
       )}
 
-      {/* WHO: ONE SCROLLING ROW (12 Oct 2026). Ethan: "Rather than putting
-          'Not connected yet' on a new line, it should just be scrollable to the
-          right." The order and meaning of the four are unchanged (see git
-          history for the reasons): Creators, Tryp.com team, My connections,
-          Not connected yet. */}
+      {/* WHO: ONE SCROLLING ROW. The order and meaning of the four are unchanged (see git history for the reasons):
+          Creators, Tryp.com team, My connections, Not connected yet. */}
       <div className="-mx-4 mb-4 flex gap-1.5 overflow-x-auto scroll-px-4 px-4 pb-1 sm:mx-0 sm:px-0">
         {[
           { key: '', label: tr('Creators') },
@@ -465,20 +436,13 @@ export default function Directory() {
         </div>
       )}
 
-      {/* THERE IS NO TEAM SECTION ABOVE THE GRID ANY MORE (7 Sep 2026).
-          Ethan: "the connections page automatically opens on Creators, as it
-          should - but for some reason it still shows the Tryp.com team at the
-          top. It shouldn't show the Tryp.com team in the creator section. The
-          Tryp.com team should only show up whenever you click on the actual
-          Tryp.com team tab."
+      {/* THERE IS NO TEAM SECTION ABOVE THE GRID ANY MORE.
 
-          He is right, and the section had already been overtaken by its own
-          replacement. It was built when there was no team tab, as the answer to
-          "who runs this" - and then a tab labelled exactly that was added next
-          to it. Keeping both meant the DEFAULT tab, the one called Creators,
-          led with five people who are deliberately filtered out of the list
-          underneath: a tab that shows the thing it excludes. One name, one
-          place, and the tab is the place. */}
+          they are right, and the section had already been overtaken by its own replacement. It was built when there was
+          no team tab, as the answer to "who runs this" - and then a tab labelled exactly that was added next to it.
+          Keeping both meant the DEFAULT tab, the one called Creators, led with five people who are deliberately filtered
+          out of the list underneath: a tab that shows the thing it excludes. One name, one place, and the tab is the
+          place. */}
 
       {loading ? (
         <SkeletonCards count={6} />
@@ -524,13 +488,11 @@ export default function Directory() {
         </Reveal>
       )}
 
-      {/* "WHERE WE HAVE BEEN, TOGETHER" IS NOT A SECOND MAP ANY MORE.
-          There was a whole extra WorldMap here, three screens below the creator
-          map, painting every country anybody in the network has filmed in.
-          Ethan asked for it to become a button on the map that is already on
-          the page, and that is what `exploredOn` drives - see the "Been
-          together" toggle in CreatorMap's filter stack. One atlas, one map, and
-          the answer appears where you are already looking. */}
+      {/* "WHERE WE HAVE BEEN, TOGETHER" IS NOT A SECOND MAP ANY MORE. There was a whole extra WorldMap here, three
+          screens below the creator map, painting every country anybody in the network has filmed in. The team asked for
+          it to become a button on the map that is already on the page, and that is what `exploredOn` drives - see the
+          "Been together" toggle in CreatorMap's filter stack. One atlas, one map, and the answer appears where you are
+          already looking. */}
     </div>
   )
 }

@@ -60,11 +60,9 @@ import { chatApi } from '../../api/chat'
 // grouped index rather than whichever room the router picked, and Calendar
 // comes back into the slot Worldwide vacated.
 const TABS = [
-  // WORLDWIDE, NOT HOME. It was renamed to Home on the cutover, on the argument
-  // that "Home is what a creator calls the page they land on". Ethan tried it
-  // and disagreed: the page IS the worldwide network, the icon is a globe, and
-  // calling it Home made the label the only part of the tab that was not about
-  // the world. Reverted at his request.
+  // WORLDWIDE, NOT HOME. It was renamed to Home on the cutover, on the argument that "Home is what a creator calls the
+  // page they land on". The team tried it and disagreed: the page IS the worldwide network, the icon is a globe, and
+  // calling it Home made the label the only part of the tab that was not about the world. Reverted at their request.
   { to: '/global', label: 'Worldwide', icon: 'globe' },
   { to: '/challenges', label: 'Challenges', icon: 'flag' },
   // /rooms, not /chat. On desktop it forwards straight into the worldwide
@@ -103,13 +101,9 @@ const VIP_HIDDEN = new Set(['/leaderboard', '/refer'])
 
 // WHICH TAB OWNS THE PAGE YOU ARE ON.
 //
-// NavLink's own `isActive` is a path-prefix test, and the rooms do not live
-// under /rooms: on a desktop that tab forwards straight into the worldwide
-// General, so the address becomes /global/chat/general - which /global matches
-// and /rooms does not. Press Rooms, land in a room, and the globe lights up
-// while the rooms icon stays grey. Ethan: "clicking the rooms button still
-// shows it in a way that I'm on worldwide, it doesn't highlight the rooms
-// icon."
+// NavLink's own `isActive` is a path-prefix test, and the rooms do not live under /rooms: on a desktop that tab forwards
+// straight into the worldwide General, so the address becomes /global/chat/general - which /global matches and /rooms
+// does not. Press Rooms, land in a room, and the globe lights up while the rooms icon stays grey.
 //
 // A chat path belongs to Rooms wherever it is mounted, and Worldwide keeps
 // everything else under /global and /c. Exported for the test.
@@ -172,14 +166,11 @@ function ChatSearchField({ target }) {
         value={target.value}
         onChange={(e) => target.onChange(e.target.value)}
         onKeyDown={(e) => { if (e.key === 'Escape') close() }}
-        /* JUST "SEARCH" ON A PHONE. Ethan: "the text that shows inside says
-           'search this' and then the next word is cut off. I would make the
-           text that appears just say search, because that will fit in."
-           The field is what is left of a header row after a logo, an admin
-           pill, a bell and an avatar, so a placeholder naming the room was
-           never going to fit and was clipped mid-word on every phone. The
-           `aria-label` keeps the full sentence, which is where a name for the
-           control actually belongs. */
+        /*
+         * JUST "SEARCH" ON A PHONE. The field is what is left of a header row after a logo, an admin pill, a bell and an
+         * avatar, so a placeholder naming the room was never going to fit and was clipped mid-word on every phone. The
+         * `aria-label` keeps the full sentence, which is where a name for the control actually belongs.
+         */
         placeholder={phone ? tr('Search') : tr('Search {room}', { room: target.label })}
         aria-label={`Search ${target.label}`}
         className="no-ios-zoom min-w-0 flex-1 bg-transparent py-1.5 outline-none placeholder:text-gray-400 focus-visible:ring-0"
@@ -220,14 +211,11 @@ export default function AppLayout() {
     a = requestAnimationFrame(() => { b = requestAnimationFrame(() => setSettling(false)) })
     return () => { cancelAnimationFrame(a); cancelAnimationFrame(b) }
   }, [settling])
-  // MEASURED, NOT ASSUMED (28 Sep 2026, evening). The first version pushed the
-  // header down by the whole frozen scroll distance on the theory that pinning
-  // the body always carries a sticky header off the top. On iOS it does; in
-  // desktop Chrome it does NOT, so the push put the bar in the middle of the
-  // screen above the scrim of every pop-up opened from a scrolled page. Now the
-  // header's real position is read once the page is frozen, and it is moved by
-  // exactly as much as it actually left the top - which is y on one browser and
-  // zero on another.
+  // MEASURED, NOT ASSUMED. The first version pushed the header down by the whole frozen scroll distance on the theory
+  // that pinning the body always carries a sticky header off the top. On iOS it does; in desktop Chrome it does NOT, so
+  // the push put the bar in the middle of the screen above the scrim of every pop-up opened from a scrolled page. Now
+  // the header's real position is read once the page is frozen, and it is moved by exactly as much as it actually left
+  // the top - which is y on one browser and zero on another.
   const headerRef = useRef(null)
   useLayoutEffect(() => {
     const el = headerRef.current
@@ -264,9 +252,8 @@ export default function AppLayout() {
   // Pages that put something at the bottom of the viewport: a chat composer, a
   // DM composer. Anything floating there lands on the send button.
   const hasBottomBar = /^\/(chat|messages|rooms)(\/|$)/.test(pathname) || onNetworkChat
-  // A VIP HAS A VIP TAB WHERE THE CHALLENGES WERE (2 Oct 2026). They are paid by views, so they neither see nor
-  // enter challenges; the tab that would have been theirs is the page that IS theirs. An admin who is also a
-  // VIP keeps the challenges.
+  // A VIP HAS A VIP TAB WHERE THE CHALLENGES WERE. They are paid by views, so they neither see nor enter challenges; the
+  // tab that would have been theirs is the page that IS theirs. An admin who is also a VIP keeps the challenges.
   const isVip = !!profile?.is_vip && !isAdmin
   const vipAccess = useVipAccess(profile?.id, false)
   // The Challenges and DM tabs' first query, run ahead of the tap once the app is idle (lib/warmPages).
@@ -299,15 +286,12 @@ export default function AppLayout() {
 
   // EVERY PAGE OPENS AT ITS TOP.
   //
-  // THE BUG THIS FIXES. React Router keeps the window's scroll offset across a
-  // navigation, and this shell had no scroll restoration of its own - only
-  // NetworkRoute reset it, and only for the routes underneath it. So every
-  // legacy route inherited wherever the previous page happened to be scrolled
-  // to. Two of Ethan's reports are the same fault seen from different pages:
-  // tapping a daily puzzle in the hub's Daily puzzles section (which sits well
-  // down the page) opened /game at that same offset, which lands squarely on
-  // the leaderboard with the puzzle off the top; and /creators opened part-way
-  // down its own grid instead of at the map.
+  // THE BUG THIS FIXES. React Router keeps the window's scroll offset across a navigation, and this shell had no scroll
+  // restoration of its own - only NetworkRoute reset it, and only for the routes underneath it. So every legacy route
+  // inherited wherever the previous page happened to be scrolled to. Two of the team's reports are the same fault seen
+  // from different pages: tapping a daily puzzle in the hub's Daily puzzles section (which sits well down the page)
+  // opened /game at that same offset, which lands squarely on the leaderboard with the puzzle off the top; and /creators
+  // opened part-way down its own grid instead of at the map.
   //
   // It is the shell's job rather than each page's, because it is true of every
   // page: arriving somewhere new means arriving at the top of it.
@@ -317,7 +301,7 @@ export default function AppLayout() {
   // yanking that page back to the top mid-read is its own bug.
   //
   // `behavior: 'instant'`, AND THAT ONE WORD IS THE WHOLE OF THE "IT FLASHES
-  // THE LOADING SCREEN ON MOBILE" REPORT (4 Sep 2026).
+  // THE LOADING SCREEN ON MOBILE" REPORT.
   //
   // This said `behavior: 'auto'`, with a comment above it claiming it was
   // instant. It was not. In the CSSOM spec `auto` does not mean "jump" - it
@@ -344,11 +328,10 @@ export default function AppLayout() {
   // even an instant scroll leaves one painted frame of the new page at the old
   // offset. `useLayoutEffect` runs inside the commit, before the browser paints,
   // so the new page's first frame is its top - there is nothing to see move.
-  // BACK RETURNS YOU TO WHERE YOU WERE (13 Oct 2026). Ethan, swiping out of a room to the rooms list: "the entire page
-  // seems to flash, like to update and it moves slightly". iOS draws the page you are returning to, at the place you
-  // left it, under your finger; then this reset jumped it to the top. A forward visit still starts at the top; a back or
-  // forward (POP) restores the position recorded for that history entry, and re-asserts it briefly while late content
-  // lands, unless the reader has started scrolling.
+  // BACK RETURNS YOU TO WHERE YOU WERE. iOS draws the page you are returning to, at the place you left it, under your
+  // finger; then this reset jumped it to the top. A forward visit still starts at the top; a back or forward (POP)
+  // restores the position recorded for that history entry, and re-asserts it briefly while late content lands, unless
+  // the reader has started scrolling.
   const navType = useNavigationType()
   const { key: locationKey } = useLocation()
   const scrollMemo = useRef(new Map())
@@ -538,13 +521,12 @@ export default function AppLayout() {
       // Moving your own watermark in a group is what clears a group's unread.
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'conversation_members', filter: `profile_id=eq.${user.id}` }, count)
       .subscribe()
-    // Read on the phone, still badged on the laptop: a socket that slept
-    // missed it, so coming back recounts (22 Sep 2026).
+    // Read on the phone, still badged on the laptop: a socket that slept missed it, so coming back recounts.
     const off = onResume(count)
     return () => { off(); supabase.removeChannel(channel) }
   }, [user])
 
-  // THE LOCAL #general PUSH IS GONE (12 Sep 2026).
+  // THE LOCAL #general PUSH IS GONE.
   //
   // It subscribed to `channel=eq.general` and popped an OS notification from
   // the tab, and it was a workaround for a server that only notified two
@@ -614,7 +596,7 @@ export default function AppLayout() {
           notifications, then bank details. */}
       <AddToHomePrompt />
       <BankDetailsPrompt />
-      {/* The live worldwide challenge, for a creator who has not entered it (4 Oct 2026). */}
+      {/* The live worldwide challenge, for a creator who has not entered it. */}
       <AgreementGate />
       <BoostPrompt />
       <VoucherDayPrompt />
@@ -684,17 +666,13 @@ export default function AppLayout() {
         ref={headerRef}
         data-ptr-handle
         className={cx(
-          // NO BLUR ON THE STICKY HEADER (9 Oct 2026). A backdrop blur on an element that stays put while the page scrolls under it is
-          // re-computed on every frame of every scroll, on every page, on a phone's GPU - a large part of "the whole platform is a
-          // bit laggy". At 95% white the blur was invisible anyway.
-          // GLASS, THE APPLE WAY (12 Oct 2026). Ethan: "whenever you're
-          // scrolling through stuff, it's like slightly transparent... it should
-          // be slightly less transparent, and maybe more glassy." 95% white with
-          // no blur let sharp text show through the bar - see-through, not
-          // glass. `.glass-bar` (index.css) is the iOS material: a strong blur
-          // with boosted saturation over ~78% white, so what passes underneath
-          // reads as soft colour. The 9 Oct cost note stands; the blur is
-          // confined to this one 56px strip and dropped under reduced motion.
+          // NO BLUR ON THE STICKY HEADER. A backdrop blur on an element that stays put while the page scrolls under it
+          // is re-computed on every frame of every scroll, on every page, on a phone's GPU - a large part of "the whole
+          // platform is a bit laggy". At 95% white the blur was invisible anyway.
+          // GLASS, THE APPLE WAY. 95% white with no blur let sharp text show through the bar - see-through, not glass.
+          // `.glass-bar` (index.css) is the iOS material: a strong blur with boosted saturation over ~78% white, so what
+          // passes underneath reads as soft colour. The 9 Oct cost note stands; the blur is confined to this one 56px
+          // strip and dropped under reduced motion.
           'glass-bar sticky top-0 z-40 border-b border-black/[0.06]',
           // SAME DURATION AND SAME CURVE AS THE CHAT OVERLAY'S TOP EDGE.
           // They are one movement - the header goes up and the conversation
@@ -703,7 +681,7 @@ export default function AppLayout() {
           // the header on its own layer so the slide never waits on a paint of
           // the page behind it.
           'duration-[280ms] ease-[cubic-bezier(0.32,0.72,0,1)] [will-change:transform]',
-          // A DM thread opens with the header already away: no slide for a header the reader never saw go (13 Oct 2026).
+          // A DM thread opens with the header already away: no slide for a header the reader never saw go.
           chatChromeFlipInstant() ? 'transition-none' : 'transition-transform',
           chromeHidden && '-translate-y-full',
         )}
@@ -712,8 +690,8 @@ export default function AppLayout() {
         // that strip with its own colour. Zero everywhere else.
         style={{
           paddingTop: 'env(safe-area-inset-top)',
-          // THE BAR STAYS WHILE A POP-UP IS OPEN (28 Sep 2026). The push-back
-          // is measured in the layout effect above (headerRef), not assumed.
+          // THE BAR STAYS WHILE A POP-UP IS OPEN. The push-back is measured in the layout effect above (headerRef), not
+          // assumed.
           ...(lockedY || settling ? { transition: 'none' } : null),
         }}
       >
@@ -731,11 +709,10 @@ export default function AppLayout() {
           <nav className="hidden items-center gap-2 lg:flex" aria-label={tr("Main")}>
             {tabs.map((item) => (
               <NavLink key={item.to} to={item.to} className={navLinkClass(item.to)} data-tour={tourAnchor(item.to)}>
-                {/* THE BADGE HANGS FROM THE ICON, NOT FROM THE LINK (30 Sep 2026). It was positioned
-                    against the whole link (`right-2`), so it sat at a fixed distance from the RIGHT
-                    EDGE - and a longer label in another language ("Mensajes", "Nachrichten")
-                    pushed that edge away from the icon. Ethan: the orange dot shows "up away from
-                    the icons because the different languages' UI are slightly different." */}
+                {/* THE BADGE HANGS FROM THE ICON, NOT FROM THE LINK. It was positioned against the whole link
+                    (`right-2`), so it sat at a fixed distance from the RIGHT EDGE - and a longer label in another
+                    language ("Mensajes", "Nachrichten") pushed that edge away from the icon. The team: the orange dot
+                    shows "up away from the icons because the different languages' UI are slightly different." */}
                 <span className="relative inline-flex">
                   <Icon name={item.icon} className="h-5 w-5" />
                   {item.to === '/messages' && dmUnread > 0 && (
@@ -758,11 +735,10 @@ export default function AppLayout() {
                 {tr(item.label)}
               </NavLink>
             ))}
-            {/* THE VIP COMMUNITY, AS A TAB, FOR THE TEAM. Ethan (1 Oct 2026): "Maybe just to the right of calendar."
-                And (2 Oct): "it opens a VIP in a test preview, but I want it to be the actual VIP view." So it no
-                longer signs into the sandbox VIP: it is a plain link to /vip, which for the team draws each market's
-                REAL VIP page (pages/VipHub, staff mode, migration 310). Desktop only - a phone has no room for a
-                sixth tab, and VIP tools links to the same page there. */}
+            {/* THE VIP COMMUNITY, AS A TAB, FOR THE TEAM. And (2 Oct): "it opens a VIP in a test preview, but I want it
+                to be the actual VIP view." So it no longer signs into the sandbox VIP: it is a plain link to /vip, which
+                for the team draws each market's REAL VIP page (pages/VipHub, staff mode, migration 310). Desktop only -
+                a phone has no room for a sixth tab, and VIP tools links to the same page there. */}
             {vipAccess && !isVip && !impersonating && (
               <NavLink to="/vip" className={navLinkClass('/vip')} title={tr('The VIP community')}>
                 <span className="relative inline-flex"><Icon name="star" className="h-5 w-5" /></span>
@@ -780,9 +756,9 @@ export default function AppLayout() {
                 chrome above a conversation was costing more than it earned. See
                 lib/chatSearch: the room registers itself while it is open, so
                 this is a chat search only while there is a chat to search. */}
-            {/* ONLY BELOW lg (3 Oct 2026). A desktop room already has its own search bar above the thread, so
-                the header keeps the platform-wide palette and its ⌘K there - swapping it for a second room search
-                made the header jump narrower every time Rooms opened. */}
+            {/* ONLY BELOW lg. A desktop room already has its own search bar above the thread, so the header keeps the
+                platform-wide palette and its ⌘K there - swapping it for a second room search made the header jump
+                narrower every time Rooms opened. */}
             {chatSearch && (
               <div className="flex min-w-0 items-center lg:hidden">
                 <ChatSearchField target={chatSearch} />
@@ -802,11 +778,11 @@ export default function AppLayout() {
             </button>
             {/* Admin shortcut. Visible on mobile too (creators never see it) so
                 admins can reach the panel straight from the top bar. */}
-            {/* PHONE AND TABLET ONLY (4 Oct 2026). On a desktop the VIP tab beside Calendar is the same door, so this
-                second VIP button next to Admin was a duplicate and is gone there. */}
+            {/* PHONE AND TABLET ONLY. On a desktop the VIP tab beside Calendar is the same door, so this second VIP
+                button next to Admin was a duplicate and is gone there. */}
             {/* The VIP tools door: only for the owner and the people they added to the programme (migration 296).
-                ON A PHONE TOO, BESIDE ADMIN (2 Oct 2026). Ethan: the VIP tools should be "accessible on mobile for admins
-                via a button at the top beside 'Admin'". It opens the VIP page on its tools view. */}
+                ON A PHONE TOO, BESIDE ADMIN. The team: the VIP tools should be "accessible on mobile for admins via a
+                button at the top beside 'Admin'". It opens the VIP page on its tools view. */}
             {vipAccess && !impersonating && (
               // On a phone both doors are round icon buttons, so the avatar never gets pushed off the bar.
               <Link to="/vip?mode=tools" aria-label={tr('VIP tools')} title={tr('VIP tools')} className="flex h-8 w-8 shrink-0 items-center justify-center gap-1.5 rounded-full border border-brand text-xs font-semibold text-brand transition-all duration-200 hover:-translate-y-px hover:bg-brand hover:text-white min-[440px]:h-auto min-[440px]:w-auto min-[440px]:px-3 min-[440px]:py-1.5 sm:px-4 lg:hidden">
@@ -854,9 +830,9 @@ export default function AppLayout() {
                       the directory with a role on their card, not a separate
                       page you have to know about. See Directory. */}
                   {!isVip && <Link to="/milestones" onClick={() => setMenuOpen(false)} className="block rounded-xl px-3 py-2.5 text-sm hover:bg-cloud">{tr("Milestones")}</Link>}
-                  {/* THE VIP COMMUNITY, FOR EVERYONE TO SEE (7 Oct 2026). Ethan wanted the general community to know it
-                      exists. A creator who is not a VIP gets the locked page with how places are earned; the team gets
-                      the VIP page itself. */}
+                  {/* THE VIP COMMUNITY, FOR EVERYONE TO SEE. The team wanted the general community to know it exists. A
+                      creator who is not a VIP gets the locked page with how places are earned; the team gets the VIP
+                      page itself. */}
                   {!isVip && (
                     <Link to="/vip" onClick={() => setMenuOpen(false)} className="flex items-center justify-between rounded-xl px-3 py-2.5 text-sm hover:bg-cloud">
                       {tr("VIP community")}
@@ -864,8 +840,9 @@ export default function AppLayout() {
                     </Link>
                   )}
                   {isVip && <Link to="/vip?tab=payouts" onClick={() => setMenuOpen(false)} className="block rounded-xl px-3 py-2.5 text-sm hover:bg-cloud">{isOfficialCreator ? tr('Payouts') : tr("VIP payouts")}</Link>}
-                  {/* CREATING FOR ANOTHER MARKET (10 Oct 2026). Ethan: the request to join another market was "quite hidden". It is one
-                      press here now, for every approved creator who is not on a paid programme (their market is set by the team). */}
+                  {/* CREATING FOR ANOTHER MARKET. The team: the request to join another market was "quite hidden". It is
+                      one press here now, for every approved creator who is not on a paid programme (their market is set
+                      by the team). */}
                   {!isVip && !isAdmin && ['active', 'muted'].includes(profile?.status) && (
                     <button type="button" onClick={() => { setMenuOpen(false); openJoinMarket() }} className="flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-left text-sm hover:bg-cloud">
                       {tr('Join another market')}
@@ -883,21 +860,12 @@ export default function AppLayout() {
                       avatar is where navigation belongs, it is one thumb-reach
                       from anywhere, and it works on every page rather than only
                       on the hub.
-                      AND ON A DESKTOP TOO, NOW. This used to be `lg:hidden`, on
-                      the reasoning that a desktop has the rail on the Worldwide
-                      hub and two lists of the same ten links on one screen is
-                      duplication. That is true on the hub and false everywhere
-                      else, which is most of the app: from a challenge, a chat,
-                      the flight log or the admin panel there was no way to reach
-                      the collab board or the community board at all without
-                      going back to Worldwide first. Ethan: "as well as
-                      everything showing up under explore the community on the
-                      worldwide page, they should still show up on the profile
-                      dropdown menu when clicked, this is for desktop as I think
-                      they already do on mobile."
-                      The rail and the menu read the same list from
-                      lib/networkLinks, in the reader's own saved order, so the
-                      two can never drift apart. */}
+                      AND ON A DESKTOP TOO, NOW. This used to be `lg:hidden`, on the reasoning that a desktop has the
+                      rail on the Worldwide hub and two lists of the same ten links on one screen is duplication. That is
+                      true on the hub and false everywhere else, which is most of the app: from a challenge, a chat, the
+                      flight log or the admin panel there was no way to reach the collab board or the community board at
+                      all without going back to Worldwide first. The rail and the menu read the same list from
+                      lib/networkLinks, in the reader's own saved order, so the two can never drift apart. */}
                   <div>
                       <p className="px-3 pb-1 pt-3 text-[11px] font-semibold uppercase tracking-wide text-gray-400">{tr("Explore the community")}</p>
                       {menuLinks.map((l) => (
@@ -907,7 +875,8 @@ export default function AppLayout() {
                           onClick={() => setMenuOpen(false)}
                           className="flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm hover:bg-cloud"
                         >
-                          {/* Brand orange, not grey (13 Oct 2026): "those icons, which are really grey, might be better if they were just orange to make them stand out more." */}
+                          {/* Brand orange, not grey: "those icons, which are really grey, might be better if they were
+                              just orange to make them stand out more." */}
                           <Icon name={l.icon} className="h-4 w-4 shrink-0 text-brand" />
                           <span className="min-w-0 flex-1 truncate">{tr(l.label)}</span>
                           {l.badge === 'connections' && connReqs > 0 && (
@@ -920,16 +889,9 @@ export default function AppLayout() {
                   </div>
 
                   <div className="my-1 border-t border-gray-100" />
-                  {/* TWO DIFFERENT THINGS, NEXT TO EACH OTHER ON PURPOSE
-                      (7 Sep 2026). "Help us improve" is a suggestion box that
-                      points AT us; "Get help" is a person who answers, and
-                      until now the platform had only the first one. Ethan:
-                      "we have the Help us improve section - maybe an actual
-                      help section where we have the whole Tryp.com team listed
-                      there, and they can specifically click to DM them... in
-                      case anyone's struggling and doesn't want to ask in the
-                      chat." Get help leads, because somebody stuck is in more
-                      of a hurry than somebody with an idea. */}
+                  {/* TWO DIFFERENT THINGS, NEXT TO EACH OTHER ON PURPOSE. "Help us improve" is a suggestion box that
+                      points AT us; "Get help" is a person who answers, and until now the platform had only the first
+                      one. Get help leads, because somebody stuck is in more of a hurry than somebody with an idea. */}
                   <Link to="/updates" onClick={() => setMenuOpen(false)} className="flex items-center justify-between rounded-xl px-3 py-2.5 text-sm hover:bg-cloud">
                     {tr("What's new")}
                     {newUpdates && <span className="h-2 w-2 shrink-0 rounded-full bg-brand" aria-label={tr("New")} />}
@@ -939,8 +901,9 @@ export default function AppLayout() {
                   <div className="my-1 border-t border-gray-100" />
                   {isAdmin && <Link to="/admin" onClick={() => setMenuOpen(false)} className="block rounded-xl px-3 py-2.5 text-sm font-medium text-brand hover:bg-cloud">{tr("Admin panel")}</Link>}
                   {vipAccess && <Link to="/vip?mode=tools" onClick={() => setMenuOpen(false)} className="block rounded-xl px-3 py-2.5 text-sm font-medium text-brand hover:bg-cloud">{tr("VIP tools")}</Link>}
-                  {/* ORANGE LIKE THE TWO ABOVE IT (13 Oct 2026). Ethan: a red Log out under two orange links "kind of flashes, and it
-                      looks really odd". It stands apart by its icon and its place at the foot, not by a second colour. */}
+                  {/* ORANGE LIKE THE TWO ABOVE IT. The team: a red Log out under two orange links "kind of flashes, and
+                      it looks really odd". It stands apart by its icon and its place at the foot, not by a second
+                      colour. */}
                   <button onClick={handleSignOut} className="flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-left text-sm font-medium text-brand hover:bg-cloud">
                     {tr("Log out")}
                     <Icon name="exit" className="h-4 w-4 shrink-0" />
@@ -989,43 +952,37 @@ export default function AppLayout() {
           Bottom padding includes the iPhone home-indicator safe area so the
           tabs sit higher and stay easily tappable.
 
-          IT CAME OFF THE BOTTOM OF THE SCREEN AND WALKED UP THE PAGE
-          (9 Sep 2026, second report). Ethan, with a photograph of it sitting
-          across the middle of the hub: "the worldwide, challenges, rooms bar
-          suddenly started, as I scrolled, going up through the screen,
-          covering things. It looks really weird. Obviously that should never
-          happen. I told you about it before and you didn't really know how to
-          fix it, and you obviously didn't, because it happened again."
+          IT CAME OFF THE BOTTOM OF THE SCREEN AND WALKED UP THE PAGE (second report).
 
           Fair. Last time I looked for the cause and could not find one, and
           shipped nothing. Everything that can detach a `position: fixed`
           element is removed this time, whichever of them it actually was:
 
           1. A TRANSFORMED ANCESTOR. `position: fixed` resolves against the
-             nearest ancestor carrying a transform, filter, perspective or
-             `will-change` - and against one of those it is not fixed to the
-             screen at all, it is fixed to that box, which scrolls. Nothing in
-             this tree has one TODAY (`page-in` is deliberately opacity-only,
-             see tailwind.config.js), and nothing can be allowed to acquire one
-             tomorrow either: the bar is PORTALLED to the body, so the entire
-             app tree stops being its ancestry. React context crosses a portal,
-             so `NavLink` and the router are unaffected.
+          nearest ancestor carrying a transform, filter, perspective or
+          `will-change` - and against one of those it is not fixed to the
+          screen at all, it is fixed to that box, which scrolls. Nothing in
+          this tree has one TODAY (`page-in` is deliberately opacity-only,
+          see tailwind.config.js), and nothing can be allowed to acquire one
+          tomorrow either: the bar is PORTALLED to the body, so the entire
+          app tree stops being its ancestry. React context crosses a portal,
+          so `NavLink` and the router are unaffected.
 
           2. `backdrop-filter` ON A FIXED ELEMENT. This is a known WebKit
-             compositing failure and it produces exactly the photograph: the
-             blurred layer is promoted, and Safari then fails to re-pin it
-             during a scroll that also moves the address bar, so it rides up
-             with the content. It is also the change that costs nothing to
-             make - the ground was already `bg-white/95`, and a 5% window onto
-             a blur is not a design, it is a rounding error. Opaque white.
+          compositing failure and it produces exactly the photograph: the
+          blurred layer is promoted, and Safari then fails to re-pin it
+          during a scroll that also moves the address bar, so it rides up
+          with the content. It is also the change that costs nothing to
+          make - the ground was already `bg-white/95`, and a 5% window onto
+          a blur is not a design, it is a rounding error. Opaque white.
 
           3. NO LAYER OF ITS OWN. `translateZ(0)` is the oldest fix in iOS web
-             development for a fixed element that lags or jumps while
-             scrolling, and it is the right one once (2) is gone: the bar gets
-             a compositing layer that is pinned by the compositor rather than
-             re-rasterised per frame by the main thread. The keyboard slide
-             composes into the SAME property so there are never two mechanisms
-             writing one transform. */}
+          development for a fixed element that lags or jumps while
+          scrolling, and it is the right one once (2) is gone: the bar gets
+          a compositing layer that is pinned by the compositor rather than
+          re-rasterised per frame by the main thread. The keyboard slide
+          composes into the SAME property so there are never two mechanisms
+          writing one transform. */}
       {createPortal(
         <nav
         ref={tabBarRef}
@@ -1037,9 +994,9 @@ export default function AppLayout() {
         aria-hidden={keyboardOpen}
         aria-label={tr("Mobile")}
       >
-        {/* EXACTLY 4.5rem (13 Oct 2026). Every phone layout over this bar (the DM list, the rooms, the chat overlays) leaves
-            4.5rem + the safe area for it, and the bar itself came out 66px, so each of them stopped 6px above its top line:
-            Ethan saw DM rows "cutting out just before it reaches the line above the footer". The bar is now the height
+        {/* EXACTLY 4.5rem. Every phone layout over this bar (the DM list, the rooms, the chat overlays) leaves 4.5rem +
+            the safe area for it, and the bar itself came out 66px, so each of them stopped 6px above its top line: the
+            team saw DM rows "cutting out just before it reaches the line above the footer". The bar is now the height
             everything else already assumes (the 1px border included). */}
         <div className="mx-auto flex h-[calc(4.5rem-1px)] max-w-lg items-center justify-around px-0.5 pb-1 pt-1.5">
           {tabs.map((tab) => (

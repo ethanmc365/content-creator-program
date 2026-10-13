@@ -5,12 +5,8 @@ import { useT } from '../lib/i18n'
 
 // A ROW YOU SWIPE, WITH THE ARROWS A DESKTOP EXPECTS.
 //
-// Ethan (9 Sep 2026), three times in one message: "on the how it works, the way
-// you can scroll to the right - I really like how you built that in, and I want
-// that built in more"; "why creators join - again, this should be that same
-// scrolling feature"; "recently active creators - have it as a swiping thing as
-// well, and make sure you can see at least part of one more creator so they
-// know they can scroll."
+// ; "why creators join - again, this should be that same scrolling feature"; "recently active creators - have it as a
+// swiping thing as well, and make sure you can see at least part of one more creator so they know they can scroll."
 //
 // So it is one component rather than three copies of the same eleven Tailwind
 // classes. The rail was invented for "How it works" and it worked for one
@@ -182,9 +178,9 @@ export function Rail({ children, className = '', itemClassName = '', gap = 'gap-
         role="group"
         aria-label={label}
         className={cx(
-          // THE TOP PADDING IS THE ROOM THE HOVER NEEDS (4 Oct 2026). A card lifts 5px and grows 2% on hover, and the step badge
-          // already hangs 12px above it; a scroller clips whatever leaves it, so with 16px the top of the badge was cut off.
-          // The -mt-3 gives the extra padding back, so the page layout is exactly what it was.
+          // THE TOP PADDING IS THE ROOM THE HOVER NEEDS. A card lifts 5px and grows 2% on hover, and the step badge
+          // already hangs 12px above it; a scroller clips whatever leaves it, so with 16px the top of the badge was cut
+          // off. The -mt-3 gives the extra padding back, so the page layout is exactly what it was.
           '-mx-5 -mt-3 flex snap-x snap-mandatory overflow-x-auto px-5 pb-3 pt-7 sm:-mx-8 sm:px-8',
           // SCROLL PADDING, OR THE RAIL EATS ITS OWN LEFT GUTTER.
           //

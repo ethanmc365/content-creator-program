@@ -2,12 +2,6 @@ import { useMemo, useSyncExternalStore } from 'react'
 
 // THE PLATFORM, IN MORE THAN ONE LANGUAGE.
 //
-// Ethan: "create the full Spanish translation for the entire platform... this
-// needs to be toggleable in settings. Maybe just a new languages page would
-// work best. Ensure you translate everything correctly, use proper tools, and
-// don't do any weird Spanish things that wouldn't make sense to a Spanish
-// person."
-//
 // THE KEY IS THE ENGLISH SENTENCE. There are no `settings.account.title` keys
 // anywhere in this codebase and there never will be, because a key like that
 // has to be invented, agreed, and then kept in step with the words it stands
@@ -34,9 +28,8 @@ import { useMemo, useSyncExternalStore } from 'react'
 
 // ADDING A LANGUAGE IS ADDING A ROW HERE AND A FILE IN `src/locales`.
 //
-// Ethan asked for German to be "trivial to add" and then for German, Portuguese
-// and Romanian outright. It was nearly trivial already - that is what keying on
-// the English sentence buys - and these two lists are the whole of it. Nothing
+// The team asked for German to be "trivial to add" and then for German, Portuguese and Romanian outright. It was nearly
+// trivial already - that is what keying on the English sentence buys - and these two lists are the whole of it. Nothing
 // else in the app knows how many languages there are.
 //
 // ORDER IS ENGLISH FIRST, THEN THE MARKETS IN THE ORDER THEY OPENED. Not
@@ -240,11 +233,9 @@ export function t(en, vars) {
 }
 
 /**
- * `t`, for a language that is NOT the one the app is showing (30 Sep 2026).
- * A certificate can be saved in a creator's other language, and an admin
- * reviews every version, so its fixed words ("Awarded", "Certificate ID")
- * have to be read out of another dictionary without switching the whole app.
- * The same three-step lookup as `t`: override, bundled, English. Call
+ * `t`, for a language that is NOT the one the app is showing. A certificate can be saved in a creator's other language,
+ * and an admin reviews every version, so its fixed words ("Awarded", "Certificate ID") have to be read out of another
+ * dictionary without switching the whole app. The same three-step lookup as `t`: override, bundled, English. Call
  * `loadLocale(code)` (and `loadOverrides`) first, or you get English.
  */
 export function tIn(code, en, vars) {

@@ -16,11 +16,7 @@ export const BRAND_LIGHT = '#f5853f'
 
 export const LAND = '#ECECEE'
 
-// TWO TINTS THAT HAVE TO BE TELLABLE APART (4 Sep 2026).
-//
-// Ethan: "in Tryp.com orange we could have the countries that everyone lives
-// in, and then in the lighter orange that we currently have, it could be for
-// all the countries we've travelled to."
+// TWO TINTS THAT HAVE TO BE TELLABLE APART.
 //
 // They were #f9c9a7 and #fbd9c8 - two steps of cream about four percent of
 // lightness apart. On a screen, next to each other, over a grey continent, that
@@ -44,21 +40,14 @@ export const EXPLORED = '#fce1d0'
 // speed, with NO clamping - clamping was what made short hops crawl and long
 // hops race. Speed is in projection units per second.
 //
-// 10 -> 24 (10 Sep 2026). Ethan: "it shows the community map and it's just
-// frozen, the planes aren't animating." Half of that was the arrival being over
-// before he arrived (see `seen` below) and half of it was arithmetic: the
-// viewBox is 880 units across a 1440px map, so a unit is about 1.6 pixels and
-// 10 units a second is SIXTEEN PIXELS A SECOND. A transatlantic hop took 33
-// seconds. Watch that for two seconds - which is what anybody scrolling past
-// does - and the aircraft has moved 32px, which is indistinguishable from
-// stopped. At 24 the same hop is 14 seconds and the movement reads as flight
-// without turning the map into a screensaver.
+// 10 -> 24. Half of that was the arrival being over before he arrived (see `seen` below) and half of it was arithmetic:
+// the viewBox is 880 units across a 1440px map, so a unit is about 1.6 pixels and 10 units a second is SIXTEEN PIXELS A
+// SECOND. A transatlantic hop took 33 seconds. Watch that for two seconds - which is what anybody scrolling past does -
+// and the aircraft has moved 32px, which is indistinguishable from stopped. At 24 the same hop is 14 seconds and the
+// movement reads as flight without turning the map into a screensaver.
 export const PLANE_SPEED = 24
 
-// SPEED IS A SCREEN SPEED, SO THE LENGTH HAS TO BE A SCREEN LENGTH (12 Sep 2026).
-//
-// Ethan, of a market map: "it shows plane animation between each but because
-// the pins are so close, it's super laggy, the planes are flying really fast."
+// SPEED IS A SCREEN SPEED, SO THE LENGTH HAS TO BE A SCREEN LENGTH.
 //
 // Every length in this file comes out of `projection(...)`, which is the map at
 // zoom 1. `ZoomableGroup` then applies `scale(zoom)` to the whole group, so at
@@ -94,11 +83,7 @@ export function quadLength(ax, ay, cx, cy, bx, by, steps = 24) {
 // Europe) stay tidy. The dashed line still connects EVERY town - only the plane
 // count is thinned.
 //
-// ON SCREEN, NOT IN PROJECTION UNITS, for the reason above. Ethan: "for the
-// markets, we don't need the plane animation for ones that are close by, only
-// the ones further away - for example they could be in the Romanian market but
-// living in the UK now, in that case a plane animation at the correct speed
-// similar to the creator network map would be great."
+// ON SCREEN, NOT IN PROJECTION UNITS, for the reason above.
 //
 // Measured in projection units this threshold could never express that: six
 // creators around Bucharest are one or two units apart, which is under 90 - so
@@ -138,7 +123,7 @@ export const MAX_PLANES = 7
 //    four anyway, so a town of thirty said no more than a town of five.
 //
 // 3. A STACK OF OVERLAPPING FACES. Compact - the width barely moved with the
-//    count - but Ethan's verdict was the one that matters: the faces sit on top
+//    count - but the team's verdict was the one that matters: the faces sit on top
 //    of each other, so you cannot actually SEE anybody, and a map whose pins are
 //    hard to read is a worse map than one that admits it is showing a summary.
 //
@@ -261,9 +246,7 @@ export const TRIP_HORIZON_DAYS = 90
 // AND STABLE DEFAULTS FOR THE COLLECTION PROPS, FOR THE SAME REASON ONE LINE UP
 // - except that getting this wrong did not cost a re-parse, it froze the app.
 //
-// THE BUG (18 Sep 2026). Ethan: "if you click on any country in the 'your
-// markets' section, it opens and then you are stuck there, none of the other
-// buttons function any more, no matter what you click."
+// THE BUG.
 //
 // `trips = {}` in the parameter list is a fresh object on EVERY render, and
 // MarketMap is the one caller that does not pass `trips` - the market page has
@@ -285,13 +268,10 @@ export const NO_TRIPS = {}
 
 export const NO_CREATORS = []
 
-// Behind the slow-signal gate (components/SlowMapGate, 2 Oct 2026).
-// THE PIN PHOTOS START DOWNLOADING WITH THE LIST, NOT WITH THE PINS (12 Oct
-// 2026). Ethan: "whenever the map originally loads in, it loads in with no
-// profile pictures first." The pins wait for the atlas, and only then did their
-// <image> elements ask for the photos - so every pin showed initials for a
-// beat. Warming the same 64px thumbnails into the browser cache the moment the
-// creators arrive means most are already there when the pins draw.
+// Behind the slow-signal gate (components/SlowMapGate).
+// THE PIN PHOTOS START DOWNLOADING WITH THE LIST, NOT WITH THE PINS. The pins wait for the atlas, and only then did
+// their <image> elements ask for the photos - so every pin showed initials for a beat. Warming the same 64px thumbnails
+// into the browser cache the moment the creators arrive means most are already there when the pins draw.
 export const warmed = new Set()
 
 export function warmPinPhotos(list) {

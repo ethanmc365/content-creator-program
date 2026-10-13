@@ -72,10 +72,10 @@ const RichEditable = forwardRef(function RichEditable(
 
   useEffect(() => { syncEmpty(initialMd) }, [seed, initialMd, syncEmpty])
 
-  // A LONG DOCUMENT IS NOT RE-READ ON EVERY KEYSTROKE (9 Oct 2026). `fireChange` turns the WHOLE page back into markdown and
-  // hands it to the parent, which re-renders; on the agreement texts (many pages) that is the lag Ethan felt while typing.
-  // With `changeDelay` the work waits for a pause in typing, and is flushed at once when the editor loses focus (so pressing
-  // Save never reads a stale copy) and when it goes away. Callers that pass nothing behave exactly as before.
+  // A LONG DOCUMENT IS NOT RE-READ ON EVERY KEYSTROKE. `fireChange` turns the WHOLE page back into markdown and hands it
+  // to the parent, which re-renders; on the agreement texts (many pages) that is the lag the team felt while typing.
+  // With `changeDelay` the work waits for a pause in typing, and is flushed at once when the editor loses focus (so
+  // pressing Save never reads a stale copy) and when it goes away. Callers that pass nothing behave exactly as before.
   const pending = useRef(0)
   const flush = useCallback(() => {
     if (!pending.current) return
@@ -145,9 +145,8 @@ const RichEditable = forwardRef(function RichEditable(
 
   // A HEADING FOLLOWS THE SELECTION, NOT THE LINE.
   //
-  // Bold and italic touch exactly what is highlighted, and Ethan's report was
-  // that H did not: highlight one word in a sentence, press H, and the whole
-  // sentence became the heading. "It should be the exact same function."
+  // Bold and italic touch exactly what is highlighted, and the team's report was that H did not: highlight one word in a
+  // sentence, press H, and the whole sentence became the heading. "It should be the exact same function."
   //
   // It cannot literally be the same function - a heading is a block element in
   // both HTML and markdown, there is no such thing as half a line of <h1> - so
@@ -331,14 +330,11 @@ const RichEditable = forwardRef(function RichEditable(
 
   // DRAGGING INSIDE A GROWN COMPOSER SCROLLS IT. WE DO IT OURSELVES.
   //
-  // Ethan, again, about the DMs and the groups: "unable to scroll inside the
-  // text box". `overflow-y: auto` + `overscroll-behavior: contain` + `pan-y` is
-  // the correct CSS and it is already there - but none of it wins the argument
-  // on a phone, because a touch-drag that STARTS inside a FOCUSED
-  // contenteditable is claimed by the platform's text-selection and
-  // caret-dragging gesture before scrolling is ever considered. In a DM the box
-  // is focused almost all the time (you tapped it to type), which is exactly
-  // why this reads as a DM and group bug rather than a chat one.
+  // `overflow-y: auto` + `overscroll-behavior: contain` + `pan-y` is the correct CSS and it is already there - but none
+  // of it wins the argument on a phone, because a touch-drag that STARTS inside a FOCUSED contenteditable is claimed by
+  // the platform's text-selection and caret-dragging gesture before scrolling is ever considered. In a DM the box is
+  // focused almost all the time (you tapped it to type), which is exactly why this reads as a DM and group bug rather
+  // than a chat one.
   //
   // So the drag is handled here: move the content by hand, and preventDefault
   // so the platform does not also start selecting. Only while the box actually

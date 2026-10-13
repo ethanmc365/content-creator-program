@@ -3,14 +3,13 @@ import { useT } from '../lib/i18n'
 import Icon from './Icon'
 import { cx } from '../lib/utils'
 
-// SOMEBODY ELSE'S WORDS ON A PROFILE, WITH A TRANSLATE BUTTON (6 Oct 2026).
+// SOMEBODY ELSE'S WORDS ON A PROFILE, WITH A TRANSLATE BUTTON.
 //
-// Ethan: "if a creator wrote their bio in Spanish, to be able to translate it to English, or if they wrote it in English
-// and I'm on the Spanish language then translate it to Spanish." What a creator wrote is shown exactly as written; the
-// button asks for it in the READER's language (English for an English reader, Spanish for a Spanish one, and so on)
-// and `Show original` puts it back. It works both ways because the button is offered whenever the text is not
-// already known to be in the reader's language: always for a reader on another language, and for a reader on English
-// only when the words do not look English. A text that turns out to be in the reader's language already says so.
+// What a creator wrote is shown exactly as written; the button asks for it in the READER's language (English for an
+// English reader, Spanish for a Spanish one, and so on) and `Show original` puts it back. It works both ways because the
+// button is offered whenever the text is not already known to be in the reader's language: always for a reader on
+// another language, and for a reader on English only when the words do not look English. A text that turns out to be in
+// the reader's language already says so.
 export function TranslateButton({ t, className, align = 'start' }) {
   const tr = useT()
   if (!t.available) return null

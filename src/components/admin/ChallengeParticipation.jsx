@@ -7,11 +7,7 @@ import { submissionsApi } from '../../api/submissions'
 import { marketsApi } from '../../api/markets'
 import { contentApi } from '../../api/content'
 
-// HAS THIS CREATOR TAKEN PART? (11 Oct 2026)
-//
-// Ethan: "I want to more easily see who has taken part in a challenge. As an admin, when clicking on their profile, in the
-// space at the top, 'participated' or 'not participated' in the Global Challenge or whatever the challenge is called. It
-// should only show the challenges for the markets they are in."
+// HAS THIS CREATOR TAKEN PART?
 //
 // SCOPE IS THEIR MARKETS PLUS WORLDWIDE. A challenge belongs to a community (`challenges.community_id`); somebody is
 // eligible for the ones of every community they are an active member of, and the Worldwide network is everybody's.
@@ -21,11 +17,11 @@ import { contentApi } from '../../api/content'
 //
 // "PARTICIPATED" = at least one entry that still exists on that challenge; the count rides along.
 //
-// A REMOVED ENTRY IS NOT PARTICIPATION (11 Oct 2026, Xenia). The video tracker keeps a row for a video even after its entry
-// is deleted (`tracked_videos.submission_id` goes NULL), so Xenia's TikTok still sits in the tracker with 143k views while
-// she has no entry and no score. Counting that as taking part was wrong; instead, when there is no entry, the row says WHY:
-// "Disqualified" (a record in submission_disqualifications) or "Entry removed" (the tracker remembers a video that no longer
-// has an entry: she took it out herself, or the team did).
+// A REMOVED ENTRY IS NOT PARTICIPATION (Xenia). The video tracker keeps a row for a video even after its entry is
+// deleted (`tracked_videos.submission_id` goes NULL), so Xenia's TikTok still sits in the tracker with 143k views while
+// she has no entry and no score. Counting that as taking part was wrong; instead, when there is no entry, the row says
+// WHY: "Disqualified" (a record in submission_disqualifications) or "Entry removed" (the tracker remembers a video that
+// no longer has an entry: she took it out herself, or the team did).
 export default function ChallengeParticipation({ profileId, isVip = false }) {
   const [rows, setRows] = useState(null)
 

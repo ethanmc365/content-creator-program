@@ -103,14 +103,10 @@ export default function AwardedList() {
               key={s.label}
               className={cx(
                 'rounded-card border p-4',
-                // NOT BRAND ORANGE (28 Sep 2026). Ethan: "on the awarded tab I
-                // don't like how Awarded is Tryp.com orange, change the colour
-                // of it." Orange is the platform's own colour and it is on
-                // every button and chip around this tile, so the one number
-                // that is meant to stand out was the same colour as the
-                // furniture. Green is the colour this app now uses for
-                // something reached rather than something clickable - the same
-                // choice as the KPI progress bar.
+                // NOT BRAND ORANGE. Orange is the platform's own colour and it is on every button and chip around this
+                // tile, so the one number that is meant to stand out was the same colour as the furniture. Green is the
+                // colour this app now uses for something reached rather than something clickable - the same choice as
+                // the KPI progress bar.
                 s.lead
                   ? 'border-transparent bg-gradient-to-br from-emerald-600 to-emerald-500 text-white shadow-card'
                   : 'border-gray-100 bg-white shadow-card',
@@ -199,8 +195,7 @@ export default function AwardedList() {
             </dl>
             <div className="flex items-center gap-3 border-t border-gray-100 pt-4">
               <button type="button" onClick={() => setOpen(null)} className="btn-ghost">← Back</button>
-              {/* SEE IT WHERE THEY SEE IT (28 Sep 2026). Ethan: "as an admin, I
-                  can go on their My Rewards page and view how it looks." */}
+              {/* SEE IT WHERE THEY SEE IT. */}
               {open.creator?.id && (
                 <a href={`/rewards?as=${open.creator.id}`} className="btn-secondary !py-2 text-xs">
                   <Icon name="eye" className="h-4 w-4" /> Their Rewards page

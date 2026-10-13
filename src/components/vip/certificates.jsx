@@ -11,14 +11,12 @@ import CertificateCard from '../certificate/CertificateCard'
 import { FitCard } from '../certificate/CertificateWall'
 import { certificatesApi } from '../../api/certificates'
 
-// CERTIFICATES FOR VIP AND OFFICIAL CREATORS (12 Oct 2026, migration 384).
+// CERTIFICATES FOR VIP AND OFFICIAL CREATORS (migration 384).
 //
-// Ethan: "these certificates are just for the general community. We should maybe have the option to turn these on for
-// the VIP community as well, like certain certificates for them, which are going to reuse the designs. Add that to the
-// VIP tools somewhere." So this is the community's own designs, each with one switch: VIP and official creators get it
-// too. For them "first video" means their first VIP video and a podium is a top place in a ranked monthly bonus
-// (migration 385); community milestones never reach them, so those are shown but cannot be switched on. The designs
-// themselves are edited in the certificate studio, once, for everybody.
+// So this is the community's own designs, each with one switch: VIP and official creators get it too. For them "first
+// video" means their first VIP video and a podium is a top place in a ranked monthly bonus (migration 385); community
+// milestones never reach them, so those are shown but cannot be switched on. The designs themselves are edited in the
+// certificate studio, once, for everybody.
 const WHEN = {
   challenge_entry: 'Their first video',
   creator_joined: 'When they join',
@@ -73,9 +71,8 @@ export function VipCertificatesTab() {
           return (
             <article key={d.id} className="animate-rise overflow-hidden rounded-card border border-gray-100 bg-white shadow-card" style={{ animationDelay: `${Math.min(i, 6) * 50}ms` }}>
               <div className={cx('p-3', !d.is_active && 'opacity-60')}>
-                {/* EXACTLY THE COMMUNITY'S PREVIEW (13 Oct 2026). Ethan: "for the Podium Finish, you didn't copy it exactly".
-                    This drew the bare sample (no face, the sample's name and code) where the community preview on
-                    /rewards draws your own name and photo; both now use the same facts. */}
+                {/* EXACTLY THE COMMUNITY'S PREVIEW. This drew the bare sample (no face, the sample's name and code)
+                    where the community preview on /rewards draws your own name and photo; both now use the same facts. */}
                 <FitCard><CertificateCard design={d} facts={{ ...sampleFacts(d), name: profile?.name || sampleFacts(d).name, photo: profile?.photo_url || '', serial: 'TRYP-PREVIEW' }} /></FitCard>
               </div>
               <div className="flex items-center gap-3 border-t border-gray-50 px-4 py-3">

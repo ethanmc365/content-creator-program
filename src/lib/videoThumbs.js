@@ -1,10 +1,5 @@
 // A STILL FRAME FOR EVERY VIDEO, INCLUDING THE ONES THAT DO NOT VOLUNTEER ONE.
 //
-// Ethan, 9 Sep 2026: "for some of them, like the TikTok one, you have the nice
-// preview that shows up. But for Instagram this doesn't seem to work. Make sure
-// you can build this preview into all of them that shows up in the card,
-// because it looks good."
-//
 // THREE SOURCES, TRIED IN ORDER OF WHAT THEY COST.
 //
 //  1. `thumbnail_url` on the row. Free, instant, and where the answer ends up.
@@ -18,10 +13,6 @@
 //     function's own check, which is exactly who is looking at this page.
 //
 // AND SINCE 10 SEP 2026 THE ANSWER IS COPIED INTO OUR OWN STORAGE.
-//
-// Ethan: "copy video thumbnails into our own storage - is this necessary?
-// Ensure everything's working correctly. We don't want it to take up an insane
-// amount of storage, but even with thousands of videos it probably won't."
 //
 // It is, and not really because of the expiry. The probe in step 3 is
 // ADMIN-ONLY - `view-sync` holds the Instagram session cookies and refuses
@@ -157,12 +148,10 @@ export async function previewLink(url) {
       caption: data.caption || null,
       author: data.author || null,
       handle: data.handle || null,
-      // WHICH VIDEO THIS ACTUALLY IS (28 Sep 2026). A vm.tiktok.com link is
-      // minted per share, so two links to one video look completely different
-      // and the insert-time "one video, one entry" guard could not see through
-      // them. The preview already follows the link; it reports where it landed
-      // now, so the entry can be written with its real id and a repeat is
-      // refused at the door instead of scoring for a day and then vanishing.
+      // WHICH VIDEO THIS ACTUALLY IS. A vm.tiktok.com link is minted per share, so two links to one video look
+      // completely different and the insert-time "one video, one entry" guard could not see through them. The preview
+      // already follows the link; it reports where it landed now, so the entry can be written with its real id and a
+      // repeat is refused at the door instead of scoring for a day and then vanishing.
       canonical: data.canonical || null,
       videoId: data.videoId || null,
     }
@@ -192,7 +181,7 @@ export function resolveThumbnail(url, { probe = false, videoId = null } = {}) {
   if (inFlight.has(key)) return inFlight.get(key)
 
   const run = enqueue(async () => {
-    // THE SERVER GOES FIRST NOW (10 Sep 2026), and it used to go last.
+    // THE SERVER GOES FIRST NOW, and it used to go last.
     //
     // The browser's own route was TikTok's and YouTube's tokenless oEmbed, and
     // it could not reach three whole classes of post: a `vm.tiktok.com` short

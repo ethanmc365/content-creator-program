@@ -33,21 +33,12 @@ export default function FlightsHero({ laps, moonPct, stats, tr }) {
                 />
               )}
             </div>
-            {/* THE EARTH FIRST, AND THE MOON ONLY ONCE YOU HAVE EARNED IT.
-                It said "One lap is 40,075 km. You are 5% of the way to the
-                moon" from the very first flight - which is both the wrong
-                denominator to lead with and a genuinely discouraging one:
-                five percent of anything reads as barely started, and the
-                thing it is five percent of is a distance nobody is going
-                to fly. Ethan: "I think I would say what percent you are of
-                doing a full lap of the world first. And then once you've
-                done a full lap of the world, it can show that you've done
-                ten laps of the world or three laps of the world, and then
-                also saying the sentence about the moon."
-                So under one lap the sentence is about the lap you are on.
-                Past one lap it says how many laps that is, and only then
-                does the moon appear - by which point the number attached
-                to it is worth reading. */}
+            {/* THE EARTH FIRST, AND THE MOON ONLY ONCE YOU HAVE EARNED IT. It said "One lap is 40,075 km. You are 5% of
+                the way to the moon" from the very first flight - which is both the wrong denominator to lead with and a
+                genuinely discouraging one: five percent of anything reads as barely started, and the thing it is five
+                percent of is a distance nobody is going to fly. So under one lap the sentence is about the lap you are
+                on. Past one lap it says how many laps that is, and only then does the moon appear - by which point the
+                number attached to it is worth reading. */}
             <p className="mt-1.5 text-[11px] text-white/60">
               {laps < 1 ? (
                 <>One lap is {km(EARTH_CIRCUMFERENCE_KM)} km. You are {(laps * 100).toFixed(laps < 0.1 ? 1 : 0)}% of the way around the world.</>
@@ -82,14 +73,10 @@ export default function FlightsHero({ laps, moonPct, stats, tr }) {
               </div>
             ))}
           </div>
-          {/* "Time in the air is worked out from the distance flown" is
-              gone. Ethan: "I would remove that." It explained a method
-              nobody asked about, under a row of numbers that are not in
-              dispute. The clock-change caveat stays, because that one is a
-              coverage gap rather than a method note: it says the figure
-              above is computed over FEWER flights than the count beside
-              it, which is a thing you would otherwise have to catch
-              yourself. */}
+          {/* "Time in the air is worked out from the distance flown" is gone. It explained a method nobody asked about,
+              under a row of numbers that are not in dispute. The clock-change caveat stays, because that one is a
+              coverage gap rather than a method note: it says the figure above is computed over FEWER flights than the
+              count beside it, which is a thing you would otherwise have to catch yourself. */}
           {stats.zoneFlights < stats.flights && (
             <p className="mt-3 text-[11px] text-white/55">
               Clock changes are counted on the {stats.zoneFlights} of {stats.flights} flights where both ends name a single time zone.

@@ -25,11 +25,7 @@
 // for the rest of the session.
 //
 // -------------------------------------------------------------------------
-// ONE AT A TIME IS NOT THE SAME THING AS ONLY ONE (7 Sep 2026).
-//
-// Ethan: "creators should always be getting these - if they don't have both
-// their payment details AND their notifications on, every time they open it
-// they should be prompted to do that."
+// ONE AT A TIME IS NOT THE SAME THING AS ONLY ONE.
 //
 // The claim above did the first half of its job and then quietly did something
 // nobody intended. A creator with neither notifications on nor bank details
@@ -61,9 +57,7 @@ export function onNagChange(fn) {
 
 // ------------------------------------------------------ the agreements ---
 //
-// THE TERMS COME BEFORE EVERYTHING ELSE (7 Oct 2026). Ethan: "because we have
-// multiple pop-ups that will come up for certain creators at certain times,
-// ensure this one always shows up first, and then the other appropriate ones".
+// THE TERMS COME BEFORE EVERYTHING ELSE.
 //
 // AgreementGate raises this while it is still asking the database whether
 // anything is waiting, and keeps it up until everything waiting is accepted.

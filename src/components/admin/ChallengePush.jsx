@@ -32,12 +32,10 @@ import { teamApi } from '../../api/team'
 //     the truth and "sent to everyone" is not.
 //
 // It cannot be undone, so it asks once with the real numbers in the sentence.
-// THE BUTTON OWNS ITS OWN OPEN STATE (30 Sep 2026). Ethan: "when I press the push button the
-// screen lags a bit." The open flag lived in ChallengeDetail - a 1,900-line page with the
-// leaderboard, countdown and every entry - so pressing the button re-rendered ALL of it
-// during the very frame the sheet was meant to animate in. Now only this button and the
-// sheet re-render, and the audience count is fetched after the sheet has finished
-// arriving rather than in the same frame.
+// THE BUTTON OWNS ITS OWN OPEN STATE. The open flag lived in ChallengeDetail - a 1,900-line page with the leaderboard,
+// countdown and every entry - so pressing the button re-rendered ALL of it during the very frame the sheet was meant to
+// animate in. Now only this button and the sheet re-render, and the audience count is fetched after the sheet has
+// finished arriving rather than in the same frame.
 export function SendPushButton({ challenge, label }) {
   const [open, setOpen] = useState(false)
   return (

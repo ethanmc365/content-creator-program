@@ -6,8 +6,8 @@ import Icon from '../Icon'
 import { cx, formatMoney } from '../../lib/utils'
 import { useT } from '../../lib/i18n'
 
-// WHAT IS ON OFFER TO GET YOU POSTING (12 Oct 2026, migration 383): the joining bonus, to somebody who has not entered yet,
-// and the voucher days - today's first, then the ones coming up, then the ones done with who won. Draws nothing when the
+// WHAT IS ON OFFER TO GET YOU POSTING (migration 383): the joining bonus, to somebody who has not entered yet, and the
+// voucher days - today's first, then the ones coming up, then the ones done with who won. Draws nothing when the
 // challenge runs neither. See components/admin/ChallengeExtrasEditor for how the team sets them.
 const fmtDay = (ymd, locale) => new Date(`${ymd}T12:00:00`).toLocaleDateString(locale || undefined, { weekday: 'long', day: 'numeric', month: 'long' })
 
@@ -15,9 +15,9 @@ export default function ChallengeKickers({ challenge, meId, className }) {
   const tr = useT()
   const { days, board } = useVoucherDays(challenge?.id)
   const [now] = useState(() => Date.now())
-  // NOT HERE ANY MORE (13 Oct 2026). Ethan: the joining bonus "above the Hook Me Up button ... We already have it on the
-  // black card just above that, so it doesn't need to show it again below it." It lives on the dark card by the tabs and
-  // in Bonus points (whose row opens its pop-up); this card is the voucher days only.
+  // NOT HERE ANY MORE. The team: the joining bonus "above the Hook Me Up button... We already have it on the black card
+  // just above that, so it doesn't need to show it again below it." It lives on the dark card by the tabs and in Bonus
+  // points (whose row opens its pop-up); this card is the voucher days only.
   const stateOf = (d) => (Date.parse(d.ends_at) <= now ? 'done' : Date.parse(d.starts_at) <= now ? 'today' : 'soon')
   const order = { today: 0, soon: 1, done: 2 }
   const shown = [...days].sort((a, b) => order[stateOf(a)] - order[stateOf(b)] || String(a.day).localeCompare(String(b.day)))
@@ -83,9 +83,8 @@ export default function ChallengeKickers({ challenge, meId, className }) {
   )
 }
 
-// THE DARK CARD BESIDE THE TABS, FOR A VOUCHER DAY OR THE JOINING BONUS (12 Oct 2026). Ethan: "it should show up on that
-// nice little black card where the 2x points are currently showing on the actual day this is active." Same slot, same
-// look as the boost card: the reward as the disc, what to do, and the time left on the day.
+// THE DARK CARD BESIDE THE TABS, FOR A VOUCHER DAY OR THE JOINING BONUS. Same slot, same look as the boost card: the
+// reward as the disc, what to do, and the time left on the day.
 const DARK = 'board-status group relative min-w-0 overflow-hidden text-left text-white shadow-card transition-transform duration-200 hoverable:hover:-translate-y-0.5 bg-gradient-to-r from-ink via-[#2b160c] to-[#5a2308]'
 
 export function VoucherDayCallout({ day, now, onOpen }) {

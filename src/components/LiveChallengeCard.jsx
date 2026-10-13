@@ -56,12 +56,6 @@ function prizeForPlace(prizes, place) {
 // until you opened the brief, and nothing at all about the race until it was
 // already a race you were losing.
 //
-// Ethan: "it should just say leaderboard, not leading right now, and it should
-// show the top three. And even if there is no one entered it, it should still
-// show first, second, third, and the prize associated with it... show the
-// creator, the profile photo and the views. If no one has got the place, then
-// it can just show that it's free, and that might encourage people even more."
-//
 // So it is ONE block with THREE rows, always. A taken place shows the face, the
 // first name and the views; an empty one shows a dashed ring and says the place
 // is unclaimed. Either way the row carries the prize, which is the fact that
@@ -69,21 +63,16 @@ function prizeForPlace(prizes, place) {
 // gone rather than kept: printing the prizes twice is how a card gets bigger,
 // and this one was explicitly not to.
 //
-// IT SITS TOP RIGHT. There was a column of empty gradient there the width of
-// the card's own bloom; the leaderboard was underneath the description, pushing
-// the countdown down. Ethan drew a box in that space.
+// IT SITS TOP RIGHT. There was a column of empty gradient there the width of the card's own bloom; the leaderboard was
+// underneath the description, pushing the countdown down. The team drew a box in that space.
 //
 // Desktop only, as before. The phone's card was cut to a title, a clock and a
 // button on purpose and this would put most of it back.
 // IT IS A WHITE CARD, NOT A TINT OF THE ORANGE IT SITS ON.
 //
-// Ethan: "on the main challenge card for desktop, I would make the leaderboard
-// stand out more. Currently it seems like it's quite transparent or hidden
-// there. I would just make it a bit more clear somehow." He is describing
-// `bg-white/[0.14]` over a gradient: fourteen percent of white over orange is
-// orange, so the panel had no edge of its own and every row of it was white
-// text on the same ground as the paragraph beside it. Nothing said "this is a
-// leaderboard" except the word.
+// they are describing `bg-white/[0.14]` over a gradient: fourteen percent of white over orange is orange, so the panel
+// had no edge of its own and every row of it was white text on the same ground as the paragraph beside it. Nothing said
+// "this is a leaderboard" except the word.
 //
 // A SOLID WHITE SURFACE IS THE ANSWER THE REST OF THE CARD ALREADY USES - the
 // countdown tiles on the same card are white, and so is the primary button.
@@ -91,10 +80,7 @@ function prizeForPlace(prizes, place) {
 // reads as a thing lying ON the card rather than a hole cut in it, the faces
 // sit on their own ground, and a prize in grey under a name in black is finally
 // legible at the size it is printed.
-// THE TOP FIVE PAID PLACES, AND A COUNT OF THE REST (21 Sep 2026). Ethan: "If
-// we have space, it should show the top 5 prizes at least there, rather than
-// just the top 3. It should show '+5 more prizes' if there are +5 more prizes,
-// or not if there isn't."
+// THE TOP FIVE PAID PLACES, AND A COUNT OF THE REST.
 const BOARD_ROWS = 5
 function Leaderboard({ leaders, prizes, className, scoring, header = null }) {
   const tr = useT()
@@ -119,7 +105,7 @@ function Leaderboard({ leaders, prizes, className, scoring, header = null }) {
         {rows.map(({ place, leader, prize }) => (
           <div
             key={place}
-            // EVERY ROW ARRIVES, NOT JUST THE PODIUM (22 Sep 2026).
+            // EVERY ROW ARRIVES, NOT JUST THE PODIUM.
             style={{ animationDelay: `${0.3 + place * 0.07}s` }}
             className={cx(
               'wipe-item flex items-center gap-2.5 rounded-xl px-2 py-1.5',
@@ -158,10 +144,7 @@ function Leaderboard({ leaders, prizes, className, scoring, header = null }) {
                 <span className="block truncate text-[11px] text-smoke"><PrizeText text={prize} /></span>
               )}
             </span>
-            {/* THE SCORE, AND ON A POINTS BOARD THE REACH UNDER IT (3 Sep 2026).
-
-                Ethan: "on the podium as well as the points, it should still show
-                the views beside it as well because that's also important."
+            {/* THE SCORE, AND ON A POINTS BOARD THE REACH UNDER IT.
 
                 This cell used to print `formatViews(leader.views)` whatever the
                 challenge was scored on, which on a points challenge is not the
@@ -194,17 +177,13 @@ function Leaderboard({ leaders, prizes, className, scoring, header = null }) {
   )
 }
 
-// `compact` (2 Oct 2026): Ethan, of a creator in two markets plus the global challenge: "when a creator or admin sees
-// 3 or more challenges ongoing, I think the cards should be smaller, the global challenge one should always be big at
-// the top ... for desktop they should be shrunk and side by side in clean design that fits everything. On mobile it's
-// perfect as is." So every compact change is an `lg:` override: from `lg` the card is one column (no leaderboard
-// panel), tighter padding, a smaller title, two lines of brief, the compact clock and the two buttons side by side.
+// `compact`: So every compact change is an `lg:` override: from `lg` the card is one column (no leaderboard panel),
+// tighter padding, a smaller title, two lines of brief, the compact clock and the two buttons side by side.
 export default function LiveChallengeCard({ challenge: c, global: isGlobal, entries, participation, leaders, codes = null, groups = [], myGroupId = null, compact = false, reserveBar = false }) {
   const tr = useT()
   const excerpt = briefExcerpt(c.description || '')
-  // A SPLIT CHALLENGE HAS ONE BOARD PER GROUP (1 Oct 2026). A creator's card
-  // shows their own group's board and prizes; the team, on no board, can flip
-  // between them. `leaders` carry `group_id`, because ranks are per board.
+  // A SPLIT CHALLENGE HAS ONE BOARD PER GROUP. A creator's card shows their own group's board and prizes; the team, on
+  // no board, can flip between them. `leaders` carry `group_id`, because ranks are per board.
   const [pickedGroup, setPickedGroup] = useState(null)
   const split = groups.length > 0
   const shownGroupId = pickedGroup ?? myGroupId ?? groups[0]?.id ?? null
@@ -233,23 +212,12 @@ export default function LiveChallengeCard({ challenge: c, global: isGlobal, entr
   )
   return (
     <div className={compact ? 'flex h-full flex-col' : undefined}>
-      {/* THE ROTATING GLOW, AND AN ARRIVAL ON MOBILE TOO (23 Sep 2026). Ethan:
-          "on the challenges page for desktop, I think we can definitely have
-          that same rotated glow effect going around the edge of the card...
-          it's on a white background, so it needs to stand out, and it can be
-          white... for the mobile one, we can add that glow effect around it
-          too, and also the animation. Mobile's animation is not clean."
-          `global-glow` (not `-mobile`) because this card, unlike the hub's
-          "Live now" row, IS the orange ground - a white ring against it is the
-          same contrast GlobalChallengeStrip already uses, on both screen
-          sizes. `animate-card-wipe` gives the card its own arrival: it used to
-          have none, only the leaderboard's rows did, and that panel is
-          `hidden` below `lg` - so a phone got the light-sweep sheen and
-          nothing else. Pure CSS, both of them, safe on this eagerly-routed
-          page. */}
-      {/* ORANGE, NOT WHITE (24 Sep 2026). Ethan: "that big global challenge
-          card should have the orange glow effect around it because it's on a
-          white background." The ring sits OUTSIDE the card, on the page. */}
+      {/* THE ROTATING GLOW, AND AN ARRIVAL ON MOBILE TOO. `global-glow` (not `-mobile`) because this card, unlike the
+          hub's "Live now" row, IS the orange ground - a white ring against it is the same contrast GlobalChallengeStrip
+          already uses, on both screen sizes. `animate-card-wipe` gives the card its own arrival: it used to have none,
+          only the leaderboard's rows did, and that panel is `hidden` below `lg` - so a phone got the light-sweep sheen
+          and nothing else. Pure CSS, both of them, safe on this eagerly-routed page. */}
+      {/* ORANGE, NOT WHITE. The ring sits OUTSIDE the card, on the page. */}
       <div className={cx('global-glow', compact && 'flex flex-1 flex-col')}>
       <GlowRing tone="onLight" />
       <div
@@ -257,12 +225,9 @@ export default function LiveChallengeCard({ challenge: c, global: isGlobal, entr
           'challenge-card relative block animate-card-wipe overflow-hidden rounded-card text-white shadow-lift',
           // The global card is physically bigger as well as darker. Half of
           // "this is the important one" is the room it takes up.
-          // MUCH TIGHTER ON A PHONE. This card was 44px of padding round a
-          // 30px title, a paragraph, a row of prize chips, a hero countdown and
-          // two buttons - well over a screen on a 375px display for one
-          // challenge. Ethan: "when you click on challenges the current card is
-          // super big, can you change the UI of it, make it smaller, simpler,
-          // easier to read." The desktop card is untouched.
+          // MUCH TIGHTER ON A PHONE. This card was 44px of padding round a 30px title, a paragraph, a row of prize
+          // chips, a hero countdown and two buttons - well over a screen on a 375px display for one challenge. The
+          // desktop card is untouched.
           isGlobal
             ? 'bg-gradient-to-br from-[#8f2a04] via-brand to-brand-light p-4 sm:p-11'
             : 'bg-gradient-to-br from-brand to-brand-light p-4 sm:p-10',
@@ -272,28 +237,18 @@ export default function LiveChallengeCard({ challenge: c, global: isGlobal, entr
         {/* Soft light bloom for depth, matching the home hero. */}
         <div className="pointer-events-none absolute -right-16 -top-20 h-72 w-72 rounded-full bg-white/10 blur-2xl" />
         {/* THE DARK BLOOM IS DESKTOP-ONLY NOW, AND IT IS WHY THE PHONE'S CARD
-            HAD A GREY BOX IN THE CORNER. Ethan: "on the challenges page on
-            mobile there's like a square grey outline, especially in the bottom
-            left corner of the challenge card."
-            It is a 288px black-10% circle behind a 40px blur, and the card is
-            `overflow-hidden` - so on a 375px screen most of the bottom-left
-            quadrant is covered by it and the clip turns its soft edge into the
-            card's own straight edges. At desktop widths the same circle is a
-            small weight in the corner of a much larger card, which is what it
-            was drawn to be. */}
+            HAD A GREY BOX IN THE CORNER. It is a 288px black-10% circle behind a 40px blur, and the card is
+            `overflow-hidden` - so on a 375px screen most of the bottom-left quadrant is covered by it and the clip turns
+            its soft edge into the card's own straight edges. At desktop widths the same circle is a small weight in the
+            corner of a much larger card, which is what it was drawn to be. */}
         <div className="pointer-events-none absolute -bottom-24 -left-10 hidden h-72 w-72 rounded-full bg-black/10 blur-2xl sm:block" />
-        {/* THE REAL EARTH, TURNING (21 Sep 2026). It replaces a wireframe of
-            six ellipses that sat in the top-right corner - exactly where the
-            leaderboard goes on a desktop, so most of it was hidden. On a
-            desktop it is bigger and stands left of the board, behind the title;
-            on a phone it keeps the top-right corner, which Ethan liked there. */}
+        {/* THE REAL EARTH, TURNING. It replaces a wireframe of six ellipses that sat in the top-right corner - exactly
+            where the leaderboard goes on a desktop, so most of it was hidden. On a desktop it is bigger and stands left
+            of the board, behind the title; on a phone it keeps the top-right corner, which the team liked there. */}
         {isGlobal && (
-          // THE WHOLE EARTH ON A DESKTOP (22 Sep 2026). Ethan: "I wouldn't cut
-          // so much of it off on desktop as we have the space to show all of it
-          // in the middle." It was 36rem pushed 7rem above a card about 27rem
-          // tall, so a third of it was always off the card. From `lg` it is
-          // sized to the card's own height and centred in it, between the
-          // words and the leaderboard. The phone keeps its corner.
+          // THE WHOLE EARTH ON A DESKTOP. It was 36rem pushed 7rem above a card about 27rem tall, so a third of it was
+          // always off the card. From `lg` it is sized to the card's own height and centred in it, between the words and
+          // the leaderboard. The phone keeps its corner.
           <SpinningEarth className="absolute -right-20 -top-24 h-[19rem] w-[19rem] opacity-90 sm:-right-10 sm:h-[26rem] sm:w-[26rem] lg:left-[54%] lg:right-auto lg:top-1/2 lg:h-[94%] lg:w-auto lg:-translate-x-1/2 lg:-translate-y-1/2" />
         )}
         {/* A MARKET'S CHALLENGE CARRIES ITS OWN COUNTRY, highlighted on a zoomed map (see MarketMap); the global card has
@@ -306,29 +261,21 @@ export default function LiveChallengeCard({ challenge: c, global: isGlobal, entr
             only kind of decoration a page you open weekly can carry. */}
         <div aria-hidden className="challenge-sheen pointer-events-none absolute inset-0" />
 
-        {/* TWO COLUMNS FROM `lg`, ONE STACK BELOW IT.
-            The leaderboard goes in the top right and the buttons sit under it,
-            which is the shape of the card Ethan drew a box on: the words and
-            the clock down the left, who is winning and how to join down the
-            right. A grid rather than nested flexes because the two rows have to
-            line up ACROSS the columns - the countdown and the buttons share a
-            baseline at the foot of the card, and no amount of `items-end` on
-            two separate columns will keep them there when one of them grows.
-            On a phone none of it applies: the parts fall back into the source
-            order, which is the order the phone's card already had. */}
+        {/* TWO COLUMNS FROM `lg`, ONE STACK BELOW IT. The leaderboard goes in the top right and the buttons sit under
+            it, which is the shape of the card the team drew a box on: the words and the clock down the left, who is
+            winning and how to join down the right. A grid rather than nested flexes because the two rows have to line up
+            ACROSS the columns - the countdown and the buttons share a baseline at the foot of the card, and no amount of
+            `items-end` on two separate columns will keep them there when one of them grows. On a phone none of it
+            applies: the parts fall back into the source order, which is the order the phone's card already had. */}
         <div className={cx('relative', compact ? 'flex flex-1 flex-col' : 'lg:grid lg:grid-cols-[minmax(0,1fr)_19rem] lg:gap-x-8')}>
           <div className="flex flex-wrap items-center gap-x-3 gap-y-2 lg:col-start-1 lg:row-start-1">
             <span className="inline-flex items-center gap-2 rounded-full bg-white/20 px-3.5 py-1.5 text-xs font-semibold uppercase tracking-wider">
-              {/* JUST THE DOT, NO RING (23 Sep 2026) - see `LiveDot` in
-                  network/Motion.jsx. */}
+              {/* JUST THE DOT, NO RING - see `LiveDot` in network/Motion.jsx. */}
               <span className="inline-flex h-2 w-2 animate-pulse rounded-full bg-white" />
               {tr('Live now')}
             </span>
-            {/* THE DATES, WHERE "GLOBAL CHALLENGE" WAS (26 Sep 2026). Ethan: "you
-                don't need to say that because 'Global Challenge' is literally
-                the title. You can remove that and just show the dates there
-                instead." One white pill on every width, so the phone no longer
-                needs a second date line under the title. */}
+            {/* THE DATES, WHERE "GLOBAL CHALLENGE" WAS. One white pill on every width, so the phone no longer needs a
+                second date line under the title. */}
             <span className="inline-flex items-center gap-1.5 rounded-full bg-white px-3 py-1.5 text-xs font-bold text-brand">
               <Icon name="calendar" className="h-3.5 w-3.5" />
               {formatDate(c.start_date)} → {formatDate(c.end_date)}
@@ -358,13 +305,12 @@ export default function LiveChallengeCard({ challenge: c, global: isGlobal, entr
             )}
             {/* The blurb is desktop-only. On a phone the whole card is a link
                 to the brief, which is the same words with room to read them. */}
-            {/* THE FIRST PARAGRAPH, AS WORDS (21 Sep 2026). This printed the
-                raw brief - "#" for every heading and "**" round every bold run -
-                and the whole of it, clamped. Now it is the opening paragraph
-                with the marks gone, and the brief itself is one tap away. */}
+            {/* THE FIRST PARAGRAPH, AS WORDS. This printed the raw brief - "#" for every heading and "**" round every
+                bold run - and the whole of it, clamped. Now it is the opening paragraph with the marks gone, and the
+                brief itself is one tap away. */}
             {excerpt.text && (
               <p className={cx('mt-3 hidden max-w-2xl leading-relaxed text-white/90 line-clamp-3 sm:block', compact && 'lg:line-clamp-2 lg:min-h-[2.85rem] lg:text-sm')}>
-                {/* No "Read all" (22 Sep 2026): the whole card opens the brief. */}
+                {/* No "Read all": the whole card opens the brief. */}
                 {excerpt.text}
               </p>
             )}
@@ -379,12 +325,7 @@ export default function LiveChallengeCard({ challenge: c, global: isGlobal, entr
           />
 
           <div className={cx('mt-4 sm:mt-8', compact ? 'lg:mt-auto lg:pt-5' : 'lg:col-start-1 lg:row-start-3 lg:mt-7 lg:self-end')}>
-            {/* THE PHONE CARD LOST ITS DIVIDER AND ITS ENTRY COUNT (2 Sep 2026).
-
-                Ethan: "the '0 entries so far' is really squeezed in on the
-                right and it doesn't make sense - you could remove it
-                altogether, it's not necessary. Also remove the line that goes
-                through the middle, and make it slightly more compact."
+            {/* THE PHONE CARD LOST ITS DIVIDER AND ITS ENTRY COUNT.
 
                 The count shared a baseline with "Closes in" at 11px, so on a
                 375px screen it was a number crushed against the right edge
@@ -404,20 +345,15 @@ export default function LiveChallengeCard({ challenge: c, global: isGlobal, entr
           </div>
 
           <div className={cx('mt-3.5 flex flex-col gap-2.5 sm:mt-7', compact ? 'lg:mt-5' : 'lg:col-start-2 lg:row-start-3 lg:mt-7 lg:items-end lg:self-end')}>
-            {/* BOTH BUTTONS ON A PHONE TOO (28 Sep 2026). This used to be one
-                button on a phone, on the reasoning that submitting is the one
-                you came for. Ethan asked for the details button back: what sits
-                behind it is no longer just the brief, it is everything about the
-                challenge, and it should be easy to reach. Single column below
+            {/* BOTH BUTTONS ON A PHONE TOO. This used to be one button on a phone, on the reasoning that submitting is
+                the one you came for. The team asked for the details button back: what sits behind it is no longer just
+                the brief, it is everything about the challenge, and it should be easy to reach. Single column below
                 `sm`, so it lands directly ABOVE "Submit your video". */}
-            {/* THE TWO BUTTONS ARE ONE WIDTH (22 Sep 2026). Ethan: "I want them
-                to be the same length, currently read your brief is shorter." A
-                two-column grid gives both the width of the wider one, and the
-                entry count sits centred under the pair. */}
+            {/* THE TWO BUTTONS ARE ONE WIDTH. A two-column grid gives both the width of the wider one, and the entry
+                count sits centred under the pair. */}
             <div className={cx('grid grid-cols-1 gap-3 sm:grid-cols-2 lg:w-full', compact ? 'lg:grid-cols-2' : 'lg:grid-cols-1')}>
-              {/* ONE SIZE, NO ARROW (21 Sep 2026). The outline button had a
-                  border the solid one did not, so it stood 2px taller, and an
-                  arrow its twin lacked. Both carry a 1px border now. */}
+              {/* ONE SIZE, NO ARROW. The outline button had a border the solid one did not, so it stood 2px taller, and
+                  an arrow its twin lacked. Both carry a 1px border now. */}
               <Link to={`/challenges/${c.id}`} className="btn inline-flex justify-center whitespace-nowrap border border-white/50 text-white hover:bg-white/10">
                 {tr('View all details')}
               </Link>

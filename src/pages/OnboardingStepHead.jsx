@@ -10,10 +10,7 @@ export function StepHead({ step, pending, team = false }) {
     based: ['Where are you based?', 'This decides your market, puts you on the map, and is how the team reaches you.'],
     socials: ['Where do you post?', 'Link your accounts so creators and the Tryp.com Team can find your work.'],
     story: ['Tell us about you', 'This is the part a person actually reads.'],
-    // IT SAYS WHAT THE ANSWER IS ACTUALLY FOR (4 Sep 2026). Ethan: "the
-    // languages you speak - this is an important section, and I want this to
-    // also matter whenever admins are viewing the applications, because the
-    // language could depend what market they end up going into."
+    // IT SAYS WHAT THE ANSWER IS ACTUALLY FOR.
     //
     // It now does: an admin reviewing this application sees the languages
     // beside the market picker, with any market this person's languages point
@@ -23,9 +20,7 @@ export function StepHead({ step, pending, team = false }) {
     // question people answer with one word.
     languages: ['Languages you speak', 'This can decide which market you join, and it is how creators find somebody to collaborate with. Add every one you could film or talk in.'],
     map: ['Paint your travel map', 'Tap every country you have been to and watch it glow.'],
-    // Ethan: "a few extras - I don't really like that name, I would just name
-    // it as it is." It holds travel photographs and the places you want to go,
-    // so it is called that.
+    // It holds travel photographs and the places you want to go, so it is called that.
     extras: team
       ? ['Add some travel photos', 'Totally optional. A few photos make your profile feel like yours on the team page. Press Continue to skip.']
       : ['Your travels', ''],

@@ -19,10 +19,9 @@ import { DateField } from '../DateTimeFields'
 // views. Nothing here can pay anybody, and that is the point. See migration 197.
 //
 // ---------------------------------------------------------------------------
-// THE SECOND PASS (8 Sep 2026). Every change below is Ethan's, and the theme
-// running through all of them is that the form was a transcription of a
-// SPREADSHEET's columns rather than a description of the thing being recorded.
-// The import needed all fourteen; a person typing one in does not.
+// THE SECOND PASS. Every change below is the team's, and the theme running through all of them is that the form was a
+// transcription of a SPREADSHEET's columns rather than a description of the thing being recorded. The import needed all
+// fourteen; a person typing one in does not.
 //
 //   "It shows up to select a market, and it should say at the top - not 'on a
 //    platform' - because if you're logging a challenge it should obviously be
@@ -57,9 +56,7 @@ import { DateField } from '../DateTimeFields'
 // by) and a free note. Nine fields instead of fourteen, and every one of them
 // appears on a screen somebody looks at.
 
-// Over twenty days is a monthly; anything shorter is an express. Ethan's own
-// rule, and it is the reason the question does not need asking: "express is
-// around a week or ten days, over twenty days is monthly."
+// Over twenty days is a monthly; anything shorter is an express.
 const MONTHLY_FROM_DAYS = 20
 function cadenceFor(startsAt, endsAt) {
   if (!startsAt || !endsAt) return null

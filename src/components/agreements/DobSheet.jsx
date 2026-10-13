@@ -10,13 +10,12 @@ import { useT } from '../../lib/i18n'
 import { ageFromDob, cx, MIN_AGE } from '../../lib/utils'
 import { profilesApi } from '../../api/profiles'
 
-// THE DATE OF BIRTH WE NEVER ASKED FOR (12 Oct 2026).
+// THE DATE OF BIRTH WE NEVER ASKED FOR.
 //
-// Nine active creators joined on 21-22 June 2026, before the date of birth was a required question, and have no date
-// and no age saved. Ethan: "you can show them a popup when they first open the app to fill it in if they haven't
-// filled it in, just say this is to ensure they are over 18." It is the first thing they see (before the terms, which
-// ask them to confirm they are 18 or over) and it cannot be dismissed. The database refuses an under-18 date for anybody
-// not already excepted (trg_zz_adults_only), so a date that is refused is said in words, not as an error.
+// Nine active creators joined on 21-22 June 2026, before the date of birth was a required question, and have no date and
+// no age saved. It is the first thing they see (before the terms, which ask them to confirm they are 18 or over) and it
+// cannot be dismissed. The database refuses an under-18 date for anybody not already excepted (trg_zz_adults_only), so a
+// date that is refused is said in words, not as an error.
 export default function DobSheet({ onSaved }) {
   const tr = useT()
   const { user, refreshProfile } = useAuth()

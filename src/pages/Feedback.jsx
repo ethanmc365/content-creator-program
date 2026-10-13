@@ -229,8 +229,8 @@ export default function Feedback() {
   )
 }
 
-// SURVEYS WAITING FOR YOU (30 Sep 2026, migration 291). The pop-up is one way in; this is the other,
-// for somebody who pressed "Later" and wants to answer now. Nothing shows when there is nothing open.
+// SURVEYS WAITING FOR YOU (migration 291). The pop-up is one way in; this is the other, for somebody who pressed "Later"
+// and wants to answer now. Nothing shows when there is nothing open.
 function SurveysForYou() {
   const tr = useT()
   const { user } = useAuth()
@@ -241,11 +241,9 @@ function SurveysForYou() {
       contentApi.surveys().select('*').eq('status', 'live'),
       contentApi.surveyResponses().select('survey_id').eq('profile_id', user.id),
     ])
-    // ONLY THE ONES THAT ARE REALLY FOR YOU (12 Oct 2026). Ethan saw "The
-    // Global Challenge: how did it go?" a week before the challenge ended. A
-    // creator's read is already fenced by `survey_is_for` (RLS), but an
-    // admin's policy returns every live survey - so the same question is
-    // asked here, and a challenge survey waits for its challenge to end.
+    // ONLY THE ONES THAT ARE REALLY FOR YOU. The team saw "The Global Challenge: how did it go?" a week before the
+    // challenge ended. A creator's read is already fenced by `survey_is_for` (RLS), but an admin's policy returns every
+    // live survey - so the same question is asked here, and a challenge survey waits for its challenge to end.
     const pending = pendingSurveys(live, mine)
     const ok = await Promise.all(pending.map((s) =>
       contentApi.surveyIsFor({ p_survey: s.id, p_profile: user.id }).then(({ data }) => data === true)))

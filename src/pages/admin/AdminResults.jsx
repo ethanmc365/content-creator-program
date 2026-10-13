@@ -49,32 +49,23 @@ export default function AdminResults() {
   // about); this only re-sorts what is already loaded, so nothing about
   // syncing or saving a view count changes underneath it.
   const [viewSort, setViewSort] = useState('submitted')
-  // POSTED BEFORE THE CHALLENGE OPENED (22 Sep 2026, migration 245). Ethan:
-  // creators were entering old viral videos. `submissions.posted_at` is decoded
-  // from the video's own id (TikTok, Instagram) or read from the platform
-  // (YouTube); `challenge_starts_at` is midnight of the start date in the
-  // challenge's own market timezone.
+  // POSTED BEFORE THE CHALLENGE OPENED (migration 245). The team: creators were entering old viral videos.
+  // `submissions.posted_at` is decoded from the video's own id (TikTok, Instagram) or read from the platform (YouTube);
+  // `challenge_starts_at` is midnight of the start date in the challenge's own market timezone.
   const [startsAt, setStartsAt] = useState(null)
   const [onlyEarly, setOnlyEarly] = useState(false)
   const [disqualified, setDisqualified] = useState([])
   const [dq, setDq] = useState(null) // { sub, reason, notify, busy }
-  // ENTRIES LIFTED TO THE TOP (26 Sep 2026). Ethan: "For the show entry button,
-  // I don't want it to scroll me way down to the bottom ... it should then show
-  // up at the very top of entries." { ids, label } from the sync panel.
+  // ENTRIES LIFTED TO THE TOP. { ids, label } from the sync panel.
   const [pinned, setPinned] = useState(null)
-  // SEARCH BY NAME (28 Sep 2026). Ethan: "Type in Tara, and it would show all
-  // her entries."
+  // SEARCH BY NAME.
   const [query, setQuery] = useState('')
 
-  // THE SCROLL RUNS AFTER THE LIST HAS RE-SORTED, NOT 40MS AFTER THE CLICK
-  // (28 Sep 2026). Ethan: "it shows at the top, but it's a little bit laggy in
-  // the way it scrolls down." Three things were fighting: a smooth scroll
-  // started while the list was still re-rendering; the list itself was keyed on
-  // the pin, so all two hundred cards unmounted and mounted again mid-scroll;
-  // and the global `scroll-behavior: smooth` smoothed the browser's own smooth
-  // scroll a second time. Now the list keeps its cards (the pinned ones flash
-  // instead), and once the commit has painted our own eased scroll runs
-  // (lib/scrollTo).
+  // THE SCROLL RUNS AFTER THE LIST HAS RE-SORTED, NOT 40MS AFTER THE CLICK. Three things were fighting: a smooth scroll
+  // started while the list was still re-rendering; the list itself was keyed on the pin, so all two hundred cards
+  // unmounted and mounted again mid-scroll; and the global `scroll-behavior: smooth` smoothed the browser's own smooth
+  // scroll a second time. Now the list keeps its cards (the pinned ones flash instead), and once the commit has painted
+  // our own eased scroll runs (lib/scrollTo).
   useEffect(() => {
     if (!pinned) return undefined
     const raf = requestAnimationFrame(() => scrollToElement(document.getElementById('entries-top'), { offset: 88 }))
@@ -84,11 +75,8 @@ export default function AdminResults() {
   // While the challenge is still running a leaderboard is an INTERIM snapshot;
   // once it has ended (or been archived) it's the FINAL ranking.
   const isLive = challenge?.status === 'active'
-  // HAS IT FINISHED? (22 Sep 2026) Ethan: "the publish winners button should
-  // only show up after the challenge has ended, the leaderboard updates
-  // automatically anyway throughout." The deadline passing counts as ended even
-  // before the archive cron has flipped the status, so the button is there the
-  // moment entries close rather than up to five minutes later.
+  // HAS IT FINISHED? The deadline passing counts as ended even before the archive cron has flipped the status, so the
+  // button is there the moment entries close rather than up to five minutes later.
   const [nowMs] = useState(() => Date.now())
   const ended = !!challenge && (!isLive || (challenge.end_date && new Date(challenge.end_date).getTime() < nowMs))
 
@@ -102,14 +90,11 @@ export default function AdminResults() {
         .order('submitted_at'),
       challengesApi.results().select('creator_id, final_views, total_views, rank, group_id').eq('challenge_id', id),
     ])
-    // THE SAVED RESULTS ARE READ AGAIN (21 Sep 2026), and they are the ranking.
-    // They were dropped because they only changed when somebody pressed
-    // "Generate" - no longer true: every view save, the hourly sync and every
-    // points change rebuild them. Ranking here in the browser by each creator's
-    // best single video was right for one scoring mode of three, and for the
-    // Global Challenge (points) it previewed - and put in the shared picture -
-    // a podium nobody had actually won. `rebuild_challenge_results` is the
-    // one piece of code that decides who is first, ties included.
+    // THE SAVED RESULTS ARE READ AGAIN, and they are the ranking. They were dropped because they only changed when
+    // somebody pressed "Generate" - no longer true: every view save, the hourly sync and every points change rebuild
+    // them. Ranking here in the browser by each creator's best single video was right for one scoring mode of three, and
+    // for the Global Challenge (points) it previewed - and put in the shared picture - a podium nobody had actually won.
+    // `rebuild_challenge_results` is the one piece of code that decides who is first, ties included.
     const [{ data: start }, { data: dqs }] = await Promise.all([
       challengesApi.challengeStartsAt({ p_challenge: id }),
       submissionsApi.submissionDisqualifications()
@@ -244,12 +229,9 @@ export default function AdminResults() {
 
   const isEarly = (sub) => !!(startsAt && sub.posted_at && new Date(sub.posted_at) < startsAt)
   const earlyCount = submissions.filter(isEarly).length
-  // THE FILTER ONLY APPLIES WHILE THERE IS SOMETHING TO FILTER TO (24 Sep
-  // 2026). Ethan: "whenever I click to disqualify an entry, the normal valid
-  // entries completely disappear and I have to refresh." Disqualifying the last
-  // pre-start entry took earlyCount to 0, which hides the "Show all entries"
-  // button - while `onlyEarly` stayed true and filtered the list down to
-  // nothing, with no control left on screen to undo it.
+  // THE FILTER ONLY APPLIES WHILE THERE IS SOMETHING TO FILTER TO. Disqualifying the last pre-start entry took
+  // earlyCount to 0, which hides the "Show all entries" button - while `onlyEarly` stayed true and filtered the list
+  // down to nothing, with no control left on screen to undo it.
   const showingEarly = onlyEarly && earlyCount > 0
 
   async function confirmDisqualify() {
@@ -386,14 +368,11 @@ export default function AdminResults() {
   const liveRanking = rankIn(allBest)
   const outsidePrizes = challenge?.participation_scope === 'outside_prizes'
   const placed = new Set(liveRanking.slice(0, places).map((r) => r.creator_id))
-  // WHO HAS EARNED THE TAKING-PART VOUCHER comes from the SERVER'S standings
-  // (`challenge_prize_standings`), which know the scope. This used to be
-  // counted here from entries, so on a challenge whose voucher is "outside the
-  // prize places" the leader (7 entries, 23 points, 1st) was drawn as having
-  // won the EUR 10 voucher on this page while the payout and the public board
-  // correctly said nobody had (22 Sep 2026). Only with no standings at all
-  // (an old challenge) does it fall back to counting, and then it still
-  // honours the scope.
+  // WHO HAS EARNED THE TAKING-PART VOUCHER comes from the SERVER'S standings (`challenge_prize_standings`), which know
+  // the scope. This used to be counted here from entries, so on a challenge whose voucher is "outside the prize places"
+  // the leader (7 entries, 23 points, 1st) was drawn as having won the EUR 10 voucher on this page while the payout and
+  // the public board correctly said nobody had. Only with no standings at all (an old challenge) does it fall back to
+  // counting, and then it still honours the scope.
   const voucherWinners = standings && standings.some((r) => r.slot === 'participation')
     ? standings.filter((r) => r.slot === 'participation' && r.status === 'earned')
       .map((r) => ({ id: r.creator_id, name: r.creator_name, photo_url: r.photo_url }))
@@ -460,8 +439,8 @@ export default function AdminResults() {
   }, {})
   const platformsFor = (creatorId) =>
     PLATFORM_ORDER.filter((p) => platformsByCreator[creatorId]?.has(p))
-  // The list as shown: the pre-start filter, a name search, pins first, then
-  // the chosen order. NEWEST FIRST by default (Ethan, 24 Sep 2026).
+  // The list as shown: the pre-start filter, a name search, pins first, then the chosen order. NEWEST FIRST by default
+  // (the team).
   const norm = (v) => (v || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
   const matchQuery = norm(query.trim())
   const visibleEntries = submissions
@@ -506,12 +485,12 @@ export default function AdminResults() {
             : 'View counts are read off each entry automatically. Check anything flagged below and correct it.'
         }
         action={
-          /* NO "PUBLISH THE LEADERBOARD" BUTTON (22 Sep 2026). Ethan: the board
-             should update for creators every time views are synced, so there
-             is nothing to publish. `rebuild_challenge_results` runs on every
-             sync and every edit here and stamps `results_updated_at`; the
-             creator page reads `results` directly. The "leaderboard live (8)
-             view" link went with it - the board is on this page. */
+          /*
+           * NO "PUBLISH THE LEADERBOARD" BUTTON. The team: the board should update for creators every time views are
+           * synced, so there is nothing to publish. `rebuild_challenge_results` runs on every sync and every edit here
+           * and stamps `results_updated_at`; the creator page reads `results` directly. The "leaderboard live (8) view"
+           * link went with it - the board is on this page.
+           */
           resultsCount > 0 ? (
             <button onClick={() => setSharing(true)} className="btn-secondary inline-flex items-center gap-2 !py-2 text-sm">
               <Icon name="share" className="h-4 w-4" />
@@ -523,9 +502,7 @@ export default function AdminResults() {
 
       {toast && <p className="mb-6 rounded-xl bg-green-50 px-4 py-3 text-sm font-medium text-green-700 animate-fade-up">{toast}</p>}
 
-      {/* THE CLOSE-ENTRIES CARD IS GONE (22 Sep 2026). Ethan: "I would remove
-          the close entries button and card from here, it's not needed." Closing
-          a challenge stays behind the "..." on the challenge itself. */}
+      {/* THE CLOSE-ENTRIES CARD IS GONE. Closing a challenge stays behind the "..." on the challenge itself. */}
       {/* THE PODIUM, BEFORE ANYBODY ELSE SEES IT.
           Publishing winners was previously invisible until it was already
           public: you logged views, a cron archived the challenge, and a podium
@@ -609,12 +586,9 @@ export default function AdminResults() {
               </div>
             )
           ))}
-          {/* THE PARTICIPATION AWARD, BOLTED ON RATHER THAN ITS OWN CARD
-              (23 Sep 2026). Ethan: "the participation award should be more
-              compact and bolted on to the leaderboard card above rather than
-              take up so much space." One summary line + a face cluster,
-              expandable for the full per-person detail. Who actually got PAID
-              lives on Rewards & Payouts, not here - see the link below. */}
+          {/* THE PARTICIPATION AWARD, BOLTED ON RATHER THAN ITS OWN CARD. One summary line + a face cluster, expandable
+              for the full per-person detail. Who actually got PAID lives on Rewards & Payouts, not here - see the link
+              below. */}
           <PrizeStandingsPanel challenge={challenge} refreshKey={`${standingsKey}:${submissions.length}:${resultsCount}`} compact />
           {resultsCount > 0 && (
             <p className="mt-4 border-t border-gray-100 pt-3 text-xs text-smoke">
@@ -645,10 +619,9 @@ export default function AdminResults() {
       ) : (
         <>
         {/* THE OLD-VIDEO CHECK, SAID ONCE ABOVE THE LIST. */}
-        {/* ONLY WHEN THERE IS SOMETHING TO SAY (28 Sep 2026). Ethan: the green
-            "no entry was posted before the challenge" box "should only show up
-            if there was an actual entry posted before the challenge start date
-            ... it takes up space." */}
+        {/* ONLY WHEN THERE IS SOMETHING TO SAY. The team: the green "no entry was posted before the challenge" box
+            "should only show up if there was an actual entry posted before the challenge start date... it takes up
+            space." */}
         {startsAt && earlyCount > 0 && (
           <div className={cx(
             'mb-4 flex flex-wrap items-center gap-3 rounded-card border px-4 py-3 sm:px-5',
@@ -674,10 +647,7 @@ export default function AdminResults() {
             )}
           </div>
         )}
-        {/* HEADING, SEARCH AND ORDER ON ONE LINE (28 Sep 2026). Ethan: "make
-            the search ... less wide, and then you can move newest first so
-            everything is on one line there to search and filter." On a phone
-            the two controls share the second line. */}
+        {/* HEADING, SEARCH AND ORDER ON ONE LINE. On a phone the two controls share the second line. */}
         <div id="entries-top" className="mb-3 scroll-mt-24">
           <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
             <h2 className="mr-auto text-base font-semibold">Entries <span className="text-smoke">({submissions.length})</span></h2>
@@ -736,10 +706,9 @@ export default function AdminResults() {
             </button>
           </div>
         )}
-        {/* NOT KEYED ON THE PIN OR THE SEARCH ANY MORE (28 Sep 2026). Keying
-            it re-mounted every card - two hundred covers, each resolving its
-            thumbnail - on the same frames the page was scrolling, which is the
-            lag Ethan saw. The cards stay; a pinned one flashes where it lands. */}
+        {/* NOT KEYED ON THE PIN OR THE SEARCH ANY MORE. Keying it re-mounted every card - two hundred covers, each
+            resolving its thumbnail - on the same frames the page was scrolling, which is the lag the team saw. The cards
+            stay; a pinned one flashes where it lands. */}
         <Reveal as="div" className="space-y-3" stagger={0.03} maxStagger={10} dense>
           {visibleEntries.map((s) => {
             const pts = challenge?.scoring === 'points' ? (entryPoints.get(s.id) ?? { total: 0 }) : null
@@ -754,18 +723,13 @@ export default function AdminResults() {
                 isEarly(s) ? 'border-red-200 bg-red-50/40' : pinned?.ids.includes(s.id) ? 'pin-flash border-brand/40 ring-2 ring-brand/15' : 'border-gray-100',
               )}
             >
-              {/* THE COVER, AND NOTHING ON IT (28 Sep 2026). Ethan: "you don't
-                  need the views over the video here or the points over the
-                  video ... because you have that all on the right side." The
-                  platform logo moved off the picture too, into the meta line in
-                  its own colours. */}
+              {/* THE COVER, AND NOTHING ON IT. The platform logo moved off the picture too, into the meta line in its
+                  own colours. */}
               <a href={safeUrl(s.video_url)} target="_blank" rel="noopener noreferrer" className="w-[5.5rem] shrink-0 self-start overflow-hidden rounded-xl sm:w-28">
                 <EntryPreview compact bare submission={s} />
               </a>
-              {/* TWO COLUMNS FROM A TABLET UP (28 Sep 2026). Ethan: "too much
-                  white space on the right side". Who and what on the left; the
-                  number, the points and the two actions in a column of their
-                  own on the right, so the card is full at any width. */}
+              {/* TWO COLUMNS FROM A TABLET UP. Who and what on the left; the number, the points and the two actions in a
+                  column of their own on the right, so the card is full at any width. */}
               <div className="flex min-w-0 flex-1 flex-col gap-3 sm:flex-row sm:gap-4">
                 <div className="flex min-w-0 flex-1 flex-col gap-2.5">
                   <div className="flex min-w-0 items-start gap-2">
@@ -781,12 +745,8 @@ export default function AdminResults() {
                           </span>
                         )}
                       </p>
-                      {/* MORE THAN "TIKTOK · ENTERED 23 SEP" (28 Sep 2026). Ethan:
-                          "rather than just having TikTok entered 23rd of
-                          September, you can have a little bit more there." The
-                          platform in its own colours, where this video stands
-                          in the challenge, which of the creator's entries it
-                          is, and when the number was last read. */}
+                      {/* MORE THAN "TIKTOK · ENTERED 23 SEP". The platform in its own colours, where this video stands
+                          in the challenge, which of the creator's entries it is, and when the number was last read. */}
                       <p className="mt-1.5 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-[11px] leading-snug text-smoke sm:text-xs">
                         {groups.length > 0 && (
                           <span className="font-semibold text-brand">
@@ -831,17 +791,11 @@ export default function AdminResults() {
                       brilliant" is a judgement. The button only exists on a points
                       challenge that HAS a bonus rule, so it is never a control
                       looking for a purpose. */}
-                  {/* WHAT THE CREATOR CLAIMED, AND THE WAY TO TAKE IT BACK.
-                      Ethan: "it should show +1 point or plus x points on the entry
-                      card, because then the admin can easily check and ensure that
-                      it's correct and no one is cheating."
-                      This is the checking surface. The claim sits beside the link
-                      to the video, so verifying is watching ten seconds of it
-                      rather than cross-referencing a spreadsheet - and if it does
-                      not qualify, pressing the chip withdraws it and the points
-                      come straight back off the leaderboard. A claim looks
-                      different from an admin's own award below on purpose: green
-                      and ticked is somebody's answer, orange is your decision. */}
+                  {/* WHAT THE CREATOR CLAIMED, AND THE WAY TO TAKE IT BACK. This is the checking surface. The claim sits
+                      beside the link to the video, so verifying is watching ten seconds of it rather than
+                      cross-referencing a spreadsheet - and if it does not qualify, pressing the chip withdraws it and
+                      the points come straight back off the leaderboard. A claim looks different from an admin's own
+                      award below on purpose: green and ticked is somebody's answer, orange is your decision. */}
                   {claimRules.length > 0 && (
                     <div className="flex flex-wrap gap-1.5">
                       {claimRules.map((r) => {
@@ -946,9 +900,8 @@ export default function AdminResults() {
                       <Icon name="video" className="h-3.5 w-3.5" />
                       Watch
                     </a>
-                    {/* NOT A RED SLAB (28 Sep 2026). A quiet outline that turns
-                        red on hover; a red edge only when the entry is one that
-                        should probably go. */}
+                    {/* NOT A RED SLAB. A quiet outline that turns red on hover; a red edge only when the entry is one
+                        that should probably go. */}
                     <button
                       type="button"
                       onClick={() => setDq({
@@ -1028,7 +981,7 @@ export default function AdminResults() {
                 placeholder="Why it does not count"
               />
             </label>
-            {/* A SWITCH IN THE BRAND, NOT THE BROWSER'S BLUE TICK BOX (22 Sep 2026). */}
+            {/* A SWITCH IN THE BRAND, NOT THE BROWSER'S BLUE TICK BOX. */}
             <div className="flex items-center justify-between gap-3 rounded-xl border border-gray-100 bg-white px-3.5 py-3">
               <span className="min-w-0 text-sm">
                 <span className="block font-semibold text-ink">Tell the creator</span>
@@ -1051,14 +1004,11 @@ export default function AdminResults() {
 }
 
 
-// ONE BOX, AND IT IS ALWAYS THE CURRENT NUMBER (22 Sep 2026).
+// ONE BOX, AND IT IS ALWAYS THE CURRENT NUMBER.
 //
-// Ethan: "it correctly updated the view number on the right side but in the
-// text box still showed 787 even though the synced count was 2.3k." The box was
-// an UNCONTROLLED input (`defaultValue`), which React reads exactly once, on
-// mount - so a sync that moved `logged_views` repainted the label beside it and
-// left the box on whatever it first drew. Two readouts of one number, one of
-// them stale, is worse than one.
+// The box was an UNCONTROLLED input (`defaultValue`), which React reads exactly once, on mount - so a sync that moved
+// `logged_views` repainted the label beside it and left the box on whatever it first drew. Two readouts of one number,
+// one of them stale, is worse than one.
 //
 // Now there is ONE readout and it is the field: it follows `logged_views`
 // whenever you are not typing in it, and a number typed in still wins (it is
@@ -1120,10 +1070,8 @@ function ViewCountField({ submission: s, saving, onSave }) {
           </span>
         )}
       </div>
-      {/* NO "SYNCED X AGO" LINE UNDER EVERY BOX (22 Sep 2026) - Ethan: it
-          takes a lot of space and is not necessary; the sync card above says
-          when the last read was. A number typed by hand keeps its amber edge
-          and says so on hover. */}
+      {/* NO "SYNCED X AGO" LINE UNDER EVERY BOX - the team: it takes a lot of space and is not necessary; the sync card
+          above says when the last read was. A number typed by hand keeps its amber edge and says so on hover. */}
     </div>
   )
 }

@@ -28,28 +28,16 @@ function fit(iw, ih, maxW, maxH) {
 //
 // A PHOTO IS THE SHAPE IT WAS TAKEN IN.
 //
-// THE BUG THIS FIXES. The image was `w-full … object-cover` inside the bubble,
-// which is two separate mistakes compounding. `w-full` says "be as wide as the
-// bubble whatever you are", and `object-cover` then CROPS whatever does not fit
-// that box - so a portrait photo sent from a phone arrived on a desktop as a
-// letterbox strip cut out of its middle, with the top and bottom of the picture
-// simply gone. Ethan: "on PC when a vertical photo is sent it's all cropped and
-// just shows a landscape piece of it."
+// THE BUG THIS FIXES. The image was `w-full … object-cover` inside the bubble, which is two separate mistakes
+// compounding. `w-full` says "be as wide as the bubble whatever you are", and `object-cover` then CROPS whatever does
+// not fit that box - so a portrait photo sent from a phone arrived on a desktop as a letterbox strip cut out of its
+// middle, with the top and bottom of the picture simply gone.
 //
-// So the image is fitted the same way VideoPlayer already fits video: measure
-// the natural size, scale it to fit inside a maxW x maxH box, and give the
-// wrapper that exact box. Landscape comes out landscape, portrait comes out
-// portrait, and nothing is ever cut off. The box is applied to the WRAPPER, and
-// as an `aspect-ratio` before the pixels arrive, so the message does not jump
-// when the photo decodes - which matters because every chat here re-pins its
-// scroller on image load.
-// A TAP ON A PHOTO OPENS THE MESSAGE BAR, LIKE A TAP ON ANY OTHER MESSAGE
-// (1 Sep 2026).
-//
-// Ethan: "a tap on a photo, for desktop and mobile should show up below the
-// icons to react, reply, delete, report, but since its a photo it should also
-// show up the icon to download the photo and another icon to view it full
-// screen."
+// So the image is fitted the same way VideoPlayer already fits video: measure the natural size, scale it to fit inside a
+// maxW x maxH box, and give the wrapper that exact box. Landscape comes out landscape, portrait comes out portrait, and
+// nothing is ever cut off. The box is applied to the WRAPPER, and as an `aspect-ratio` before the pixels arrive, so the
+// message does not jump when the photo decodes - which matters because every chat here re-pins its scroller on image
+// load. A TAP ON A PHOTO OPENS THE MESSAGE BAR, LIKE A TAP ON ANY OTHER MESSAGE.
 //
 // This replaces two competing answers to one press. A tap used to open the
 // picture full screen and a LONG press opened a bespoke three-item sheet, which
@@ -81,17 +69,13 @@ export default function ChatMedia({ url, alt, kind, w = null, h = null, maxW = 2
   // Messages sent BEFORE that migration have no numbers, and they still get the
   // measure-on-load path below - so nothing already in a thread changes.
   //
-  // AND A PHOTO NOBODY HAS MEASURED STILL GETS A BOX (2 Sep 2026). The eight
-  // room attachments that predate the migration had their real dimensions
-  // written by hand, but a DM's media lives behind a signed URL and five of
-  // those could not be measured the same way - and any future upload that
-  // fails to measure would land here too. `null` meant `h-auto` on an image
-  // with no intrinsic size, which is a ZERO-HEIGHT box until the bytes decode:
-  // the row occupies nothing, the thread is scrolled to a bottom that is about
-  // to move, and the picture lands like a shove. A provisional 3:4 - the shape
-  // of most photographs sent from a phone - is wrong by at most a couple of
-  // hundred pixels instead of by the whole picture, and it is replaced the
-  // instant a real measurement arrives.
+  // AND A PHOTO NOBODY HAS MEASURED STILL GETS A BOX. The eight room attachments that predate the migration had their
+  // real dimensions written by hand, but a DM's media lives behind a signed URL and five of those could not be measured
+  // the same way - and any future upload that fails to measure would land here too. `null` meant `h-auto` on an image
+  // with no intrinsic size, which is a ZERO-HEIGHT box until the bytes decode: the row occupies nothing, the thread is
+  // scrolled to a bottom that is about to move, and the picture lands like a shove. A provisional 3:4 - the shape of
+  // most photographs sent from a phone - is wrong by at most a couple of hundred pixels instead of by the whole picture,
+  // and it is replaced the instant a real measurement arrives.
   const [box, setBox] = useState(() => fit(w || 300, h || 400, maxW, maxH))
 
   const measure = useCallback((img) => {

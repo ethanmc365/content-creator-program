@@ -9,7 +9,7 @@ import { useT } from '../../lib/i18n'
 import { SUPPORT_EMAIL } from '../../lib/team'
 import { agreementsApi } from '../../api/agreements'
 
-// /guardian/<token>: WHERE A PARENT OR GUARDIAN CONFIRMS (8 Oct 2026, migration 367).
+// /guardian/<token>: WHERE A PARENT OR GUARDIAN CONFIRMS (migration 367).
 //
 // Public, no account. The token is the only key and it opens exactly one acceptance: the text the young creator
 // accepted, word for word as they saw it, and a confirmation in the guardian's own name. What is recorded is the time,

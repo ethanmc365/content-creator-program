@@ -10,10 +10,9 @@ import { allRows as allRowsSeq } from '../../lib/fetchAll'
 // Every big table here is read four pages at a time (see lib/fetchAll).
 const allRows = (build, opts) => allRowsSeq(build, { parallel: 4, ...opts })
 
-// THE LAST READ IS KEPT FOR THE SESSION (3 Oct 2026). Ethan: "whenever I click on analytics in the admin panel, it
-// takes a while for it to show up." Every visit re-downloaded a dozen whole tables before drawing a number. Now a
-// visit within ten minutes of the last draws that read at once and refreshes it underneath; a fresh session still
-// waits for the first one.
+// THE LAST READ IS KEPT FOR THE SESSION. Every visit re-downloaded a dozen whole tables before drawing a number. Now a
+// visit within ten minutes of the last draws that read at once and refreshes it underneath; a fresh session still waits
+// for the first one.
 let RAW_CACHE = null
 let MARKETS_CACHE = null
 const RAW_TTL_MS = 10 * 60 * 1000
@@ -45,7 +44,7 @@ import { flightsApi } from '../../api/flights'
 import { contentApi } from '../../api/content'
 import { teamApi } from '../../api/team'
 
-// THE ORDER IS THE ORDER SOMEBODY READS THEM IN, AND ETHAN SET IT (8 Sep 2026).
+// THE ORDER IS THE ORDER SOMEBODY READS THEM IN, AND ETHAN SET IT.
 //
 // "I would just change the name to Challenges rather than Challenge performance.
 // I would also move it over to the very left. So Overview, then Challenges,
@@ -64,26 +63,22 @@ import { teamApi } from '../../api/team'
 // label, and the longer name was the widest thing on the strip.
 const TABS = [
   { key: 'overview', label: 'Overview' },
-  // VIEWS GAINED PER WEEK, COMMUNITY / VIP / BOTH, AND THE WEEKLY SNAPSHOT (9 Oct 2026). See analytics/ViewsReport.
+  // VIEWS GAINED PER WEEK, COMMUNITY / VIP / BOTH, AND THE WEEKLY SNAPSHOT. See analytics/ViewsReport.
   { key: 'views', label: 'Weekly views' },
   { key: 'programme', label: 'Challenges' },
   // MARKET AGAINST MARKET, THIRD. It reads the same datasets the Challenges tab
   // does and answers the question straight after it - "and how does that split
   // by market" - so it sits next to it rather than at the far end of the strip.
   { key: 'markets', label: 'Market league' },
-  // THE VIP PROGRAMME'S OWN NUMBERS, all markets together and then each market (4 Oct 2026).
+  // THE VIP PROGRAMME'S OWN NUMBERS, all markets together and then each market.
   { key: 'vip', label: 'VIP' },
   { key: 'growth', label: 'Growth' },
-  // REFERRALS, ITS OWN TAB (22 Sep 2026): it was a card at the foot of the
-  // Overview, which Ethan had to scroll to find.
+  // REFERRALS, ITS OWN TAB: it was a card at the foot of the Overview, which the team had to scroll to find.
   { key: 'referrals', label: 'Referrals' },
   { key: 'community', label: 'Community health' },
   { key: 'creators', label: 'Per creator' },
-  // ERRORS GET THEIR OWN TAB (8 Sep 2026). Ethan: "I wouldn't put that at the
-  // bottom of [community health] and would rather have a new tab for it, and
-  // actually build it properly." It was a panel at the foot of a long page,
-  // which is the one place a usually-empty list is guaranteed not to be looked
-  // at on the day it stops being empty.
+  // ERRORS GET THEIR OWN TAB. It was a panel at the foot of a long page, which is the one place a usually-empty list is
+  // guaranteed not to be looked at on the day it stops being empty.
   { key: 'errors', label: 'Error monitoring' },
 ]
 
@@ -159,9 +154,8 @@ export default function AdminAnalytics() {
   const [params, setParams] = useSearchParams()
   const [marketPending, startMarket] = useTransition()
   const [raw, setRaw] = useState(() => RAW_CACHE)
-  // THE MARKET CHIPS DO NOT WAIT FOR THE WHOLE LOAD (3 Oct 2026). Ethan: "it still takes a while for the analytics page to
-  // load in. It takes a while to show Germany, Nordics, Portugal, etc." The list of markets is one tiny read; it was
-  // queued behind every paged table on the page. It is asked for on its own now and drawn the moment it lands.
+  // THE MARKET CHIPS DO NOT WAIT FOR THE WHOLE LOAD. The list of markets is one tiny read; it was queued behind every
+  // paged table on the page. It is asked for on its own now and drawn the moment it lands.
   const [quickMarkets, setQuickMarkets] = useState(() => MARKETS_CACHE)
   useEffect(() => {
     if (MARKETS_CACHE) return undefined
@@ -217,7 +211,7 @@ export default function AdminAnalytics() {
         // `challenge_id` so the market scope can follow a result to its
         // contest - see lib/analyticsScope.
         allRows(() => challengesApi.results().select('final_views, challenge_id')),
-        // TIMESTAMPS AND WHO, NOT JUST A COUNT (2 Oct 2026), so the Overview can be read over a period and a market.
+        // TIMESTAMPS AND WHO, NOT JUST A COUNT, so the Overview can be read over a period and a market.
         contentApi.feedback().select('status, created_at, creator_id'),
         allRows(() => chatApi.reactions().select('id, creator_id, created_at')),
         allRows(() => chatApi.pollVotes().select('id, voter_id, created_at')),
@@ -301,13 +295,7 @@ export default function AdminAnalytics() {
   // before this file is committed.
   const market = params.get('market') || ''
 
-  // THE SCOPE IS RESOLVED BEFORE ANYTHING IS COMPUTED FROM IT (7 Sep 2026).
-  //
-  // Ethan: "on the analytics page for the overview we should also have the
-  // countries below it, so I can get an overview of each market. For example in
-  // Growth we have Worldwide, Germany, Nordics, Portugal - that's good. We
-  // should have that same tab and structure on Overview. Same for Challenge
-  // performance, Community health, Connections."
+  // THE SCOPE IS RESOLVED BEFORE ANYTHING IS COMPUTED FROM IT.
   //
   // Growth and Per creator already read `scoped`; the Overview read `raw`, so
   // the picker existed two tabs away from the eight headline numbers everybody
@@ -320,8 +308,8 @@ export default function AdminAnalytics() {
   // there is no market, so the global case costs nothing.
   const scoped = scopeToMarket(raw, market, raw?.memberRows || [])
 
-  // THE PERIOD, IN THE URL beside the market and the currency, so "Spain, last month" is a link (2 Oct 2026).
-  // Measured against the moment the data was loaded, not against render time, so the memo stays pure.
+  // THE PERIOD, IN THE URL beside the market and the currency, so "Spain, last month" is a link. Measured against the
+  // moment the data was loaded, not against render time, so the memo stays pure.
   const periodKey = PERIODS.some((p) => p.key === params.get('period')) ? params.get('period') : 'all'
   const customFrom = params.get('from') || ''
   const customTo = params.get('to') || ''
@@ -348,20 +336,18 @@ export default function AdminAnalytics() {
     // rather than renaming two hundred references: `scopeToMarket` returns the
     // ORIGINAL object when no market is chosen, so the worldwide case is
     // byte-identical to what this always did.
-    // AND THE PERIOD (2 Oct 2026): `applyPeriod` narrows everything that HAPPENED to the chosen stretch of time and
-    // returns the same object for All time, so that case is still byte-identical. `whole` keeps the market's
-    // un-narrowed rows for the few things that are about a challenge as a whole or about the state of the roster.
+    // AND THE PERIOD: `applyPeriod` narrows everything that HAPPENED to the chosen stretch of time and returns the same
+    // object for All time, so that case is still byte-identical. `whole` keeps the market's un-narrowed rows for the few
+    // things that are about a challenge as a whole or about the state of the roster.
     const whole = scoped
     const periodOn = !!(range?.start || range?.end)
     const raw = applyPeriod(scoped, range)
     // EVERY AMOUNT COMES THROUGH HERE.
     //
-    // THE BUG THIS FIXES: the overview's money tiles were raw `reduce`s over
-    // `r.amount` across a table holding both pounds and euros, and the currency
-    // toggle changed only the SYMBOL in front of the result - so "£190" and
-    // "€190" were the same number, and neither of them was right. Ethan:
-    // "rewards/invoices payouts are in pounds and should be euros." Being in
-    // euros means being converted into euros, not relabelled.
+    // THE BUG THIS FIXES: the overview's money tiles were raw `reduce`s over `r.amount` across a table holding both
+    // pounds and euros, and the currency toggle changed only the SYMBOL in front of the result - so "£190" and "€190"
+    // were the same number, and neither of them was right. Being in euros means being converted into euros, not
+    // relabelled.
     const money = (n, from) => convert(Number(n) || 0, from || 'EUR', currency) || 0
     const {
       profiles, challenges, history, submissions, rewards, messages, results, feedback,
@@ -389,9 +375,9 @@ export default function AdminAnalytics() {
 
     // 1. Creator growth: new sign-ups per month + cumulative total.
     // 2. Submission momentum: entries per month.
-    // OVER A PERIOD THE TIMELINES ARE CUT TO FIT IT (2 Oct 2026): by day up to a fortnight, by week up to a quarter,
-    // by month beyond (lib/analyticsPeriod.bucketFor), every bucket drawn so a quiet day is a zero and not a gap.
-    // The running total starts from everybody who had joined BEFORE the period, so the line is the real roster.
+    // OVER A PERIOD THE TIMELINES ARE CUT TO FIT IT: by day up to a fortnight, by week up to a quarter, by month beyond
+    // (lib/analyticsPeriod.bucketFor), every bucket drawn so a quiet day is a zero and not a gap. The running total
+    // starts from everybody who had joined BEFORE the period, so the line is the real roster.
     let growth
     let momentum
     if (periodOn) {
@@ -448,12 +434,9 @@ export default function AdminAnalytics() {
         prizesPaid: rewards
           .filter((r) => r.challenge_id === c.id && r.status === 'distributed')
           .reduce((sum, r) => sum + money(r.amount, r.currency), 0),
-        // CPM PER CHALLENGE (22 Sep 2026). Ethan: "it doesn't seem to show the
-        // CPM at all, which it obviously should be. Not just the live CPM, but
-        // the CPM when the challenge is over." Running: the cash pot plus
-        // vouchers earned so far over views so far - the same number as the
-        // live band on the challenge's own page (lib/challengeSpend). Finished:
-        // what was actually awarded, cash and vouchers, pending included.
+        // CPM PER CHALLENGE. Running: the cash pot plus vouchers earned so far over views so far - the same number as
+        // the live band on the challenge's own page (lib/challengeSpend). Finished: what was actually awarded, cash and
+        // vouchers, pending included.
         cpm: (() => {
           if (!totalViews) return null
           if (c.status === 'active') {
@@ -510,9 +493,8 @@ export default function AdminAnalytics() {
     // The programme's cash: what the reward ledger knows about, plus what the
     // spreadsheet recorded before there was a ledger.
     const programmeCash = cashPaid + histPrize
-    // Divided like by like - the numerator only counts challenges whose views
-    // are known, exactly as lib/programme does. Mixing them is what made the
-    // Challenge performance tab read EUR 0.47 against Ethan's own EUR 0.38.
+    // Divided like by like - the numerator only counts challenges whose views are known, exactly as lib/programme does.
+    // Mixing them is what made the Challenge performance tab read EUR 0.47 against the team's own EUR 0.38.
     const measuredCash = cashPaid + histMeasuredPrize
     const costPer1k = totalViews > 0 && measuredCash > 0 ? measuredCash / (totalViews / 1000) : null
     // Two CPMs, deliberately, and never one blended average of averages: cash is
@@ -652,12 +634,10 @@ export default function AdminAnalytics() {
     }
   }, [scoped, currency, range])
 
-  // The three tabs answer three different questions, and each is a page's worth
-  // of material on its own: what is happening, what the money bought, and
-  // whether the community is actually alive. The tab is in the URL so a link to
-  // "the CPM table" lands on the CPM table.
-  // `network` was the Connections tab; it is a section of Community health
-  // now (24 Sep 2026), so an old link lands there.
+  // The three tabs answer three different questions, and each is a page's worth of material on its own: what is
+  // happening, what the money bought, and whether the community is actually alive. The tab is in the URL so a link to
+  // "the CPM table" lands on the CPM table. `network` was the Connections tab; it is a section of Community health now,
+  // so an old link lands there.
   const tab = params.get('tab') === 'network' ? 'community' : (params.get('tab') || 'overview')
   const setCurrency = (next) => {
     const q = { ...Object.fromEntries(params) }
@@ -689,9 +669,9 @@ export default function AdminAnalytics() {
     if (next === 'custom') { q.from = from; q.to = to } else { delete q.from; delete q.to }
     setParams(q, { replace: true })
   }
-  // A MARKET SWITCH IS A TRANSITION (3 Oct 2026): every figure on the page is rebuilt for the new market, and doing
-  // that inside the click froze the chips for a moment - "it takes a while for Germany, Nordic, Portugal ... to load
-  // in". The chip now lights at once and the page dims while the numbers catch up.
+  // A MARKET SWITCH IS A TRANSITION: every figure on the page is rebuilt for the new market, and doing that inside the
+  // click froze the chips for a moment - "it takes a while for Germany, Nordic, Portugal... to load in". The chip now
+  // lights at once and the page dims while the numbers catch up.
   const marketRowRef = useRef(null)
   useEffect(() => {
     const row = marketRowRef.current
@@ -707,20 +687,10 @@ export default function AdminAnalytics() {
   // ---------------------------------------------------------------------
   // ONE FILTER BAR, NOT FOUR ROWS OF CONTROLS.
   //
-  // Ethan (9 Sep 2026): "I feel like there's way too many tabs, buttons,
-  // filters etcetera all at the top is taking up space and looks confusing. For
-  // example we have the overview challenges growth community etcetera. Then we
-  // have worldwide Germany Nordics Portugal etcetera. Then we have money,
-  // EUR/GBP. Then we have where all markets and all time. Then we have summary,
-  // then challenges, and the export and the log the challenge button. So many
-  // buttons."
-  //
-  // He is counting six horizontal bands of chrome above the first number on the
-  // page, and the reason there were six is that each one was added by whoever
-  // needed it, in its own row, without anybody looking at the stack. Three of
-  // them asked the same two questions twice: this page had a market scope AND
-  // the Challenges tab had its own "Where"; this page had a currency toggle AND
-  // the Challenges tab had its own "Money".
+  // they are counting six horizontal bands of chrome above the first number on the page, and the reason there were six
+  // is that each one was added by whoever needed it, in its own row, without anybody looking at the stack. Three of them
+  // asked the same two questions twice: this page had a market scope AND the Challenges tab had its own "Where"; this
+  // page had a currency toggle AND the Challenges tab had its own "Money".
   //
   // WHAT IS LEFT IS TWO BANDS. The tabs, then one bar that holds every control
   // that narrows what you are reading - where, and in what money - with the
@@ -738,9 +708,9 @@ export default function AdminAnalytics() {
 
   const filterBar = (marketsOff = false, periodOff = false) => (
     <div className="mb-6 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-card border border-gray-100 bg-white p-1.5 shadow-card">
-      {/* ON A PHONE THE MARKETS GET THEIR OWN ROW (12 Oct 2026). Squeezed beside the date they scrolled in a sliver, and a
-          picked market chip clipped at the edge read as "an orange bar on the right side" of the date. Full width, a fade
-          at the edge instead of a hard cut, and the picked chip scrolled into view. */}
+      {/* ON A PHONE THE MARKETS GET THEIR OWN ROW. Squeezed beside the date they scrolled in a sliver, and a picked
+          market chip clipped at the edge read as "an orange bar on the right side" of the date. Full width, a fade at
+          the edge instead of a hard cut, and the picked chip scrolled into view. */}
       <div aria-hidden={marketsOff || undefined} ref={marketRowRef} className={cx('flex min-w-0 flex-1 items-center gap-1 overflow-x-auto transition-opacity duration-200 [-ms-overflow-style:none] [scrollbar-width:none] max-sm:basis-full max-sm:[mask-image:linear-gradient(to_right,#000_88%,transparent)] [&::-webkit-scrollbar]:hidden', marketsOff && 'pointer-events-none select-none opacity-35')}>
         <button
           type="button"
@@ -771,9 +741,9 @@ export default function AdminAnalytics() {
 
       {scopeNote && <span className="shrink-0 px-1 text-[11px] text-smoke max-lg:hidden">{scopeNote}</span>}
 
-      {/* WHEN (2 Oct 2026). One custom dropdown, the presets people actually ask for, and "Custom dates" opening two
-          day fields. Overview only: the other tabs have their own clocks (the league is a month, the log has its
-          year/month), so here it is dimmed rather than removed and the bar never changes shape between tabs. */}
+      {/* WHEN. One custom dropdown, the presets people actually ask for, and "Custom dates" opening two day fields.
+          Overview only: the other tabs have their own clocks (the league is a month, the log has its year/month), so
+          here it is dimmed rather than removed and the bar never changes shape between tabs. */}
       <PeriodPicker
         value={periodKey}
         from={customFrom}
@@ -815,12 +785,10 @@ export default function AdminAnalytics() {
 
   // IT SCROLLS SIDEWAYS, IT DOES NOT WRAP.
   //
-  // THE BUG THIS FIXES: five tabs, two of them called "Challenge performance"
-  // and "Community health", inside `flex-wrap` with the underline rule on the
-  // same element. On a phone that is three rows of tabs, and only the LAST row
-  // sits on the rule - the other two float above it with their active
-  // underline drawn in mid-air, over a heading's worth of vertical space.
-  // Ethan: "analytics: page switching is stacked and broken."
+  // THE BUG THIS FIXES: five tabs, two of them called "Challenge performance" and "Community health", inside `flex-wrap`
+  // with the underline rule on the same element. On a phone that is three rows of tabs, and only the LAST row sits on
+  // the rule - the other two float above it with their active underline drawn in mid-air, over a heading's worth of
+  // vertical space.
   //
   // The rule belongs to the wrapper and the tabs scroll under it, which is one
   // row at every width. `-mb-px` is on the ROW now rather than each button, so
@@ -844,13 +812,10 @@ export default function AdminAnalytics() {
     </div>
   )
 
-  // ONE FRAME FOR EVERY TAB, AND NO SENTENCE UNDER THE TITLE (2 Oct 2026). Ethan: "when clicking from
-  // challenges to market league the page jumps and moves a bit because the descriptions are different
-  // lengths on each ... remove these descriptions from every one. And you can move everything up a little
-  // and ensure it all stays the same and has clean animations." Every tab used to return its own page with
-  // its own header, so a switch rebuilt the header, the tab strip and the filter row, and the subtitle's
-  // line count moved everything below it. Now the header, the strip and the filters are one tree that
-  // stays mounted, and only the body (keyed on the tab) fades in under them.
+  // ONE FRAME FOR EVERY TAB, AND NO SENTENCE UNDER THE TITLE. Every tab used to return its own page with its own header,
+  // so a switch rebuilt the header, the tab strip and the filter row, and the subtitle's line count moved everything
+  // below it. Now the header, the strip and the filters are one tree that stays mounted, and only the body (keyed on the
+  // tab) fades in under them.
   //
   // NO MARKET FILTER ON THE LEAGUE: the page is the comparison, so scoping it to one market would leave a
   // league table with one row in it. NO MARKET PICKER ON ERRORS: a crash is a property of the code and the
@@ -945,11 +910,9 @@ export default function AdminAnalytics() {
         </div>
       )}
 
-      {/* ---- Programme economics ----
-          Was the Challenges tab's "Summary" view, and nearly all of it
-          repeated these tiles (24 Sep 2026). What it had that the Overview did
-          not - the ratios, the month-by-month charts and the breakdowns - is
-          here now, under the tiles, and the Challenges tab is just the list. */}
+      {/* ---- Programme economics ---- Was the Challenges tab's "Summary" view, and nearly all of it repeated these
+           tiles. What it had that the Overview did not - the ratios, the month-by-month charts and the breakdowns - is
+           here now, under the tiles, and the Challenges tab is just the list. */}
       <div className="mb-10">
         <ProgrammePerformance market={marketName} currency={currency} mode="summary" range={periodOn ? range : null} />
       </div>
@@ -1199,10 +1162,7 @@ export default function AdminAnalytics() {
         </ChartCard>
       </div>
 
-      {/* THE ALL-CHALLENGES TABLE IS GONE FROM THE OVERVIEW (8 Sep 2026).
-          Ethan: "on the Overview we have the All challenges [table] at the
-          bottom... we no longer need that there because we have our own
-          Challenges section, so you can remove it."
+      {/* THE ALL-CHALLENGES TABLE IS GONE FROM THE OVERVIEW.
 
           Right, and it was worse than redundant. It listed the platform's
           `challenges` rows only - one of them - under a heading that says "all",

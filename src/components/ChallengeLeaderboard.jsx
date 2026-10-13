@@ -69,9 +69,8 @@ export default function ChallengeLeaderboard({
   rows = [], prizes = [], meId = null, participation = null, subCountByCreator = {},
   platformsFor = () => [], linkProfiles = true, wide = false, scoreLabel = 'views',
   startAt = 1, className = '',
-  // POSTING STREAKS AND VIDEO COUNTS (28 Sep 2026). `streaks` is creatorId ->
-  // { current, best, live, state } from lib/dailyStreak; drawn only while the challenge is
-  // running (`showStreaks`), because a streak is about what happens next.
+  // POSTING STREAKS AND VIDEO COUNTS. `streaks` is creatorId -> { current, best, live, state } from lib/dailyStreak;
+  // drawn only while the challenge is running (`showStreaks`), because a streak is about what happens next.
   streaks = null, showStreaks = false, showVideos = false,
 }) {
   const tr = useT()
@@ -98,20 +97,13 @@ export default function ChallengeLeaderboard({
 
   if (slots.length === 0) return null
 
-  // WHO HAS REACHED THE TAKING-PART VOUCHER (22 Sep 2026). Ethan: "ensure it
-  // shows on the leaderboard who has reached the 10 euro participation voucher
-  // for reaching 18 points." A reached row carries the badge at every width,
-  // and a row on its way says how far it has to go. On an `outside_prizes`
-  // challenge a paid place wins its place prize instead, so it gets no badge.
+  // WHO HAS REACHED THE TAKING-PART VOUCHER. A reached row carries the badge at every width, and a row on its way says
+  // how far it has to go. On an `outside_prizes` challenge a paid place wins its place prize instead, so it gets no
+  // badge.
   //
-  // THE TERMS NO LONGER HEAD THE BOARD (28 Sep 2026). There was a green banner
-  // above the first row spelling out "Reach N points for a <prize>" with a
-  // count of who had. Ethan: "I think we don't necessarily need to show 'Reach
-  // 18 points for a EUR 10 Tryp.com voucher' above, because I think it is a
-  // weird placement for it. It does show when someone earns a Tryp.com
-  // voucher, which is great. We want to keep that, but just remove it from the
-  // very top." The terms live on the brief and in the taking-part card; the
-  // board keeps only the per-row badge and the "N points to the voucher" hint.
+  // THE TERMS NO LONGER HEAD THE BOARD. There was a green banner above the first row spelling out "Reach N points for a
+  // <prize>" with a count of who had. The terms live on the brief and in the taking-part card; the board keeps only the
+  // per-row badge and the "N points to the voucher" hint.
   const partScore = (row) => (participation?.basis === 'points'
     ? Number(row.final_views) || 0
     : subCountByCreator[row.creator_id] || 0)
@@ -120,21 +112,15 @@ export default function ChallengeLeaderboard({
   const unitWord = participation?.basis === 'points' ? tr('points') : tr('videos')
 
   const hasPrizes = paidPlaces.length > 0
-  // The prize column holds the voucher pill too (2 Oct 2026), and "€10 Tryp.com voucher" does not fit in 8rem.
+  // The prize column holds the voucher pill too, and "€10 Tryp.com voucher" does not fit in 8rem.
   const prizeCol = participation?.threshold ? 'w-44' : 'w-32'
   const fmtScore = (v) => (scoreLabel === 'points' ? `${Number(v || 0).toLocaleString()}` : formatViews(v))
 
   return (
     <div className={cx('overflow-hidden rounded-card border border-gray-100 bg-white shadow-card', className)}>
-      {/* THE COLUMNS SAY WHAT THEY ARE (28 Sep 2026, evening). Ethan: "the UI
-          of these still seems very crowded and hard to read or understand ...
-          the way the cash, the streak, the video icons, points, and views show
-          up, I think you can really work on improving that, making everything
-          stand out better. We have some space there."
-          Each fact has one column and one header, and they line up down the
-          whole board: WHO (and under the name: where they post, how many
-          videos, the streak, the voucher), the PRIZE, the POINTS, the VIEWS.
-          On a phone the prize moves under the name and the numbers stack. */}
+      {/* THE COLUMNS SAY WHAT THEY ARE. Each fact has one column and one header, and they line up down the whole board:
+          WHO (and under the name: where they post, how many videos, the streak, the voucher), the PRIZE, the POINTS, the
+          VIEWS. On a phone the prize moves under the name and the numbers stack. */}
       <div className={cx(
         'items-center gap-4 border-b border-gray-100 bg-cloud/40 py-2 text-[10px] font-bold uppercase tracking-wider text-smoke',
         wide ? 'flex px-8' : 'hidden px-8 sm:flex',
@@ -157,8 +143,9 @@ export default function ChallengeLeaderboard({
         const vids = subCountByCreator[row?.creator_id] || 0
         const plats = row ? platformsFor(row.creator_id) : []
         const st = showStreaks && row ? streaks?.get(row.creator_id) : null
-        // THE DAILY STREAK HAS ITS OWN COLUMN (4 Oct 2026): a big flame and the number of days in a row. Lit while the creator has posted
-        // today, a dimmer flame while the run is waiting for today's post, and GREY with their best run when it has been lost.
+        // THE DAILY STREAK HAS ITS OWN COLUMN: a big flame and the number of days in a row. Lit while the creator has
+        // posted today, a dimmer flame while the run is waiting for today's post, and GREY with their best run when it
+        // has been lost.
         const streakCell = st && st.state !== 'none' ? (
           <button
             type="button"
@@ -166,8 +153,9 @@ export default function ChallengeLeaderboard({
             title={st.state === 'lost' ? tr('Streak lost. Best run: {n} days. What is this?', { n: st.best }) : tr('{n}-day posting streak. What is this?', { n: st.current })}
             className="group flex w-full items-center justify-center transition-transform duration-200 hover:-translate-y-0.5"
           >
-            {/* THE GAMES' ANIMATED FLAME, WITH THE NUMBER BESIDE IT AND NO BOX (5 Oct 2026). Always the full fire - the orange tones and the
-                animation. When the streak is inactive (waiting for today's post, or lost) it is the same fire GREYED OUT, with its number. */}
+            {/* THE GAMES' ANIMATED FLAME, WITH THE NUMBER BESIDE IT AND NO BOX. Always the full fire - the orange tones
+                and the animation. When the streak is inactive (waiting for today's post, or lost) it is the same fire
+                GREYED OUT, with its number. */}
             <span className="inline-flex items-center gap-1">
               <Flame className={cx('h-7 w-7', st.state !== 'live' && 'opacity-60 grayscale')} sparks={st.state === 'live'} />
               <span className={cx('text-lg font-extrabold tabular-nums leading-none', st.state === 'live' ? 'text-brand' : 'text-smoke')}>{st.state === 'lost' ? st.best : st.current}</span>
@@ -212,11 +200,8 @@ export default function ChallengeLeaderboard({
                 {(showVideos || plats.length > 0) && vids > 0 && (
                   <span className="font-medium tabular-nums">{vids === 1 ? tr('1 video') : tr('{n} videos', { n: vids })}</span>
                 )}
-                {/* THE VOUCHER SITS WITH THE PRIZES (2 Oct 2026). Ethan: "the
-                    participation vouchers should show below in that same column
-                    for prize rather than over to the left." With a prize column
-                    it stacks under the cash pill there (and under the name on a
-                    phone, beside the prize pill); without one it stays here. */}
+                {/* THE VOUCHER SITS WITH THE PRIZES. With a prize column it stacks under the cash pill there (and under
+                    the name on a phone, beside the prize pill); without one it stays here. */}
                 {hasVoucher && !hasPrizes && voucherPill}
                 {togo != null && (
                   <span className="font-medium">
@@ -272,8 +257,8 @@ export default function ChallengeLeaderboard({
                   <Icon name="plus" className="h-4 w-4 text-brand/50" />
                 </span>
                 <span className="min-w-0">
-                  {/* "Up for grabs" on a phone, where the long sentence was cut to
-                      "This spot is..." (1 Oct 2026); the full one from sm. */}
+                  {/* "Up for grabs" on a phone, where the long sentence was cut to "This spot is..."; the full one from
+                      sm. */}
                   <span className={cx('block truncate text-sm font-semibold text-smoke', !wide && 'sm:hidden')}>{wide ? tr('This spot is up for grabs') : tr('Up for grabs')}</span>
                   {!wide && <span className="hidden truncate text-sm font-semibold text-smoke sm:block">{tr('This spot is up for grabs')}</span>}
                   {prize && <span className={cx('mt-1.5', wide ? 'hidden' : 'block sm:hidden')}>{prizePill}</span>}
@@ -316,8 +301,8 @@ export default function ChallengeLeaderboard({
                 <span className="block text-sm font-bold tabular-nums text-gray-300">-</span>
               )}
             </span>
-            {/* ON A POINTS BOARD, THE VIEWS TOO (3 Sep 2026): the points say who
-                is winning, the views say whether the challenge worked. */}
+            {/* ON A POINTS BOARD, THE VIEWS TOO: the points say who is winning, the views say whether the challenge
+                worked. */}
             {scoreLabel === 'points' && (
               <span className={cx('w-20 shrink-0 items-center justify-end gap-1.5 text-sm font-semibold tabular-nums text-ink/70', wide ? 'flex' : 'hidden sm:flex')}>
                 {row && row.total_views > 0

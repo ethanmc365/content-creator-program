@@ -64,20 +64,13 @@ function money(n, currency, dp) {
 const num = (n, dp = 1) => (n == null ? '-' : n.toLocaleString('en-GB', { maximumFractionDigits: dp }))
 
 
-// `market` is the market NAME from the page's shared scope picker, or null for
-// worldwide. It used to have its own dropdown, which meant this tab remembered
-// a different market from the one every other tab was showing - see the note on
-// the picker in AdminAnalytics. One control, at the top, for all six tabs.
-// `currency` IS THE PAGE'S, NOT THIS TAB'S (9 Sep 2026). It was a second
-// EUR/GBP toggle with its own state, so the Overview could be reading euros
-// while the Challenges tab beside it read pounds - two controls answering one
-// question, which is half of "there's way too many buttons at the top". The
-// shell owns it now and hands it down; see the filter bar in AdminAnalytics.
-// TWO MODES, ONE DATA LOAD (24 Sep 2026). Ethan: "when you click on
-// [Challenges] it shows a summary, and then there's a separate challenges
-// button. I think the summary is pretty much the same as the whole overview, so
-// build whatever you need from summary into overview... For that challenges
-// page, it can just be the way the challenges view shows up."
+// `market` is the market NAME from the page's shared scope picker, or null for worldwide. It used to have its own
+// dropdown, which meant this tab remembered a different market from the one every other tab was showing - see the note
+// on the picker in AdminAnalytics. One control, at the top, for all six tabs. `currency` IS THE PAGE'S, NOT THIS TAB'S.
+// It was a second EUR/GBP toggle with its own state, so the Overview could be reading euros while the Challenges tab
+// beside it read pounds - two controls answering one question, which is half of "there's way too many buttons at the
+// top". The shell owns it now and hands it down; see the filter bar in AdminAnalytics.
+// TWO MODES, ONE DATA LOAD.
 //   mode 'summary' - the economics (ratios, month charts, breakdowns), drawn on
 //                    the OVERVIEW tab under its own headline tiles.
 //   mode 'list'    - the Challenges tab: every challenge, and nothing else.
@@ -85,11 +78,7 @@ export default function ProgrammePerformance({ market: scopeMarket = null, curre
   const [rows, setRows] = useState(null)
   const [loadError, setLoadError] = useState('')
   const [rates, setRates] = useState(FALLBACK_RATES)
-  // WHEN, AS WELL AS WHERE (8 Sep 2026).
-  //
-  // Ethan: "because we have a lot of analytics now, I want to be able to filter
-  // by month or by year and see the growth that way. Especially for the
-  // challenge performance page."
+  // WHEN, AS WELL AS WHERE.
   //
   // Forty-nine challenges over nine months is past the point where a single
   // list answers a question: "what did Spain cost us in Q2" was a thing you had
@@ -136,13 +125,12 @@ export default function ProgrammePerformance({ market: scopeMarket = null, curre
   useEffect(() => { loadMarkets().then((m) => setMarkets(m || [])) }, [])
 
   useEffect(() => {
-    // Surface a failed load rather than falling through to the empty state: an
-    // RPC that errors and a programme with no challenges look identical
-    // otherwise, and the first one is a bug worth seeing.
-    // A RUNNING CHALLENGE'S COST IS WORKED OUT THE SAME WAY HERE AS ON ITS OWN PAGE (4 Oct 2026). Ethan: the list said "Running now" with one
-    // CPM and clicking in showed 23. The list priced a live challenge at its planned cash pot; the page prices it at the pot PLUS the
-    // awards and taking-part vouchers earned so far (lib/challengeSpend). They are now the one figure: each running challenge's standings are
-    // read here and its spend replaced by the same `challengeSpend`.
+    // Surface a failed load rather than falling through to the empty state: an RPC that errors and a programme with no
+    // challenges look identical otherwise, and the first one is a bug worth seeing. A RUNNING CHALLENGE'S COST IS WORKED
+    // OUT THE SAME WAY HERE AS ON ITS OWN PAGE. The team: the list said "Running now" with one CPM and clicking in
+    // showed 23. The list priced a live challenge at its planned cash pot; the page prices it at the pot PLUS the awards
+    // and taking-part vouchers earned so far (lib/challengeSpend). They are now the one figure: each running challenge's
+    // standings are read here and its spend replaced by the same `challengeSpend`.
     teamApi.adminChallengeMetrics().then(async ({ data, error }) => {
       if (error) setLoadError(error.message)
       const list = data ?? []
@@ -184,8 +172,8 @@ export default function ProgrammePerformance({ market: scopeMarket = null, curre
     // the challenge log, so filtering here is what makes the whole tab agree
     // with the controls at the top of it. A second filter applied further down
     // is how a page comes to show "Spain, August" over a total for the year.
-    // THE OVERVIEW'S PERIOD WINS when it is handed one (2 Oct 2026): a challenge belongs to every period it was
-    // open in, the same rule as the tiles above it (lib/analyticsPeriod.overlaps).
+    // THE OVERVIEW'S PERIOD WINS when it is handed one: a challenge belongs to every period it was open in, the same
+    // rule as the tiles above it (lib/analyticsPeriod.overlaps).
     const inRange = (r) => {
       if (range) return overlaps(r.start_date, r.end_date || r.start_date, range)
       if (year === 'all') return true
@@ -233,10 +221,7 @@ export default function ProgrammePerformance({ market: scopeMarket = null, curre
       // while the rest of the page shows August" is not.
       byMarket: groupBy(all.filter(inRange), (r) => r.market, { currency }),
       byFormat: groupBy(scoped, (r) => label('format', r.format), { currency }),
-      // BY CONTENT TYPE IS GONE (8 Sep 2026). Ethan: "I would actually remove
-      // the by content type because we're not really gonna track that any more.
-      // I think it's better to remove that, and you can add a new card in there
-      // if you want."
+      // BY CONTENT TYPE IS GONE.
       //
       // Prize type takes the slot because it is the one cut of the same money
       // that changes what the money COSTS: a travel voucher is redeemed against
@@ -265,8 +250,6 @@ export default function ProgrammePerformance({ market: scopeMarket = null, curre
         })
       })(),
       // Live and about-to-start challenges get pinned to the top of the list.
-      // Ethan: "I think the challenges [should] show there as soon as they're
-      // active, or even when they're planned, just to show the challenges."
       //
       // THE DATES DECIDE, NOT THE STORED STATUS. See `runningChallenges` in
       // lib/programme for what this used to do and why three finished imports
@@ -340,13 +323,10 @@ export default function ProgrammePerformance({ market: scopeMarket = null, curre
       {/* ---------------------------------------------------------------
           ONE ROW: WHAT YOU ARE LOOKING AT, WHEN, AND THE TWO THINGS YOU CAN DO.
 
-          It was three named groups - Money, Where, When - plus a clear, an
-          export and a log button, in a band of its own, sitting under the
-          page's own market chips and the page's own currency toggle. Two of the
-          three groups were duplicates of a control one row above them, which is
-          the fault Ethan actually described: not that any single control is
-          wrong, but that the same question is asked twice in two shapes before
-          you reach a number.
+          It was three named groups - Money, Where, When - plus a clear, an export and a log button, in a band of its
+          own, sitting under the page's own market chips and the page's own currency toggle. Two of the three groups were
+          duplicates of a control one row above them, which is the fault the team actually described: not that any single
+          control is wrong, but that the same question is asked twice in two shapes before you reach a number.
 
           Money is gone (the page owns it). Where is gone (the page's chips own
           it). What is left is genuinely this tab's: WHICH of the two documents
@@ -582,10 +562,8 @@ const MONTHS = [
 // views and one that cost EUR 14.20 looked exactly alike until you found the
 // column and read the digits. It became a list of cards, which fixed that.
 //
-// WHAT IT STILL WAS NOT WAS FINDABLE (8 Sep 2026). Fifty cards sorted by date
-// is fine for reading down and useless for "open the Spain one from June",
-// which is what somebody actually wants from a list. Ethan: "rebuild it now,
-// not just a button that brings you to the bottom."
+// WHAT IT STILL WAS NOT WAS FINDABLE. Fifty cards sorted by date is fine for reading down and useless for "open the
+// Spain one from June", which is what somebody actually wants from a list.
 //
 // So the list has the three controls a list of fifty needs and had none of:
 //
@@ -597,11 +575,9 @@ const MONTHS = [
 //   SORT        which it had, and which was the only way to reorder fifty
 //               things.
 //
-// AND WHAT IS RUNNING IS PINNED ABOVE WHAT IS FINISHED. Ethan: "the challenges
-// [should] show there as soon as they're active, or even when they're planned."
-// A live challenge is not the fiftieth-most-interesting row in a list sorted by
-// date; it is the reason somebody opened the page. It gets its own block at the
-// top and is not repeated below.
+// AND WHAT IS RUNNING IS PINNED ABOVE WHAT IS FINISHED. A live challenge is not the fiftieth-most-interesting row in a
+// list sorted by date; it is the reason somebody opened the page. It gets its own block at the top and is not repeated
+// below.
 const SORTS = [
   { value: 'recent', label: 'Most recent' },
   { value: 'cpm', label: 'Cheapest CPM' },
@@ -644,18 +620,13 @@ function ChallengeList({ rows, running, currency, onChanged }) {
 
   return (
     <div className="space-y-6">
-      {/* ---- Running now, pinned ----
-          TRYP.COM ORANGE, NOT A WASH OF IT. Ethan: "I would put these in
-          tryp.com orange rather than the weird orange you have." The weird
-          orange was `bg-brand-tint/20` - brand orange at a fifth of its
-          strength over white, which lands on a pale peach that belongs to no
-          palette and reads as a card that has gone slightly wrong rather than
-          one that is lit up. The colour is now the real `#d94407`, and it is
-          carried by the things that should be loud (the heading, the live pill,
-          the rule down the left edge) rather than smeared across the whole card
-          at an opacity chosen to keep the text readable. That is the same rule
-          this platform uses everywhere else for a picked thing: solid brand
-          with white on it, never a tint. */}
+      {/* ---- Running now, pinned ---- TRYP.COM ORANGE, NOT A WASH OF IT. The weird orange was `bg-brand-tint/20` -
+           brand orange at a fifth of its strength over white, which lands on a pale peach that belongs to no palette and
+           reads as a card that has gone slightly wrong rather than one that is lit up. The colour is now the real
+           `#d94407`, and it is carried by the things that should be loud (the heading, the live pill, the rule down the
+           left edge) rather than smeared across the whole card at an opacity chosen to keep the text readable. That is
+           the same rule this platform uses everywhere else for a picked thing: solid brand with white on it, never a
+           tint. */}
       {runningShown.length > 0 && (
         <section>
           <div className="mb-3 flex items-center gap-2">
@@ -722,13 +693,11 @@ function ChallengeList({ rows, running, currency, onChanged }) {
           }
         />
       ) : (
-        /* CARDS AGAIN, BUT MID-SIZED AND OPENABLE (26 Sep 2026). Ethan: "I
-           don't like the really compacted challenge cards. I think it's better
-           when you have them slightly bigger, with more information and a
-           better UI ... clicking on each of them should bring out more
-           details." The one-line rows cut titles and markets off at a column
-           edge. Each challenge is a card in a two-up grid now, with its
-           headline figures on it; pressing it opens the rest in place. */
+        /*
+         * CARDS AGAIN, BUT MID-SIZED AND OPENABLE. The one-line rows cut titles and markets off at a column edge. Each
+         * challenge is a card in a two-up grid now, with its headline figures on it; pressing it opens the rest in
+         * place.
+         */
         <div className="grid items-start gap-3 lg:grid-cols-2">
           {shown.map((r, i) => <ChallengeCard key={r.id} r={r} currency={currency} i={i} onChanged={onChanged} />)}
         </div>      )}
@@ -845,18 +814,16 @@ function LogCard({ r, currency, live = false, phase = 'live' }) {
   )
 }
 
-// A finished challenge as a card that opens (26 Sep 2026). Headline figures on
-// the face; everything else - the ratios, the target, the payout split - in a
-// panel that grows open underneath, the same 0fr -> 1fr motion the rest of the
-// admin uses. A challenge that ran ON the platform also links to its full
-// analytics page; an imported one from the log has only what the sheet held.
+// A finished challenge as a card that opens. Headline figures on the face; everything else - the ratios, the target, the
+// payout split - in a panel that grows open underneath, the same 0fr -> 1fr motion the rest of the admin uses. A
+// challenge that ran ON the platform also links to its full analytics page; an imported one from the log has only what
+// the sheet held.
 function ChallengeCard({ r, currency, i = 0, onChanged }) {
   const [open, setOpen] = useState(false)
   const [deleting, setDeleting] = useState(false)
-  // DELETING A CHALLENGE FROM THE LIST (29 Sep 2026). Ethan: an old Romanian one with
-  // no data was logged a second time WITH data, and "admins should be able to delete
-  // challenge data". The button used to live several screens deep inside the edit form,
-  // so nobody found it. It is here, on the card, and says what goes with it.
+  // DELETING A CHALLENGE FROM THE LIST. The team: an old Romanian one with no data was logged a second time WITH data,
+  // and "admins should be able to delete challenge data". The button used to live several screens deep inside the edit
+  // form, so nobody found it. It is here, on the card, and says what goes with it.
   async function remove() {
     const platform = r.source !== 'history'
     const ok = await confirm(
@@ -955,11 +922,8 @@ function ChallengeCard({ r, currency, i = 0, onChanged }) {
             ) : (
               <p className="mt-3 text-[11px] text-smoke">Imported from the challenge log, so only the sheet&rsquo;s figures are known.</p>
             )}
-            {/* ONLY WHAT WAS LOGGED BY HAND CAN BE DELETED HERE (30 Sep 2026). Ethan: "challenges
-                that were run on the platform ... shouldn't be able to be easily deleted, only
-                the ones that were manually logged ... we don't want challenges and data run on
-                the platform to get accidentally deleted." A platform challenge is deleted from
-                its own edit screen, on purpose, not from a list of figures. */}
+            {/* ONLY WHAT WAS LOGGED BY HAND CAN BE DELETED HERE. A platform challenge is deleted from its own edit
+                screen, on purpose, not from a list of figures. */}
             {!onPlatform && (
               <button
                 type="button"

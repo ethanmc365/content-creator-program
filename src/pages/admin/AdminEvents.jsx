@@ -18,10 +18,6 @@ import { eventsApi } from '../../api/events'
 
 // MANAGE EVENTS, REBUILT.
 //
-// Ethan: "The manage events page currently looks basic, it could be made more
-// useful with filters and perhaps showing events grouped by global and market
-// with easy buttons to access what you need without excessive scrolling."
-//
 // WHAT WAS WRONG
 //
 //   IT WAS ONE LIST, NEWEST FIRST, FOR EVER. Every event the programme had ever
@@ -32,7 +28,7 @@ import { eventsApi } from '../../api/events'
 //   line icons and never emoji in chrome, and the list rendered the emoji as
 //   its icon by splitting the label on a space.
 //
-//   "WHO SEES THIS" WAS A NATIVE SELECT THAT HELD ONE MARKET. Ethan asked for
+//   "WHO SEES THIS" WAS A NATIVE SELECT THAT HELD ONE MARKET.
 //   several - Spain and Germany without Portugal - and the OS roller cannot do
 //   it. See components/calendar/MarketPicker.
 //
@@ -145,14 +141,11 @@ export default function AdminEvents() {
 
   // EVENT IDEAS BELONG ON THE PAGE WHERE EVENTS GET MADE.
   //
-  // Ethan: "when someone suggests an event that can appear somewhere inside the
-  // manage events page for admins." The triage list itself already exists at
-  // the foot of the calendar (`EventFeedback`), which is the right home for it -
-  // creators read it there too, and it closes the loop in public. What was
-  // missing is that an admin who has come here to CREATE an event is exactly
-  // the person with a use for "three people asked for a portfolio review", and
-  // they had no idea it was waiting. So this is a prompt, not a second copy of
-  // the queue: the open ideas, and a way through to act on them.
+  // The triage list itself already exists at the foot of the calendar (`EventFeedback`), which is the right home for it
+  // - creators read it there too, and it closes the loop in public. What was missing is that an admin who has come here
+  // to CREATE an event is exactly the person with a use for "three people asked for a portfolio review", and they had no
+  // idea it was waiting. So this is a prompt, not a second copy of the queue: the open ideas, and a way through to act
+  // on them.
   const [ideas, setIdeas] = useState([])
   useEffect(() => {
     let cancelled = false

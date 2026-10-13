@@ -8,23 +8,20 @@ import Icon from '../Icon'
 import { cx } from '../../lib/utils'
 import { useT } from '../../lib/i18n'
 
-// "YOUR MARKETS", ONE CARD FOR EVERY NETWORK PAGE (2 Oct 2026).
+// "YOUR MARKETS", ONE CARD FOR EVERY NETWORK PAGE.
 //
-// Ethan: "whenever you click on a market in that tab it brings you to the page, but I still want that card on
-// the right column on the market page." It lived inside GlobalHome, so the moment you used it you lost it. It is
-// its own component now, drawn in the rail of the Worldwide hub AND of every market page, with the page you are
-// on picked out - so it works as the switcher it looks like.
+// It lived inside GlobalHome, so the moment you used it you lost it. It is its own component now, drawn in the rail of
+// the Worldwide hub AND of every market page, with the page you are on picked out - so it works as the switcher it looks
+// like.
 //
-// THE PICKED ROW IS A GRADIENT. Ethan: "when you're clicked on one it shows that light orange colour, I don't
-// like it, instead have an orange to light gradient." Solid brand into brand-light with white on it, the house
-// rule for a picked option, and it fades in rather than snapping (`selected-in`).
+// THE PICKED ROW IS A GRADIENT. Solid brand into brand-light with white on it, the house rule for a picked option, and
+// it fades in rather than snapping (`selected-in`).
 //
 // The saved order is the same localStorage key the hub always used, so nobody's arrangement is lost.
-// THE CARD TRAVELS WITH YOU (2 Oct 2026). Ethan: "on the worldwide page, whenever I click on for example Spain,
-// the your markets card should animate up nicely from where it is." On Worldwide it sits under "Live now"; on a
-// market page it is the first card in the rail, so it used to vanish and slide in again from the right a few
-// hundred pixels higher. A press inside it now notes where it stood on screen, and the copy on the next page starts
-// at that spot and glides to its own (a FLIP), skipping the rail's slide-in so the two motions do not fight.
+// THE CARD TRAVELS WITH YOU. On Worldwide it sits under "Live now"; on a market page it is the first card in the rail,
+// so it used to vanish and slide in again from the right a few hundred pixels higher. A press inside it now notes where
+// it stood on screen, and the copy on the next page starts at that spot and glides to its own (a FLIP), skipping the
+// rail's slide-in so the two motions do not fight.
 let carried = null
 const CARRY_MS = 4000
 const CARRY_EASE = 'cubic-bezier(0.22, 1, 0.36, 1)'

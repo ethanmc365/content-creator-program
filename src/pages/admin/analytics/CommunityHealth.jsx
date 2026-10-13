@@ -43,12 +43,10 @@ const pct = (n, d) => (d > 0 ? Math.round((n / d) * 100) : 0)
 // argument on that RPC.
 // A DATE THAT MIGHT NOT BE THERE.
 //
-// THE BUG THIS FIXES (7 Sep 2026): `format(new Date(x), 'd MMM')` throws
-// `RangeError: Invalid time value` on a null or unparseable input, and there is
-// no try/catch between here and the error boundary - so ONE row with a missing
-// timestamp replaced the entire Community health tab with the Mayday screen.
-// Caught by clicking through all six tabs after a change, which is the check
-// that lint, build and 604 unit tests all pass without doing.
+// THE BUG THIS FIXES: `format(new Date(x), 'd MMM')` throws `RangeError: Invalid time value` on a null or unparseable
+// input, and there is no try/catch between here and the error boundary - so ONE row with a missing timestamp replaced
+// the entire Community health tab with the Mayday screen. Caught by clicking through all six tabs after a change, which
+// is the check that lint, build and 604 unit tests all pass without doing.
 //
 // A dash is the honest answer for a date nobody recorded, and it is also what
 // every other table on this page already draws for a missing value.
@@ -66,12 +64,7 @@ export default function CommunityHealth({ market = '', memberRows = [], scopeLab
   const [sort, setSort] = useState('views')
   const [section, setSection] = useState('reach')
 
-  // THE CHART IS SCOPED IN POSTGRES, BECAUSE THAT IS WHERE IT IS AGGREGATED
-  // (8 Sep 2026).
-  //
-  // Ethan: "the community health and weekly activity chart can't scope to the
-  // market. Maybe try actually fix it, so that we can see the activity by
-  // market and see which is the most active."
+  // THE CHART IS SCOPED IN POSTGRES, BECAUSE THAT IS WHERE IT IS AGGREGATED.
   //
   // Every other figure on this tab is a filter over rows the page already holds
   // (`inMarket` below), which is why they scope for free and this one did not:
@@ -171,19 +164,11 @@ export default function CommunityHealth({ market = '', memberRows = [], scopeLab
         chatMuted: chatMuted.length,
         // ---- THE LIST IS EVERYBODY; THE PERCENTAGE IS CREATORS ----
         //
-        // Ethan (9 Sep 2026): "for the who has push notifications enabled, I
-        // noticed it's not showing up any admins. Can you also show up the
-        // admin so I can see who's got them enabled? Like just everyone in the
-        // community, obviously not the test accounts, but everyone else."
-        //
-        // It was `[...creators]`, which is `push_.filter(p => !p.is_admin)` -
-        // so the one account on the platform with THREE devices registered, his
-        // own, was the one this list could not show him. The exclusion was
-        // right for the ADOPTION FIGURE and got applied to the register as
-        // well: "9% of creators can be reached" is a statement about the
-        // audience a challenge is announced to, and the team is not that
-        // audience, so admins stay out of the numerator and the denominator of
-        // the tiles above.
+        // It was `[...creators]`, which is `push_.filter(p => !p.is_admin)` - so the one account on the platform with
+        // THREE devices registered, their own, was the one this list could not show them. The exclusion was right for
+        // the ADOPTION FIGURE and got applied to the register as well: "9% of creators can be reached" is a statement
+        // about the audience a challenge is announced to, and the team is not that audience, so admins stay out of the
+        // numerator and the denominator of the tiles above.
         //
         // The list answers a different question - "who, specifically, has this
         // switched on" - and for that the answer is everyone. Test accounts are
@@ -226,12 +211,11 @@ export default function CommunityHealth({ market = '', memberRows = [], scopeLab
 
   return (
     <div className="space-y-6">
-      {/* FOUR SECTIONS, ONE AT A TIME (1 Oct 2026). Ethan: "tidy up that page so it's not too
-          much scrolling involved and it's really good on desktop and mobile." It was reach, push,
-          connections, the funnel, two charts and a 120-row table stacked in one column. */}
-      {/* ROOM ROUND THE TABS (2 Oct 2026). Ethan: they "seem to be cut off at the top", and should
-          magnify a little on hover. A sideways scroller clips everything outside its box, the ring
-          and the lift included, so the row carries its own padding and gives it back as margin. */}
+      {/* FOUR SECTIONS, ONE AT A TIME. It was reach, push, connections, the funnel, two charts and a 120-row table
+          stacked in one column. */}
+      {/* ROOM ROUND THE TABS. The team: they "seem to be cut off at the top", and should magnify a little on hover. A
+          sideways scroller clips everything outside its box, the ring and the lift included, so the row carries its own
+          padding and gives it back as margin. */}
       <div className="-mx-2 -my-2 flex gap-1.5 overflow-x-auto overscroll-contain px-2 py-2 [scrollbar-width:none]" role="tablist" aria-label="Community health sections">
         {[['reach', 'Reach & push', 'bell'], ['participation', 'Participation', 'chart'], ['connections', 'Connections', 'users'], ['scorecard', 'Scorecard', 'trophy']].map(([k, l, ic]) => (
           <button
@@ -282,17 +266,11 @@ export default function CommunityHealth({ market = '', memberRows = [], scopeLab
             hint="admins with push on"
           />
         </div>
-        {/* THE AMBER PARAGRAPH IS GONE (8 Sep 2026). Ethan: "I would remove
-            the pop-up that says only nine percent of creators can be reached
-            when a challenge goes live. Until that number moves, I would remove
-            it, because it has a clear box above it that says nine percent, so
-            we have that, and that's good."
+        {/* THE AMBER PARAGRAPH IS GONE.
 
-            He is right and the reason is worth keeping: it was four lines of
-            argument under a tile that already states the figure, in a colour
-            that means "something is wrong" - so the page shouted the same fact
-            twice, and the loudest thing on a health dashboard was a paragraph
-            rather than a number. The tile carries it. */}
+            they are right and the reason is worth keeping: it was four lines of argument under a tile that already
+            states the figure, in a colour that means "something is wrong" - so the page shouted the same fact twice, and
+            the loudest thing on a health dashboard was a paragraph rather than a number. The tile carries it. */}
 
         <details className="mt-4 rounded-card border border-gray-100 shadow-card">
           <summary className="cursor-pointer px-5 py-3 text-sm font-semibold">
@@ -332,7 +310,7 @@ export default function CommunityHealth({ market = '', memberRows = [], scopeLab
       </div>
       )}
 
-      {/* ---- Connections (was its own tab until 24 Sep 2026) ---- */}
+      {/* ---- Connections (was its own tab) ---- */}
       {section === 'connections' && (
         <div className="animate-fade-up"><ConnectionsSection market={market} memberRows={memberRows} /></div>
       )}
@@ -546,16 +524,11 @@ export default function CommunityHealth({ market = '', memberRows = [], scopeLab
         </div>
       </section>
       )}
-      {/* THE ERROR WATCH HAS ITS OWN TAB NOW (8 Sep 2026). Ethan: "the only
-          thing is you added the errors creators hit at the bottom. I wouldn't
-          put that at the bottom of here and would rather have a new tab for it,
-          just to the right of Community health, called Error monitoring, and
-          actually build it properly."
+      {/* THE ERROR WATCH HAS ITS OWN TAB NOW.
 
-          He is right about the placement for the reason it was put last in the
-          first place: it is usually empty, and a usually-empty panel welded to
-          the foot of a long page is one nobody scrolls to on the day it is not
-          empty. See the Error monitoring tab. */}
+          they are right about the placement for the reason it was put last in the first place: it is usually empty, and
+          a usually-empty panel welded to the foot of a long page is one nobody scrolls to on the day it is not empty.
+          See the Error monitoring tab. */}
     </div>
   )
 }

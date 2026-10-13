@@ -110,10 +110,8 @@ export function consistencyWindows(startIso, endIso, periodDays) {
 // page, and gating a human's decision on a view count would only stop them
 // being able to make it. So the gate belongs to a bonus that has a question.
 //
-// SINCE MIGRATION 233 IT IS EVERY BONUS. An admin awarding a bonus now writes
-// the same claim a creator's tick box does, so "only once the video passes
-// 2,000 views" holds whoever gave it. Ethan: "even if they select it, it's not
-// awarded until the platform reads that the video got over 2,000 views."
+// SINCE MIGRATION 233 IT IS EVERY BONUS. An admin awarding a bonus now writes the same claim a creator's tick box does,
+// so "only once the video passes 2,000 views" holds whoever gave it.
 export const ruleUsesMinViews = (r) => r?.kind === 'bonus'
 
 // A BONUS CAN RUN FOR PART OF THE CHALLENGE (migration 256). Null at either end

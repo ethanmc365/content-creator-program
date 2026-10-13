@@ -2,16 +2,15 @@ import { useEffect, useMemo, useRef } from 'react'
 import { renderNote } from '../../lib/noteMarkdown'
 import { cx } from '../../lib/utils'
 
-// AN AGREEMENT, READ AS A DOCUMENT (7 Oct 2026).
+// AN AGREEMENT, READ AS A DOCUMENT.
 //
-// Ethan, on the first sheet (a list of headings as chips and a "Read the full text" button): "Should it always show up
-// as full text rather than those buttons ... or they can expand it to read it all, like the other websites go." The
-// full text is what is being agreed to, so it is what is shown - the way the better clickwrap screens do it: the
-// whole document in a reading pane and a line that says how far through you are. Nobody is made to scroll to the
-// bottom first; the text is simply there.
+// The team, on the first sheet (a list of headings as chips and a "Read the full text" button): "Should it always show
+// up as full text rather than those buttons... or they can expand it to read it all, like the other websites go." The
+// full text is what is being agreed to, so it is what is shown - the way the better clickwrap screens do it: the whole
+// document in a reading pane and a line that says how far through you are. Nobody is made to scroll to the bottom first;
+// the text is simply there.
 //
-// THE NUMBERED STRIP IS GONE (12 Oct 2026). Ethan: "remove the numbered buttons at the top, just have them to scroll
-// through or press accept". The sections keep their numbers in the text; the reader scrolls or accepts.
+// THE NUMBERED STRIP IS GONE. The sections keep their numbers in the text; the reader scrolls or accepts.
 //
 // The same component draws the document in the sign-up sheet, in Settings > Agreements and on Admin > Agreements, so
 // the team previews exactly what a creator reads.

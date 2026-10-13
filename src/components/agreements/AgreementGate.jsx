@@ -13,9 +13,9 @@ import { agreementsApi } from '../../api/agreements'
 // it is published (and again on resume, so a version published while the app sat in the background is still asked
 // for). It cannot be dismissed: carrying on means accepting, which is what "they'll have to reaccept them" means.
 //
-// IT GOES FIRST (7 Oct 2026). While this is asking the database, and for as long as anything is waiting, it holds
-// every other pop-up and the walkthrough back (`setAgreementHold`, lib/appNag). Once the last one is accepted the
-// hold drops and the next prompt in the queue (home screen, notifications, bank details, a boost, a survey) opens.
+// IT GOES FIRST. While this is asking the database, and for as long as anything is waiting, it holds every other pop-up
+// and the walkthrough back (`setAgreementHold`, lib/appNag). Once the last one is accepted the hold drops and the next
+// prompt in the queue (home screen, notifications, bank details, a boost, a survey) opens.
 //
 // The team is not asked: the documents are between Tryp.com and its creators, and the team are Tryp.com. They read
 // and preview them on /admin/agreements. The sign-up and onboarding screens are left alone; the sheet waits until the
@@ -30,8 +30,8 @@ export default function AgreementGate() {
   const outside = /^\/(login|signup|onboarding|auth|vip\/join|terms|privacy)/.test(pathname)
   const skip = !user?.id || !profile || staff || profile.is_test || !profile.onboarded || outside
 
-  // NO DATE OF BIRTH AT ALL (12 Oct 2026): asked first, before the terms. Only looked up when the profile has no age
-  // either, so nobody else pays a request for it. null = not known yet.
+  // NO DATE OF BIRTH AT ALL: asked first, before the terms. Only looked up when the profile has no age either, so nobody
+  // else pays a request for it. null = not known yet.
   const [needsDob, setNeedsDob] = useState(null)
   const ageKnown = profile?.age != null
   useEffect(() => {

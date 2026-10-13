@@ -29,13 +29,9 @@ export default function FlightsLog({
             const f = t.out
             const back = t.back
             return (
-            // THE WHOLE ROW OPENS THE TRIP.
-            // It carried an Edit and a Remove button and nothing else,
-            // so the only thing you could do to a flight you had logged
-            // was change it or destroy it - there was no way to simply
-            // look at one. Ethan: "clicking a logged flight should open
-            // that trip's details." The buttons stop the press so they
-            // still do their own jobs.
+            // THE WHOLE ROW OPENS THE TRIP. It carried an Edit and a Remove button and nothing else, so the only thing
+            // you could do to a flight you had logged was change it or destroy it - there was no way to simply look at
+            // one. The buttons stop the press so they still do their own jobs.
             <div
               key={t.id}
               role="button"
@@ -44,12 +40,9 @@ export default function FlightsLog({
               onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setDetail(t) } }}
               className="card group flex cursor-pointer flex-wrap items-center gap-x-4 gap-y-2 !p-4 transition-all duration-200 hover:-translate-y-0.5 hover:border-brand/30 hover:shadow-lift"
             >
-              {/* THE PHOTOGRAPH IS THE FIRST THING ON THE ROW, and it is
-                  big enough to be one. It was a 56px square - a thumbnail
-                  of a thumbnail, on the only part of a flight anybody
-                  wants to look at again. Ethan: "the trip photo renders
-                  tiny, clicking it should open a large view." It opens
-                  full size from the detail sheet the row leads to. */}
+              {/* THE PHOTOGRAPH IS THE FIRST THING ON THE ROW, and it is big enough to be one. It was a 56px square - a
+                  thumbnail of a thumbnail, on the only part of a flight anybody wants to look at again. It opens full
+                  size from the detail sheet the row leads to. */}
               {t.photo_url && (
                 <img
                   src={t.photo_url}

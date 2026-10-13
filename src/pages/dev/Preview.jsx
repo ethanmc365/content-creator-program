@@ -72,13 +72,11 @@ const STANDINGS = [
 
 // THE LIVE CHALLENGE CARD, AGAINST A CHALLENGE THAT DOES NOT EXIST YET.
 //
-// The card's whole job is the state nobody can produce on demand: a brief that
-// is running, with prizes set, and either nobody on the board or one or two
-// people on it. `CHALLENGE_FULL` is the UK's real archived brief with live
-// dates; `CHALLENGE_EMPTY` is the Spanish one, which genuinely has no prize
-// structure and no entrants, and is the case Ethan asked to see ("so it's
-// always showing up, even for the current Spanish challenge, there are no
-// creators, just so I can see how it looks").
+// The card's whole job is the state nobody can produce on demand: a brief that is running, with prizes set, and either
+// nobody on the board or one or two people on it. `CHALLENGE_FULL` is the UK's real archived brief with live dates;
+// `CHALLENGE_EMPTY` is the Spanish one, which genuinely has no prize structure and no entrants, and is the case the team
+// asked to see ("so it's always showing up, even for the current Spanish challenge, there are no creators, just so I can
+// see how it looks").
 //
 // `end_date` is relative so the countdown is never zero on this bench. The
 // clock is read once, at module load, which is fine here and would not be in

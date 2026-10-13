@@ -10,18 +10,10 @@ import { gamesApi } from '../../api/games'
 
 // WHO ELSE IS ON A RUN, AND WHO HAS EVER HAD THE LONGEST ONE.
 //
-// Ethan: "I want to see a streak leaderboard somewhere, showing everyone's
-// current streaks ranked, perhaps it shows up as a popup card when I click on
-// the card at the top showing streak info."
+// A popup off the streak card is the right home for it, and not only because they asked: a streak is a private number
+// until you can see somebody else's, and the card is where a person is already looking at theirs.
 //
-// A popup off the streak card is the right home for it, and not only because he
-// asked: a streak is a private number until you can see somebody else's, and
-// the card is where a person is already looking at theirs.
-//
-// TWO BOARDS NOW (2 Sep 2026). Ethan: "as well as the current streaks I want an
-// all-time highest streaks leaderboard, so we have those two - one with the
-// current streak and one with the all-time highest, just so that when someone
-// loses a streak it is still recorded."
+// TWO BOARDS NOW.
 //
 // The second board is the one that makes the first one safe to care about. A
 // current-run board erases a forty-day run the day it breaks: all that playing,
@@ -33,20 +25,15 @@ import { gamesApi } from '../../api/games'
 // be forty writes. Both RPCs are pure set-based reads (migration 166 for the
 // second one).
 //
-// THE EXPLANATORY PARAGRAPH IS GONE. Ethan: "first remove this copy - 'One
-// travel game a day keeps a run alive...'". It explained the rules of streaks
-// on the one screen whose readers have demonstrably worked them out: everybody
-// on this list is on a run.
+// THE EXPLANATORY PARAGRAPH IS GONE. It explained the rules of streaks on the one screen whose readers have demonstrably
+// worked them out: everybody on this list is on a run.
 
 const TABS = [
   { key: 'now', label: 'Current streaks', rpc: 'streak_leaderboard', value: 'current_streak' },
   { key: 'best', label: 'All-time best', rpc: 'best_streak_leaderboard', value: 'best_streak' },
 ]
 
-// SWITCHING BOARDS IS NOT A PAGE LOAD (2 Sep 2026)
-//
-// Ethan: "clicking to the all-time best is a really juddery animation, make
-// that a clean animation too."
+// SWITCHING BOARDS IS NOT A PAGE LOAD
 //
 // It was juddery because it was not an animation at all - it was a fetch. The
 // second board had never been loaded, so pressing the tab tore fifty rows out
@@ -212,12 +199,10 @@ export default function StreakLeaderboard({ open, onClose, myId, freezesLeft = n
       )}
       </div>
 
-      {/* THE ONE PLACE THE FREEZES ARE STILL COUNTED.
-          The five snowflake tiles came off the streak card at Ethan's request;
-          the mechanic did not change, so the number still has to be reachable.
-          It belongs here rather than on the card because this is the screen
-          somebody opens to ask about runs, and it is one quiet line rather than
-          a block of tiles. */}
+      {/* THE ONE PLACE THE FREEZES ARE STILL COUNTED. The five snowflake tiles came off the streak card at the team's
+          request; the mechanic did not change, so the number still has to be reachable. It belongs here rather than on
+          the card because this is the screen somebody opens to ask about runs, and it is one quiet line rather than a
+          block of tiles. */}
       {freezesLeft != null && (
         <p className="mt-4 flex items-center gap-2 border-t border-gray-100 pt-3 text-[11px] text-smoke">
           <Icon name="snowflake" className="h-3.5 w-3.5 shrink-0 text-sky-500" />

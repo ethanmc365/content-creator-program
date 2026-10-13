@@ -23,10 +23,7 @@ export const sentryDsn = () => import.meta.env.VITE_SENTRY_DSN || DEFAULT_DSN
 /**
  * WHERE THIS PROJECT'S SENTRY ACTUALLY LIVES, READ OFF THE DSN.
  *
- * Ethan: "I tried to login and check Sentry but I was having difficulties
- * logging in, it's weird, it seems like a different login screen or something."
- *
- * Two separate things were sending him to the wrong place, and both are here.
+ * Two separate things were sending them to the wrong place, and both are here.
  *
  * FIRST, THE REGION. This project's DSN is `...ingest.DE.sentry.io/...`, which
  * means the organisation is on Sentry's EU instance. Sentry runs the EU and US
@@ -40,9 +37,7 @@ export const sentryDsn = () => import.meta.env.VITE_SENTRY_DSN || DEFAULT_DSN
  * `/organizations/sentry/issues/`, and `sentry` is SENTRY'S OWN org slug. Every
  * press of it went to a stranger's dashboard.
  *
- * THIRD, AND THIS IS WHAT WAS STILL BROKEN (14 Sep 2026). Ethan: "for the error
- * monitoring the link to Sentry still doesn't work, I think this is correct link
- * https://trypcom-z4.sentry.io/issues/?project=4512045143556176".
+ * THIRD, AND THIS IS WHAT WAS STILL BROKEN.
  *
  * It is, and it settles both of the things the previous fix could only guess at.
  *
@@ -56,7 +51,7 @@ export const sentryDsn = () => import.meta.env.VITE_SENTRY_DSN || DEFAULT_DSN
  *
  *   THE HOST IS `<org>.sentry.io`, NOT `<region>.sentry.io`. Sentry has moved
  *   organisations onto their own subdomains, and an org's own subdomain resolves
- *   to the right region on its own - which is why Ethan's working URL has no
+ *   to the right region on its own - which is why the team's working URL has no
  *   `de.` in it even though this project ingests at `ingest.de.sentry.io`.
  *   Deriving the region from the DSN was reasonable and is now simply the wrong
  *   axis: the org subdomain already encodes it.
@@ -214,9 +209,6 @@ export function initMonitoring() {
 // ---------------------------------------------------------------------------
 // THE PANEL WAS EMPTY BECAUSE ONLY ONE KIND OF FAULT COULD EVER REACH IT.
 //
-// Ethan (9 Sep 2026): "I noticed the error monitoring still isn't showing any
-// details."
-//
 // Measured against production the same day: `client_errors` held ZERO rows, and
 // `report_client_error` itself is fine - called with a session it inserts, and
 // the cron half of the same table (`report_system_error`) has been writing
@@ -266,7 +258,7 @@ function firstTime(key) {
 }
 
 /**
- * A REJECTION THAT NEVER TOUCHED OUR CODE IS NOT OURS (5 Oct 2026).
+ * A REJECTION THAT NEVER TOUCHED OUR CODE IS NOT OURS.
  *
  * "Non-Error thrown: La" (and "Pa" before it) hit three creators, always on a
  * machine-translated page in Safari on iOS, always with a stack whose frames are
@@ -322,10 +314,10 @@ export function installGlobalHandlers({ report = captureError } = {}) {
     if (isForeignRejection(reason)) return
 
     // THE OLD LINE HERE THREW THE EVIDENCE AWAY, AND ONE OF THE TWO ERRORS ON
-    // THE PANEL IS THE PROOF (12 Sep 2026).
+    // THE PANEL IS THE PROOF.
     //
-    // It was `report(reason instanceof Error ? reason : new Error(msg))`. For
-    // anything that is not an Error - which is most rejections in a bundled app
+    // It was `report(reason instanceof Error ? reason: new Error(msg))`. For anything that is not an Error - which is
+    // most rejections in a bundled app
     // - that CONSTRUCTS A FRESH ERROR HERE, so the stack it carries is this
     // file's own two frames and nothing else. The panel row reads:
     //
@@ -333,11 +325,9 @@ export function installGlobalHandlers({ report = captureError } = {}) {
     //     detail   @.../monitoring-DfA3rt1F.js:2:71865
     //              r@.../monitoring-DfA3rt1F.js:2:52195
     //
-    // "Pa" is a minified identifier that leaked out as somebody's `.message`,
-    // and both stack frames point at the REPORTER. There is not one fact in
-    // that row about the thing that actually failed. Ethan: "the information
-    // provided doesn't really help me" - it could not, because the reporter was
-    // overwriting it.
+    // "Pa" is a minified identifier that leaked out as somebody's `.message`, and both stack frames point at the
+    // REPORTER. There is not one fact in that row about the thing that actually failed. - it could not, because the
+    // reporter was overwriting it.
     //
     // So the original is passed through untouched when it is an Error, and when
     // it is not, the synthesised one is given the reason's OWN type and any
@@ -562,9 +552,6 @@ export function captureError(error, context) {
   }
   // AND INTO THE ADMIN PANEL, not only into Sentry.
   //
-  // Ethan: "did you build something into analytics to track errors, or do I
-  // have to actually check the Sentry website?"
-  //
   // Sentry is the right tool for DEBUGGING one crash - stack traces,
   // breadcrumbs, which release it started in - and the wrong tool for the
   // question an admin actually has, which is "is anything broken right now and
@@ -581,9 +568,7 @@ export function captureError(error, context) {
       p_route: typeof window !== 'undefined' ? window.location.pathname : null,
       p_component: context?.componentStack ? String(context.componentStack).slice(0, 2000) : null,
       p_release: import.meta.env.VITE_VERCEL_GIT_COMMIT_SHA || null,
-      // ENOUGH TO REPRODUCE IT, WHICH IS WHAT THE PANEL WAS MISSING (8 Sep 2026).
-      // Ethan: "it should show what the errors were, like where they happened,
-      // how to replicate them so I can fix it."
+      // ENOUGH TO REPRODUCE IT, WHICH IS WHAT THE PANEL WAS MISSING.
       //
       // The browser is the single most load-bearing fact after the route: half
       // the bugs this platform has shipped were one engine only (the iOS

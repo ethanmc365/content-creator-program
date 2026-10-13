@@ -27,11 +27,8 @@ import { teamApi } from '../../api/team'
 // nobody has to ask - "what just happened" - by showing the last week of
 // everything.
 
-// ONE COLOUR (24 Sep 2026). Ethan: "these icons... different colours. Let's
-// clean up the design." Every family had its own hue (sky, emerald, violet,
-// amber, red) - five colours that belong to no palette on a page that is
-// otherwise Tryp.com orange and ink. The icon says which family; the brand
-// says which one is picked.
+// ONE COLOUR. Every family had its own hue (sky, emerald, violet, amber, red) - five colours that belong to no palette
+// on a page that is otherwise Tryp.com orange and ink. The icon says which family; the brand says which one is picked.
 const CATEGORIES = [
   { value: '', label: 'Everything', icon: 'clock' },
   { value: 'people', label: 'People', icon: 'users' },
@@ -50,10 +47,9 @@ const PERIODS = [
   { value: '', label: 'All time', short: 'All time' },
 ]
 
-// 200 A PAGE (11 Oct 2026). Ethan: "it only shows four things... Load More only loads one at a time". The page asked for
-// 100 rows and then hid the view sync's own progress writes in the browser, and those were 4,129 of the week's 4,513
-// rows, so a "page" was ninety-odd invisible rows and a handful of real ones. The sync no longer writes them into the
-// log at all (migration 382) and they are excluded in the query, so a page is a page.
+// 200 A PAGE. The page asked for 100 rows and then hid the view sync's own progress writes in the browser, and those
+// were 4,129 of the week's 4,513 rows, so a "page" was ninety-odd invisible rows and a handful of real ones. The sync no
+// longer writes them into the log at all (migration 382) and they are excluded in the query, so a page is a page.
 const PAGE = 200
 const BOOKKEEPING_KEYS = '(view_sync_run,view_sync_last_run,fx_rates)'
 
@@ -146,10 +142,8 @@ function sentence(e, marketName, isTeam) {
 
 // The trigger's own "status: pending -> active" line on a profile is the same
 // event as the approval the RPC logs a millisecond later; one line, not two.
-// THE PLATFORM'S OWN BOOKKEEPING (26 Sep 2026). The view sync writes its
-// progress into app_settings on every chunk of every run - 280 "Changed the
-// setting" rows a fortnight, a third of the whole log - and none of it is a
-// decision anybody made.
+// THE PLATFORM'S OWN BOOKKEEPING. The view sync writes its progress into app_settings on every chunk of every run - 280
+// "Changed the setting" rows a fortnight, a third of the whole log - and none of it is a decision anybody made.
 const isBookkeeping = (e) => e.entity === 'app_settings'
   && ['view_sync_run', 'view_sync_last_run', 'fx_rates'].includes(e.target_name)
 
@@ -264,10 +258,9 @@ export default function AdminAuditLog() {
   const chapterMarkets = markets.filter((m) => m.kind === 'chapter')
   const [nowMs] = useState(() => Date.now())
 
-  // ONE LINE FOR A RUN OF THE SAME THING (26 Sep 2026). Cleaning the hook bank
-  // wrote 1,207 "Changed hook" rows in a second; read as 1,207 lines they are
-  // the whole log. The same person doing the same action to the same kind of
-  // thing back to back is one line with a count, and it opens to the list.
+  // ONE LINE FOR A RUN OF THE SAME THING. Cleaning the hook bank wrote 1,207 "Changed hook" rows in a second; read as
+  // 1,207 lines they are the whole log. The same person doing the same action to the same kind of thing back to back is
+  // one line with a count, and it opens to the list.
   const days_ = useMemo(() => {
     const out = []
     for (const e of shown) {
@@ -304,9 +297,9 @@ export default function AdminAuditLog() {
         }
       />
 
-      {/* THE CONTROLS (rebuilt 11 Oct 2026). Ethan: "a lot of white space between those buttons. The buttons are
-          confusing." One line to find something (search, who, market), one line to narrow it (what kind, and when), with
-          the period as four plain choices rather than a dropdown, and a count that says how much the filters found. */}
+      {/* THE CONTROLS (rebuilt). One line to find something (search, who, market), one line to narrow it (what kind, and
+          when), with the period as four plain choices rather than a dropdown, and a count that says how much the filters
+          found. */}
       <div className="mb-5 overflow-hidden rounded-card border border-gray-100 bg-white shadow-card">
         <div className="grid grid-cols-1 gap-2 p-3 sm:grid-cols-[minmax(0,1fr)_auto_auto] sm:items-center lg:grid-cols-[minmax(0,1fr)_auto_auto_auto]">
           <div className="relative">
@@ -389,9 +382,7 @@ export default function AdminAuditLog() {
         />
       ) : (
         <>
-          {/* NO SUMMARY TILES (28 Sep 2026). Ethan: "you don't need to say
-              'Worth a look,' and you don't need the money card, the five
-              changes, or the two people. It's unnecessary." */}
+          {/* NO SUMMARY TILES. */}
           <div className="space-y-6">
             {days_.map((day) => (
               <section key={day.label}>
@@ -410,12 +401,8 @@ export default function AdminAuditLog() {
                       return (
                         <li key={e.id} className={cx('transition-colors', open ? 'bg-cloud/40' : 'hover:bg-cloud/30')}>
                           <button type="button" onClick={() => setOpenId(open ? null : e.id)} aria-expanded={open} className="flex w-full items-start gap-3 px-4 py-3 text-left sm:px-5">
-                            {/* WHO DID IT, AS A FACE (26 Sep 2026). Ethan: "It should
-                                show the profile picture of whoever actually logged
-                                it, as in, the side where it currently shows just a
-                                computer icon." A person is their photo; a change the
-                                platform made by itself - a scheduled job, the sync, a
-                                database update - is the Tryp.com mark, labelled. */}
+                            {/* WHO DID IT, AS A FACE. A person is their photo; a change the platform made by itself - a
+                                scheduled job, the sync, a database update - is the Tryp.com mark, labelled. */}
                             {who
                               ? <Avatar src={who.photo_url} name={who.name} size="sm" className="!ring-0" />
                               : (

@@ -7,12 +7,6 @@ import { cx } from '../lib/utils'
 
 // THE FACE OF AN ENTRY, AND SINCE 10 SEP 2026 IT IS THE VIDEO'S OWN.
 //
-// Ethan: "I really like these preview cards on the tracker. I want you to build
-// this function in for the challenges as well - currently the entries just show
-// Instagram, TikTok, Instagram as a word. Build in the preview for all of them.
-// Start with the UK past challenge and ensure it's also going to update on the
-// creators' profiles."
-//
 // This used to be, deliberately, an orange slab with a platform logo on it, and
 // the comment above it said thumbnails were impossible: "Instagram needs a token
 // we don't have and the others were inconsistent." Both halves of that have
@@ -91,12 +85,7 @@ export const PLATFORMS = {
   },
 }
 
-// AND THEN THE PLAY MARK WENT ALTOGETHER (10 Sep 2026).
-//
-// Ethan: "I would actually completely remove the play button from the middle
-// and just still have the function there to click anywhere on that, brings up
-// that preview video. We can remove the play button because it just covers the
-// display."
+// AND THEN THE PLAY MARK WENT ALTOGETHER.
 //
 // Two rounds to get here and the second one is the right answer. A white disc
 // with an orange triangle was a control drawn over the picture; the triangle
@@ -112,10 +101,7 @@ export const PLATFORMS = {
  * @param {string} [thumbnailUrl] the row's stored frame, if it has one
  * @param {string} [className]
  */
-// AND FACEBOOK STOPPED BORROWING FACEBOOK'S PLAYER (28 Sep 2026).
-//
-// Ethan: "whenever it pulls up the thumbnail for the entry screenshots or
-// thumbnail for the entries, it also shows the circle play button."
+// AND FACEBOOK STOPPED BORROWING FACEBOOK'S PLAYER.
 //
 // This component used to draw Facebook's own embeddable player where the
 // picture goes, for want of a cover to draw - and a player puts a play button
@@ -180,19 +166,13 @@ export default function VideoThumb({ url, platform, thumbnailUrl, videoId, class
               loading="lazy"
               className="absolute -inset-px block h-[calc(100%+2px)] w-[calc(100%+2px)] max-w-none object-cover transition-transform duration-500 group-hover/thumb:scale-105"
             />
-            {/* THE PLATFORM IS ITS OWN MARK, NOT ITS OWN NAME (10 Sep 2026).
-                Ethan: "where it says Instagram in the top right corner, or
-                TikTok - I would change that to the actual social media brand
-                icon, the logo, and have that there instead of just general
-                Instagram, TikTok in white and grey. It will look better."
+            {/* THE PLATFORM IS ITS OWN MARK, NOT ITS OWN NAME.
 
-                He is right and there is a reason worth keeping: the word is
-                nine characters of grey type on a photograph, which is the one
-                thing a corner badge must not be. A logo is read at a glance, at
-                a third of the width, and it is the mark people already sort
-                these platforms by. `text-ink` rather than each brand's own
-                colour - four different accent colours on one grid is a wall of
-                confetti, and the disc is what makes it legible on any frame. */}
+                they are right and there is a reason worth keeping: the word is nine characters of grey type on a
+                photograph, which is the one thing a corner badge must not be. A logo is read at a glance, at a third of
+                the width, and it is the mark people already sort these platforms by. `text-ink` rather than each brand's
+                own colour - four different accent colours on one grid is a wall of confetti, and the disc is what makes
+                it legible on any frame. */}
             {mark && (
               <span className="pointer-events-none absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-full bg-white/95 text-ink shadow-card backdrop-blur-sm">
                 <span className="h-4 w-4">{p.icon}</span>
@@ -202,11 +182,7 @@ export default function VideoThumb({ url, platform, thumbnailUrl, videoId, class
         )
         : (
           <>
-            {/* THE FALLBACK IS THE MARK ON THE ORANGE, AND NOTHING ELSE
-                (10 Sep 2026). Ethan, about the handful that had no cover: "if
-                there's no possible way to do it, rather than just a generic
-                white logo with the TikTok, actually use the brand social media
-                logo with the orange card."
+            {/* THE FALLBACK IS THE MARK ON THE ORANGE, AND NOTHING ELSE.
 
                 It always drew the logo; what it also drew was the WORD, at
                 24px, beside it - which is how a card with no picture ended up
@@ -214,10 +190,9 @@ export default function VideoThumb({ url, platform, thumbnailUrl, videoId, class
                 card that does have one. The mark alone, large and centred, is a
                 placeholder that looks deliberate instead of broken.
 
-                This is now genuinely rare: `thumb-cache` resolves TikTok short
-                links, TikTok photo posts and Instagram carousels, which were
-                all six of the ones Ethan could see. What is left is a private
-                post, a deleted one, or a platform none of the routes know. */}
+                This is now genuinely rare: `thumb-cache` resolves TikTok short links, TikTok photo posts and Instagram
+                carousels, which were all six of the ones the team could see. What is left is a private post, a deleted
+                one, or a platform none of the routes know. */}
             <div className="pointer-events-none absolute inset-0" style={{ background: WARM_GLOW }} />
             <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/15 via-transparent to-black/5" />
             <div className="absolute inset-0 flex items-center justify-center">

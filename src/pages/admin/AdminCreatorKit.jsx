@@ -14,12 +14,9 @@ const AwardedList = lazyRoute(() => import('../../components/admin/kit/AwardedLi
 
 // THE THINGS THE PROGRAMME HANDS A CREATOR TO POST.
 //
-// Ethan asked for two features and they arrived in the same paragraph for a
-// reason: "I created some graphics that say 'I'm officially a Tryp.com Content
-// Creator'" and "Certificates for winning challenges... could be super
-// beneficial". Both are the programme giving somebody a PICTURE with their
-// membership in it, and both are worth more to the programme than they cost,
-// because a creator posting one is recruitment the programme did not pay for.
+// and "Certificates for winning challenges... could be super beneficial". Both are the programme giving somebody a
+// PICTURE with their membership in it, and both are worth more to the programme than they cost, because a creator
+// posting one is recruitment the programme did not pay for.
 //
 // ONE PAGE, THREE TABS, and not three pages in the admin nav. The admin panel
 // already has twenty-odd entries; three more for one idea would make it harder
@@ -31,8 +28,8 @@ const TABS = [
   { key: 'awarded', label: 'Awarded', icon: 'check', hint: 'Who has what, and hand one out' },
 ]
 
-// A tab's own action (New certificate) lives at the right end of the tab row, not on a row of its
-// own under it (30 Sep 2026) - the tab portals it into this slot.
+// A tab's own action (New certificate) lives at the right end of the tab row, not on a row of its own under it - the tab
+// portals it into this slot.
 const KitSlot = createContext(null)
 export function KitAction({ children }) {
   const slot = useContext(KitSlot)
@@ -121,11 +118,10 @@ export async function uploadKitImage(file) {
   const { error } = await supabase.storage.from('creator-kit')
     .upload(path, file, { contentType: file.type || 'image/png', upsert: false })
   if (error) throw error
-  // THE CARD-SIZE COPY (12 Oct 2026). The portfolio drew these 2.4MB PNGs into
-  // 180px cards, so the strip sat blank for seconds on a phone. A 540px JPEG is
-  // written next to the original as `thumbs/<path>.jpg` (~40KB) and the cards
-  // draw that; Save still downloads the untouched original. A failed thumbnail
-  // is not a failed upload - the card falls back to the original.
+  // THE CARD-SIZE COPY. The portfolio drew these 2.4MB PNGs into 180px cards, so the strip sat blank for seconds on a
+  // phone. A 540px JPEG is written next to the original as `thumbs/<path>.jpg` (~40KB) and the cards draw that; Save
+  // still downloads the untouched original. A failed thumbnail is not a failed upload - the card falls back to the
+  // original.
   try {
     const thumb = await kitThumb(file)
     if (thumb) {

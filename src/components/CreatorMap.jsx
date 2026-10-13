@@ -27,19 +27,13 @@ import CreatorMapCanvas from './CreatorMapCanvas'
 function CreatorMap({ creators = NO_CREATORS, trips = NO_TRIPS, highlightIds = null, nearMe = false, nearCount = 0, nearMeDisabled = false, onToggleNearMe = null, travelActive = null, onToggleTravel = null, onTravellersChange = null, onCreatorClick = null, connectionsActive = null, onToggleConnections = null, connectionIds = null, travelOnlyView = false, myId = null, maxFitZoom = 6, controls = true,
   // FULL SCREEN IS NOT ONE OF "THE CONTROLS".
   //
-  // `controls={false}` was doing two unrelated jobs: dropping the filter pills
-  // (right, for an embedded market map - "creators near me" on a map that is
-  // already one country is a filter with nothing to filter) and, incidentally,
-  // dropping the full-screen button with them. So every market page had a map
-  // you could not open. Ethan: "market pages have no full-screen map button -
-  // add for every market." Wanting to see a small map bigger has nothing to do
-  // with whether it has filters, so it is its own prop, defaulting to the old
-  // behaviour for every caller that does not care.
+  // `controls={false}` was doing two unrelated jobs: dropping the filter pills (right, for an embedded market map -
+  // "creators near me" on a map that is already one country is a filter with nothing to filter) and, incidentally,
+  // dropping the full-screen button with them. So every market page had a map you could not open. Wanting to see a small
+  // map bigger has nothing to do with whether it has filters, so it is its own prop, defaulting to the old behaviour for
+  // every caller that does not care.
   allowFullscreen = controls,
   // CAN THIS MAP BE MOVED ABOUT WHERE IT SITS?
-  //
-  // Ethan: "seems to be no ability to move about or zoom in or out on the map,
-  // this functionality should be there too."
   //
   // Off by default, because the maps that sit in the middle of a long page (the
   // landing page, the profile) are the ones the scroll-trap rule was written
@@ -71,11 +65,6 @@ function CreatorMap({ creators = NO_CREATORS, trips = NO_TRIPS, highlightIds = n
   exploredCountries = null, exploredActive = null, onToggleExplored = null,
   // A KEY, IN THE CORNER OF THE MAP THAT IS ACTUALLY EMPTY.
   //
-  // Ethan, on the landing page: "in Tryp.com orange we could have the countries
-  // that everyone lives in, and then in the lighter orange it could be for all
-  // the countries we've travelled to. And maybe a little key on the bottom left
-  // to show that."
-  //
   // Two tints that mean two different things need saying, and a sentence above
   // the map is not where anybody looks when they are already looking at the
   // map. It is drawn INSIDE the card rather than by the caller so it cannot
@@ -84,12 +73,6 @@ function CreatorMap({ creators = NO_CREATORS, trips = NO_TRIPS, highlightIds = n
   // and along the top.
   legend = false,
   // THE MAP AS PART OF THE PAGE, NOT AS AN OBJECT ON IT.
-  //
-  // Ethan, 9 Sep 2026, about the landing page: "expand the Meet the Community
-  // map and change the background colour, so that rather than it looking like
-  // it's a map just floating in the middle, it looks like it's actually part of
-  // the screen. And obviously it's interactive - that same square will be
-  // there, but it's white and you'll not even notice it."
   //
   // The card is what makes it float: a grey hairline, a 20px radius and
   // `bg-cloud/60` for the sea, which together say "here is a component". On a
@@ -130,13 +113,7 @@ function CreatorMap({ creators = NO_CREATORS, trips = NO_TRIPS, highlightIds = n
   const highlighting = highlightIds && highlightIds.size > 0
   const [extraCoords, setExtraCoords] = useState({}) // legacy rows: id -> {lat,lng}
   const [homeNames, setHomeNames] = useState(() => new Set()) // countries to tint
-  // THE ARRIVAL PLAYS WHEN THE MAP IS SEEN, NOT WHEN THE ATLAS LOADS
-  // (10 Sep 2026).
-  //
-  // Ethan, on the landing page: "I scrolled on and it shows the community map
-  // and it's just frozen... occasionally, if I refresh and scroll down quickly,
-  // it'll actually show the animation where the icons drop in nice and the
-  // planes are immediately going."
+  // THE ARRIVAL PLAYS WHEN THE MAP IS SEEN, NOT WHEN THE ATLAS LOADS.
   //
   // That is the whole bug in one sentence, and the word that gives it away is
   // "quickly". The arrival started on `painted` - which is when the TopoJSON
@@ -147,14 +124,12 @@ function CreatorMap({ creators = NO_CREATORS, trips = NO_TRIPS, highlightIds = n
   //
   // So the arrival now needs BOTH: the atlas drawn AND the map on screen.
   //
-  // THE HEAD START IS DELIBERATELY TINY, which is the opposite of the rule for
-  // every other reveal on this page. A card is 24px of travel and wants to have
-  // FINISHED as it lands, so it starts a thumb-flick early. This is a
-  // 1.1-second sequence that is the whole point of the section, and Ethan asked
-  // for it "exactly as I scrolled on, not the delay" - so it has to start as
-  // the map comes up, not before. Measured: 25% was 225px on a 900px window and
-  // the map's top sits 1064px down, so the observer fired AT SCROLL ZERO and
-  // reintroduced the exact bug it was added to fix. 6% is 54px.
+  // THE HEAD START IS DELIBERATELY TINY, which is the opposite of the rule for every other reveal on this page. A card
+  // is 24px of travel and wants to have FINISHED as it lands, so it starts a thumb-flick early. This is a 1.1-second
+  // sequence that is the whole point of the section, and the team asked for it "exactly as I scrolled on, not the delay"
+  // - so it has to start as the map comes up, not before. Measured: 25% was 225px on a 900px window and the map's top
+  // sits 1064px down, so the observer fired AT SCROLL ZERO and reintroduced the exact bug it was added to fix. 6% is
+  // 54px.
   //
   // THE NET IS NOT OPTIONAL, because `HELD` keeps this map at opacity 0 until
   // the arrival begins: no IntersectionObserver at all (an old browser, an
@@ -198,11 +173,7 @@ function CreatorMap({ creators = NO_CREATORS, trips = NO_TRIPS, highlightIds = n
   // with several maps on it from decoding a megabyte of TopoJSON per map.
   const [features, setFeatures] = useState(null)
 
-  // THE ATLAS IS 614KB OF TOPOJSON AND PARSING IT IS A LONG TASK (10 Sep 2026).
-  //
-  // Ethan, about the phone: "sometimes I don't see the Create Earn Travel
-  // animation - after I refresh they just appear. It takes so long to load,
-  // it's like I missed the animation."
+  // THE ATLAS IS 614KB OF TOPOJSON AND PARSING IT IS A LONG TASK.
   //
   // The entrance was released at the right moment; what was eating it was this.
   // `feature()` over 240 countries is a single synchronous block of a few
@@ -230,14 +201,11 @@ function CreatorMap({ creators = NO_CREATORS, trips = NO_TRIPS, highlightIds = n
 
   // THE ENTRANCE DOES NOT START ON THE FRAME THAT DRAWS THE WORLD.
   //
-  // THE BUG THIS FIXES. `setFeatures` and the arrival animation used to be the
-  // same commit: React inserts two hundred and forty country paths, forty-odd
-  // pins and every thread, the browser lays all of that out and paints it, and
-  // the CSS animation on the group is running for the whole of that frame. A
-  // frame that does that much work is not 16ms, it is well over a hundred - so
-  // the first quarter of the entrance is a single held frame and the rest
-  // catches up in a jump. Ethan: "when the map loads the page jutters a bit,
-  // the animation is not smooth."
+  // THE BUG THIS FIXES. `setFeatures` and the arrival animation used to be the same commit: React inserts two hundred
+  // and forty country paths, forty-odd pins and every thread, the browser lays all of that out and paints it, and the
+  // CSS animation on the group is running for the whole of that frame. A frame that does that much work is not 16ms, it
+  // is well over a hundred - so the first quarter of the entrance is a single held frame and the rest catches up in a
+  // jump.
   //
   // No amount of tuning the curve fixes a dropped frame. The fix is to let the
   // expensive commit paint first, on its own, and start the animation on the
@@ -269,15 +237,12 @@ function CreatorMap({ creators = NO_CREATORS, trips = NO_TRIPS, highlightIds = n
 
   // THE ARRIVAL PLAYS ONCE PER MAP, NOT ONCE PER MOUNT.
   //
-  // THE BUG THIS FIXES. Going full screen moves the map into a portal, and a
-  // portal is a different place in the tree - so React tears the whole SVG down
-  // and builds it again. Every arrival animation on it therefore ran a second
-  // time: the land scaled in from 1.16 while the container it sits in was
-  // itself scaling in from 0.965, the pins dropped again from somewhere above
-  // wherever they had just been drawn, and the aircraft restarted their SMIL
-  // paths from the beginning. Two nested scales and forty-five pins in flight
-  // is exactly Ethan's "everything is jumbled about, it's not smooth at all"
-  // and "the pins are not where they should be" - they were mid-drop.
+  // THE BUG THIS FIXES. Going full screen moves the map into a portal, and a portal is a different place in the tree -
+  // so React tears the whole SVG down and builds it again. Every arrival animation on it therefore ran a second time:
+  // the land scaled in from 1.16 while the container it sits in was itself scaling in from 0.965, the pins dropped again
+  // from somewhere above wherever they had just been drawn, and the aircraft restarted their SMIL paths from the
+  // beginning. Two nested scales and forty-five pins in flight is exactly the team's "everything is jumbled about, it's
+  // not smooth at all" and "the pins are not where they should be" - they were mid-drop.
   //
   // The component itself does NOT unmount (only its rendered subtree moves), so
   // a flag here survives the transition and the second mount draws the map in
@@ -401,10 +366,7 @@ function CreatorMap({ creators = NO_CREATORS, trips = NO_TRIPS, highlightIds = n
   const userMoved = useRef(false)
 
   // ---------------------------------------------------------------------
-  // SCROLL TO ZOOM, WITHOUT THE MAP EATING THE PAGE (18 Sep 2026).
-  //
-  // Ethan: "for the desktop worldwide page, I seem to be unable to scroll to
-  // zoom in on the creator network map, only on full screen, please fix this."
+  // SCROLL TO ZOOM, WITHOUT THE MAP EATING THE PAGE.
   //
   // The rule this replaces was right about the thing it was written for and
   // too broad by one case. The original report - "you reach the map, it starts
@@ -424,7 +386,7 @@ function CreatorMap({ creators = NO_CREATORS, trips = NO_TRIPS, highlightIds = n
   //   control that refuses to engage while you are moving.
   //
   //   AT EITHER LIMIT THE WHEEL STOPS; IT DOES NOT FALL THROUGH TO THE PAGE
-  //   (21 Sep 2026). It used to be handed back, as "the way out". Ethan: "if
+  //   . It used to be handed back, as "the way out".
   //   I'm zooming in a lot and then I zoom out, once it reaches the full zoom
   //   out, it should just stop. Instead, it starts scrolling the page down...
   //   If I'm scrolling on the map, it should just be related to the map." A
@@ -449,14 +411,10 @@ function CreatorMap({ creators = NO_CREATORS, trips = NO_TRIPS, highlightIds = n
   // without ever emitting one. Two readings of the same fact, and the map only
   // takes the wheel when both of them say the page is still.
   //
-  // IT IS KEPT CURRENT BY THE LISTENER TOO (21 Sep 2026). It used to be written
-  // only by the gate, so the FIRST wheel over the map always found it stale
-  // (0 against a page scrolled to the map), read that as "the page moved",
-  // and handed the wheel to the page - which scrolled, stamping `scrolledAt`,
-  // which refused the next wheel, which scrolled the page again. Once started
-  // it never let go. Ethan: "unless I'm hovering over a country, I seem to be
-  // unable to zoom in... if I scroll in anywhere there, then it should zoom
-  // into the map."
+  // IT IS KEPT CURRENT BY THE LISTENER TOO. It used to be written only by the gate, so the FIRST wheel over the map
+  // always found it stale (0 against a page scrolled to the map), read that as "the page moved", and handed the wheel to
+  // the page - which scrolled, stamping `scrolledAt`, which refused the next wheel, which scrolled the page again. Once
+  // started it never let go.
   const scrolledY = useRef(typeof window === 'undefined' ? 0 : (window.scrollY || 0))
   useEffect(() => {
     const onScroll = () => { scrolledAt.current = Date.now(); scrolledY.current = window.scrollY || 0 }
@@ -517,15 +475,12 @@ function CreatorMap({ creators = NO_CREATORS, trips = NO_TRIPS, highlightIds = n
       (c) => c.city_lat == null && !(c.id in extraCoords) && (plausibleCity(c.city) || (!c.city?.trim() && c.country))
     )
     if (missing.length === 0) return
-    // ONE WRITE PER BEAT, NOT ONE PER LOOKUP (28 Sep 2026). Each answer used to
-    // set state on its own, and every one of those rebuilt `located`, which
-    // re-ran the country sweep below. That sweep was a second and a quarter of
-    // frozen main thread before it was rewritten, so a handful of slow lookups
-    // dropped a handful of freezes into whatever the reader was doing - which,
-    // as Ethan found, is usually zooming. The sweep is cheap now and this is no
-    // longer the difference between working and not; it is still fewer renders
-    // for the same pins, and the pins still fill in as the answers arrive
-    // rather than all at the end.
+    // ONE WRITE PER BEAT, NOT ONE PER LOOKUP. Each answer used to set state on its own, and every one of those rebuilt
+    // `located`, which re-ran the country sweep below. That sweep was a second and a quarter of frozen main thread
+    // before it was rewritten, so a handful of slow lookups dropped a handful of freezes into whatever the reader was
+    // doing - which, as the team found, is usually zooming. The sweep is cheap now and this is no longer the difference
+    // between working and not; it is still fewer renders for the same pins, and the pins still fill in as the answers
+    // arrive rather than all at the end.
     ;(async () => {
       let pending = null
       let timer = null
@@ -550,9 +505,6 @@ function CreatorMap({ creators = NO_CREATORS, trips = NO_TRIPS, highlightIds = n
 
   // THE PLANE LANDS ON THE CITY, NOT IN THE MIDDLE OF THE COUNTRY.
   //
-  // Ethan: "as well as the country showing on the map, the actual city they
-  // enter should show up on the map as the location the plane is going to."
-  //
   // Journeys used to end at the country's CENTROID, which for a trip to Lisbon
   // put the aircraft somewhere in the hills north of Castelo Branco, and for
   // anywhere large (a trip to "United States") put it in Kansas. The centroid
@@ -563,18 +515,16 @@ function CreatorMap({ creators = NO_CREATORS, trips = NO_TRIPS, highlightIds = n
   // so a city that has already been looked up for somebody's home costs
   // nothing here. Keyed by "city|country" rather than by trip id: three
   // creators going to Lisbon is one lookup.
-  // THE TRIP CARRIES ITS OWN COORDINATES NOW (migration 177, 2 Sep 2026).
+  // THE TRIP CARRIES ITS OWN COORDINATES NOW (migration 177).
   //
   // This used to geocode every trip on the board, in the browser, at render
   // time, in a `for` loop with an `await` in it - and cache the answers in that
   // browser's localStorage and nowhere else. So every new browser, every
   // private window and every new team member paid the whole bill again.
   //
-  // Measured on production on a clean browser: 89 requests to load the hub, of
-  // which 22 were geocode calls, totalling 23.1 SECONDS. Ethan: "it takes a
-  // while to load", and worse than that on a slower line, because the profile
-  // fetch is competing with two dozen serial lookups for the same connection
-  // and the app signs you out if it loses three times.
+  // Measured on production on a clean browser: 89 requests to load the hub, of which 22 were geocode calls, totalling
+  // 23.1 SECONDS., and worse than that on a slower line, because the profile fetch is competing with two dozen serial
+  // lookups for the same connection and the app signs you out if it loses three times.
   //
   // `collab_posts.city_lat/lng` are resolved once, server side, for everybody.
   // The geocoder is still here for a row that somehow has none - a brand new
@@ -601,14 +551,11 @@ function CreatorMap({ creators = NO_CREATORS, trips = NO_TRIPS, highlightIds = n
         if (!t?.city || !t?.country) continue
         const key = `${t.city.trim().toLowerCase()}|${t.country.trim().toLowerCase()}`
         if (storedTripCoords[key]) continue
-        // `in`, NOT a truthiness test (26 Sep 2026). A miss is stored as
-        // `null` precisely so it is never asked again - and `!null` is true,
-        // so it was asked again, stored as `null` in a NEW object, which re-ran
-        // this effect, for ever. That loop re-rendered the Creator Network page
-        // ~28 times a second while it sat there idle, and those urgent renders
-        // starved every navigation away from it: Ethan's "I try to click on
-        // Worldwide, Rooms, Challenges, or Calendar, and none of those buttons
-        // work ... Whenever I refresh, it actually ends up going to the page".
+        // `in`, NOT a truthiness test. A miss is stored as `null` precisely so it is never asked again - and `!null` is
+        // true, so it was asked again, stored as `null` in a NEW object, which re-ran this effect, for ever. That loop
+        // re-rendered the Creator Network page ~28 times a second while it sat there idle, and those urgent renders
+        // starved every navigation away from it: the team's "I try to click on Worldwide, Rooms, Challenges, or
+        // Calendar, and none of those buttons work... Whenever I refresh, it actually ends up going to the page".
         if (!(key in tripCoords)) wanted.set(key, t)
       }
     }
@@ -745,8 +692,8 @@ function CreatorMap({ creators = NO_CREATORS, trips = NO_TRIPS, highlightIds = n
   // Tint the countries creators actually live in. Point-in-polygon against the
   // map's own geometry, so it's name-agnostic and always correct.
   //
-  // THE ARITHMETIC MOVED OUT (28 Sep 2026), because it was the map's freeze.
-  // It ran every country against every creator - 240 x 158 full polygon streams
+  // THE ARITHMETIC MOVED OUT, because it was the map's freeze. It ran every country against every creator - 240 x 158
+  // full polygon streams
   // - and `some` only short-circuits on a hit, so the two hundred countries
   // nobody lives in ran all 158 tests each. Measured on the production build:
   // 1,240ms of main thread, twice, in the middle of a zoom. `lib/homeCountries`
@@ -902,29 +849,18 @@ function CreatorMap({ creators = NO_CREATORS, trips = NO_TRIPS, highlightIds = n
   //  2. Float the SELECTED pin to the very end, so tapping a pin always brings
   //     it fully to the front instead of leaving it buried behind others.
   //     Deselecting restores the normal order.
-  // PINS THAT WOULD OVERLAP BECOME ONE PIN (26 Sep 2026).
+  // PINS THAT WOULD OVERLAP BECOME ONE PIN.
   //
-  // Ethan: "For some of the pins, they're all overlapping ... if there are too
-  // many close together that are unclickable, they should be grouped.
-  // Currently, for some of them, I can just barely see the corner of them."
-  // Towns were only merged when two creators typed the SAME town, so Lisbon,
-  // Amadora and Sintra were three pins stacked on one spot. Now any towns
-  // whose pins would touch AT THE CURRENT ZOOM merge into one, carrying the
-  // count; zooming in pulls them apart again. Worked in the map's own units,
-  // where a pin's head is ~30 wide and is counter-scaled by zoom^-0.7 (see
-  // Pin), and on the SETTLED zoom so a pinch does not re-cluster every frame.
+  // Towns were only merged when two creators typed the SAME town, so Lisbon, Amadora and Sintra were three pins stacked
+  // on one spot. Now any towns whose pins would touch AT THE CURRENT ZOOM merge into one, carrying the count; zooming in
+  // pulls them apart again. Worked in the map's own units, where a pin's head is ~30 wide and is counter-scaled by
+  // zoom^-0.7 (see Pin), and on the SETTLED zoom so a pinch does not re-cluster every frame.
   //
-  // AND IT FOLLOWS THE ZOOM AS IT HAPPENS (28 Sep 2026). Ethan: "there is a
-  // real delay between me scrolling in and scrolling out ... the pins should
-  // separate a bit, but they don't ... slightly delayed." This read the SETTLED
-  // zoom, which only moves when the gesture ends. It reads the live one now,
-  // rounded to quarter-octave steps (about 19% of zoom each), so pins split
-  // and merge while you scroll without re-grouping on every frame.
+  // AND IT FOLLOWS THE ZOOM AS IT HAPPENS. This read the SETTLED zoom, which only moves when the gesture ends. It reads
+  // the live one now, rounded to quarter-octave steps (about 19% of zoom each), so pins split and merge while you scroll
+  // without re-grouping on every frame.
   //
-  // AND IT IS CALM (28 Sep 2026, evening). Ethan: "whenever zooming in and out
-  // ... this seems to be happening rapidly so many times ... everything's
-  // flying all over." Measured: ONE press of the zoom button fired 16 to 64 pin
-  // animations. Two causes, both fixed here:
+  // AND IT IS CALM. Measured: ONE press of the zoom button fired 16 to 64 pin animations. Two causes, both fixed here:
   //   1. The grouping was GREEDY ("join the first group within reach"), so at
   //      each new zoom step the groups were rebuilt from scratch and pins
   //      swapped between them wholesale. It is a HIERARCHY now (single
@@ -944,10 +880,7 @@ function CreatorMap({ creators = NO_CREATORS, trips = NO_TRIPS, highlightIds = n
       .sort((a, b) => (b.t.creators.length - a.t.creators.length) || (a.t.key < b.t.key ? -1 : 1))
     return { pts, merges: clusterMerges(pts) }
   }, [visibleTowns])
-  // THE REGROUP FOLLOWS THE GESTURE CLOSELY (28 Sep 2026, later). Ethan:
-  // "whenever I zoom in, they start to spread out a bit, and the animation is
-  // quite delayed, which I don't really like. The animation should be much
-  // smoother and much quicker."
+  // THE REGROUP FOLLOWS THE GESTURE CLOSELY.
   //
   // This waited 160ms after the zoom stopped changing before regrouping, ON TOP
   // of a 420ms fly - so the pins started moving well over a fifth of a second
@@ -981,12 +914,8 @@ function CreatorMap({ creators = NO_CREATORS, trips = NO_TRIPS, highlightIds = n
   // Thread the pins into one flowing path (nearest-neighbour from the westmost),
   // so the dashed connection line visits everyone once.
   //
-  // IT THREADS THE PINS THAT ARE ACTUALLY THERE (28 Sep 2026, later). This ran
-  // over the raw `towns`, which is every town before grouping, so the threads
-  // stayed where the ungrouped towns were while the pins merged away from them.
-  // Ethan, on the public programme page: "it shows the dotted lines everywhere,
-  // even though when the creators are grouped there are actually no curves there
-  // any more. It still shows those dotted lines all connected."
+  // IT THREADS THE PINS THAT ARE ACTUALLY THERE. This ran over the raw `towns`, which is every town before grouping, so
+  // the threads stayed where the ungrouped towns were while the pins merged away from them.
   //
   // Threading `clusteredTowns` instead means a line can only ever run between
   // two pins a reader can see, at every zoom, and the web re-threads as pins
@@ -1025,15 +954,11 @@ function CreatorMap({ creators = NO_CREATORS, trips = NO_TRIPS, highlightIds = n
     return segs
   }, [clusteredTowns])
 
-  // PINS MOVE WHEN THEY SPLIT AND MERGE (28 Sep 2026). Ethan: "I would like
-  // some animations for this rather than just flashing, appearing, and
-  // disappearing ... like them merging together." Each time the grouping
-  // changes, this compares it with the last one: a pin that came out of a
-  // group starts where the group was and flies to its own place; a group that
-  // formed pops in while the pins it swallowed fly into it and fade. Worked out
-  // during render from the previous layout held in state (React's documented
-  // "adjust state when a prop changes" pattern), so the first frame of the new
-  // grouping is already the first frame of the animation.
+  // PINS MOVE WHEN THEY SPLIT AND MERGE. Each time the grouping changes, this compares it with the last one: a pin that
+  // came out of a group starts where the group was and flies to its own place; a group that formed pops in while the
+  // pins it swallowed fly into it and fade. Worked out during render from the previous layout held in state (React's
+  // documented "adjust state when a prop changes" pattern), so the first frame of the new grouping is already the first
+  // frame of the animation.
   const pinLayout = useMemo(() => clusteredTowns.map((t) => {
     const p = projection(t.coords) || [0, 0]
     return { key: t.key, x: p[0], y: p[1], towns: t.towns ? t.towns.map((m) => m.key) : [t.key], group: t }
@@ -1161,15 +1086,11 @@ function CreatorMap({ creators = NO_CREATORS, trips = NO_TRIPS, highlightIds = n
   // tracking-loop note elsewhere in this file is about. Once per finished
   // gesture is the right granularity, and it is a moment the view is already
   // changing under the reader anyway.
-  // THE FITTED ZOOM, NOT THE CURRENT ONE (28 Sep 2026, evening). Ethan: "the
-  // aeroplane animations ... keep lagging, freezing, and going again." One of
-  // the causes was here: re-timing every flight at the end of every zoom
-  // changes each plane's animation-duration, and a running animation whose
-  // duration changes jumps to a new point on its path - so every scroll ended
-  // with the whole fleet lurching. The fitted zoom only changes when the
-  // community on the map changes, so the planes keep their clocks through any
-  // amount of zooming (they simply look a little faster zoomed in, as a real
-  // one would from closer).
+  // THE FITTED ZOOM, NOT THE CURRENT ONE. One of the causes was here: re-timing every flight at the end of every zoom
+  // changes each plane's animation-duration, and a running animation whose duration changes jumps to a new point on its
+  // path - so every scroll ended with the whole fleet lurching. The fitted zoom only changes when the community on the
+  // map changes, so the planes keep their clocks through any amount of zooming (they simply look a little faster zoomed
+  // in, as a real one would from closer).
   const planeZoom = Math.max(1, fitView.zoom || 1)
 
   // Which threads actually carry a plane: the longest ones, capped, so short
@@ -1189,12 +1110,10 @@ function CreatorMap({ creators = NO_CREATORS, trips = NO_TRIPS, highlightIds = n
       return { ...s, screen, dur: flightDur(screen) }
     })
     const long = scaled.filter((s) => s.screen >= MIN_PLANE_LEN)
-    // Nothing long enough? Fly ONE anyway, so the "we're all connected" idea
-    // still reads for a community that is merely clustered - but only if the
-    // longest hop is within reach of the threshold. A market whose creators all
-    // live in one city gets NO aircraft, which is what Ethan asked for and what
-    // the old fallback made impossible: with every hop below the bar, `long`
-    // was empty and the pool became the whole list.
+    // Nothing long enough? Fly ONE anyway, so the "we're all connected" idea still reads for a community that is merely
+    // clustered - but only if the longest hop is within reach of the threshold. A market whose creators all live in one
+    // city gets NO aircraft, which is what the team asked for and what the old fallback made impossible: with every hop
+    // below the bar, `long` was empty and the pool became the whole list.
     const pool = long.length
       ? long
       : scaled.filter((s) => s.screen >= MIN_PLANE_LEN * 0.5)
@@ -1202,11 +1121,6 @@ function CreatorMap({ creators = NO_CREATORS, trips = NO_TRIPS, highlightIds = n
   }, [segments, planeZoom])
 
   // FIT TO EVERYONE - AND KEEP FITTING UNTIL SOMEBODY TAKES THE CAMERA.
-  //
-  // Ethan: "it shouldn't be completely zoomed into the country if it's cutting
-  // a creator out that's elsewhere. It should be zoomed in depending on where
-  // the creators are based - if every creator's pin was in Romania then yes
-  // zoom in further there."
   //
   // THE FIT WAS RIGHT AND IT RAN TOO EARLY. This was a once-only effect keyed on
   // `located.length === 0`, so it fired on the first frame that had ANY pin and
@@ -1285,11 +1199,9 @@ function CreatorMap({ creators = NO_CREATORS, trips = NO_TRIPS, highlightIds = n
   //
   // THE BUG THIS FIXES, AND WHY THE rAF THROTTLE HAD TO GO.
   //
-  // `setLiveZoom` used to be deferred into a requestAnimationFrame, on the
-  // reasoning that a wheel can fire more often than the screen refreshes and one
-  // re-render per frame is enough. It is enough, and it is also the bug: Ethan,
-  // "when zooming in the planes temporarily appear way too big and then go to
-  // normal size."
+  // `setLiveZoom` used to be deferred into a requestAnimationFrame, on the reasoning that a wheel can fire more often
+  // than the screen refreshes and one re-render per frame is enough. It is enough, and it is also the bug: the team,
+  // "when zooming in the planes temporarily appear way too big and then go to normal size."
   //
   // react-simple-maps' own zoom handler does two things in one synchronous d3
   // event - it sets ITS state (which is what actually scales the group) and then
@@ -1375,12 +1287,9 @@ function CreatorMap({ creators = NO_CREATORS, trips = NO_TRIPS, highlightIds = n
   // ALL FOUR ARE THE SAME SIZE, and that is a fixed width rather than an
   // accident of the label.
   //
-  // THE BUG THIS FIXES. They were `px-4` around whatever the label happened to
-  // be, so "My connections" was noticeably wider than "Near me", and turning a
-  // filter ON appended a count to its label and made that one grow again -
-  // a column of buttons that reflowed every time you pressed one. Ethan: "with
-  // these buttons, currently they are different sizes, it would look better if
-  // they are all the same size."
+  // THE BUG THIS FIXES. They were `px-4` around whatever the label happened to be, so "My connections" was noticeably
+  // wider than "Near me", and turning a filter ON appended a count to its label and made that one grow again - a column
+  // of buttons that reflowed every time you pressed one.
   //
   // `w-44` fits the longest of them with the count on, so nothing moves when a
   // filter is switched on, and `justify-start` keeps every icon on the same
@@ -1393,14 +1302,11 @@ function CreatorMap({ creators = NO_CREATORS, trips = NO_TRIPS, highlightIds = n
 
   // WHY THIS IS A FUNCTION AND NOT A VALUE.
   //
-  // The same set of filters renders in two places: overlaid on the map (desktop
-  // card, and full screen on any device) and as a wrapping row underneath it on
-  // a phone. "On the move" is wanted in the first and not the second - on a
-  // phone the row sits under an already-tall map and pushes the rest of the hub
-  // down, and the journeys view is a thing you go full screen to read anyway.
-  // So the caller says which variant it wants rather than the button guessing.
-  // `compact` (12 Oct 2026) is the phone row: Ethan, "this takes up a lot of
-  // space... put them all in one line... just say Connections, Near Me, and
+  // The same set of filters renders in two places: overlaid on the map (desktop card, and full screen on any device) and
+  // as a wrapping row underneath it on a phone. "On the move" is wanted in the first and not the second - on a phone the
+  // row sits under an already-tall map and pushes the rest of the hub down, and the journeys view is a thing you go full
+  // screen to read anyway. So the caller says which variant it wants rather than the button guessing. `compact` is the
+  // phone row: the team, "this takes up a lot of space... put them all in one line... just say Connections, Near Me, and
   // Travelled". Three equal cells, icon over a one-word label, no counts.
   const cell = (on) => cx(
     'flex min-w-0 flex-col items-center justify-center gap-1 rounded-2xl px-1 py-2 text-[13px] font-semibold transition-transform active:scale-95 disabled:opacity-50',
@@ -1439,15 +1345,10 @@ function CreatorMap({ creators = NO_CREATORS, trips = NO_TRIPS, highlightIds = n
           <span className="truncate">{tr('My connections')}{connectionsView ? ` · ${connSet.size}` : ''}</span>
         </button>
       )}
-      {/* WHERE WE HAVE BEEN, TOGETHER - AS A FILTER, NOT A SECOND MAP.
-          There used to be an entire extra WorldMap at the bottom of the
-          directory showing every country anybody had filmed in. Ethan: "the
-          'where we've been together' map at the very bottom should be removed
-          from here and instead just be a button on the other map." He is right:
-          it was a second world map on a page that already had one, three
-          screens below it, answering a question about the same set of people.
-          As a toggle it is the same information in the place you are already
-          looking, and it costs no extra atlas parse. */}
+      {/* WHERE WE HAVE BEEN, TOGETHER - AS A FILTER, NOT A SECOND MAP. There used to be an entire extra WorldMap at the
+          bottom of the directory showing every country anybody had filmed in. they are right: it was a second world map
+          on a page that already had one, three screens below it, answering a question about the same set of people. As a
+          toggle it is the same information in the place you are already looking, and it costs no extra atlas parse. */}
       {onToggleExplored && (
         <button
           type="button"
@@ -1493,12 +1394,9 @@ function CreatorMap({ creators = NO_CREATORS, trips = NO_TRIPS, highlightIds = n
 
   // TAPPING NOWHERE CLOSES WHAT IS OPEN.
   //
-  // Ethan's report: "tapping elsewhere, blank space on the map or outside the
-  // card, should close that popup so it's not stuck open". Both halves are here:
-  // the sea inside the map (a transparent rect painted UNDER the land, so the
-  // countries still get their own clicks) and anywhere outside the whole
-  // component (a pointerdown on the document). Escape too - a panel that can
-  // only be dismissed by finding its X is a panel people leave open.
+  // Both halves are here: the sea inside the map (a transparent rect painted UNDER the land, so the countries still get
+  // their own clicks) and anywhere outside the whole component (a pointerdown on the document). Escape too - a panel
+  // that can only be dismissed by finding its X is a panel people leave open.
   const closePanels = useCallback(() => {
     if (!selected && !country) return
     setSelected(null)
@@ -1522,11 +1420,7 @@ function CreatorMap({ creators = NO_CREATORS, trips = NO_TRIPS, highlightIds = n
   // exists (it is what makes the orientation lock possible and what takes the
   // browser chrome away); where it does not, the fixed overlay alone is still a
   // full-window map, which is the point.
-  // WHERE THE PAGE WAS WHEN FULL SCREEN OPENED (9 Sep 2026).
-  //
-  // Ethan: "when exiting full screen it doesn't bring you back to exactly where
-  // on the page, it brings you back to the top. Just fix that - it should bring
-  // you to where you were."
+  // WHERE THE PAGE WAS WHEN FULL SCREEN OPENED.
   //
   // Opening full screen locks the document (`overlay-lock`, which is
   // `position: fixed` on the html element) and closing it unlocks - and a
@@ -1552,11 +1446,10 @@ function CreatorMap({ creators = NO_CREATORS, trips = NO_TRIPS, highlightIds = n
 
   // LEAVING IS AN ANIMATION, SO THE OVERLAY OUTLIVES THE DECISION BY 180ms.
   //
-  // Entering can animate on its own - the element mounts and its keyframes run.
-  // Leaving cannot: `setFullscreen(false)` unmounts the portal on the next
-  // commit and there is nothing left to animate, which is the hard cut Ethan
-  // saw. So the button sets `closing`, which swaps the entrance keyframes for
-  // the exit ones, and only then does the unmount happen.
+  // Entering can animate on its own - the element mounts and its keyframes run. Leaving cannot: `setFullscreen(false)`
+  // unmounts the portal on the next commit and there is nothing left to animate, which is the hard cut the team saw. So
+  // the button sets `closing`, which swaps the entrance keyframes for the exit ones, and only then does the unmount
+  // happen.
   //
   // The browser's own fullscreen is released IMMEDIATELY rather than after the
   // fade: the system transition out of real fullscreen is the browser's to run
@@ -1586,13 +1479,10 @@ function CreatorMap({ creators = NO_CREATORS, trips = NO_TRIPS, highlightIds = n
     document.addEventListener('fullscreenchange', onChange)
     document.addEventListener('keydown', onKey)
     // The page behind must not scroll while a full-window overlay is up.
-    // NO JUMP ON THE WAY OUT (1 Oct 2026). Ethan: "whenever exiting full screen
-    // on the map, there's a bit of lag ... I think that's where the screen's
-    // scrolling down." It was `overlay-lock` (overflow hidden, height 100% on
-    // the document), which scrolls the page to the top behind the map; leaving
-    // drew one frame at the top and then scrolled back down a frame later. The
-    // shared scroll lock holds the page where it is (fixed, offset kept) and
-    // puts the scroll back in the same moment it lets go.
+    // NO JUMP ON THE WAY OUT. It was `overlay-lock` (overflow hidden, height 100% on the document), which scrolls the
+    // page to the top behind the map; leaving drew one frame at the top and then scrolled back down a frame later. The
+    // shared scroll lock holds the page where it is (fixed, offset kept) and puts the scroll back in the same moment it
+    // lets go.
     const release = lockScroll()
     return () => {
       document.removeEventListener('fullscreenchange', onChange)
@@ -1610,7 +1500,7 @@ function CreatorMap({ creators = NO_CREATORS, trips = NO_TRIPS, highlightIds = n
   // HOW BIG THE CARD IS DEPENDS ON HOW MUCH SCREEN THERE IS.
   //
   //  * In a card on a page it is a 24rem panel in the corner, unchanged.
-  //  * Full screen on a desktop it gets to be a real panel: Ethan's "too
+  //  * Full screen on a desktop it gets to be a real panel: the team's "too
   //    crammed into the corner, it could be a bit bigger on full screen". A
   //    24rem card floating in 1400px of map reads as an accident.
   //  * Full screen on a phone it goes the OTHER way and gets smaller. Full
@@ -1655,12 +1545,7 @@ function CreatorMap({ creators = NO_CREATORS, trips = NO_TRIPS, highlightIds = n
 
   // THE PANEL MUST NOT REACH THE ROW THE COUNTRY NAME SITS IN.
   //
-  // IT IS CENTRED NOW, NOT WEDGED INTO THE BOTTOM-LEFT CORNER (9 Sep 2026).
-  //
-  // Ethan, on the desktop landing page: "whenever you click on a country or a
-  // person, the pop up showing the country info or the person is on the left,
-  // it's really in the corner. I think it should be centered and actually show
-  // up in the very center, like a pop up card in the middle."
+  // IT IS CENTRED NOW, NOT WEDGED INTO THE BOTTOM-LEFT CORNER.
   //
   // It was `items-start justify-end` - bottom-left - which was the right answer
   // while the map was a 72rem card with filter pills along its foot. The map is
@@ -1696,13 +1581,7 @@ function CreatorMap({ creators = NO_CREATORS, trips = NO_TRIPS, highlightIds = n
       // d3-zoom, and draws more map rather than bigger pixels. See
       // lib/pinchGuard.
       data-zoomable
-      // ONE FINGER IS THE PAGE'S. TWO ARE THE MAP'S. (9 Sep 2026)
-      //
-      // Ethan: "the map, I'm unable to zoom on it at all... and scrolling
-      // normally on the map doesn't move anything at all, whereas it should.
-      // But I should be able to pinch to zoom with my fingers on the map like
-      // normal mobile. I don't know why you really messed up the map on
-      // mobile."
+      // ONE FINGER IS THE PAGE'S. TWO ARE THE MAP'S.
       //
       // Both halves are ONE line of CSS. `[data-zoomable]` carries
       // `touch-action: none` (index.css) - a promise to the browser that this
@@ -1721,11 +1600,8 @@ function CreatorMap({ creators = NO_CREATORS, trips = NO_TRIPS, highlightIds = n
       //
       // Full screen keeps `none`: there the map IS the page, there is nothing
       // behind it to scroll, and one-finger panning is what you want.
-      // ONE FINGER MOVES THE MAP, TWO ZOOM (12 Oct 2026). Ethan: "whenever I
-      // scroll with one finger on the map, it doesn't move at all. I have to
-      // use two... Two should always be for zooming in or out, and one should
-      // be for moving around." So the map owns every touch on a phone now; the
-      // page still scrolls from anywhere around it.
+      // ONE FINGER MOVES THE MAP, TWO ZOOM. So the map owns every touch on a phone now; the page still scrolls from
+      // anywhere around it.
       style={{ touchAction: 'none' }}
       className={cx(
         'relative w-full overflow-hidden',
@@ -1740,11 +1616,7 @@ function CreatorMap({ creators = NO_CREATORS, trips = NO_TRIPS, highlightIds = n
         !fullscreen && !header && !flush && 'rounded-card border border-gray-100',
       )}
     >
-      {/* THE BLACK NAME PILL IS GONE (9 Sep 2026). Ethan: "the way it shows up
-          whenever clicking on a country, it shows up on the actual map in
-          black - Italy, France - or it shows their name. Because we have the
-          pop up directly below the map, I would remove that black thing on the
-          map because it's not needed."
+      {/* THE BLACK NAME PILL IS GONE.
 
           Right on both counts. It named the thing you had just tapped, one
           beat before a panel appeared saying the same word and a great deal
@@ -1755,15 +1627,10 @@ function CreatorMap({ creators = NO_CREATORS, trips = NO_TRIPS, highlightIds = n
 
       {/* THE KEY IS NO LONGER ON THE MAP. See `legendStrip` below. */}
 
-      {/* ONE BUTTON OUTSIDE FULL SCREEN, AND THE FULL SET INSIDE IT
-          (9 Sep 2026).
+      {/* ONE BUTTON OUTSIDE FULL SCREEN, AND THE FULL SET INSIDE IT.
 
-          Ethan: "we don't actually need the zoom in on mobile because we can
-          easily zoom with our fingers, and I don't need the reset button. All
-          we need is a full screen button, in the top right, just as an icon, no
-          card or anything." And for the desktop: "get rid of the plus and minus
-          zoom button, and the reset button. To zoom in there will be the full
-          screen button - not in the very corner, but on the right."
+          And for the desktop: "get rid of the plus and minus zoom button, and the reset button. To zoom in there will be
+          the full screen button - not in the very corner, but on the right."
 
           Both follow from the decision above it: gestures are refused outside
           full screen (see `filterZoomEvent`), so a `+` there would be the only
@@ -1787,11 +1654,7 @@ function CreatorMap({ creators = NO_CREATORS, trips = NO_TRIPS, highlightIds = n
           onClick={enterFullscreen}
           aria-label={tr('Open the map full screen')}
           title={tr('Full screen')}
-          // A GLYPH ON A PHONE, A LABELLED BUTTON ON A DESKTOP (9 Sep 2026).
-          //
-          // Ethan: "we have the full screen button in the top right, but I want
-          // actual full screen text beside it - only for the desktop. The
-          // mobile should still just be the icon."
+          // A GLYPH ON A PHONE, A LABELLED BUTTON ON A DESKTOP.
           //
           // Which is the right split, and for a reason worth writing down: on a
           // phone this button is a convenience (you can already pinch the map
@@ -1799,8 +1662,7 @@ function CreatorMap({ creators = NO_CREATORS, trips = NO_TRIPS, highlightIds = n
           // WAY IN - the wheel is the page's now - so it has to say what it is.
           // An unlabelled icon that hides the only door is how the door gets
           // missed.
-          // AND ON A FLUSH MAP IT IS INSET FROM THE EDGE, NOT WEDGED INTO THE
-          // CORNER (10 Sep 2026).
+          // AND ON A FLUSH MAP IT IS INSET FROM THE EDGE, NOT WEDGED INTO THE CORNER.
           //
           // Two rounds on this one. First: "the full screen should actually be
           // on the map, like, to the right of Russia" - so it came down to 19%
@@ -1840,18 +1702,10 @@ function CreatorMap({ creators = NO_CREATORS, trips = NO_TRIPS, highlightIds = n
 
           FULL SCREEN KEEPS ITS OWN COPY, so the exit button stays grouped with
           the zoom it belongs to. */}
-      {/* A PHONE DOES NOT GET THE STACK. Ethan, of the embedded maps: "we don't
-          actually need the zoom in on mobile because we can easily zoom with
-          our fingers, and I don't need the reset button. All we need is a full
-          screen button." Two fingers still pinch and one still scrolls the
-          page, so on a phone these three discs are 120px of chrome over the
-          picture that do nothing a finger cannot. They come back at `sm`, where
+      {/* A PHONE DOES NOT GET THE STACK. Two fingers still pinch and one still scrolls the page, so on a phone these
+          three discs are 120px of chrome over the picture that do nothing a finger cannot. They come back at `sm`, where
           the pointer is a mouse and the wheel gate is the only other way in. */}
-      {/* FULL SCREEN IS PART OF THE PILL ON A DESKTOP (21 Sep 2026). Ethan:
-          "I would combine the full screen button here, as in a little separate
-          button attached to the same UI design as the plus, minus, and reset
-          buttons, rather than having a separate button. The icon is all we
-          need." So the pill takes the full-screen button's old corner and the
+      {/* FULL SCREEN IS PART OF THE PILL ON A DESKTOP. So the pill takes the full-screen button's old corner and the
           labelled button above is phone-only on a navigable map. */}
       {!fullscreen && navigable && (
         <div className={cx(
@@ -1981,11 +1835,8 @@ function CreatorMap({ creators = NO_CREATORS, trips = NO_TRIPS, highlightIds = n
           the travel view on hid the controls that turned it off. Top-left is
           the only free corner: the tooltip is top-centre, the zoom stack and
           hint are top-right, and the town card owns the bottom. */}
-      {/* NOT ON A PHONE, unless the map is full screen. The map box is about
-          180px tall at 375px and this key is 56 of them - a third of the map
-          spent explaining two symbols. Ethan: "on mobile I would remove the key
-          from the map because it takes up a lot of space and it's not needed."
-          Full screen it costs nothing and still earns its place. */}
+      {/* NOT ON A PHONE, unless the map is full screen. The map box is about 180px tall at 375px and this key is 56 of
+          them - a third of the map spent explaining two symbols. Full screen it costs nothing and still earns its place. */}
       {travelView && !focusJourney && journeys.some((j) => j.current) && journeys.some((j) => !j.current) && (
         <div className={`absolute left-3 z-20 ${fullscreen ? 'flex' : 'hidden sm:flex'} flex-col gap-1.5 rounded-xl bg-white/95 px-3 py-2 text-[11px] shadow-card ring-1 ring-black/5 backdrop-blur ${fullscreen ? 'top-16' : 'top-3'}`}>
           <span className="flex items-center gap-2">
@@ -2046,14 +1897,10 @@ function CreatorMap({ creators = NO_CREATORS, trips = NO_TRIPS, highlightIds = n
         {renderFilterButtons()}
       </div>
 
-      {/* THE "TAP A PIN FOR WHO'S THERE" HINT IS GONE.
-          It was a white pill in the top-right corner of every map explaining
-          that pins and countries are tappable and that + and − zoom. Ethan:
-          "on the top right of all the maps it says tap a pin for who's... you
-          can remove this box as it's not needed and it takes away from the
-          aesthetic." He is right on both counts: a pin on a map is a tappable
-          pin, and the instruction was competing with the map for the one corner
-          that is always visible. */}
+      {/* THE "TAP A PIN FOR WHO'S THERE" HINT IS GONE. It was a white pill in the top-right corner of every map
+          explaining that pins and countries are tappable and that + and − zoom. they are right on both counts: a pin on
+          a map is a tappable pin, and the instruction was competing with the map for the one corner that is always
+          visible. */}
     </div>
   )
 
@@ -2112,13 +1959,7 @@ function CreatorMap({ creators = NO_CREATORS, trips = NO_TRIPS, highlightIds = n
     )
   }
 
-  // THE KEY SITS UNDER THE MAP, IN ONE LINE (8 Sep 2026).
-  //
-  // Ethan: "we have the 'where we live' and the 'where we have filmed'. This
-  // takes up a lot of the map. I would actually put it as a little key directly
-  // below the map, across the bottom of it, rather than taking it up two lines.
-  // This way it would fit better and there would be more space for the actual
-  // map."
+  // THE KEY SITS UNDER THE MAP, IN ONE LINE.
   //
   // It was a floating white card pinned to the map's bottom-left corner with
   // its two entries stacked. On a 375px screen that card is about a third of
@@ -2164,14 +2005,9 @@ function CreatorMap({ creators = NO_CREATORS, trips = NO_TRIPS, highlightIds = n
           where it was unusable. Below the map it gets the full width of the
           page and as much height as it needs, and the country stays highlighted
           in orange above it so you can see what you tapped. */}
-      {/* AND IT COMES BEFORE THE KEY, NOT AFTER IT (9 Sep 2026). Ethan: "for
-          the pop up, I would put it directly below the map, and I would put the
-          'where we live' and 'where we have filmed' below the pop up, because I
-          think it will look better." He is right, and there is a reason beyond
-          taste: the panel is the ANSWER to the tap that produced it, and a key
-          sitting between the map and the answer puts a legend in the middle of
-          a sentence. With nothing selected the key sits straight under the map
-          exactly as before. */}
+      {/* AND IT COMES BEFORE THE KEY, NOT AFTER IT. they are right, and there is a reason beyond taste: the panel is the
+          ANSWER to the tap that produced it, and a key sitting between the map and the answer puts a legend in the
+          middle of a sentence. With nothing selected the key sits straight under the map exactly as before. */}
       {countryPanel && <div className="mt-3 sm:hidden">{countryPanel}</div>}
       {townPanel && <div className="mt-3 sm:hidden">{townPanel}</div>}
       {legendStrip}

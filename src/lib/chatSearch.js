@@ -4,14 +4,9 @@ import { useEffect, useState } from 'react'
 //
 // WHY THIS EXISTS
 //
-// A room used to carry its own search field in a bar under the tab strip. On a
-// 375px phone that bar was a permanent ~40px band saying the room's name (the
-// tab above it is already highlighted) with a search box in it - so the one
-// screen in the app whose entire job is showing messages spent a tenth of
-// itself on chrome. Ethan: "it shouldn't show up the second bar below the tabs
-// saying announcements or general with the search bar, this takes up too much
-// space... instead when opened on a specific chat, the search bar at the top
-// beside admin or notifications will be able to be used to search."
+// A room used to carry its own search field in a bar under the tab strip. On a 375px phone that bar was a permanent
+// ~40px band saying the room's name (the tab above it is already highlighted) with a search box in it - so the one
+// screen in the app whose entire job is showing messages spent a tenth of itself on chrome.
 //
 // The header lives in AppLayout and the search state lives in the room, three
 // route levels down. Threading a setter through the layout would put chat

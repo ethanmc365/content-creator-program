@@ -140,15 +140,12 @@ const AdminLanguages = lazyRoute(chunk.AdminLanguages)
 // header and the tab bar standing. What is left for this to catch is a public
 // page or a route that suspends before the layout exists.
 //
-// It used to draw `AppLoader`, which is the flying plane and the word
-// "Loading". That is the screen Ethan has asked repeatedly not to see between
-// two pages, and leaving one instance of it in the routing on the grounds that
-// it is rarely hit is how it comes back. THERE IS NO PLANE ANYWHERE IN A
-// TRANSITION NOW, boot included: index.html's own layer draws the app shell in
-// skeleton greys (4 Sep 2026), the route guards in ProtectedRoute draw
-// `RouteSkeleton`, and the pages draw their own shapes. The only PlaneLoaders
-// left in the tree are inside a modal doing one named job and on an error
-// screen that has a button on it.
+// It used to draw `AppLoader`, which is the flying plane and the word "Loading". That is the screen the team has asked
+// repeatedly not to see between two pages, and leaving one instance of it in the routing on the grounds that it is
+// rarely hit is how it comes back. THERE IS NO PLANE ANYWHERE IN A TRANSITION NOW, boot included: index.html's own layer
+// draws the app shell in skeleton greys, the route guards in ProtectedRoute draw `RouteSkeleton`, and the pages draw
+// their own shapes. The only PlaneLoaders left in the tree are inside a modal doing one named job and on an error screen
+// that has a button on it.
 function LazyFallback() {
   return <RouteSkeleton shape="cards" />
 }
@@ -179,21 +176,18 @@ export default function App() {
   useEffect(() => { warmMapAtlas() }, [])
   // THE TWO TABS THAT SUSPEND, FETCHED BEFORE ANYBODY PRESSES THEM.
   //
-  // Of the five bottom tabs only Worldwide and Rooms are code-split, and those
-  // are exactly the two Ethan named when he said a loading screen flashes up
-  // between pages. A creator opens both within their first minute, so waiting
-  // for a thumb to arrive before fetching a few kilobytes buys nothing and
-  // costs a visible third screen every time. The room view goes with them,
-  // because Rooms is an index whose every row leads there.
+  // Of the five bottom tabs only Worldwide and Rooms are code-split, and those are exactly the two the team named when
+  // they said a loading screen flashes up between pages. A creator opens both within their first minute, so waiting for
+  // a thumb to arrive before fetching a few kilobytes buys nothing and costs a visible third screen every time. The room
+  // view goes with them, because Rooms is an index whose every row leads there.
   //
   // Idle, and after first paint - see lib/lazyRoute. This must not compete with
   // the profile query or the page being looked at.
   useEffect(() => {
     // WARM THE WHOLE BOTTOM TAB BAR AND THE FIRST HOP OFF IT.
     //
-    // This used to be three importers - the two tabs Ethan named plus the chat -
-    // and that is precisely why the flashing stopped on the tab bar and
-    // continued everywhere else. Thirty-one other routes are code-split, and an
+    // This used to be three importers - the two tabs the team named plus the chat - and that is precisely why the
+    // flashing stopped on the tab bar and continued everywhere else. Thirty-one other routes are code-split, and an
     // admin lives in /admin, where every page is a first visit.
     //
     // Idle prefetching cannot cover all of them without becoming the download
@@ -213,9 +207,9 @@ export default function App() {
   // in the Lisbon room should still go out if you happen to be standing in your
   // DMs when the signal returns, and it should go out on the reload after the
   // tab was killed whether or not you open a chat at all. See lib/outbox.
-  // SAY SO, ONCE, WHEN THE SIGNAL IS WEAK (2 Oct 2026). The app quietly changes shape on a slow connection (maps
-  // wait, decoration stands still, nothing is prefetched); a single short toast per session tells the creator why,
-  // so a map card saying "when your signal improves" is not a surprise. Never repeated in one session.
+  // SAY SO, ONCE, WHEN THE SIGNAL IS WEAK. The app quietly changes shape on a slow connection (maps wait, decoration
+  // stands still, nothing is prefetched); a single short toast per session tells the creator why, so a map card saying
+  // "when your signal improves" is not a surprise. Never repeated in one session.
   useEffect(() => onSlowNetworkChange(() => {
     if (!isSlowNetwork()) return
     try { if (sessionStorage.getItem('tryp_slow_told')) return; sessionStorage.setItem('tryp_slow_told', '1') } catch { /* private mode */ }
@@ -320,7 +314,7 @@ export default function App() {
             <Route path="/challenges/:id/recap" element={<ChallengeRecap />} />
               </Route>
           <Route path="/rewards" element={<Rewards />} />
-          {/* THE RESOURCE LIBRARY IS RETIRED (12 Oct 2026): Video ideas took its place. Old links land there. */}
+          {/* THE RESOURCE LIBRARY IS RETIRED: Video ideas took its place. Old links land there. */}
           <Route path="/resources" element={<Navigate to="/ideas" replace />} />
           <Route path="/events" element={<Events />} />
           <Route path="/jobs" element={<Jobs />} />
@@ -403,9 +397,8 @@ export default function App() {
                 three now live on the challenge itself, so this is one list
                 fewer to keep in step. Old links still land somewhere sensible. */}
             <Route path="/admin/challenges" element={<Navigate to="/challenges" replace />} />
-            {/* THE CHALLENGE LOG PAGE IS GONE (24 Sep 2026): its list, its
-                totals and its edit form all live in Analytics - the list on the
-                Challenges tab, each row's edit on /admin/analytics/:id. */}
+            {/* THE CHALLENGE LOG PAGE IS GONE: its list, its totals and its edit form all live in Analytics - the list
+                on the Challenges tab, each row's edit on /admin/analytics/:id. */}
             <Route path="/admin/challenges/history" element={<Navigate to="/admin/analytics?tab=programme" replace />} />
             <Route path="/admin/challenges/new" element={<AdminChallengeForm />} />
             <Route path="/admin/challenges/:id/edit" element={<AdminChallengeForm />} />
@@ -427,7 +420,7 @@ export default function App() {
                 pages/admin/AdminCreatorKit. */}
             <Route path="/admin/creator-kit" element={<AdminCreatorKit />} />
             <Route path="/admin/jobs" element={<AdminJobs />} />
-            {/* Referrals live in Analytics (24 Sep 2026). */}
+            {/* Referrals live in Analytics. */}
             <Route path="/admin/referrals" element={<Navigate to="/admin/analytics?tab=referrals" replace />} />
             <Route path="/admin/email" element={<AdminEmail />} />
             <Route path="/admin/audit" element={<AdminAuditLog />} />

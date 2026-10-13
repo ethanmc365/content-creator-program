@@ -2,8 +2,7 @@ import { useEffect, useState } from 'react'
 import { isOnlineAt } from '../lib/presence'
 import { timeAgo, formatDateTimeTz, cx } from '../lib/utils'
 
-// WHO IS HERE RIGHT NOW, ON A PROFILE (11 Oct 2026). Ethan: "on the profiles I want to see the last online time, and a
-// green dynamic dot on the profile icon if they're live right now."
+// WHO IS HERE RIGHT NOW, ON A PROFILE.
 //
 // Both read `profiles.last_seen_at`, which the app beats every minute while a tab is visible (lib/presence, 5 minute
 // window). A 30 second tick re-asks the question against the clock so a dot goes out by itself, with no database read.

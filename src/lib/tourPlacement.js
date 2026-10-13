@@ -9,12 +9,9 @@
 // THE RULE: the card never covers the thing it is talking about, and never
 // covers anything that thing opened.
 //
-// Ethan: "some cards are still blocking the pages and instructions, like on the
-// profile drop down menu." That was a direct consequence of a step OPENING that
-// menu: the card is placed under its anchor, the anchor is the avatar in the
-// top-right corner, and what opens under the avatar is the menu the card has
-// just told you to use. So the instruction covered the only control that could
-// satisfy it.
+// That was a direct consequence of a step OPENING that menu: the card is placed under its anchor, the anchor is the
+// avatar in the top-right corner, and what opens under the avatar is the menu the card has just told you to use. So the
+// instruction covered the only control that could satisfy it.
 //
 // A dropdown is not the anchor, so nothing knew it was there. `keepOuts` is how
 // it finds out - see `data-tour-keepout` in AppLayout.
@@ -131,12 +128,7 @@ export function restingPlace(viewport, card, keepClear = false) {
   const { w: vw, h: vh } = viewport
   const cw = card.w || CARD_W
   const ch = card.h || 260
-  // IT SITS ABOVE THE FOOT OF THE SCREEN, NOT ON IT (9 Sep 2026).
-  //
-  // Ethan, on the first step: "the card should start slightly higher up, not at
-  // the very bottom but more up in the middle - slightly higher up. And when I
-  // click show me around the card gets bigger saying nice one, and it just
-  // hides a bit."
+  // IT SITS ABOVE THE FOOT OF THE SCREEN, NOT ON IT.
   //
   // Both are the same measurement. `vh - ch - 32` put the card's bottom edge
   // 32px off the floor, so a card that then GROWS - which is exactly what the
@@ -146,18 +138,14 @@ export function restingPlace(viewport, card, keepClear = false) {
   // phone, which is more than the tick has ever added, and it also puts the
   // opening card where the eye is rather than where the taskbar is.
   //
-  // THE LIFT IS A CONSTANT, NOT A CLAMP, and that matters: the card is still
-  // BOTTOM-ALIGNED, so two cards of different heights still differ in `top` by
-  // exactly their height difference. That is the property that lets the height
-  // transition and the position transition run on the same curve and read as
-  // one movement (see `[data-centre][data-travel='no']` in index.css). A
-  // `Math.min(vh / 2, ...)` was tried here first and broke it - both heights
-  // clamped to the same number and the card stopped following its own box.
+  // THE LIFT IS A CONSTANT, NOT A CLAMP, and that matters: the card is still BOTTOM-ALIGNED, so two cards of different
+  // heights still differ in `top` by exactly their height difference. That is the property that lets the height
+  // transition and the position transition run on the same curve and read as one movement (see
+  // `[data-centre][data-travel='no']` in index.css). A `Math.min(vh / 2,...)` was tried here first and broke it - both
+  // heights clamped to the same number and the card stopped following its own box.
   const lift = Math.min(vh * 0.125, 120)
   const top = Math.max(EDGE, vh - ch - RESTING_GAP - lift)
-  // AND OUT OF THE CORNER, NOT WEDGED INTO IT (9 Sep 2026). Ethan, on the
-  // payment step: "it animates nicely down to the bottom right corner. I would
-  // still bring it out of the corner ever so slightly."
+  // AND OUT OF THE CORNER, NOT WEDGED INTO IT.
   //
   // `RESTING_GAP` is 32px, which is right for the distance from the bottom edge
   // - that edge has a whole viewport above it - and mean against the right one,

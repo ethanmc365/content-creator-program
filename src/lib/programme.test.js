@@ -243,11 +243,9 @@ describe('rewardsTotal', () => {
 
 // FINDING ONE CHALLENGE IN FIFTY.
 //
-// The list on the Challenges tab gained a search box, a status filter and a
-// pinned "running now" block on 8 Sep 2026. Each of those is one line from
-// being subtly wrong in a way nobody would notice for weeks - a live challenge
-// drawn twice, an unmeasured challenge topping "cheapest", a search that can
-// only find the rows that happen to have a title.
+// The list on the Challenges tab gained a search box, a status filter and a pinned "running now" block. Each of those is
+// one line from being subtly wrong in a way nobody would notice for weeks - a live challenge drawn twice, an unmeasured
+// challenge topping "cheapest", a search that can only find the rows that happen to have a title.
 describe('filterChallenges', () => {
   const c = (over) => ({ id: 'x', title: '', market: null, country_code: null, status: 'archived', cpm: 1, spend: 0, views: 0, start_date: '2026-01-01', ...over })
 
@@ -305,10 +303,9 @@ describe('filterChallenges', () => {
 
 // "RUNNING NOW" IS A CLAIM ABOUT THE CALENDAR.
 //
-// The regression these guard is the one Ethan reported: the pinned block read a
-// stored status, and the imported challenge log is never closed off, so on 9 Sep
-// 2026 it was showing Portugal's June, Germany's July and the UK's July - all
-// finished - and nothing that was actually open.
+// The regression these guard is the one the team reported: the pinned block read a stored status, and the imported
+// challenge log is never closed off, so it was showing Portugal's June, Germany's July and the UK's July - all finished
+// - and nothing that was actually open.
 describe('runningChallenges', () => {
   const NOW = Date.parse('2026-09-09T12:00:00Z')
   const row = (o) => ({ id: o.id, status: o.status, start_date: o.start, end_date: o.end })

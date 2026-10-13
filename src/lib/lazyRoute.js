@@ -2,9 +2,8 @@ import { lazy } from 'react'
 
 // A PAGE THAT WILL NOT LOAD IS ALMOST ALWAYS A DEPLOY, AND THE CURE IS A RELOAD.
 //
-// Ethan, handing the platform to the Tryp.com team: "clicking through pages it
-// brought up error 404, I think because I was clicking fast, it worked
-// sometimes."
+// The team, handing the platform to the Tryp.com team: "clicking through pages it brought up error 404, I think because
+// I was clicking fast, it worked sometimes."
 //
 // It was not the speed. Every route below the first screen is code-split, so
 // visiting one fetches a file named with a content hash - `Rooms-D_iPJcrN.js`.
@@ -44,10 +43,6 @@ const RELOAD_GAP_MS = 10_000
 
 // PREFETCHING, AND WHY IT IS THE REAL FIX FOR "A LOADING SCREEN FLASHES UP".
 //
-// Ethan, twice: "clicking from worldwide to challenges to rooms, I get a
-// loading screen which briefly flashes up... because this page is loading in
-// split seconds there is no need for that loading screen to flash up at all."
-//
 // Of the five bottom tabs only TWO are code-split - Worldwide and Rooms - and
 // they are exactly the two he named. Tapping either suspends while its chunk is
 // fetched, and a Suspense boundary REPLACES the content area while it waits. So
@@ -67,14 +62,11 @@ const RELOAD_GAP_MS = 10_000
 // `preload` is idempotent: the browser caches the module, and a second call
 // returns the same resolved promise.
 //
-// A PREFETCH MUST SWALLOW ITS REJECTION, NOT JUST ITS THROW (24 Sep 2026).
-// `importer()` returns a PROMISE, and a try/catch only sees a synchronous
-// throw - so on a tab left open across a deploy, every prefetch of a chunk that
-// no longer exists rejected with nobody listening, and `window.onrejection`
-// reported it as a crash: the "'text/html' is not a valid JavaScript MIME
-// type" row in Error monitoring (one iPad, three times, 1s into a page). The
-// page itself was fine; the navigation that actually needs the chunk goes
-// through `lazyRoute` below, which reloads.
+// A PREFETCH MUST SWALLOW ITS REJECTION, NOT JUST ITS THROW. `importer()` returns a PROMISE, and a try/catch only sees a
+// synchronous throw - so on a tab left open across a deploy, every prefetch of a chunk that no longer exists rejected
+// with nobody listening, and `window.onrejection` reported it as a crash: the "'text/html' is not a valid JavaScript
+// MIME type" row in Error monitoring (one iPad, three times, 1s into a page). The page itself was fine; the navigation
+// that actually needs the chunk goes through `lazyRoute` below, which reloads.
 export function preloadRoute(importer) {
   try {
     const p = importer()

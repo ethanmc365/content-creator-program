@@ -6,15 +6,11 @@ import Icon from '../../../components/Icon'
 import { timeAgo } from '../../../lib/utils'
 import { profilesApi } from '../../../api/profiles'
 
-// WHO IS CONNECTED TO WHOM, AS A SECTION OF COMMUNITY HEALTH (24 Sep 2026).
+// WHO IS CONNECTED TO WHOM, AS A SECTION OF COMMUNITY HEALTH.
 //
-// Ethan: "I want the connections tab... to be combined into the community
-// health and be a separate section there... that basically is community
-// health." It was its own tab, `AdminNetwork`, and it also read the wrong
-// clock: it dated and sorted connections by `created_at`, which is when the
-// REQUEST was sent - so a link a new creator accepted this morning sat two
-// weeks down "recent" saying "2 weeks ago". Migration 257 stamps
-// `accepted_at`, and this reads it.
+// It was its own tab, `AdminNetwork`, and it also read the wrong clock: it dated and sorted connections by `created_at`,
+// which is when the REQUEST was sent - so a link a new creator accepted this morning sat two weeks down "recent" saying
+// "2 weeks ago". Migration 257 stamps `accepted_at`, and this reads it.
 //
 // Health, not a leaderboard of popularity: the numbers that matter are how
 // many people are connected to NOBODY (the ones the community has not reached

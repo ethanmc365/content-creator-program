@@ -32,19 +32,16 @@ export default function ShareCard({
         threshold: challenge?.participation_threshold || 1,
         prize: voucherPrize,
         basis: challenge?.participation_basis === 'points' && challenge?.scoring === 'points' ? 'points' : 'entries',
-        // THE SCOPE TRAVELS WITH THE TERMS (22 Sep 2026). Without it the
-        // picture gave the leader of the Global Challenge the voucher badge -
-        // she is 1st, so she wins a place prize and the voucher is only for
-        // creators OUTSIDE the paid places.
+        // THE SCOPE TRAVELS WITH THE TERMS. Without it the picture gave the leader of the Global Challenge the voucher
+        // badge - she is 1st, so she wins a place prize and the voucher is only for creators OUTSIDE the paid places.
         scope: challenge?.participation_scope,
       }
     : null
   const isFinal = challenge?.results_status === 'final'
-  // THE PICTURE HOLDS THE TOP TEN, OR EVERY PAID PLACE IF THERE ARE MORE
-  // (21 Sep 2026). It used to hold the whole ranking - on a worldwide board of a
-  // hundred creators that is a 1000px-wide scroll nobody reads in a chat. The
-  // top three still get the podium styling inside the board; everybody past
-  // the cut is one line underneath, and the full board is one tap away.
+  // THE PICTURE HOLDS THE TOP TEN, OR EVERY PAID PLACE IF THERE ARE MORE. It used to hold the whole ranking - on a
+  // worldwide board of a hundred creators that is a 1000px-wide scroll nobody reads in a chat. The top three still get
+  // the podium styling inside the board; everybody past the cut is one line underneath, and the full board is one tap
+  // away.
   const paid = (prizes || []).filter((p) => String(p?.place || '').trim()).length
   const cut = Math.max(10, paid)
   const shownRows = ranking.slice(0, cut)
@@ -53,10 +50,9 @@ export default function ShareCard({
   return (
     <div
       ref={cardRef}
-      // A PHOTOGRAPH IS ONE FRAME (21 Sep 2026). The podium it borrows fades
-      // its columns in on a delay, and the picture was taken the moment the
-      // card mounted - so the preview, and a quick download, showed "Winners"
-      // over an empty box. `.snapshot-still` finishes every animation inside.
+      // A PHOTOGRAPH IS ONE FRAME. The podium it borrows fades its columns in on a delay, and the picture was taken the
+      // moment the card mounted - so the preview, and a quick download, showed "Winners" over an empty box.
+      // `.snapshot-still` finishes every animation inside.
       className="snapshot-still"
       style={{ width: (SHARE_LAYOUT[what] ?? SHARE_LAYOUT.podium).width, background: '#ffffff', fontFamily: 'Poppins, system-ui, sans-serif' }}
     >

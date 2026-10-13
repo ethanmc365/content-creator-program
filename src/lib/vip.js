@@ -2,7 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState, u
 import { getLocale, t as translate, useLocale } from './i18n'
 import { vipApi } from '../api/vip'
 
-// THE VIP PROGRAMME, AWAY FROM THE SCREENS (2 Oct 2026, migration 294).
+// THE VIP PROGRAMME, AWAY FROM THE SCREENS (migration 294).
 //
 // VIP creators are paid by the views they bring, not by winning challenges. Everything that decides a
 // number (views gained in a month, tiers, caps, bonuses, the statement) is computed IN THE DATABASE so the
@@ -16,10 +16,10 @@ export async function vipRpc(fn, args) {
   return data
 }
 
-// THE TEAM, SEEING A CREATOR'S VIP PAGE EXACTLY (2 Oct 2026, migration 311). Inside a <VipPreviewContext value={id}>
-// every creator read on the VIP page (overview, statements, trends, perks, board) is asked for AS THAT MEMBER through
-// `vip_preview`, which the database only answers for somebody who manages their market. Writes are never routed: a
-// preview is read-only, and the components check `useVipPreview()` to grey their buttons.
+// THE TEAM, SEEING A CREATOR'S VIP PAGE EXACTLY (migration 311). Inside a <VipPreviewContext value={id}> every creator
+// read on the VIP page (overview, statements, trends, perks, board) is asked for AS THAT MEMBER through `vip_preview`,
+// which the database only answers for somebody who manages their market. Writes are never routed: a preview is
+// read-only, and the components check `useVipPreview()` to grey their buttons.
 export const VipPreviewContext = createContext(null)
 export const useVipPreview = () => useContext(VipPreviewContext)
 const PREVIEW_AS = { vip_my_overview: 'overview', vip_my_statements: 'statements', vip_my_trends: 'trends', vip_my_perks: 'perks', vip_board: 'board', vip_my_wallet: 'wallet' }
@@ -32,7 +32,7 @@ export function vipRpcAs(who, fn, args) {
 
 const localeTag = () => (getLocale() === 'pt' ? 'pt-PT' : getLocale() === 'en' ? 'en-GB' : getLocale())
 
-/** "September 2026", in the reader's language. */
+/* "September 2026", in the reader's language. */
 export function monthLabel(year, month, { short = false } = {}) {
   try {
     return new Date(Date.UTC(year, month - 1, 1)).toLocaleDateString(localeTag(), {
@@ -63,8 +63,9 @@ export function money(amount, currency = 'EUR', { cents = true } = {}) {
   } catch { return `${currency} ${n.toFixed(cents ? 2 : 0)}` }
 }
 
-/** A per-1,000 rate, always with its cents: 0.30, not 0.3; 0.257, not 0.2567 (3 Oct 2026, Ethan: "show 0.30 for a
- *  thousand views, so it's clear ... round it to three decimal places"). */
+/**
+ * A per-1,000 rate, always with its cents: 0.30, not 0.3; 0.257, not 0.2567 ().
+ */
 export const rate = (n) => {
   const v = Number(n) || 0
   return v.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 3, useGrouping: false })
@@ -105,9 +106,9 @@ export const SCOPES = [
   { key: 'global', label: 'Every VIP market' },
 ]
 
-// WHAT A MILESTONE CAN BE (4 Oct 2026, migration 322). Ethan: "the milestone has a few options, but I would increase those
-// options." Each one is a number the database already knows how to read for a creator (vip_metric / the month's statement),
-// so a milestone on any of them is paid by itself when the month closes. `unit` says how the number is written.
+// WHAT A MILESTONE CAN BE (migration 322). Each one is a number the database already knows how to read for a creator
+// (vip_metric / the month's statement), so a milestone on any of them is paid by itself when the month closes. `unit`
+// says how the number is written.
 export const MILESTONE_METRICS = [
   { key: 'lifetime_views', label: 'Total views as a VIP', unit: 'views', noun: 'views in total', example: 1000000 },
   { key: 'lifetime_videos', label: 'Total videos as a VIP', unit: 'videos', noun: 'videos in total', example: 50 },
@@ -141,14 +142,14 @@ export const FLAGS = {
 }
 
 /** The bonus rule in one sentence a creator can read. */
-// OFFICIAL TRYP.COM CREATORS (10 Oct 2026, migration 376). A programme has a kind: 'vip' (a market's VIP community) or
-// 'official' (the official Tryp.com content creators of a market, on their own contract). Same machinery, own board,
-// own bonuses, own room - so the screens only need to know which words to use.
+// OFFICIAL TRYP.COM CREATORS (migration 376). A programme has a kind: 'vip' (a market's VIP community) or 'official'
+// (the official Tryp.com content creators of a market, on their own contract). Same machinery, own board, own bonuses,
+// own room - so the screens only need to know which words to use.
 export const isOfficial = (p) => p?.kind === 'official'
 
-// THE OFFICIAL CREATORS' WORDS, EVERYWHERE A VIP SCREEN IS REUSED (11 Oct 2026). The official programme runs on the VIP
-// machinery, so its screens are the VIP screens - and they said "VIP" a hundred times ("Active VIPs", "Tell your VIPs
-// something"). Rather than a second copy of every sentence, a page or a tools panel says which kind it shows with
+// THE OFFICIAL CREATORS' WORDS, EVERYWHERE A VIP SCREEN IS REUSED. The official programme runs on the VIP machinery, so
+// its screens are the VIP screens - and they said "VIP" a hundred times ("Active VIPs", "Tell your VIPs something").
+// Rather than a second copy of every sentence, a page or a tools panel says which kind it shows with
 // <ProgrammeKindContext value="official">, and `useKindT()` translates as usual and then swaps the word in the TEMPLATE,
 // before the names are filled in - so "VIP Spain" in a programme's name is never touched. One table per language, most
 // specific phrase first.
@@ -246,8 +247,10 @@ export function ruleRunsIn(rule, when) {
   return true
 }
 
-/** The prizes by place from a programme's running "most views" rules, so a challenge never needs them typed twice
- *  (1 Oct 2026). [{ place: 1, parts: ['EUR 100', 'EUR 50 voucher'] }, ...] in place order. */
+/**
+ * The prizes by place from a programme's running "most views" rules, so a challenge never needs them typed twice. [{
+ * place: 1, parts: ['EUR 100', 'EUR 50 voucher'] },...] in place order.
+ */
 export function prizesByPlace(rules, tr, currency = 'EUR', when = null) {
   const out = {}
   for (const r of rules || []) {
@@ -302,20 +305,18 @@ export function useVipOverview({ enabled = true, every = 60000 } = {}) {
 /** Forget what was loaded (sign-out, or after the team changes who is a VIP). */
 export function clearVipCache() { cache = null; cacheAt = 0; rpcMemo.clear(); notify() }
 
-// WHO HAS THE VIP TOOLS (30 Sep 2026, migration 296). The owner and anyone on the access list; the database is
-// the judge (`vip_has_access`), this only remembers the answer for the session so the header and the admin
-// panel do not each ask. `undefined` while loading, then true/false.
+// WHO HAS THE VIP TOOLS (migration 296). The owner and anyone on the access list; the database is the judge
+// (`vip_has_access`), this only remembers the answer for the session so the header and the admin panel do not each ask.
+// `undefined` while loading, then true/false.
 let accessCache = { uid: null, value: undefined, fresh: false }
 const accessSubs = new Set()
 // `fallback` is what to show if the question itself cannot be answered (a network blip, or the database not yet
 // carrying migration 296): the door is only a convenience, the data behind it is fenced by the database either way.
 //
-// THE LAST ANSWER IS REMEMBERED ACROSS A RELOAD (7 Oct 2026). Ethan: "sometime after I refreshed the page ... the VIP
-// page temporarily disappeared and then came back." Every reload started from `undefined`, so the VIP link in the
-// header was not drawn and the page sat on a skeleton until `vip_has_access` came back - and a slow or failed first
-// answer (the session still restoring) was cached as "no" for the whole session. Now the previous answer for this
-// account is used straight away while the real one is asked, an error is retried instead of believed, and only a real
-// answer is stored.
+// THE LAST ANSWER IS REMEMBERED ACROSS A RELOAD. Every reload started from `undefined`, so the VIP link in the header
+// was not drawn and the page sat on a skeleton until `vip_has_access` came back - and a slow or failed first answer (the
+// session still restoring) was cached as "no" for the whole session. Now the previous answer for this account is used
+// straight away while the real one is asked, an error is retried instead of believed, and only a real answer is stored.
 const ACCESS_KEY = (uid) => `tryp_vip_access_${uid}`
 function rememberedAccess(uid) {
   if (!uid) return undefined
@@ -402,10 +403,11 @@ export const EVENT_ICON = {
  * A new (migration 298) database function, asked for politely: if the database does not have it yet the answer is
  * `missing`, and the caller simply draws nothing instead of an error. `key` re-asks when it changes.
  */
-// A READ THAT SURVIVES A RE-MOUNT (4 Oct 2026). Ethan: the VIP page's right column "comes in slower than the rest" and the
-// whole page was slow to arrive. The balance card, the stay-in card and the payouts tab each asked `vip_my_wallet` on their
-// own, every time they appeared. Now the last answer is kept per function/arguments/previewed member: a card that appears
-// again starts from it at once (and refreshes behind it), and two cards asking in the same moment share one request.
+// A READ THAT SURVIVES A RE-MOUNT. The team: the VIP page's right column "comes in slower than the rest" and the whole
+// page was slow to arrive. The balance card, the stay-in card and the payouts tab each asked `vip_my_wallet` on their
+// own, every time they appeared. Now the last answer is kept per function/arguments/previewed member: a card that
+// appears again starts from it at once (and refreshes behind it), and two cards asking in the same moment share one
+// request.
 const rpcMemo = new Map() // `${fn}|${who}|${key}` -> { data, at, pending }
 const RPC_FRESH_MS = 8000
 const rpcKey = (fn, who, key) => `${fn}|${who || ''}|${key ?? ''}`
@@ -448,7 +450,7 @@ export function useOptionalRpc(fn, args, key) {
   return { ...state, reload: () => setTick((n) => n + 1) }
 }
 
-/** "12 Sep", in the reader's language, from a plain date like 2026-09-12. */
+/* "12 Sep", in the reader's language, from a plain date like 2026-09-12. */
 export function shortDay(iso) {
   try { return new Date(`${iso}T12:00:00Z`).toLocaleDateString(localeTag(), { day: 'numeric', month: 'short', timeZone: 'UTC' }) } catch { return iso }
 }
@@ -488,8 +490,10 @@ export function unitLabel(metricKey, n, tr, list = PERK_METRICS) {
 /** The one sign-up link every VIP uses. */
 export function vipJoinLink(token) { return token ? vipJoinUrl(token) : '' }
 
-/** Every VIP screen uses the platform's orange (1 Oct 2026: "I don't want different programme colours"). Kept as a
- *  function so old callers keep working; whatever colour is stored is ignored. */
+/**
+ * Every VIP screen uses the platform's orange (1 Oct 2026: "I don't want different programme colours"). Kept as a
+ *  function so old callers keep working; whatever colour is stored is ignored. 
+ */
 export function safeAccent(_hex, fallback = '#d94407') {
   return fallback
 }

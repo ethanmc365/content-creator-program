@@ -6,13 +6,7 @@ import { useT } from '../lib/i18n'
 import { cx } from '../lib/utils'
 import { TRIP_KINDS, trypHome, trypLocale, trypTrips } from '../lib/trypSite'
 
-// "FIND A DEAL" (26 Sep 2026).
-//
-// Ethan, from a creator's suggestion: "we should have a link directly to the
-// Tryp.com website that's going to show the best deals ... creators are
-// struggling with finding the best deals ... We could also provide info like
-// how to get the best deals, like click filter, click lowest price search, or a
-// bit about our multi-city trips or flight and hotels."
+// "FIND A DEAL".
 //
 // A button beside "Hook me up" (the two things you need before you film: a
 // line to open on and a price to show), opening a sheet with tryp.com in the
@@ -21,11 +15,9 @@ import { TRIP_KINDS, trypHome, trypLocale, trypTrips } from '../lib/trypSite'
 // a phone hands it to the browser (or Safari's in-app view from the installed
 // app), and nothing here depends on JavaScript to open it.
 //
-// COPY IS A FIRST DRAFT - Ethan will send wording changes.
+// COPY IS A FIRST DRAFT - the team will send wording changes.
 
-// COPY CHANGES, 28 Sep 2026 (Ethan): "screenshot the trip or record their
-// laptop screen ... just to show the actual website", and a new step for when
-// the first page of results is thin: Tryp.com's own "Create more trips" button
+// COPY CHANGES (, and a new step for when the first page of results is thin: Tryp.com's own "Create more trips" button
 // at the foot of the results keeps searching and lifts the best to the top.
 const TIPS = [
   { icon: 'magnifier', title: 'Search with flexible dates', body: 'Pick your home airport and try a few dates either side. The same trip can halve in price a week later.' },
@@ -33,12 +25,9 @@ const TIPS = [
   { icon: 'refresh', title: 'Not finding a good one? Create more trips', body: 'Scroll to the bottom of the results and press "Create more trips". Tryp.com keeps looking for more deals and puts the best ones at the top.' },
   { icon: 'plane', title: 'Flight and hotel together', body: 'Booking both in one trip usually comes out cheaper than booking them separately. Show the total per person.' },
   { icon: 'pin', title: 'Try a multi-city trip', body: 'Two or three cities in one booking. It is the kind of trip people do not know they can get this cheaply.' },
-  // ONE SENTENCE, ONE CARD THE SIZE OF THE OTHERS (28 Sep 2026, later).
-  // This card grew a lead-in about prices moving and a three-bullet list, and
-  // stood about twice as tall as its neighbours. Ethan: "Don't say 'prices
-  // move'... no need to do this. All we're saying is how they should record
-  // their screen. No need for bullet points... just keep it simple like that."
-  // So: no lead-in, no `ways` list, the three ways read as one sentence.
+  // ONE SENTENCE, ONE CARD THE SIZE OF THE OTHERS. This card grew a lead-in about prices moving and a three-bullet list,
+  // and stood about twice as tall as its neighbours. So: no lead-in, no `ways` list, the three ways read as one
+  // sentence.
   {
     icon: 'device',
     title: 'Capture the trip',
@@ -76,9 +65,7 @@ export default function DealFinder({ className, variant = 'button' }) {
             href={trypHome(loc)}
             target="_blank"
             rel="noopener noreferrer"
-            // TEXT ONLY, AND THE SURFACE MOVES RATHER THAN A LINE CROSSING IT
-            // (28 Sep 2026). Ethan: "I don't like the icon there with the
-            // plane. Remove that and just have the text there instead."
+            // TEXT ONLY, AND THE SURFACE MOVES RATHER THAN A LINE CROSSING IT.
             className="brand-drift animate-fade-up group relative flex items-center gap-4 overflow-hidden rounded-card px-5 py-4 text-white shadow-card transition-transform duration-200 hoverable:hover:-translate-y-0.5"
           >
             <span aria-hidden className="pointer-events-none absolute -right-10 -top-12 h-40 w-40 rounded-full bg-white/10 blur-2xl" />
@@ -89,10 +76,8 @@ export default function DealFinder({ className, variant = 'button' }) {
             <Icon name="chevronRight" className="relative h-5 w-5 shrink-0 transition-transform duration-200 group-hover:translate-x-1" />
           </a>
 
-          {/* TRIP IDEAS (renamed from "ready-made deal lists", 28 Sep 2026).
-              Names are never cut off any more: icon on top, the name under it
-              on up to two lines. Ethan: it said "week" for "Weekend" and
-              "Chris" for "Christmas". */}
+          {/* TRIP IDEAS (renamed from "ready-made deal lists"). Names are never cut off any more: icon on top, the name
+              under it on up to two lines. The team: it said "week" for "Weekend" and "Chris" for "Christmas". */}
           <section>
             <h3 className="mb-2.5 text-[11px] font-bold uppercase tracking-wider text-smoke">{tr('Browse trip ideas')}</h3>
             <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
@@ -105,10 +90,7 @@ export default function DealFinder({ className, variant = 'button' }) {
                   style={{ animationDelay: `${120 + i * 40}ms` }}
                   className="group animate-pop-in flex flex-col items-center justify-center gap-1.5 rounded-2xl border border-gray-100 bg-white px-2 py-3 text-center text-xs font-semibold leading-tight text-ink shadow-card transition-all duration-200 [animation-fill-mode:both] hoverable:hover:-translate-y-0.5 hoverable:hover:border-brand/30 hoverable:hover:text-brand"
                 >
-                  {/* NO TINTED DISC BEHIND THE GLYPH (28 Sep 2026). Ethan:
-                      "I don't think we need the orange background. We should
-                      instead just have a bold Tryp.com orange icon." The box
-                      keeps its 36px so the grid's rows stay level; the icon
+                  {/* NO TINTED DISC BEHIND THE GLYPH. The box keeps its 36px so the grid's rows stay level; the icon
                       itself grows into the space the disc was filling. */}
                   <span className="flex h-9 w-9 items-center justify-center text-brand transition-transform duration-300 group-hover:scale-110 group-hover:rotate-[-6deg]">
                     <Icon name={k.icon} className="h-6 w-6" strokeWidth={2.1} />
@@ -119,10 +101,8 @@ export default function DealFinder({ className, variant = 'button' }) {
             </div>
           </section>
 
-          {/* THE STEPS ARRIVE ONE AFTER ANOTHER (28 Sep 2026). There was a line
-              drawing itself down behind the numbers; Ethan: "the animation of
-              the line, I don't like so much." No line: each step rises in turn
-              and its number pops as it lands. */}
+          {/* THE STEPS ARRIVE ONE AFTER ANOTHER. There was a line drawing itself down behind the numbers; No line: each
+              step rises in turn and its number pops as it lands. */}
           <section>
             <h3 className="mb-3 text-[11px] font-bold uppercase tracking-wider text-smoke">{tr('How to find the best deal')}</h3>
             <ol className="relative space-y-2.5">

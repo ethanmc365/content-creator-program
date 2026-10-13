@@ -26,10 +26,10 @@ function fit(r, want) {
   return { words, onProfile, livesThere, good, weak }
 }
 
-// MARKET REQUESTS, IN APPLICATIONS (10 Oct 2026, migration 378).
+// MARKET REQUESTS, IN APPLICATIONS (migration 378).
 //
-// Ethan: admins should be notified "perhaps under applications but highlighted that it's relating to just join another
-// market, these can then be approved and they'll have access to multiple markets, or declined." So these are not
+// The team: admins should be notified "perhaps under applications but highlighted that it's relating to just join
+// another market, these can then be approved and they'll have access to multiple markets, or declined." So these are not
 // applications to the community - the person is already a member - and the card says so first: where they are now, an
 // arrow, where they want to be, and their reason. Approving ADDS the market (they keep the ones they have); declining
 // asks for a sentence, which is what the creator reads. On 10 Oct two had been waiting five and one days, because the
@@ -82,8 +82,8 @@ export default function MarketRequests({ onChanged }) {
   async function decide(r, accept) {
     let reason = null
     if (!accept) {
-      // A REASON IS OPTIONAL (13 Oct 2026, migration 387). Ethan: pressing Decline again "should automatically decline
-      // without me saying anything". Left empty, the creator gets a short standard line instead.
+      // A REASON IS OPTIONAL (migration 387). The team: pressing Decline again "should automatically decline without me
+      // saying anything". Left empty, the creator gets a short standard line instead.
       reason = await promptText(`Add a sentence for ${r.profiles?.name || 'them'} if you like. Leave it empty and they get a short, kind standard message.`, {
         title: `Decline ${markets.byId?.[r.community_id]?.name || 'this market'}`, confirmLabel: 'Decline', placeholder: 'Optional. For example: Spain is full for this month; ask again in November.', allowEmpty: true, danger: true,
       })
@@ -146,7 +146,7 @@ export default function MarketRequests({ onChanged }) {
                   <Icon name="chevronRight" className="h-4 w-4 text-brand" strokeWidth={2.4} />
                   <span className="inline-flex items-center gap-1.5 rounded-full bg-brand-tint px-2.5 py-1 text-xs font-bold text-brand ring-1 ring-brand/20"><FlagTile codes={want?.country_codes} kind="chapter" size="h-5 w-5" glyph="text-[12px]" />+ {want?.name || 'a market'}</span>
                 </div>
-                {/* THE ANSWERS, AND WHAT THE PROFILE SAYS (12 Oct 2026). Ethan wanted it to "highlight, similar to how they
+                {/* THE ANSWERS, AND WHAT THE PROFILE SAYS. The team wanted it to "highlight, similar to how they
                     highlight which market they should join, whether they actually speak the language, like it's on their
                     profile". A request with no answers says so, and can be sent back for them. */}
                 {(() => {
@@ -225,8 +225,7 @@ export default function MarketRequests({ onChanged }) {
   )
 }
 
-// THEIR REASON, WITH A TRANSLATE BUTTON (13 Oct 2026). Ethan: "see how she wrote it in Spanish? It should be a translate
-// button so I can easily translate it." Their own words open first; one press shows it in the reader's language.
+// THEIR REASON, WITH A TRANSLATE BUTTON. Their own words open first; one press shows it in the reader's language.
 function RequestNote({ text }) {
   const t = useContentTranslation(text, { originalFirst: true })
   return (

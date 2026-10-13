@@ -112,11 +112,7 @@ export function useMarkets() {
   return rows
 }
 
-// A MARKET'S NAME, IN THE READER'S LANGUAGE (2 Sep 2026).
-//
-// Ethan: "the worldwide tab - UK, Ireland, Spain, Portugal, Germany - it's
-// still in English. They should have the Spanish names for the countries as
-// well, obviously."
+// A MARKET'S NAME, IN THE READER'S LANGUAGE.
 //
 // This is the ONE exception to "nothing a person wrote is ever translated" (see
 // the note at the top of lib/i18n), and it is worth stating why it is not a

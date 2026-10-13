@@ -75,14 +75,11 @@ function rotateAboutCentre(px, py, cx, cy, deg) {
 
 // HOW MUCH SKY THE BOX CONTAINS.
 //
-// The drawing is laid out in a 400x220 field with the aircraft occupying
-// y=96..214, which is 44% empty above it and 3% below. That asymmetry is
-// invisible on the `hero` card, where the box is anchored into a corner and the
-// sky is what keeps the aircraft off the heading. It is very visible when the
-// plane is a CENTRED block in a column: Ethan, on the onboarding welcome
-// screen, "the spacing between Welcome to the team and the plane is too big -
-// it should be the same as the spacing between the bottom of the plane and the
-// list below it."
+// The drawing is laid out in a 400x220 field with the aircraft occupying y=96..214, which is 44% empty above it and 3%
+// below. That asymmetry is invisible on the `hero` card, where the box is anchored into a corner and the sky is what
+// keeps the aircraft off the heading. It is very visible when the plane is a CENTRED block in a column: the team, on the
+// onboarding welcome screen, "the spacing between Welcome to the team and the plane is too big - it should be the same
+// as the spacing between the bottom of the plane and the list below it."
 //
 // It was, in the layout. `space-y-5` puts exactly 20px on both sides of it. The
 // other 54px above the aircraft was inside the picture, so no amount of margin
@@ -140,8 +137,7 @@ function Drawing({ id, animate, tight = false }) {
 
       {/* Plane and trail move as ONE group. Animating them separately would
           unglue the trail from the tail on every frame of the bob. */}
-      {/* THE BOB IS NOT ON THIS GROUP ANY MORE (24 Sep 2026) - see
-          `Cruising` below. Only the contrail's dashes move in here. */}
+      {/* THE BOB IS NOT ON THIS GROUP ANY MORE - see `Cruising` below. Only the contrail's dashes move in here. */}
       <g>
         {/* Tail to edge, level. Drawn tail-first so the gradient's 0% lands on
             the end that touches the plane, and so a positive dash offset marches
@@ -195,10 +191,7 @@ const ANCHOR = {
  *   badge  - small mark next to a line of text
  * @param {'bottom'|'top'|'center'} anchor  which corner it parks in
  */
-// THE PLANE MOVES FROM THE FIRST FRAME (24 Sep 2026).
-//
-// Ethan: "whenever it originally loads in, the plane is frozen, then it starts
-// to animate. Remember, everything should be animated immediately."
+// THE PLANE MOVES FROM THE FIRST FRAME.
 //
 // Two causes, both fixed here. The bob was a CSS transform on an SVG <g>, and a
 // transform on an SVG CHILD is animated on the MAIN THREAD - which is exactly

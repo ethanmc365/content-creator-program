@@ -18,16 +18,12 @@ import { useT } from '../../lib/i18n'
 // It nudges the quiet majority and names nobody. The denominator is always the
 // roster of ONE place, so an empty market says "0 of 0" rather than borrowing
 // another market's creator count.
-// IT HOLDS ITS PLACE FROM THE FIRST PAINT, AND FILLS IN (22 Sep 2026).
+// IT HOLDS ITS PLACE FROM THE FIRST PAINT, AND FILLS IN.
 //
-// Ethan: "the creator participation card still doesn't animate in nicely, it
-// appears late and makes everything judder." It rendered NOTHING until the
-// audience count came back, then dropped in a 100px card above the tabs and
-// shoved the whole page down a beat after it had settled. Now `pending` draws
-// the same card at the same height from the first frame (a shimmer where the
-// numbers go), and when the count lands the bar GROWS from empty to its value
-// and the percentage counts up with it - so the arrival of the data is the
-// animation, instead of a jump.
+// It rendered NOTHING until the audience count came back, then dropped in a 100px card above the tabs and shoved the
+// whole page down a beat after it had settled. Now `pending` draws the same card at the same height from the first frame
+// (a shimmer where the numbers go), and when the count lands the bar GROWS from empty to its value and the percentage
+// counts up with it - so the arrival of the data is the animation, instead of a jump.
 function useGrow(target, delay = 120) {
   const [v, setV] = useState(0)
   useEffect(() => {

@@ -16,21 +16,20 @@ import { chatApi } from '../api/chat'
 //  * Creators tap an option to vote (one vote each; tapping again changes it).
 //  * Admins can close a poll to lock the result.
 //
-// WHO VOTED FOR WHAT (5 Oct 2026). The "N votes" row under the options opens the voters, grouped by option, with a face
-// and a name each. (13 Oct 2026: it is the ONLY way in now. Pressing the card used to open them too, and Ethan wants a
-// press on the card to do what a press on any message does - bring up react and reply - so the press now falls through
-// to the message.) It is shown only to somebody who has already voted - an admin always sees it, and a
-// closed poll shows it to everyone - because an option button is a vote, and a poll that reveals everybody's answer before you
-// have given yours is a poll you copy. The little "Who voted" row is the same control for a keyboard.
+// WHO VOTED FOR WHAT. The "N votes" row under the options opens the voters, grouped by option, with a face and a name
+// each. (13 Oct 2026: it is the ONLY way in now. Pressing the card used to open them too, and the team wants a press on
+// the card to do what a press on any message does - bring up react and reply - so the press now falls through to the
+// message.) It is shown only to somebody who has already voted - an admin always sees it, and a closed poll shows it to
+// everyone - because an option button is a vote, and a poll that reveals everybody's answer before you have given yours
+// is a poll you copy. The little "Who voted" row is the same control for a keyboard.
 //
-// THE LOOK (13 Oct 2026, again). Your pick is the whole row in the brand gradient with white on it, its share drawn in
-// white; the leader keeps an orange bar and its "Leading" mark wherever your vote went, so you can still see what is
-// winning. Before 13 Oct the pick was a white row with an orange outline (Ethan: "rather than it just turning a bit
-// darker orange, I want the actual nice gradient orange").
+// THE LOOK. Your pick is the whole row in the brand gradient with white on it, its share drawn in white; the leader
+// keeps an orange bar and its "Leading" mark wherever your vote went, so you can still see what is winning. Before 13
+// Oct the pick was a white row with an orange outline ( ).
 //
-// EARLIER: A picked option is SOLID BRAND with white on it - the vibrant gradient, never the pale tint it used to be (Ethan:
-// "I don't like the way it's currently that light-coloured orange when you select it") - and the unpicked ones are quiet grey
-// bars that grow with their share, so the only orange on the card is the answer you gave.
+// EARLIER: A picked option is SOLID BRAND with white on it - the vibrant gradient, never the pale tint it used to be ( )
+// - and the unpicked ones are quiet grey bars that grow with their share, so the only orange on the card is the answer
+// you gave.
 export default function PollCard({ pollId }) {
   const tr = useT()
   const { user, isAdmin } = useAuth()
@@ -115,9 +114,7 @@ export default function PollCard({ pollId }) {
   const faces = votes.map((v) => people[v.voter_id]).filter(Boolean).slice(0, 5)
 
   return (
-    // `text-ink` IS LOAD-BEARING (3 Sep 2026). Ethan: "the UI of the poll
-    // doesn't seem to be working correctly, I can't see any of the text, maybe
-    // because it is white, the same as the background."
+    // `text-ink` IS LOAD-BEARING.
     //
     // Exactly that. This card paints its own white background but inherited its
     // text COLOUR from whatever it was nested in - which was fine for as long as
@@ -144,10 +141,9 @@ export default function PollCard({ pollId }) {
           const mine = myVote?.option_id === o.id
           const leading = count > 0 && count === leaderCount
           return (
-            // THE BAR IS THE RESULT, NOT THE BUTTON (12 Oct 2026). Ethan: "whenever you haven't selected anything, it's
-            // unclear which has votes and which is winning ... and when selected, not all the bar should be filled in,
-            // only the percent". The option is a white row: its name and share on top, a slim track under it filled to
-            // exactly its percentage. Your pick has a solid brand bar, a brand outline and a tick; the leader says so.
+            // THE BAR IS THE RESULT, NOT THE BUTTON. The option is a white row: its name and share on top, a slim track
+            // under it filled to exactly its percentage. Your pick has a solid brand bar, a brand outline and a tick;
+            // the leader says so.
             <button
               key={o.id}
               type="button"

@@ -6,9 +6,7 @@
 // deciding when the spent gesture has finished, and it has now been got wrong
 // in both directions, which is what this file is a record of.
 //
-// FIRST, IT NEVER RELEASED (28 Sep 2026). Ethan: "it only moves one page, but
-// whenever I do it and try to do it again, it doesn't work. It's only when I
-// move my mouse that I can then do it a second time."
+// FIRST, IT NEVER RELEASED.
 //
 // The release was a QUIET GAP alone - 240ms with no horizontal wheel event.
 // macOS keeps firing momentum events for up to a second after the fingers lift,
@@ -16,11 +14,7 @@
 // early, so the gap never opened. Moving the mouse appeared to fix it only
 // because it meant waiting for the tail to die.
 //
-// THEN IT RELEASED FOUR TIMES A SWIPE (28 Sep 2026, later). Ethan: "the
-// two-finger swipe now does the same thing where it scrolls through 4 months
-// and is really laggy. I want to properly fix that so that when I scroll 2
-// months, it only scrolls 1 month at a time, but I don't have to move my mouse
-// between it."
+// THEN IT RELEASED FOUR TIMES A SWIPE.
 //
 // The second door was "momentum only ever decays, so a delta BIGGER THAN THE
 // ONE BEFORE IT is fingers back on the glass". The premise is true and the test

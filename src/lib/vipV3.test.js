@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { BRIEF_METRICS, PERK_KINDS, PERK_METRICS, monthIndex, safeAccent, unitLabel, vipJoinLink } from './vip'
 import { buildVipCards } from '../components/wrapped/vipStory'
 
-// THE THIRD VIP PASS (30 Sep 2026, migration 299): the helpers the new screens share, and the recap's cards.
+// THE THIRD VIP PASS (migration 299): the helpers the new screens share, and the recap's cards.
 
 const tr = (s, v = {}) => String(s).replace(/\{(\w+)\}/g, (_, k) => String(v[k] ?? `{${k}}`))
 

@@ -24,11 +24,6 @@ import { certificatesApi } from '../../../api/certificates'
 
 // THE CERTIFICATE BUILDER.
 //
-// Ethan: "on this new admin page you should create a certificate builder for
-// admins. Similar to how the invoice generator works, this should be used to
-// create custom certificates with custom graphics, titles, descriptions, you
-// can start by creating some generic ones I can choose from as examples."
-//
 // THE PREVIEW IS THE REAL COMPONENT, SCALED. Not a mock-up of one, not a second
 // layout that approximates it: `CertificateCard` at its true 1000x707 with a
 // CSS transform on it. `lib/domSnapshot` exists in this repo because the
@@ -45,12 +40,10 @@ import { certificatesApi } from '../../../api/certificates'
 // white-dominant with orange accents. The four tier colours plus a neutral are
 // enough to tell four kinds of award apart and no more than that.
 
-// THE SEAL PICKER AND THE GROUND PICKER ARE BOTH GONE (20 Sep 2026), AND WHAT
+// THE SEAL PICKER AND THE GROUND PICKER ARE BOTH GONE, AND WHAT
 // REPLACED THEM IS THE POINT.
 //
-// Ethan: "I don't like those random icons" and "no need for the sparkle", and
-// then, on the whole object, "I want it completely, completely, utterly
-// redesigned."
+// and "no need for the sparkle", and then, on the whole object, "I want it completely, completely, utterly redesigned."
 //
 // The emblem disc and the starburst went first. What was left was still one
 // composition with a wash behind it, and a control offering three washes of one
@@ -103,7 +96,7 @@ export default function CertificateStudio() {
   useEffect(() => { load() }, [load])
 
   async function save(design) {
-    // THE TIER FOLLOWS THE TRIGGER (28 Sep 2026) - see `tierForAward`.
+    // THE TIER FOLLOWS THE TRIGGER - see `tierForAward`.
     const row = {
       ...design,
       tier: tierForAward(design.award_on),
@@ -190,15 +183,11 @@ export default function CertificateStudio() {
   return (
     <div className="space-y-5">
       {/* THE STARTER BUTTON IS GONE, AND THIS IS WHAT IT SHOULD HAVE BEEN.
-          Ethan: "the starter button seeming completely useless. You can get rid
-          of it or just improve it a lot."
 
-          He is right twice over. It bulk-inserted four rows in one press, which
-          is not a decision anybody wants to make blind, and once they existed
-          it sat there permanently disabled saying "Starter set added" - a
-          control that has spent its entire useful life in one click and then
-          becomes furniture. The previous pass made it look refused BEFORE it
-          was pressed, which was an honest fix to the wrong thing.
+          they are right twice over. It bulk-inserted four rows in one press, which is not a decision anybody wants to
+          make blind, and once they existed it sat there permanently disabled saying "Starter set added" - a control that
+          has spent its entire useful life in one click and then becomes furniture. The previous pass made it look
+          refused BEFORE it was pressed, which was an honest fix to the wrong thing.
 
           What an admin actually wants from a starter is to SEE one and take it.
           So "New certificate" opens a gallery of starting points - the blank
@@ -208,16 +197,12 @@ export default function CertificateStudio() {
           to the database until Save. The button that had one use now has one
           per starter, and the gallery doubles as the demonstration that the
           studio can make six different-looking things. */}
-      {/* SAY WHAT THIS PAGE IS (28 Sep 2026). Ethan: "the whole certificates
-          page seems a bit confusing, and I don't know what these other
-          certificates actually are." Each card is a DESIGN plus the rule that
-          hands it out - not a certificate somebody has been given - and nothing
-          on the page said so. One sentence, above the list it describes. */}
-      {/* NO EXPLANATION ABOVE THE LIST (1 Oct 2026). Ethan: "you can remove all that copy.
-          It's not needed, and we know it." The Live / Draft chip on each card says the rest. */}
-      {/* ON THE TAB ROW (30 Sep 2026). Ethan: the certificates page should sit "tighter to the page
-          and the certificate button ... actually move up". It had a row of its own under the tabs;
-          it is now in the tab row's own slot, so the list starts right under the tabs. */}
+      {/* SAY WHAT THIS PAGE IS. Each card is a DESIGN plus the rule that hands it out - not a certificate somebody has
+          been given - and nothing on the page said so. One sentence, above the list it describes. */}
+      {/* NO EXPLANATION ABOVE THE LIST. The Live / Draft chip on each card says the rest. */}
+      {/* ON THE TAB ROW. The team: the certificates page should sit "tighter to the page and the certificate button...
+          actually move up". It had a row of its own under the tabs; it is now in the tab row's own slot, so the list
+          starts right under the tabs. */}
       <KitAction>
         <button type="button" onClick={() => setPicking(true)} className="btn-primary shrink-0 !py-2.5">
           <Icon name="plus" className="h-4 w-4" /> New certificate
@@ -264,13 +249,10 @@ export default function CertificateStudio() {
 function DesignRow({ row, markets, onOpen, onDuplicate }) {
   const problem = ruleProblem(row)
   const [holder, width] = useFluidWidth(240)
-  // A DRAFT IS MARKED, NOT DIMMED (28 Sep 2026). A draft card was rendered at
-  // `opacity-60`, which washes out the certificate itself - so the one thing the
-  // card exists to show became hard to look at, and the reason was not on
-  // screen. Ethan: "some of them seem faded out because it's a draft."
-  // The chip on the right already says Draft in words; the card now says it
-  // again with a dashed border, and the preview is drawn at full strength
-  // whatever state it is in.
+  // A DRAFT IS MARKED, NOT DIMMED. A draft card was rendered at `opacity-60`, which washes out the certificate itself -
+  // so the one thing the card exists to show became hard to look at, and the reason was not on screen. The chip on the
+  // right already says Draft in words; the card now says it again with a dashed border, and the preview is drawn at full
+  // strength whatever state it is in.
   return (
     <div className={cx(
       'group overflow-hidden rounded-card bg-white shadow-card transition-all duration-200',
@@ -311,10 +293,8 @@ function DesignRow({ row, markets, onOpen, onDuplicate }) {
         {/* A RULE THAT CANNOT FIRE SAYS SO ON THE CARD. It is the one fault this
             builder can ship silently: "nobody matches" looks exactly like
             "nobody has qualified yet" until a winner asks where theirs is. */}
-        {/* SAYS WHAT IT IS AND WHAT YOU CAN DO, IN WORDS (28 Sep 2026). Ethan:
-            the tool is "a little bit confusing". Two grey icons with no labels
-            were the whole of the actions; now the state is a chip and the
-            actions are named. */}
+        {/* SAYS WHAT IT IS AND WHAT YOU CAN DO, IN WORDS. The team: the tool is "a little bit confusing". Two grey icons
+            with no labels were the whole of the actions; now the state is a chip and the actions are named. */}
         <span className={cx(
           'shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider',
           row.is_active ? (problem ? 'bg-amber-50 text-amber-700' : 'bg-green-50 text-green-700') : 'bg-cloud text-gray-500',
@@ -461,17 +441,14 @@ export function triggerText(row, markets = []) {
  * under it.
  */
 export function Preview({ design, facts, width = 520, cardRef, markets = [], place, rounded = false, lang = 'en' }) {
-  // THE EXAMPLE NAMES THE MARKET YOU PICKED (28 Sep 2026), and the place you
-  // are looking at - not "UK & Ireland" and 1st whatever the design is for.
+  // THE EXAMPLE NAMES THE MARKET YOU PICKED, and the place you are looking at - not "UK & Ireland" and 1st whatever the
+  // design is for.
   const market = (design.community_ids || []).map((id) => markets.find((m) => m.id === id)?.name).filter(Boolean)[0]
-  // THE EXAMPLE IS ONE PERSON (28 Sep 2026). It wore the admin's own photo so
-  // that a layout with a face on it (Horizon, Passport) previewed with one, but
-  // kept the sample's NAME - so Ethan was looking at his own photograph over
-  // "Roxanna Travels": "it says Roxana travels but shows my profile picture, so
-  // it should show my name there." A preview of a certificate is a preview of
-  // somebody getting it, and half of one person over half of another is the one
-  // thing it must not be. Name and face now come from the same place, and fall
-  // back to the sample together.
+  // THE EXAMPLE IS ONE PERSON. It wore the admin's own photo so that a layout with a face on it (Horizon, Passport)
+  // previewed with one, but kept the sample's NAME - so the team was looking at their own photograph over "Roxanna
+  // Travels": "it says Roxana travels but shows my profile picture, so it should show my name there." A preview of a
+  // certificate is a preview of somebody getting it, and half of one person over half of another is the one thing it
+  // must not be. Name and face now come from the same place, and fall back to the sample together.
   const { profile } = useAuth()
   const sample = sampleFacts(design, { market, place })
   const shown = facts || {
@@ -504,16 +481,15 @@ function DesignEditor({ design, markets, milestones, onChange, onSave, onCancel,
   // WHICH PLACE THE PREVIEW SHOWS, for a place certificate: 1st, 2nd, 3rd
   // and 4th+ are drawn differently, so you can look at each.
   const placeChoices = design.award_on === 'challenge_rank'
-    // EVERY PLACE, 1st TO 10th (30 Sep 2026). Ethan: the preview "goes for 2nd, 3rd, 4th, 5th, and
-    // then jumps to 10th ... obviously it should be for every place". It skipped 6-9 because they
-    // look like 5th; now each place a podium certificate can go to has its own chip.
+    // EVERY PLACE, 1st TO 10th. The team: the preview "goes for 2nd, 3rd, 4th, 5th, and then jumps to 10th... obviously
+    // it should be for every place". It skipped 6-9 because they look like 5th; now each place a podium certificate can
+    // go to has its own chip.
     ? (design.all_prize_places ? [1, 2, 3, 4, 5, 6, 7, 8, 9, 10] : (design.ranks || []).slice().sort((a, b) => a - b))
     : []
   const [previewPlace, setPreviewPlace] = useState(null)
-  // EVERY LANGUAGE, FOR REVIEW (30 Sep 2026). A creator who speaks Spanish can save the
-  // certificate in Spanish; before any go out an admin should read each version. The words
-  // shown are the cached translations (Languages > Briefs and content, where they can be
-  // corrected) and the card's fixed words (Languages > Interface).
+  // EVERY LANGUAGE, FOR REVIEW. A creator who speaks Spanish can save the certificate in Spanish; before any go out an
+  // admin should read each version. The words shown are the cached translations (Languages > Briefs and content, where
+  // they can be corrected) and the card's fixed words (Languages > Interface).
   const [previewLang, setPreviewLang] = useState('en')
   const { design: langDesign, ready: langReady } = useCertificateDesign(design, previewLang)
   const shownPlace = placeChoices.includes(previewPlace) ? previewPlace : placeChoices[0]
@@ -548,9 +524,8 @@ function DesignEditor({ design, markets, milestones, onChange, onSave, onCancel,
     setSaving(false)
   }
 
-  // EVERY LANGUAGE, TRANSLATED BEFORE IT IS PRESSED (1 Oct 2026). A second after the words
-  // stop changing, all four versions are fetched in the background, so the language chips
-  // under the preview switch instantly.
+  // EVERY LANGUAGE, TRANSLATED BEFORE IT IS PRESSED. A second after the words stop changing, all four versions are
+  // fetched in the background, so the language chips under the preview switch instantly.
   const wordsKey = [design.title, design.subtitle, design.body, design.footnote, design.signature_role, design.options?.preamble].join('¦')
   useEffect(() => {
     const id = setTimeout(() => prefetchCertificateDesign(design, LOCALES), 900)
@@ -560,12 +535,10 @@ function DesignEditor({ design, markets, milestones, onChange, onSave, onCancel,
 
   return (
     <div className="space-y-6">
-      {/* ONE CLEAN BAR (1 Oct 2026). Ethan: the "Editing Creator of the Month" header "just
-          looks a bit weird", and the tabs under it (Words / Look / When it is given) are "not
-          necessary". So: a square back button, the design's name as the heading with its state
-          beside it, and the two actions on the right. The section tabs are gone. It stays
-          opaque and sticky (see the shield note in git history: the form used to scroll
-          through a gap above it). */}
+      {/* ONE CLEAN BAR. The team: the "Editing Creator of the Month" header "just looks a bit weird", and the tabs under
+          it (Words / Look / When it is given) are "not necessary". So: a square back button, the design's name as the
+          heading with its state beside it, and the two actions on the right. The section tabs are gone. It stays opaque
+          and sticky (see the shield note in git history: the form used to scroll through a gap above it). */}
       <div className="sticky top-16 z-30 -mx-1 bg-white px-1 pb-2 pt-1 before:absolute before:inset-x-0 before:bottom-full before:h-6 before:bg-white before:content-[''] sm:top-20">
         <div className="flex items-center gap-3 rounded-card border border-gray-100 bg-white px-3 py-2.5 shadow-card">
           <button
@@ -601,22 +574,17 @@ function DesignEditor({ design, markets, milestones, onChange, onSave, onCancel,
         </div>
       </div>
 
-      {/* TWO COLUMNS, EACH SCROLLING ON ITS OWN (30 Sep 2026). Ethan: "whenever I scroll down on the
-          left side, it scrolls the right column first. Scrolling on the left column just scrolls down
-          there. Scrolling on the right just scrolls on the right." On a desktop the pair is one
-          screen tall and each column is its own scroller (overscroll-contain, so reaching the end of
-          one never drags the page or the other). On a phone they stack and the page scrolls. */}
+      {/* TWO COLUMNS, EACH SCROLLING ON ITS OWN. On a desktop the pair is one screen tall and each column is its own
+          scroller (overscroll-contain, so reaching the end of one never drags the page or the other). On a phone they
+          stack and the page scrolls. */}
       <div className="grid gap-6 lg:h-[calc(100dvh-13.5rem)] lg:min-h-[32rem] lg:grid-cols-[minmax(0,1fr)_380px]">
         {/* THE PREVIEW IS FIRST IN THE DOM AND STICKY ON A DESKTOP. What this
             screen is for is watching the certificate change, so on a narrow
             screen it is what you see when you arrive, and on a wide one it
             stays put while the form under your thumb scrolls. */}
         <div className="lg:-mx-2 lg:h-full lg:overflow-y-auto lg:overscroll-contain lg:px-2 lg:pb-6 lg:pt-1 [scrollbar-width:thin]">
-          {/* THE PREVIEW IS THE CERTIFICATE, NOTHING AROUND IT (28 Sep 2026).
-              Ethan: "ensure you show it how it will actually look. You can
-              round the corners just for the design of the platform, but
-              obviously it'll be square when you download it." It used to sit
-              in a white frame, which read as a white border on the picture. */}
+          {/* THE PREVIEW IS THE CERTIFICATE, NOTHING AROUND IT. It used to sit in a white frame, which read as a white
+              border on the picture. */}
           <div ref={holder} className="w-full">
             <div className="overflow-hidden rounded-2xl shadow-lift ring-1 ring-black/5">
               <Preview design={langDesign} width={width} cardRef={setCard} markets={markets} place={shownPlace} lang={previewLang} />
@@ -635,8 +603,8 @@ function DesignEditor({ design, markets, milestones, onChange, onSave, onCancel,
               </button>
             ))}
           </div>
-          {/* ALWAYS TAKES ITS LINE (1 Oct 2026): it used to appear only for a translated preview,
-              so every language press pushed the story card below it down and back up. */}
+          {/* ALWAYS TAKES ITS LINE: it used to appear only for a translated preview, so every language press pushed the
+              story card below it down and back up. */}
           <p className={cx('mt-1.5 text-center text-[11px]', previewLang === 'en' && 'invisible')} aria-hidden={previewLang === 'en'}>
             <Link to="/admin/languages" tabIndex={previewLang === 'en' ? -1 : 0} className="font-semibold text-brand hover:underline">
               {langReady ? 'Correct the wording in Languages' : 'Translating…'}
@@ -657,25 +625,15 @@ function DesignEditor({ design, markets, milestones, onChange, onSave, onCancel,
               ))}
             </div>
           )}
-          {/* THE INSTAGRAM STORY, BESIDE THE CERTIFICATE (28 Sep 2026). Ethan:
-              "you said you have the Instagram saveable versions of each, I
-              don't see the design for this though. I should see it alongside
-              the certificate somewhere when I'm editing it so I see how it
-              looks."
-              It existed and it was invisible: `StoryFrame` is rendered twelve
-              thousand pixels off the left of the creator's rewards page, purely
-              so it can be photographed into a PNG. The words below used to
-              DESCRIBE it, which is not the same as showing it - a description
-              cannot tell you that a long title wraps badly at 1080 wide.
-              It is the same component the creator's download is taken from, so
-              this is the picture rather than an impression of it. */}
-          {/* THE STORY OPENS FULL SCREEN (1 Oct 2026). Ethan: "whenever I click on it, it
-              doesn't show the full-screen version of it like it should." The thumbnail is a
-              button now, into the same full-screen viewer creators get. The explanation that
-              sat under the preview is gone ("we know it"). */}
-          {/* BIG, RIGHT HERE (2 Oct 2026). Ethan: "It could just be big below rather than needing the
-              full screen button at all ... because we have that space". The story is drawn at the
-              width of the column (capped so it stays a phone-shaped picture), with no button. */}
+          {/* THE INSTAGRAM STORY, BESIDE THE CERTIFICATE. It existed and it was invisible: `StoryFrame` is rendered
+              twelve thousand pixels off the left of the creator's rewards page, purely so it can be photographed into a
+              PNG. The words below used to DESCRIBE it, which is not the same as showing it - a description cannot tell
+              you that a long title wraps badly at 1080 wide. It is the same component the creator's download is taken
+              from, so this is the picture rather than an impression of it. */}
+          {/* THE STORY OPENS FULL SCREEN. The thumbnail is a button now, into the same full-screen viewer creators get.
+              The explanation that sat under the preview is gone ("we know it"). */}
+          {/* BIG, RIGHT HERE. The story is drawn at the width of the column (capped so it stays a phone-shaped picture),
+              with no button. */}
           <div className="mt-6">
             <p className="mb-2 text-center text-[11px] font-bold uppercase tracking-wider text-gray-400">Instagram story · 1080 &times; 1920</p>
             <div ref={storyHolder} className="mx-auto w-full max-w-[340px]">
@@ -770,9 +728,7 @@ function DesignEditor({ design, markets, milestones, onChange, onSave, onCancel,
               </div>
             </Field>
 
-            {/* TEN, NOT FIVE, AND NOT A FREE PICKER. Ethan: "improve the accent
-                color, because currently we have one, two, three, four orange
-                and one black... I want a lot of different colors."
+            {/* TEN, NOT FIVE, AND NOT A FREE PICKER.
 
                 Four of the five were the same orange because the tiers had all
                 been set to it - so the row offered one real choice and four
@@ -812,20 +768,12 @@ function DesignEditor({ design, markets, milestones, onChange, onSave, onCancel,
               </div>
             </Field>
 
-            {/* NO PAPER PICKER, AND NO DECORATION SWITCHES (28 Sep 2026).
-                Ethan, going through the finished set: "I would remove the paper
-                style and just always have it as white. I think the soft glow
-                wash and Tryp gradient isn't necessary... still keep the accent
-                colours." And: "on the certificate, you should remove the thing
-                that says 'Badge, Tryp plane, Root'. We don't need those options
-                any more."
-                PAPERS is down to White, so a picker with one button in it is
-                furniture; the Badge / Tryp plane / Dotted route toggles are
-                gone and all three simply draw, which is what every design was
-                set to anyway. `options` still holds them, so a design that
-                turned one off keeps its choice until it is edited - nothing is
-                rewritten behind the admin's back. The preamble stays: it is the
-                one switch here that changes WORDS rather than decoration. */}
+            {/* NO PAPER PICKER, AND NO DECORATION SWITCHES. And: "on the certificate, you should remove the thing that
+                says 'Badge, Tryp plane, Root'. We don't need those options any more." PAPERS is down to White, so a
+                picker with one button in it is furniture; the Badge / Tryp plane / Dotted route toggles are gone and all
+                three simply draw, which is what every design was set to anyway. `options` still holds them, so a design
+                that turned one off keeps its choice until it is edited - nothing is rewritten behind the admin's back.
+                The preamble stays: it is the one switch here that changes WORDS rather than decoration. */}
             <Field label="Line above the name" hint="Leave empty to go straight to the name.">
               <input
                 value={opts.preamble ?? ''}
@@ -995,10 +943,7 @@ function AwardRules({ design, set, markets, milestones }) {
           label="Which places"
           hint="Every place starts switched on. Switch off any that should not get one. A challenge only ever gives them to the places it actually pays: ten on a ten-place challenge, three on a three-place one."
         >
-          {/* EVERY PLACE SHOWN, SWITCHED OFF RATHER THAN PICKED (2 Oct 2026). Ethan: "it should
-              always be every prize place that shows up as an option ... I should be able to toggle
-              them off rather than just choose them ... it obviously depends on how many prize
-              places are in the actual challenge." All ten on is `all_prize_places`; any off is an
+          {/* EVERY PLACE SHOWN, SWITCHED OFF RATHER THAN PICKED. All ten on is `all_prize_places`; any off is an
               explicit `ranks` list, which migration 287 also caps at the challenge's paid places. */}
           <div className="flex flex-wrap gap-2">
             {PLACES.map((n) => {
@@ -1015,10 +960,9 @@ function AwardRules({ design, set, markets, milestones }) {
                 </button>
               )
             })}
-            {/* AND EVERY PLACE AFTER TENTH (12 Oct 2026). Ethan: "It only goes up to 10th. Add three dots to show me that
-                if we have, for example, a global challenge in the future with 20 places, they would also receive one."
-                With every place on (`all_prize_places`) a challenge paying twenty places gives twenty certificates; this
-                pill is that promise made visible, and it only switches off together with the rest. */}
+            {/* AND EVERY PLACE AFTER TENTH. With every place on (`all_prize_places`) a challenge paying twenty places
+                gives twenty certificates; this pill is that promise made visible, and it only switches off together with
+                the rest. */}
             <button type="button" aria-pressed={!!design.all_prize_places}
               title="11th and every prize place after it"
               onClick={() => set(design.all_prize_places ? { all_prize_places: false, ranks: PLACES } : { all_prize_places: true, ranks: [] })}
@@ -1039,13 +983,10 @@ function AwardRules({ design, set, markets, milestones }) {
         </Field>
       )}
 
-      {/* PILLS, NOT THE OS MENU (28 Sep 2026). This was a native `<select>`.
-          Ethan: "it gives me the option to choose which milestone, but it's in
-          that weird Apple drop-down menu." It was also the only native menu on
-          a form where every other choice - the trigger above, the markets
-          below, the places, the accent - is a pill you can see the options of
-          without opening anything. Same `pickClass` as its neighbours, so the
-          section now reads as one control repeated rather than four kinds. */}
+      {/* PILLS, NOT THE OS MENU. This was a native `<select>`. It was also the only native menu on a form where every
+          other choice - the trigger above, the markets below, the places, the accent - is a pill you can see the options
+          of without opening anything. Same `pickClass` as its neighbours, so the section now reads as one control
+          repeated rather than four kinds. */}
       {design.award_on === 'milestone' && (
         <Field label="Which milestone" hint={milestones.length ? undefined : 'No milestones exist yet. Create one first and it appears here.'}>
           <div className="flex flex-wrap gap-2">
@@ -1090,8 +1031,8 @@ function AwardRules({ design, set, markets, milestones }) {
         </Field>
       )}
 
-      {/* WHO IT IS FOR (12 Oct 2026, migration 384). Community certificates are never given to VIP or official
-          creators; VIP tools has the same switch for the team running those programmes. */}
+      {/* WHO IT IS FOR (migration 384). Community certificates are never given to VIP or official creators; VIP tools
+          has the same switch for the team running those programmes. */}
       {design.award_on !== 'manual' && (
         <Field label="Who gets it" hint={design.audience === 'vip' ? 'Only VIP and official creators. For them, a first video is their first VIP video.' : design.audience === 'all' ? 'The community and VIP and official creators alike.' : 'The creator community. VIP and official creators do not get it.'}>
           <div className="flex flex-wrap gap-2">

@@ -63,8 +63,8 @@ export const TYPE_META = {
   daily_streak: { icon: 'sparkles', group: 'updates', label: 'Streak' },
   daily_reminder: { icon: 'joystick', group: 'updates', label: 'Daily puzzle' },
   inactive: { icon: 'clock', group: 'updates', label: 'Reminder' },
-  // Written by the database and missing here until 22 Sep 2026, so they drew
-  // as a bare bell (the check constraint on notifications.type is the list).
+  // Written by the database and missing here, so they drew as a bare bell (the check constraint on notifications.type is
+  // the list).
   board_answer: { icon: 'chat', group: 'people', label: 'Board answer' },
   report: { icon: 'flag', group: 'updates', label: 'Report' },
   event_reminder: { icon: 'calendar', group: 'updates', label: 'Event' },
@@ -118,11 +118,7 @@ export function groupByAge(rows) {
 
 // ---------------------------------------------------------------- the store
 //
-// ONE LIST, HOWEVER MANY THINGS ARE LOOKING AT IT (10 Sep 2026).
-//
-// Ethan: "I open the bell, read the notifications, mark them as read, clear
-// them, and then I go to another tab, open it, and they're all back again. It
-// doesn't update instantly. After a refresh it does update."
+// ONE LIST, HOWEVER MANY THINGS ARE LOOKING AT IT.
 //
 // The write was never the problem - a `mark all read` really does set every row
 // (verified: 36 unread to 0, status 204). The problem is that this hook used to
@@ -216,8 +212,7 @@ export function useNotifications({ userId, pathname, pushPrefs, limit = 40, live
     load()
     if (!live) return undefined
     const close = openFeed(userId, prefsRef, pathRef)
-    // A sleeping socket misses what was read or cleared on another device
-    // (22 Sep 2026); coming back to the app re-reads the list.
+    // A sleeping socket misses what was read or cleared on another device; coming back to the app re-reads the list.
     const off = onResume(load)
     return () => { off(); close() }
   }, [userId, load, live])
@@ -229,9 +224,9 @@ export function useNotifications({ userId, pathname, pushPrefs, limit = 40, live
     // Being on the notifications page is not the target of any alert.
     if (pathname === '/notifications') return
     setRows((prev) => prev?.map((n) => (!n.read && linkPathname(n.link) === pathname ? { ...n, read: true } : n)) ?? prev)
-    // THE DATABASE IS TOLD ONCE, BY THE LAYOUT (13 Oct 2026). This sent the same UPDATE that AppLayout's
-    // `mark_notifications_read_for_path` sends 700ms later - two writes per page, and on an app open three, because
-    // this one had no delay and also fired for the /home -> /global bounce. Only the list on screen changes here.
+    // THE DATABASE IS TOLD ONCE, BY THE LAYOUT. This sent the same UPDATE that AppLayout's
+    // `mark_notifications_read_for_path` sends 700ms later - two writes per page, and on an app open three, because this
+    // one had no delay and also fired for the /home -> /global bounce. Only the list on screen changes here.
     closeNotificationsForPath(pathname)
   }, [pathname, userId])
 
@@ -283,9 +278,9 @@ export function useNotifications({ userId, pathname, pushPrefs, limit = 40, live
     if (error) { setRows(kept); toast('Those would not clear. Try again in a moment.') }
   }, [userId, all])
 
-  // ONE PRESS CLEARS THE LOT (1 Oct 2026). Ethan: "there seem to be too many clicks. You have to click to mark them all as
-  // read, then clear as read." Reading is now what happens when you open one (it leaves the list), and this empties
-  // whatever is left in a single press. The same rollback as `dismiss`: a delete that fails must not claim to have worked.
+  // ONE PRESS CLEARS THE LOT. Reading is now what happens when you open one (it leaves the list), and this empties
+  // whatever is left in a single press. The same rollback as `dismiss`: a delete that fails must not claim to have
+  // worked.
   const clearAll = useCallback(async () => {
     const kept = all || []
     setRows([])

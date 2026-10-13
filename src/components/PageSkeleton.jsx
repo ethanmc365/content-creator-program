@@ -3,12 +3,7 @@ import { Skeleton } from './ui'
 /**
  * THE SHAPE OF A PAGE WHILE IT IS STILL ARRIVING.
  *
- * ONE SET OF SHAPES, TWO PLACES THAT NEED THEM, AND THE SECOND ONE IS WHY THIS
- * FILE EXISTS (4 Sep 2026).
- *
- * Ethan, for the fourth time: "the loading screens are still appearing between
- * clicks on mobile. This needs to be fixed. I told you I want the skeleton
- * ones."
+ * ONE SET OF SHAPES, TWO PLACES THAT NEED THEM, AND THE SECOND ONE IS WHY THIS FILE EXISTS.
  *
  * There are TWO different waits on a tab tap and the previous rounds only fixed
  * one of them:
@@ -33,11 +28,7 @@ import { Skeleton } from './ui'
  * you cannot tell the moment the real content replaces it.
  *
  * ---------------------------------------------------------------------------
- * AND A PAGE HAS TWO SHAPES, NOT ONE (7 Sep 2026).
- *
- * Ethan: "a lot of these are incorrect. For example, on desktop and mobile we
- * need to have ones for each, because they have different layouts. On the
- * calendar page for desktop I noticed it doesn't match it at all."
+ * AND A PAGE HAS TWO SHAPES, NOT ONE.
  *
  * Exactly right, and the calendar is the clearest case because its own comment
  * below says what happened: it was measured, carefully, ON A PHONE AT 375px -
@@ -191,15 +182,10 @@ export function Thread() {
 // sections. This is the busiest first screen in the product and four grey bars
 // is nothing like it.
 //
-// AND FROM `lg` IT HAS A RAIL. `NetworkLayout` puts the hub in
-// `lg:grid-cols-[minmax(0,1fr)_20rem]` with a sticky column of five cards down
-// the right (`xl` widens it to 22rem). A single-column placeholder on that page
-// is a placeholder for a different page: the moment the query lands, a
-// 20rem column appears and everything on the left narrows by a third.
-// AND `inLayout` IS THE SAME SKELETON WITH THE FURNITURE TAKEN OFF (14 Sep 2026).
-//
-// Ethan: "on the worldwide page on desktop, the skeleton loading cards are
-// incorrectly laid out."
+// AND FROM `lg` IT HAS A RAIL. `NetworkLayout` puts the hub in `lg:grid-cols-[minmax(0,1fr)_20rem]` with a sticky column
+// of five cards down the right (`xl` widens it to 22rem). A single-column placeholder on that page is a placeholder for
+// a different page: the moment the query lands, a 20rem column appears and everything on the left narrows by a third.
+// AND `inLayout` IS THE SAME SKELETON WITH THE FURNITURE TAKEN OFF.
 //
 // This shape is used from two places that are NOT the same place, and it was
 // drawing the same thing for both. `RouteSkeleton` renders it on its own while
@@ -230,15 +216,11 @@ function HubArticle() {
         <Skeleton className="h-9 w-52 rounded-lg lg:h-11 lg:w-64" />
         <Skeleton className="h-4 w-64 max-w-full rounded" />
       </div>
-      {/* THE HERO CARD, SHAPED LIKE ITS REAL CONTENT, NOT A FLAT BAR
-          (23 Sep 2026). Ethan: "as the card is loading, once it loads it
-          seems to judder a bit." Measured: the real card (title, four
-          counters, and the live-challenge band underneath when one is
-          running) is ~710px tall on desktop; this used to reserve 176px, so
-          the page grew by more than half a screen the instant the skeleton
-          swapped for real content. Echoing the title/counters/band shape
-          (even roughly) closes most of that gap without needing to know in
-          advance whether a challenge is actually live. */}
+      {/* THE HERO CARD, SHAPED LIKE ITS REAL CONTENT, NOT A FLAT BAR. Measured: the real card (title, four counters, and
+          the live-challenge band underneath when one is running) is ~710px tall on desktop; this used to reserve 176px,
+          so the page grew by more than half a screen the instant the skeleton swapped for real content. Echoing the
+          title/counters/band shape (even roughly) closes most of that gap without needing to know in advance whether a
+          challenge is actually live. */}
       <div className="space-y-7 rounded-card bg-cloud/60 p-6 sm:p-10">
         <Skeleton className="h-8 w-64 rounded-lg sm:h-10 sm:w-80" />
         <div className="grid grid-cols-2 gap-x-6 gap-y-4 sm:flex sm:flex-wrap sm:gap-x-10">
@@ -359,12 +341,10 @@ export function MapShape() {
   )
 }
 
-// THE CALENDAR, MEASURED AGAINST THE REAL PAGE RATHER THAN IMAGINED (4 Sep
-// 2026). Ethan: "the calendar skeleton loading icons is really off for what it
-// actually is - look at what actually is there and try replicate those."
+// THE CALENDAR, MEASURED AGAINST THE REAL PAGE RATHER THAN IMAGINED.
 //
-// He is right, and the old one was wrong in four ways at once. Measured on
-// production at 375px, the page below the header is:
+// they are right, and the old one was wrong in four ways at once. Measured on production at 375px, the page below the
+// header is:
 //
 //   77px  the "Next up" strip - a card, not a bare 80px block
 //   40px  a FULL-WIDTH segmented control (Month / Week / Agenda) in a pill
@@ -412,21 +392,19 @@ export function CalendarShape() {
       </div>
 
       {/* ---- FROM `sm` -----------------------------------------------------
-          MEASURED AGAINST THE REAL PAGE, AGAIN, AT THE OTHER END (7 Sep 2026).
-          Ethan: "on the calendar page for desktop, I noticed it doesn't match
-          it at all." Four differences, and they compound:
+          MEASURED AGAINST THE REAL PAGE, AGAIN, AT THE OTHER END. Four differences, and they compound:
 
-            the hero      a `p-9` gradient banner, ~9rem tall, in place of the
-                          phone's 77px strip. The phone version is `sm:hidden`
-                          in Events.jsx and the big one is `hidden sm:block`,
-                          so this is not a resize, it is a different element.
-            the columns   `grid-cols-1 lg:grid-cols-3` with the month card in
-                          `lg:col-span-2` and an `<aside>` beside it. The whole
-                          "coming up" list is IN that aside on a desktop and
-                          under the grid on a phone.
-            the cells     `min-h-[68px] sm:min-h-[92px]`, so five rows are 120px
-                          taller than the placeholder claimed.
-            the weekdays  full names from `sm` ("Monday"), single letters below.
+          the hero      a `p-9` gradient banner, ~9rem tall, in place of the
+          phone's 77px strip. The phone version is `sm:hidden`
+          in Events.jsx and the big one is `hidden sm:block`,
+          so this is not a resize, it is a different element.
+          the columns   `grid-cols-1 lg:grid-cols-3` with the month card in
+          `lg:col-span-2` and an `<aside>` beside it. The whole
+          "coming up" list is IN that aside on a desktop and
+          under the grid on a phone.
+          the cells     `min-h-[68px] sm:min-h-[92px]`, so five rows are 120px
+          taller than the placeholder claimed.
+          the weekdays  full names from `sm` ("Monday"), single letters below.
 
           The aside only exists from `lg`, so between `sm` and `lg` this is the
           big hero over a full-width month with the list underneath - which is
@@ -524,7 +502,7 @@ function ComingUp({ className = 'mt-8', count = 2 }) {
   )
 }
 
-// THE CREATOR DIRECTORY, WHICH IS NOT A LIST (7 Sep 2026).
+// THE CREATOR DIRECTORY, WHICH IS NOT A LIST.
 //
 // `/creators` and `/connections` were both drawing the generic `list` shape - a
 // heading and six full-width rows with a round avatar. Neither page has ever

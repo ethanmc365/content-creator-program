@@ -39,25 +39,19 @@ import { useT } from '../lib/i18n'
 // "open this full screen, in the app" is the same request either way. A video
 // keeps its controls and starts playing; nothing else about the layer changes.
 //
-// `shape="circle"` KEEPS A PROFILE PHOTO ROUND (1 Sep 2026). Ethan: "when
-// clicking on a profile photo on the profile page, it should open up the photo
-// in a big view but still the same circle shape." An avatar is cropped to a
-// circle everywhere else in the product; opening it as a rectangle shows a
-// composition nobody framed, usually with the top of a head cut off by a corner
-// the round mask was hiding.
+// `shape="circle"` KEEPS A PROFILE PHOTO ROUND. An avatar is cropped to a circle everywhere else in the product; opening
+// it as a rectangle shows a composition nobody framed, usually with the top of a head cut off by a corner the round mask
+// was hiding.
 //
-// `onSave` PUTS IT IN THE CAMERA ROLL. Ethan: "when viewing a photo in full
-// screen there should be the icon with save so you can save it to your camera
-// roll easily from there too." See lib/media - it goes through the share sheet
-// on a phone, which is the only route that reaches Photos on iOS.
+// `onSave` PUTS IT IN THE CAMERA ROLL. See lib/media - it goes through the share sheet on a phone, which is the only
+// route that reaches Photos on iOS.
 export default function PhotoLightbox({
   src, alt = '', kind = 'image', shape = 'rect', canSave = false, fileName = '', onClose,
   // Optional: a line under the photo, and stepping through a set (the
   // travel-photo board passes both; a chat photo passes neither).
   caption = '', onPrev = null, onNext = null, counter = '',
-  // THE ELEMENT IT OPENS FROM (22 Sep 2026). A ref to the thumbnail that was
-  // pressed. When it is there the photograph GROWS OUT OF IT and shrinks back
-  // into it on close, instead of fading up in the middle of the screen.
+  // THE ELEMENT IT OPENS FROM. A ref to the thumbnail that was pressed. When it is there the photograph GROWS OUT OF IT
+  // and shrinks back into it on close, instead of fading up in the middle of the screen.
   origin = null,
 }) {
   const tr = useT()
@@ -68,13 +62,11 @@ export default function PhotoLightbox({
   const [saving, setSaving] = useState(false)
   const [saveNote, setSaveNote] = useState('')
 
-  // THE PHOTO ZOOMS ITSELF NOW (1 Sep 2026).
+  // THE PHOTO ZOOMS ITSELF NOW.
   //
-  // Browser pinch zoom is off across the platform (lib/pinchGuard), and Ethan
-  // named photographs as one of the two things that must still magnify. So this
-  // layer takes the gesture: pinch or wheel to scale, drag to pan once you are
-  // in, double-tap to toggle between fit and 2.5x, and any of it resets when
-  // the layer closes.
+  // Browser pinch zoom is off across the platform (lib/pinchGuard), and the team named photographs as one of the two
+  // things that must still magnify. So this layer takes the gesture: pinch or wheel to scale, drag to pan once you are
+  // in, double-tap to toggle between fit and 2.5x, and any of it resets when the layer closes.
   //
   // Panning is CLAMPED to the image's own overflow, so you can never drag a
   // photograph off the screen and be left looking at black with no way back -
@@ -221,14 +213,10 @@ export default function PhotoLightbox({
     }
   }, [clamp])
 
-  // THE WHEEL OVER THE PHOTO IS THE PHOTO'S, AND ONLY THE PHOTO'S (21 Sep 2026).
-  // Ethan: "if I'm scrolling on top of the photo, it should only be the photo
-  // that zooms in, and not the back." React attaches `onWheel` as a PASSIVE
-  // listener, so the handler zoomed the photo and could not stop the same
-  // event scrolling the page behind it. A native listener with
-  // `passive: false` can. Scrolling on the backdrop still scrolls the page.
-  // A trackpad pinch arrives as a wheel with `ctrlKey`, with small deltas, so
-  // the step follows the size of the movement rather than a fixed jump.
+  // THE WHEEL OVER THE PHOTO IS THE PHOTO'S, AND ONLY THE PHOTO'S. React attaches `onWheel` as a PASSIVE listener, so
+  // the handler zoomed the photo and could not stop the same event scrolling the page behind it. A native listener with
+  // `passive: false` can. Scrolling on the backdrop still scrolls the page. A trackpad pinch arrives as a wheel with
+  // `ctrlKey`, with small deltas, so the step follows the size of the movement rather than a fixed jump.
   useEffect(() => {
     const el = frameRef.current
     if (!el || !src || kind === 'video') return undefined
@@ -344,21 +332,15 @@ export default function PhotoLightbox({
           alt={alt}
           draggable={false}
           style={{
-            // THE LIMITS ARE THE SCREEN'S, IN UNITS THAT MEAN SOMETHING
-            // (21 Sep 2026). `max-h-full` below is a percentage of a frame
-            // whose own height is `auto`, and a percentage of an auto height
-            // is ignored - so a 1080x1920 creator-kit graphic rendered at its
-            // natural 1920px inside an `overflow-hidden` frame and showed as a
-            // cropped close-up. Ethan: "it shows up way too big, it should show
-            // the actual full size of the thing." Now the whole picture fits,
-            // with room for the controls, and never grows past its own size.
+            // THE LIMITS ARE THE SCREEN'S, IN UNITS THAT MEAN SOMETHING. `max-h-full` below is a percentage of a frame
+            // whose own height is `auto`, and a percentage of an auto height is ignored - so a 1080x1920 creator-kit
+            // graphic rendered at its natural 1920px inside an `overflow-hidden` frame and showed as a cropped close-up.
+            // Now the whole picture fits, with room for the controls, and never grows past its own size.
             maxHeight: shape === 'circle' ? undefined : 'calc(100dvh - 8rem)',
             maxWidth: shape === 'circle' ? undefined : 'calc(100vw - 2rem)',
-            // A CIRCLE IS GIVEN ITS SIZE, NOT ASKED FOR IT (22 Sep 2026).
-            // Ethan: "it just shows the same size image in the centre of the
-            // screen." It was `w-full` of a frame whose own width is `auto`,
-            // so the frame shrank to the file's natural width and the "big"
-            // view of a 256px avatar was 256px. A number the screen decides.
+            // A CIRCLE IS GIVEN ITS SIZE, NOT ASKED FOR IT. It was `w-full` of a frame whose own width is `auto`, so the
+            // frame shrank to the file's natural width and the "big" view of a 256px avatar was 256px. A number the
+            // screen decides.
             width: shape === 'circle' ? 'min(88vw, 78dvh, 36rem)' : undefined,
             transform: `translate3d(${view.x}px, ${view.y}px, 0) scale(${view.scale})`,
             transition: moving ? 'none' : 'transform 180ms ease-out',

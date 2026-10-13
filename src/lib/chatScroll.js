@@ -1,13 +1,6 @@
 // OPENING A THREAD AT THE BOTTOM, ONCE, WITHOUT ANYBODY WATCHING IT GET THERE.
 //
-// Ethan, about every room and every DM: "there is still the weird lag when
-// first opening a chat, for example it flashes, glitches and then shows the
-// current chats, sometimes it's scrolled up a bit, its inconsistent, sometimes
-// it jutters more. I think it could be with the elements loading in like
-// messages, reactions, seen by etc, also like scrolling to the right place."
-//
-// He is right about the cause and it is worth stating precisely, because two
-// previous attempts treated the symptom.
+// they are right about the cause and it is worth stating precisely, because two previous attempts treated the symptom.
 //
 // A CHAT SCROLLER IS PINNED TO A HEIGHT THAT IS STILL CHANGING. The pin is
 // `scrollTop = scrollHeight`, and `scrollHeight` on the first paint is wrong
@@ -41,12 +34,8 @@
 // shown. 1200ms, then it appears wherever it is, which is the old behaviour as
 // a floor rather than as the plan.
 //
-// 2 Sep 2026: STILL WRONG ON THE ROOMS WITH OLD PHOTOGRAPHS IN THEM, and the
-// reason is worth writing down because rule 1 above hides it. Ethan: "on
-// desktop, if I'm on general and I refresh, rather than showing the last
-// messages it starts scrolled up to the message above the photo I sent. Refresh
-// again and it's the same, again and it goes up even more, again and it's back
-// where it was."
+// 2 Sep 2026: STILL WRONG ON THE ROOMS WITH OLD PHOTOGRAPHS IN THEM, and the reason is worth writing down because rule 1
+// above hides it.
 //
 // A zero-height <img> IS A STABLE HEIGHT. The loop asks "has scrollHeight
 // stopped changing", and an attachment that has not started decoding answers
@@ -64,11 +53,6 @@
 
 // 3 Sep 2026: AND STILL WRONG, BECAUSE THE READER'S OWN SCROLL HANDLER WAS
 // TURNING THE PIN OFF WHILE IT RAN.
-//
-// Ethan, again: "if I click on general it opens the page scrolled up rather
-// than at the bottom. Even if I reload on that general page it still scrolls up
-// again. It's the same with announcements, the same across every tab, and the
-// same with DMs."
 //
 // Everything above is about the HEIGHT changing. This is about the second
 // mechanism nobody accounted for: both chat surfaces keep an `atBottomRef` that
@@ -177,8 +161,7 @@ export function pinToBottom(getEl, shouldPin, onSettled) {
 
   // WHATEVER ELSE HAPPENS, THE THREAD IS AT THE BOTTOM WHEN IT IS REVEALED.
   //
-  // 3 Sep 2026, and this is the last of it. Ethan: "the chat issue where the
-  // chat doesn't open on the last message still persists."
+  // 3 Sep 2026, and this is the last of it.
   //
   // Everything above makes the loop converge. What nobody had covered is the
   // path where it DOES NOT: `cap` fires at MAX_MS and reveals the thread
@@ -307,11 +290,6 @@ export function stickToBottom(getEl, shouldPin) {
   if (!el) return () => {}
   let last = el.scrollHeight
   // THE BOX SHRINKING IS A REASON TO RE-PIN, AND IT WAS NOT COUNTED.
-  //
-  // Ethan: "when I click on a chat and view it and then click on the text box
-  // to type something, the keyboard shows up and the last chat gets partly
-  // hidden behind it. This shouldn't be the case - when the keyboard shows up,
-  // the bottom of the last chat should still show up just above, not cut off."
   //
   // The RESIZE signal above already fires for exactly that - the comment even
   // names the keyboard - and then `check` threw the event away on its first

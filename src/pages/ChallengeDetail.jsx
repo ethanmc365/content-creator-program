@@ -124,9 +124,8 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
   const { user, isAdmin } = useAuth()
   const { networkId } = useMyScopes()
 
-  // THE LAST COPY OF THIS CHALLENGE PAINTS FIRST (1 Oct 2026, slow wifi): a
-  // second visit draws what it drew last time while the queries run, the same
-  // stale-while-revalidate the bottom tabs use. See lib/pageCache.
+  // THE LAST COPY OF THIS CHALLENGE PAINTS FIRST (slow wifi): a second visit draws what it drew last time while the
+  // queries run, the same stale-while-revalidate the bottom tabs use. See lib/pageCache.
   const cacheKey = `challenge:${id}`
   const [seed] = useState(() => readPageCache(cacheKey))
   const [challenge, setChallenge] = useState(seed?.challenge ?? null)
@@ -143,12 +142,10 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
   const [tab, setTab] = useState('brief') // brief | leaderboard | entries | countries
   // The offer whose card is open from the dark callout beside the tabs (joining bonus, boost, voucher day).
   const [offerOpen, setOfferOpen] = useState(null)
-  // MY ENTRIES AND A NAME SEARCH ON THE ENTRIES TAB (28 Sep 2026). Ethan:
-  // "a button for the creators ... that says 'My Entries' so they can quickly
-  // see all their entries."
+  // MY ENTRIES AND A NAME SEARCH ON THE ENTRIES TAB.
   const [entryScope, setEntryScope] = useState('all') // all | mine
   const [entryQuery, setEntryQuery] = useState('')
-  // How the entries are ordered and which platform (12 Oct 2026).
+  // How the entries are ordered and which platform.
   const [entrySort, setEntrySort] = useState('newest') // newest | views | points | oldest
   const [entryPlatform, setEntryPlatform] = useState('')
   const [allPrizes, setAllPrizes] = useState(false) // a phone shows five places until asked
@@ -157,11 +154,6 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
   const [playing, setPlaying] = useState(null) // submission being watched inline
 
   // PRESSING AN ENTRY OPENS THE THING, whichever way that has to happen.
-  //
-  // Ethan: "clicking on an entry card that is a carousel should always open the
-  // link rather than trying to play it inline, as carousels seem to never work
-  // inline ... ensure any other videos that don't play inline will just open
-  // the link when clicked."
   //
   // The lightbox used to open for everything, and for a carousel that meant a
   // black rectangle with a Close button - a worse outcome than the link the
@@ -184,10 +176,7 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
   const [showSubmit, setShowSubmit] = useState(false)
   const [videoUrl, setVideoUrl] = useState('')
   const [caption, setCaption] = useState('')
-  // PASTE AND CONFIRM (10 Sep 2026).
-  //
-  // Ethan: "auto-fill an entry the moment a link is pasted - cover, caption and
-  // handle resolve server-side already. Submitting becomes paste-and-confirm."
+  // PASTE AND CONFIRM.
   //
   // `null` is "we have not looked", `{ loading: true }` is "we are looking".
   // See `previewLink` in lib/videoThumbs for what each platform will say
@@ -241,10 +230,9 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
   const entryPoints = useEntryPoints(id, challenge?.scoring === 'points', `${challenge?.results_updated_at ?? ''}:${submissions.length}`)
 
   const load = useCallback(async () => {
-    // THE GROUPS AND BONUSES ARE ASKED FOR AT THE SAME TIME AS THE CHALLENGE
-    // (1 Oct 2026). They only need the id, and waiting for the first round
-    // before starting the second was a whole extra round trip - on a slow
-    // connection, a second or more with the prizes still blank.
+    // THE GROUPS AND BONUSES ARE ASKED FOR AT THE SAME TIME AS THE CHALLENGE. They only need the id, and waiting for the
+    // first round before starting the second was a whole extra round trip - on a slow connection, a second or more with
+    // the prizes still blank.
     const sideReads = Promise.all([
       challengesApi.challengeGroups().select('*').eq('challenge_id', id).order('position'),
       challengesApi.challengeGroupMembers().select('group_id, creator_id').eq('challenge_id', id),
@@ -273,10 +261,9 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
     setLoading(false)
 
     // The size of the roster this challenge is running in front of. STARTED
-    // NOW, IN PARALLEL (22 Sep 2026): it used to wait behind the groups read
-    // and the feedback read, so the participation card was the last thing on
-    // the page to know its numbers and it arrived a second after everything
-    // else. Nothing below depends on it.
+    // NOW, IN PARALLEL: it used to wait behind the groups read and the feedback read, so the participation card was the
+    // last thing on the page to know its numbers and it arrived a second after everything else. Nothing below depends on
+    // it.
     ;(async () => {
       if (ch?.community_id) {
         // The join column is `profile_id`. Same query MarketChallenges runs for
@@ -328,13 +315,11 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
     writePageCache(cacheKey, { challenge, submissions, results, audience, groups, groupMembers, bonusRules, bonusClaims })
   }, [cacheKey, id, challenge, submissions, results, audience, groups, groupMembers, bonusRules, bonusClaims])
 
-  // THE BOARD FOLLOWS THE SYNC WITHOUT A RELOAD (22 Sep 2026). Ethan: the
-  // leaderboard should update for creators every time views are synced, with
-  // no "publish" step. A sync writes `submissions` (which is on the realtime
-  // publication) and rebuilds `results` in the same transaction, so any entry
-  // changing on this challenge means the board has moved. Reads are batched
-  // with a short debounce because a sync writes twenty rows in a second.
-  // Coming back to the tab refreshes it as well.
+  // THE BOARD FOLLOWS THE SYNC WITHOUT A RELOAD. The team: the leaderboard should update for creators every time views
+  // are synced, with no "publish" step. A sync writes `submissions` (which is on the realtime publication) and rebuilds
+  // `results` in the same transaction, so any entry changing on this challenge means the board has moved. Reads are
+  // batched with a short debounce because a sync writes twenty rows in a second. Coming back to the tab refreshes it as
+  // well.
   const refreshBoard = useCallback(async () => {
     const [{ data: ch }, { data: res }, { data: subs }] = await Promise.all([
       challengesApi.challenges().select('*').eq('id', id).single(),
@@ -460,7 +445,7 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
 
     setSubmitting(true)
 
-    // THE ENTRY CARRIES THE VIDEO'S REAL ID WHEN WE KNOW IT (28 Sep 2026).
+    // THE ENTRY CARRIES THE VIDEO'S REAL ID WHEN WE KNOW IT.
     //
     // TikTok mints a NEW vm.tiktok.com code every time Share is pressed, so the
     // same video submitted twice arrives as two links with nothing in common.
@@ -515,7 +500,7 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
     }
 
     // THE COVER IS STORED THE MOMENT THE ROW EXISTS, NOT THE FIRST TIME
-    // SOMEBODY LOOKS AT IT (10 Sep 2026).
+    // SOMEBODY LOOKS AT IT.
     //
     // `VideoThumb` would have resolved it eventually - it asks `thumb-cache`
     // for any entry that has no cover - but "eventually" means the first person
@@ -537,9 +522,9 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
     // place; losing the entry would not be. The points follow from the claim
     // through `recalc_challenge_points_internal`, so nothing here awards
     // anything directly.
-    // SAID OUT LOUD WHEN IT FAILS (7 Oct 2026). From 6 to 7 Oct every claim failed in the database (migration 347) and
-    // this one failed silently: the entry went in, the ticked bonus did not, and nobody was told. Now the creator is,
-    // and told the fix - the entry card can claim it again.
+    // SAID OUT LOUD WHEN IT FAILS. From 6 to 7 Oct every claim failed in the database (migration 347) and this one
+    // failed silently: the entry went in, the ticked bonus did not, and nobody was told. Now the creator is, and told
+    // the fix - the entry card can claim it again.
     let claimFailed = false
     if (entry && claiming.length > 0) {
       const { error: claimErr } = await submissionsApi.submissionBonusClaims().insert(
@@ -587,8 +572,7 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
     }
   }
 
-  // TAKING A BONUS BACK (12 Oct 2026). Jacob ticked a bonus on a video that did not qualify and had to ask the team to
-  // undo it. Ethan: "the specific creator should also be able to correct it themself if they accidentally add it". The
+  // TAKING A BONUS BACK. Jacob ticked a bonus on a video that did not qualify and had to ask the team to undo it. The
   // creator may delete their own claim (RLS since 155) and the delete rescoring trigger takes the points off.
   async function unclaimBonus(sub, rule) {
     if (!await confirm(tr('Take the "{b}" bonus off this video? The {n} points come off your score.', { b: rule.label.replace(/^\+?\d+\s*/, ''), n: rule.points }), { confirmLabel: tr('Take it off') })) return
@@ -638,10 +622,8 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
   const streaks = dailyStreaksByCreator(submissions, nowMs, challenge?.start_date ? Date.parse(challenge.start_date) : null)
   const normName = (v) => (v || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
   const entryQ = normName(entryQuery.trim())
-  // FILTERS FOR THE ENTRIES (12 Oct 2026). Ethan: "have a filter option for
-  // the entries... like highest views... more filters for the creators to
-  // actually explore." Sorting and a platform pick apply to whichever list is
-  // showing (everyone's or mine); the name search stays on everyone's.
+  // FILTERS FOR THE ENTRIES. Sorting and a platform pick apply to whichever list is showing (everyone's or mine); the
+  // name search stays on everyone's.
   const entryPlatforms = [...new Set(submissions.map((s) => s.platform).filter(Boolean))]
   const shownEntries = (() => {
     let list = entryScope === 'mine'
@@ -675,14 +657,7 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
   const byCreator = groupByCreator(groupMembers)
   const boards = boardsFor(groups, byCreator, results.length ? results : submissions)
   const ownGroupId = byCreator.get(user.id) ?? null
-  // THE TEAM IS ON NO BOARD, SO IT SEES EVERY BOARD (1 Oct 2026).
-  //
-  // Ethan, on the Spanish October challenge - the first to run two groups:
-  // "as admins are obviously not assigned in any group it shows that there is
-  // no prizes ... the admin should see the prizes for both and see everything
-  // for both, the creators should see what they should for their group. Admins
-  // should also have a button at the top where you can view how the challenge
-  // looks from each group."
+  // THE TEAM IS ON NO BOARD, SO IT SEES EVERY BOARD.
   //
   // So for staff on a split challenge: `viewAs` null is ALL GROUPS (every
   // group's prizes, each under its name), and a group id is exactly what a
@@ -781,7 +756,7 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
       .filter(([n]) => n != null),
   )
   const rowAtRank = new Map(boardRows.map((r) => [Number(r.rank), r]))
-  // Five steps when the board pays five or more places (Ethan, 21 Sep).
+  // Five steps when the board pays five or more places (the team, 21 Sep).
   const podiumDepth = boardPrizeAt.size >= 5 || boardRows.length >= 5 ? 5 : 3
   const podiumPlaces = Array.from({ length: podiumDepth }, (_, i) => i + 1).map((rank) => {
     const row = rowAtRank.get(rank)
@@ -822,10 +797,7 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
   const openBonusRules = bonusRules.filter((r) => ruleOpenAt(r, nowMs))
   const claimableFor = (s) => bonusRules.filter((r) => !claimsBySubmission.get(s.id)?.has(r.id) && ruleOpenAt(r, s.submitted_at))
 
-  // THE LEADERBOARD TAB IS ALWAYS THERE (1 Sep 2026).
-  //
-  // Ethan: "I would improve the leaderboard and have that as a tab that is
-  // permanently there, even when no one has entered yet."
+  // THE LEADERBOARD TAB IS ALWAYS THERE.
   //
   // It used to appear only once a result row existed, so the board a creator
   // most wants to see - the empty one, on day one, with every prize still up
@@ -833,15 +805,13 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
   // itself from the prize structure now (see ChallengeLeaderboard), so there is
   // always something to show.
   //
-  // THE LEADERBOARD COMES BEFORE THE ENTRIES (2 Sep 2026). Ethan: "move the
-  // leaderboard tab to the left and the entries to the right." The board is the
-  // question people open a challenge to answer; the gallery is browsing.
+  // THE LEADERBOARD COMES BEFORE THE ENTRIES. The board is the question people open a challenge to answer; the gallery
+  // is browsing.
   const TABS = [
     { key: 'brief', label: tr('The brief'), icon: 'book' },
     { key: 'leaderboard', label: tr('Leaderboard'), icon: 'trophy' },
     { key: 'entries', label: tr('Entries'), icon: 'video', count: submissions.length },
-    // COUNTRY AGAINST COUNTRY, FOR THE GLOBAL CHALLENGE ONLY (4 Oct 2026). Ethan: "a new button to the right ... called Country
-    // Leaderboard, where you can see how each country is doing."
+    // COUNTRY AGAINST COUNTRY, FOR THE GLOBAL CHALLENGE ONLY.
     ...(isGlobalChallenge ? [{ key: 'countries', label: tr('Country leaderboard'), icon: 'globe' }] : []),
   ]
 
@@ -856,32 +826,19 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
         subtitle={`${formatDate(challenge.start_date)} → ${formatDate(challenge.end_date)}`}
         action={
           <div className="flex flex-wrap items-center gap-3">
-            {/* RUNNING A CHALLENGE HAPPENS ON THE CHALLENGE.
-                Publish, close and archive used to live on a separate
-                "Manage challenges" list, which meant the page showing you a
-                challenge could not change its state and the page that could
-                change it did not show you the challenge. Ethan asked for that
-                page to go; these are the controls that were worth keeping, on
-                the page they are about. */}
-            {/* THREE FLAT BUTTONS BECAME A RANK (3 Sep 2026).
-
-                Ethan: "I would improve the buttons at the top - results, close
-                entries. The close entries button maybe isn't necessary to be
-                there, it should be somewhere else, inside the results, because
-                the results button should be improved. Results is obviously
-                very important for the country managers."
+            {/* RUNNING A CHALLENGE HAPPENS ON THE CHALLENGE. Publish, close and archive used to live on a separate
+                "Manage challenges" list, which meant the page showing you a challenge could not change its state and the
+                page that could change it did not show you the challenge. The team asked for that page to go; these are
+                the controls that were worth keeping, on the page they are about. */}
+            {/* THREE FLAT BUTTONS BECAME A RANK.
 
                 RESULTS IS THE JOB, so it is the only solid button.
 
-                AND IT NO LONGER SAYS "INTERIM" (4 Sep 2026). Ethan: "I don't
-                need it to say interim on the results button." He is right, and
-                the reason is worth keeping: EVERY live challenge is interim.
-                Results rows exist from the first logged view, so the chip read
-                "interim" on every unfinished challenge in the product - a label
-                that is true of everything tells you nothing, and it was sitting
-                inside the one button a country manager presses every day.
-                FINAL is the state worth a word, because it is the one that has
-                stopped changing, so that is the only one that gets one.
+                AND IT NO LONGER SAYS "INTERIM". they are right, and the reason is worth keeping: EVERY live challenge is
+                interim. Results rows exist from the first logged view, so the chip read "interim" on every unfinished
+                challenge in the product - a label that is true of everything tells you nothing, and it was sitting
+                inside the one button a country manager presses every day. FINAL is the state worth a word, because it is
+                the one that has stopped changing, so that is the only one that gets one.
 
                 CLOSING A CHALLENGE IS NOT A TOOLBAR ACTION. It ends the thing
                 and it cannot be undone from here, so it sits behind the "..."
@@ -891,11 +848,9 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
                 See AdminResults' lifecycle card. */}
             {isAdmin && (
               <>
-                {/* A PUSH ABOUT THIS CHALLENGE, FROM THIS CHALLENGE (28 Sep
-                    2026). The platform could already notify a whole market, but
-                    only by posting in an announcements room - which is a
-                    different act: a room post is a message people reply to and
-                    it lives there forever. "Two days left" is neither. */}
+                {/* A PUSH ABOUT THIS CHALLENGE, FROM THIS CHALLENGE. The platform could already notify a whole market,
+                    but only by posting in an announcements room - which is a different act: a room post is a message
+                    people reply to and it lives there forever. "Two days left" is neither. */}
                 <SendPushButton challenge={challenge} label={tr("Send a push")} />
                 <Link to={`/admin/challenges/${id}/edit`} className="btn-secondary !py-2 text-xs">{tr("Edit")}</Link>
                 <Link
@@ -912,21 +867,16 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
                 </Link>
               </>
             )}
-            {/* NO "LIVE" BADGE HERE ANY MORE (23 Sep 2026). Ethan: "I don't
-                think we need that live button in the top right because it's
-                obviously live when it shows the countdown timer." The
-                countdown card right under this header already says so; a
-                second badge repeating it was the only thing this row said for
-                a live challenge. A non-live one still gets its status, which
-                nothing else on the page states. */}
+            {/* NO "LIVE" BADGE HERE ANY MORE. The countdown card right under this header already says so; a second badge
+                repeating it was the only thing this row said for a live challenge. A non-live one still gets its status,
+                which nothing else on the page states. */}
             {!isLive && <Badge tone="grey">{challenge.status}</Badge>}
           </div>
         }
       />
 
-      {/* SEE IT AS EACH GROUP SEES IT (1 Oct 2026) - staff only, split
-          challenges only. "All groups" shows every group's prizes side by
-          side; a group shows the page exactly as a creator in it gets it. */}
+      {/* SEE IT AS EACH GROUP SEES IT - staff only, split challenges only. "All groups" shows every group's prizes side
+          by side; a group shows the page exactly as a creator in it gets it. */}
       {staffView && (
         <div className="mb-6 flex flex-col gap-2 rounded-card border border-brand/20 bg-white px-4 py-3 shadow-card sm:flex-row sm:items-center sm:gap-4">
           <p className="flex shrink-0 items-center gap-2 text-xs font-semibold uppercase tracking-wider text-smoke">
@@ -967,28 +917,16 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
       )}
 
       {/* THE DEADLINE CARD, WHICH IS THE ONE THING ON THIS PAGE THAT MOVES.
-          (1 Sep 2026.)
-
-          Ethan: "the closes in 'time' card with the submit your video button
-          should be improved and i dont want that apple icon, it should be a
-          normal button without it... make it stand out more and have
-          animations."
 
           THE EMOJI IS GONE. It was a clapperboard, which renders as Apple's own
           artwork on an iPhone - a piece of somebody else's icon set inside our
           only orange button. The house rule already says line icons, never
           emoji, in chrome; this button now says what it does and nothing else.
 
-          IT IS ORANGE, NOT BLACK (2 Sep 2026). It was solid ink for a week -
-          the only dark block on a white page, which certainly stood out, and
-          which Ethan then read as a foreign object: "I don't like the new block
-          card for the submit your video, revert it back to a nice orange colour
-          similar to the main challenge card, with the submit your video button
-          still standing out and a nice animation."
-          So it is the LiveChallengeCard's own gradient, its own blooms and its
-          own white-on-brand button. The card a creator meets on /challenges and
-          the card they meet inside the brief are now the same object seen
-          twice, which is what makes the second one recognisable.
+          IT IS ORANGE, NOT BLACK. It was solid ink for a week - the only dark block on a white page, which certainly
+          stood out, and which So it is the LiveChallengeCard's own gradient, its own blooms and its own white-on-brand
+          button. The card a creator meets on /challenges and the card they meet inside the brief are now the same object
+          seen twice, which is what makes the second one recognisable.
 
           THE ANIMATION IS ONE PASS OF LIGHT (`challenge-sheen`, index.css - the
           live challenge card already carries it) plus a slow breathing glow
@@ -997,8 +935,8 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
       {isLive && (
         <div className={cx(
           'challenge-card relative mb-10 overflow-hidden rounded-card p-6 text-white shadow-lift sm:p-8',
-          // The worldwide brief wears the global card's darker ground here too,
-          // as it does on /challenges and in the Live now row (21 Sep 2026).
+          // The worldwide brief wears the global card's darker ground here too, as it does on /challenges and in the
+          // Live now row.
           isGlobalChallenge ? 'bg-gradient-to-br from-[#8f2a04] via-brand to-brand-light' : 'bg-gradient-to-br from-brand to-brand-light',
         )}>
           <span aria-hidden className="challenge-sheen pointer-events-none absolute inset-y-0" />
@@ -1013,10 +951,9 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
           <div className="relative flex flex-col items-start gap-6 sm:flex-row sm:items-center sm:justify-between">
             <div className="w-full sm:w-auto">
               <p className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-white/80">
-                {/* JUST THE DOT, NO RING (23 Sep 2026) - see the note on
-                    `LiveDot` in network/Motion.jsx. This page is eagerly
-                    routed, so it matches that component's look with a plain
-                    `animate-pulse` rather than importing motion for one dot. */}
+                {/* JUST THE DOT, NO RING - see the note on `LiveDot` in network/Motion.jsx. This page is eagerly routed,
+                    so it matches that component's look with a plain `animate-pulse` rather than importing motion for one
+                    dot. */}
                 <span className="inline-flex h-2 w-2 animate-pulse rounded-full bg-white" />
                 {tr('Closes in')}
               </p>
@@ -1049,13 +986,10 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
         </div>
       )}
 
-      {/* WHICH BOARD YOU ARE ON, SAID PLAINLY AND SAID EARLY.
-          Ethan: "the creator would need to know what group they're in clearly."
-          It sits directly under the countdown, above the tabs, because it
-          changes the meaning of everything below it - the entries you are
-          compared against, the leaderboard you appear on and the prize you are
-          playing for are all your group's, not the challenge's. It only draws
-          at all on a challenge that has groups. */}
+      {/* WHICH BOARD YOU ARE ON, SAID PLAINLY AND SAID EARLY. It sits directly under the countdown, above the tabs,
+          because it changes the meaning of everything below it - the entries you are compared against, the leaderboard
+          you appear on and the prize you are playing for are all your group's, not the challenge's. It only draws at all
+          on a challenge that has groups. */}
       {groups.length > 0 && !allGroupsView && (
         <div className={cx(
           'mb-10 flex flex-wrap items-center gap-x-4 gap-y-2 rounded-card border px-5 py-4',
@@ -1087,9 +1021,8 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
       {/* A market's Challenges tab passes its own numbers down, because it has
           already counted its roster and can say "here". Everywhere else the
           page works them out for itself rather than showing nothing. */}
-      {/* HELD FROM THE FIRST PAINT (22 Sep 2026): `pending` draws the card at
-          its full height while the audience count is still on its way, so its
-          arrival fills a bar in rather than shoving the tabs down. */}
+      {/* HELD FROM THE FIRST PAINT: `pending` draws the card at its full height while the audience count is still on its
+          way, so its arrival fills a bar in rather than shoving the tabs down. */}
       {isLive && (participationShown || audience == null) && (
         <ParticipationBar
           participation={participationShown?.data ?? null}
@@ -1099,31 +1032,26 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
         />
       )}
 
-      {/* THE RECAP, ONCE IT IS OVER (24 Sep 2026). A finished challenge you
-          entered opens with your own story of it - see pages/ChallengeRecap. */}
+      {/* THE RECAP, ONCE IT IS OVER. A finished challenge you entered opens with your own story of it - see
+          pages/ChallengeRecap. */}
       {!isLive && challenge.status !== 'draft' && myEntries.length > 0 && (
         <RecapBanner to={`/challenges/${challenge.id}/recap`} className="mb-8" />
       )}
 
-      {/* THE TABS ARE BUTTONS, NOT UNDERLINED WORDS (2 Sep 2026).
-          Ethan: "make the brief and entries tabs more visual, more clickable."
-          A 2px underline under grey text is the quietest control this app
-          draws, and it was the switch between the three things the page is
-          for. They are pressable pills now - a glyph, the word, and the entry
-          count as a chip - so the choice reads as a choice. They still lift on
-          hover rather than changing colour, which is the house rule. */}
-      {/* `pt-1.5 -mt-1.5`: the row scrolls sideways, and a box that scrolls on
-          one axis clips on both - so a pill lifting 2px on hover had its top
-          sliced off (Ethan, 21 Sep). The padding is the room to lift into. */}
-      {/* THE TABS, AND BESIDE THEM WHAT THE BOARD IS (22 Sep 2026).
-          Ethan: clicking Leaderboard showed a full-width "Current leaderboard"
-          card; "rather than have this go across the full screen I would have
-          it to the right of the three buttons, it would fit nicely, more
-          compact." It is a badge on the same row from `sm` up (under the tabs
-          on a phone), and it slides in when the Leaderboard tab opens. */}
+      {/* THE TABS ARE BUTTONS, NOT UNDERLINED WORDS. A 2px underline under grey text is the quietest control this app
+          draws, and it was the switch between the three things the page is for. They are pressable pills now - a glyph,
+          the word, and the entry count as a chip - so the choice reads as a choice. They still lift on hover rather than
+          changing colour, which is the house rule. */}
+      {/* `pt-1.5 -mt-1.5`: the row scrolls sideways, and a box that scrolls on one axis clips on both - so a pill
+          lifting 2px on hover had its top sliced off (the team, 21 Sep). The padding is the room to lift into. */}
+      {/* THE TABS, AND BESIDE THEM WHAT THE BOARD IS. The team: clicking Leaderboard showed a full-width "Current
+          leaderboard" card; "rather than have this go across the full screen I would have it to the right of the three
+          buttons, it would fit nicely, more compact." It is a badge on the same row from `sm` up (under the tabs on a
+          phone), and it slides in when the Leaderboard tab opens. */}
       <div className="mb-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
-      {/* `sm:overflow-visible shrink-0`: with the roomier pills the four tabs plus the board badge no longer fit one line, and a scrolling row beside the
-          badge was clipping the last tab ("Clasific..."). The row now keeps its full width and the BADGE wraps underneath instead (5 Oct 2026). */}
+      {/* `sm:overflow-visible shrink-0`: with the roomier pills the four tabs plus the board badge no longer fit one
+          line, and a scrolling row beside the badge was clipping the last tab ("Clasific..."). The row now keeps its
+          full width and the BADGE wraps underneath instead. */}
       <div className="-mx-4 -mt-1.5 flex gap-1.5 overflow-x-auto px-4 pb-1.5 pt-1.5 sm:mx-0 sm:shrink-0 sm:gap-2 sm:overflow-visible sm:px-0" role="tablist">
         {TABS.map((t) => (
           <button
@@ -1132,7 +1060,8 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
             aria-selected={tab === t.key}
             onClick={() => setTab(t.key)}
             className={cx(
-              // ROOM ON EITHER SIDE OF THE WORDS (5 Oct 2026): the four tabs were crowded - wider pills, more air between glyph, word and count.
+              // ROOM ON EITHER SIDE OF THE WORDS: the four tabs were crowded - wider pills, more air between glyph, word
+              // and count.
               'flex shrink-0 grow basis-auto items-center justify-center gap-1.5 rounded-full px-4 py-2.5 text-[13px] font-semibold transition-all duration-200 sm:grow-0 sm:gap-2 sm:px-6 sm:text-sm',
               tab === t.key
                 ? 'bg-brand text-white shadow-card'
@@ -1159,11 +1088,11 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
             setTab('brief')
             setTimeout(() => document.getElementById('bonus-points')?.scrollIntoView({ block: 'start', behavior: 'smooth' }), 60)
           }
-          // EVERY OFFER ON NOW TAKES A TURN IN THE DARK CARD (12 Oct 2026): a running boost, today's voucher day, the
-          // joining bonus for somebody who has not entered. A boost that has not started yet comes after those.
+          // EVERY OFFER ON NOW TAKES A TURN IN THE DARK CARD: a running boost, today's voucher day, the joining bonus
+          // for somebody who has not entered. A boost that has not started yet comes after those.
           const offers = []
-          // EACH ONE OPENS ITS OWN CARD (13 Oct 2026): "a pop-up should show more info on that ... the double points, when
-          // you click on it, should show a pop-up with more info too".
+          // EACH ONE OPENS ITS OWN CARD: "a pop-up should show more info on that... the double points, when you click on
+          // it, should show a pop-up with more info too".
           if (boost?.live) offers.push(<BoostCallout key="boost" boost={boost} onOpen={() => setOfferOpen({ kind: 'boost', boost })} />)
           for (const d of vdayToday) offers.push(<VoucherDayCallout key={d.id} day={d} now={nowMs} onOpen={() => setOfferOpen({ kind: 'vday', day: d })} />)
           if (joinOffer) offers.push(<JoinBonusCallout key="join" points={joinOffer} from={challenge.join_bonus_from} onOpen={() => setOfferOpen({ kind: 'join', points: joinOffer, from: challenge.join_bonus_from })} />)
@@ -1183,12 +1112,7 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
       </div>
 
       {/* ---------- Tab: brief ---------- */}
-      {/* TWO RUNNING ORDERS OVER NAMED SECTIONS, chosen with `useIsMobile()`
-          (2 Sep 2026).
-
-          Ethan, of the brief on a phone: "it should show the prizes at the very
-          top, and then the brief, the rules, the section on how this is won,
-          and then the platforms you can post on."
+      {/* TWO RUNNING ORDERS OVER NAMED SECTIONS, chosen with `useIsMobile()`.
 
           On a desktop the page is two columns and the prizes are already at eye
           level in the rail. Collapsed to one column that rail simply falls to
@@ -1217,11 +1141,7 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
               lib/richEditor; the attacker there is a creator and the victim
               is the team). `rt-editor` is the stylesheet those tags are
               already written for. */}
-          {/* BIGGER THAN ANY HEADING INSIDE IT, IN INK, AND FOLDED (21 Sep 2026).
-              Ethan: "the brief title is smaller than the actual title that
-              says 'Welcome to the First Ever Tryp.com Challenge'... the title
-              is black, but then the other text is greyed out. I would keep it
-              all black." And it opens on its first paragraph with Read all,
+          {/* BIGGER THAN ANY HEADING INSIDE IT, IN INK, AND FOLDED. And it opens on its first paragraph with Read all,
               so the points table below is not a long scroll away. */}
           <section className="card">
             <TranslatedText text={challenge.description || ''} heading={<h2 className="text-2xl font-bold tracking-tight">{tr("The brief")}</h2>}>{(md) => <CollapsibleRich md={md} />}</TranslatedText>
@@ -1310,11 +1230,8 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
               </button>
             )}
 
-            {/* THE TAKING-PART REWARD, TIDIED (21 Sep 2026). Ethan: "tidy up
-                where it says 'Every creator who gets there reaches 18 points
-                in our Tryp.com voucher'... show '18 more points to go', which
-                is nice." The prize is the headline, the condition is the line
-                under it, and the bar says how far along YOU are in numbers. */}
+            {/* THE TAKING-PART REWARD, TIDIED. The prize is the headline, the condition is the line under it, and the
+                bar says how far along YOU are in numbers. */}
             {part && (() => {
               const participation = part
               const byPoints = participation.basis === 'points'
@@ -1393,16 +1310,7 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
         const prizesCard = (
           <>
           {/* THE PRIZES ARE THE POINT OF THE PAGE - BUT THEY ARE STILL A
-              CARD ON THIS PAGE (2 Sep 2026).
-
-              Ethan: "I like how it stands out more, although it looks like it
-              doesn't really fit in - it looks very different from the other
-              cards. I don't like how first place is a really big font size
-              and the others are smaller on the right; they should all be the
-              same as second and third, with the cash on the right and it just
-              says first, second, third. Change the colours of the one, two,
-              three to match the podium colours. And I don't like the beige
-              background."
+              CARD ON THIS PAGE.
 
               So: the same white `card` surface, border and shadow as the
               brief, the rules and the platforms card beside it, with the
@@ -1452,10 +1360,6 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
           <>
           {/* "PLATFORMS YOU CAN POST ON", IN THE PLATFORMS' OWN COLOURS.
 
-              Ethan: "for the 'platforms that count' rename it to 'platforms
-              you can post on' and rather than a greyed out social media icon,
-              have the actual colourful social media icon for each."
-
               `PlatformBadges` draws a grey glyph on a grey disc, which is the
               universal look of a DISABLED control - so the row listing the
               four places you are allowed to post read as four places you are
@@ -1482,25 +1386,18 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
           </>
         )
 
-        // THE PHONE'S ORDER, SHORTER (21 Sep 2026). Prizes, then the brief
-        // (folded), then straight into how points are scored - the part a
-        // creator comes back to check - with the platforms and the (folded)
-        // rules last. Ethan: "there is a lot of scrolling involved."
-        // THE RULES ARE BACK UNDER THE BRIEF (22 Sep 2026), on both widths,
-        // above how points are scored. Ethan: "I would move the rules back
-        // below the brief section and above the points section but have that
-        // same read all and show less button for it." They fold exactly like
-        // the brief (CollapsibleRich), so the points are still close by.
+        // THE PHONE'S ORDER, SHORTER. Prizes, then the brief (folded), then straight into how points are scored - the
+        // part a creator comes back to check - with the platforms and the (folded) rules last.
+        // THE RULES ARE BACK UNDER THE BRIEF, on both widths, above how points are scored. They fold exactly like the
+        // brief (CollapsibleRich), so the points are still close by.
         const bonusCard = <BonusPointsCard rules={pointRules} now={nowMs} boost={boost} joinPts={joinOffer} joinFrom={challenge.join_bonus_from} voucherDays={voucherDays} />
-        // THE COLLAB BONUS, WHEN THE CHALLENGE RUNS ONE (4 Oct 2026): claimed on your own entry with a creator you are connected to.
+        // THE COLLAB BONUS, WHEN THE CHALLENGE RUNS ONE: claimed on your own entry with a creator you are connected to.
         const collabRule = (pointRules || []).find((r) => r.kind === 'collab' && r.is_active !== false)
         const collabCard = collabRule ? <CollabCard challenge={challenge} rule={collabRule} meId={user.id} /> : null
-        // THE HOOK BUTTON (24 Sep 2026, moved 26 Sep): first thing in the rail
-        // and first thing on a phone, above the prizes. Ethan: "Currently, it's
-        // way down at the bottom, whereas it should be at the top." Not on a
+        // THE HOOK BUTTON (moved 26 Sep): first thing in the rail and first thing on a phone, above the prizes. Not on a
         // finished challenge.
         const hookCard = challenge.status !== 'archived' ? <HookButton /> : null
-        // THE JOINING BONUS AND THE VOUCHER DAYS (12 Oct 2026, migration 383) lead the page: they exist to get somebody posting.
+        // THE JOINING BONUS AND THE VOUCHER DAYS (migration 383) lead the page: they exist to get somebody posting.
         const kickersCard = <ChallengeKickers challenge={challenge} meId={user.id} />
         if (isMobile) {
           return (
@@ -1636,9 +1533,7 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
             action={isLive && <button onClick={() => setShowSubmit(true)} className="btn-primary">{tr("Submit your video")}</button>}
           />
         ) : (
-          // FOUR ACROSS ON A DESKTOP (28 Sep 2026). Ethan: "these cards on
-          // desktop ... seem to be too big. Maybe you could have 4 on each
-          // line rather than 3." Two on a phone, three on a tablet, four from lg.
+          // FOUR ACROSS ON A DESKTOP. Two on a phone, three on a tablet, four from lg.
           <div key={`${entryScope}:${entryQuery}:${entrySort}:${entryPlatform}`} className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-4">
             {shownEntries.map((s, i) => (
               <div key={s.id} style={{ animationDelay: `${Math.min(i, 9) * 40}ms` }} className={cx(
@@ -1757,7 +1652,7 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
   )
 }
 
-// WHAT THE BOARD IS, IN ONE BADGE BESIDE THE TABS (22 Sep 2026).
+// WHAT THE BOARD IS, IN ONE BADGE BESIDE THE TABS.
 //
 // Three states, the same three the full-width card used to spell out: live
 // (still moving, and when it last moved), final, and not started. The detail
@@ -1773,15 +1668,10 @@ function BoardStatus({ status, points, updatedAt, empty, tr }) {
       : empty ? (points ? tr('Nobody has scored yet. Post a video and you take the top spot.') : tr('Nobody has a logged view count yet. Post a video and you take the top spot.'))
         : tr("Views are counted automatically off each entry's link, a few times a day.")
   const long = live ? `${detail}. ${tr('These can still change. Final results are counted after the challenge closes.')}` : detail
-  // FULL WIDTH, LIKE ANOTHER CARD IN THE ROW - REVERSING THE 22 SEP DECISION
-  // ABOVE (23 Sep 2026). Ethan: "I wanted it to spread the whole way across,
-  // from that right side to the entries button, so it takes up that full
-  // space, like there's a full line of cards there." And for a phone: "it
-  // should extend the full way, from the brief to the end of entries" - the
-  // same instruction, both widths. `flex-1` fills whatever the tabs row does
-  // not use on `sm` and up; `w-full` does the same thing stacked on a phone.
-  // The pill becomes a card shape (`rounded-2xl`, not `rounded-full`) because
-  // a shape built to hug a few words looks stretched rather than spacious
+  // FULL WIDTH, LIKE ANOTHER CARD IN THE ROW - REVERSING THE 22 SEP DECISION ABOVE. And for a phone: "it should extend
+  // the full way, from the brief to the end of entries" - the same instruction, both widths. `flex-1` fills whatever the
+  // tabs row does not use on `sm` and up; `w-full` does the same thing stacked on a phone. The pill becomes a card shape
+  // (`rounded-2xl`, not `rounded-full`) because a shape built to hug a few words looks stretched rather than spacious
   // once it is asked to fill a row.
   return (
     <div
@@ -1793,12 +1683,8 @@ function BoardStatus({ status, points, updatedAt, empty, tr }) {
     >
       <span className={cx(SLOT_ICON, live || final ? 'text-white' : 'text-brand')}>
         {live
-          // JUST THE DOT, NO RING (23 Sep 2026). Ethan, of this exact dot:
-          // "I like how you have the pulsing thing, but I don't like the way
-          // it circles around it. Remove the white circle and just have that
-          // nice pulsing white dot." Matches `LiveDot` in network/Motion.jsx,
-          // reimplemented with a plain `animate-pulse` because this page is
-          // eagerly routed and motion is reserved for lazy ones.
+          // JUST THE DOT, NO RING. Matches `LiveDot` in network/Motion.jsx, reimplemented with a plain `animate-pulse`
+          // because this page is eagerly routed and motion is reserved for lazy ones.
           ? <span className="inline-flex h-2 w-2 animate-pulse rounded-full bg-white" />
           : <Icon name={final ? 'trophy' : 'sparkles'} className={cx('h-4 w-4', final ? 'text-white' : 'text-brand')} />}
       </span>

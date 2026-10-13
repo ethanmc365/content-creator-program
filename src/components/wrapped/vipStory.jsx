@@ -3,9 +3,7 @@ import Icon from '../Icon'
 import SocialMark from '../SocialMark'
 import { getLocale, useT } from '../../lib/i18n'
 
-// THE VIP MONTH RECAP: THE CARDS (30 Sep 2026).
-//
-// Ethan: "For the recap card, obviously they should have their own one of that, but it'll be a bit different."
+// THE VIP MONTH RECAP: THE CARDS.
 //
 // A VIP is paid by views, not by winning challenges, so this recap tells the story of a MONTH of views: what came in,
 // what it was worth, where they stand among the VIPs, the video that carried it, and what is next. It is the same

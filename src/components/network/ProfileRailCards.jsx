@@ -9,11 +9,6 @@ import { profilesApi } from '../../api/profiles'
 
 // THE REST OF THE PLATFORM, ON THE PROFILE.
 //
-// Ethan: "I mentioned the aircraft collection, that's something cool you could
-// put in. Flight stats maybe something cool to have somewhere. Streaks and
-// puzzle records could go in, but we need to make sure we can structure this
-// correctly, that it looks clean and nothing's crowded."
-//
 // THE STRUCTURE IS THE WHOLE ASK, so these are RAIL cards and not sections.
 // Everything the profile used to hold was a full-width band, which is why the
 // page read as a scroll of unrelated stripes - and adding three more bands
@@ -59,12 +54,10 @@ function RailCard({ icon, title, to, linkLabel, children }) {
 //
 // PLAYED, ON A RUN, AND THE BEST RUN THEY HAVE EVER HAD.
 //
-// This used to show "puzzles played", "days turned up" and a best ROUND -
-// the best correct/total ratio somebody had ever scored. That last one was the
-// weakest number on the card: a 1/1 on a one-question mode reads as a perfect
-// record, it is not comparable between modes, and nobody plays for it. Ethan
-// asked for the streaks instead, which are the numbers the games themselves are
-// built around.
+// This used to show "puzzles played", "days turned up" and a best ROUND - the best correct/total ratio somebody had ever
+// scored. That last one was the weakest number on the card: a 1/1 on a one-question mode reads as a perfect record, it
+// is not comparable between modes, and nobody plays for it. The team asked for the streaks instead, which are the
+// numbers the games themselves are built around.
 //
 // THE STREAK COMES FROM THE DATABASE, NOT FROM HERE. `profile_game_stats`
 // (migration 145) is a pure STABLE read that counts a day as played OR frozen,

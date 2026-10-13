@@ -31,21 +31,17 @@ export default function ChallengeDetailSubmitModal({
   return (
     <Modal open={showSubmit} onClose={() => setShowSubmit(false)} title={tr("Submit your entry")}>
       <form onSubmit={submitEntry} noValidate className="space-y-5">
-        {/* THE SUBMIT FORM, REDRAWN (26 Sep 2026). Ethan: "I would make the
-            UI of this much better ... The tick button, whenever I tick it,
-            should look like the other platform design." Numbered steps, a
-            link box with its own Paste button, and bonus rows that turn
-            solid brand when ticked - the platform's one rule for a picked
-            option - instead of the browser's own tick box. */}
+        {/* THE SUBMIT FORM, REDRAWN. Numbered steps, a link box with its own Paste button, and bonus rows that turn
+            solid brand when ticked - the platform's one rule for a picked option - instead of the browser's own tick
+            box. */}
         <div>
           <label htmlFor="video_url" className="mb-2 flex items-center gap-2 text-sm font-semibold text-ink">
             <span className="flex h-6 w-6 items-center justify-center rounded-full bg-brand text-[11px] font-bold text-white">1</span>
             {tr("Your video link")}
           </label>
           <div className={cx(
-            // `field-shell`: the BOX shows focus, not the input inside it.
-            // Without it the input drew its own 1px orange ring inside the
-            // box, the "weird orange lines" Ethan saw (28 Sep 2026).
+            // `field-shell`: the BOX shows focus, not the input inside it. Without it the input drew its own 1px orange
+            // ring inside the box, the "weird orange lines" the team saw.
             'field-shell flex items-center gap-2 rounded-xl border bg-white pl-3 pr-1.5 transition-all duration-200 focus-within:border-brand focus-within:ring-4 focus-within:ring-brand/15',
             errorField === 'url' ? 'border-red-300 ring-2 ring-red-100' : 'border-gray-200',
           )}>
@@ -136,17 +132,10 @@ export default function ChallengeDetailSubmitModal({
             }}
           />
         </div>
-        {/* ---- THE BONUSES THIS VIDEO MIGHT HAVE EARNED ----
-            Ethan: "there should be a check box asking them if they posted a
-            video on the certain thing to get the bonus point. Ticking the box
-            would then automatically update the points and this would mean the
-            points system is fully automated again, no manual checking."
-            Only bonuses the admin wrote a QUESTION for appear here - see
-            migration 155 and the prompt field in PointRulesEditor. A bonus
-            with no question is still awarded by an admin by hand, exactly as
-            bonuses have always worked.
-            The points are stated on every line. A tick box that does not say
-            what it is worth is a tick box people leave alone. */}
+        {/* ---- THE BONUSES THIS VIDEO MIGHT HAVE EARNED ---- Only bonuses the admin wrote a QUESTION for appear here -
+             see migration 155 and the prompt field in PointRulesEditor. A bonus with no question is still awarded by an
+             admin by hand, exactly as bonuses have always worked. The points are stated on every line. A tick box that
+             does not say what it is worth is a tick box people leave alone. */}
         {openBonusRules.length > 0 && (
           <div>
             <p className="mb-1 flex items-center gap-2 text-sm font-semibold text-ink">

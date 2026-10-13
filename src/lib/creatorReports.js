@@ -3,12 +3,6 @@ import { teamApi } from '../api/team'
 
 // REPORTING A PERSON.
 //
-// Ethan: "the ability to report a creator similar to the report a chat thing.
-// You could report a creator for a certain thing, and this could show up
-// somewhere. Obviously you have to enter the reason for reporting them, and
-// then this will show up on the report section we already have for the chats on
-// the admin panel, but obviously it'll be split for like report a creator."
-//
 // WHY THIS IS A DIFFERENT TABLE FROM A MESSAGE REPORT, and not a `kind` column
 // on the existing one: a message report is about a THING that was said, and
 // that table is built around preserving it - it snapshots the body and any

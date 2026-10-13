@@ -1,9 +1,5 @@
 // THE KPI TRACKER'S ARITHMETIC, AWAY FROM ITS PAINT.
 //
-// Ethan: "for each quarter, the admins will set KPIs... I want a really clean
-// UI so we can compare them at the end and see the progress. Are we on
-// track? Are we off track?"
-//
 // Three questions this page has to answer, and all three are pure functions
 // of a date and some numbers - which is the whole reason this lives here
 // rather than inside the page component, the rule this codebase learned from
@@ -46,11 +42,10 @@ export const STANDARD_METRICS = [
 
 ]
 
-// KPIs THAT WERE OFFERED AND ARE NOT ANY MORE (30 Sep 2026). Ethan: best single video, first-time
-// entrants, repeat entrants, creators on the platform, new creators who entered, community
-// messages, puzzle players and connections made are "not needed". The SQL still computes them
-// (harmless), but a goal somebody already saved for one is hidden rather than left orphaned
-// on the page with no definition.
+// KPIs THAT WERE OFFERED AND ARE NOT ANY MORE. The team: best single video, first-time entrants, repeat entrants,
+// creators on the platform, new creators who entered, community messages, puzzle players and connections made are "not
+// needed". The SQL still computes them (harmless), but a goal somebody already saved for one is hidden rather than left
+// orphaned on the page with no definition.
 export const REMOVED_METRICS = new Set([
   'top_video_views', 'first_time_creators', 'return_rate', 'creators_total',
   'activation_rate', 'chat_messages', 'game_players', 'connections_made',
@@ -127,10 +122,8 @@ export function quarterRange(year, quarter) {
   return { start, end }
 }
 
-// ---- MONTHS (24 Sep 2026) -------------------------------------------------
-// Ethan: "you can also build in tracking for each month, like KPIs for
-// September, October, or the quarter." A PERIOD is `{ year, quarter, month }`;
-// `month` null means the whole quarter, exactly as every row was before.
+// ---- MONTHS ------------------------------------------------- A PERIOD is `{ year, quarter, month }`; `month` null
+//  means the whole quarter, exactly as every row was before.
 
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June',
   'July', 'August', 'September', 'October', 'November', 'December']
@@ -191,9 +184,9 @@ export function kpiStatus({ target, actual, year, quarter, month = null, now = n
   const progress = quarterProgress(year, quarter, now, month)
   const over = progress >= 1
 
-  // NOT STARTED YET (30 Sep 2026). Ethan: Q4 "shows fully white, but it says 6 out of 6, on track or
-  // met ... it shouldn't show this unless it's actually started". A goal for a period that has not
-  // begun is a plan: it is neither on track nor behind, it is upcoming.
+  // NOT STARTED YET. The team: Q4 "shows fully white, but it says 6 out of 6, on track or met... it shouldn't show this
+  // unless it's actually started". A goal for a period that has not begun is a plan: it is neither on track nor behind,
+  // it is upcoming.
   if (now < periodRange({ year, quarter, month }).start) {
     const pct0 = target > 0 ? actual / target : 0
     return { status: 'upcoming', pct: higherIsBetter ? pct0 : 0, progress: 0 }
@@ -247,7 +240,7 @@ export function rowStatus(row, period, now = new Date()) {
 export function mergeKpiRows(targets, actuals) {
   const actualByMetric = new Map((actuals || []).map((a) => [a.metric, Number(a.value) || 0]))
   return [...(targets || [])]
-    // Custom ("my own") KPIs were retired on 1 Oct 2026: every goal is measured by the platform.
+    // Custom ("my own") KPIs were retired: every goal is measured by the platform.
     .filter((t) => !REMOVED_METRICS.has(t.metric) && t.metric !== 'custom')
     .map((t) => ({
       ...t,
@@ -262,11 +255,7 @@ export function mergeKpiRows(targets, actuals) {
 }
 
 
-// ---- QUARTERS AND MONTHS ARE ONE PLAN (29 Sep 2026) -------------------------
-// Ethan: "if someone sets KPIs for October, November and December then they
-// should show, but also show for the quarter combined ... quarterly KPIs could
-// show per month split with a bit of a ratio so improving over time, but not
-// drastic."
+// ---- QUARTERS AND MONTHS ARE ONE PLAN -------------------------
 //
 // Two derivations, both PURE and both only ever fill a gap - a target somebody
 // actually set always beats one worked out from another period:
@@ -381,10 +370,7 @@ export function withDerivedTargets({ period, own, monthsOfQuarter = [], quarterT
   return out
 }
 
-// ---- THE TOTAL (30 Sep 2026) ------------------------------------------------
-// Ethan: "the total one shouldn't have targets set and instead should be a combination of everything
-// from all the KPIs that have been set for all the markets ... rather than me setting it, you're
-// actually pulling everything."
+// ---- THE TOTAL ------------------------------------------------
 //
 // So the Total is never typed in. For one period it is every scope's goals (the global challenges and
 // each market) added together, each scope's live number beside its own goal:
@@ -441,10 +427,8 @@ export function aggregateScopes(perScope) {
 }
 
 /**
- * THE OVERVIEW IS A ROLLING WINDOW, NOT A CALENDAR YEAR (30 Sep 2026). Ethan: "the year overview says
- * 2026, but in 2027 it's still compared to the last quarter, which would be in 2026." Around the
- * period on screen: two quarters before it and one after (four), or eight months before and three
- * after (twelve), crossing the new year like any other boundary.
+ * THE OVERVIEW IS A ROLLING WINDOW, NOT A CALENDAR YEAR. Around the period on screen: two quarters before it and one
+ * after (four), or eight months before and three after (twelve), crossing the new year like any other boundary.
  */
 export function windowPeriods(period, byMonth) {
   if (byMonth) {

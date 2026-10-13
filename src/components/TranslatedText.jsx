@@ -9,15 +9,13 @@ import { cx } from '../lib/utils'
 // the author's own words. When the text is already in the reader's language, or no
 // translation could be had, it draws exactly what it did before and nothing else.
 //
-// THE SWITCH IS AT THE TOP RIGHT (30 Sep 2026). Ethan: "improve the UI of the button and the
-// placement, I would have the button on the top right, rather than the bottom." It was a line of
-// small grey type under the text, which for a long brief is a screen away from the words it
-// controls. It is now a two-part control - Translated | Original - above the text and to the
+// THE SWITCH IS AT THE TOP RIGHT. It was a line of small grey type under the text, which for a long brief is a screen
+// away from the words it controls. It is now a two-part control - Translated | Original - above the text and to the
 // right, so the state you are reading is always the highlighted half.
-// SQUARE, NO GLOBE, ON THE TITLE'S LINE (1 Oct 2026). Ethan: the button "has gone to another line
-// rather than just being even with the title, but to the right side ... There's a worldwide icon,
-// which isn't necessary ... make it more squared out rather than curved." It is a small squared
-// segmented control now, and `TranslatedText` can draw the heading itself so the two share a row.
+// SQUARE, NO GLOBE, ON THE TITLE'S LINE. The team: the button "has gone to another line rather than just being even with
+// the title, but to the right side... There's a worldwide icon, which isn't necessary... make it more squared out rather
+// than curved." It is a small squared segmented control now, and `TranslatedText` can draw the heading itself so the two
+// share a row.
 export function TranslateSwitch({ t, className }) {
   const tr = useT()
   if (!t.translated) return null
@@ -66,10 +64,9 @@ export function TLine({ text }) {
   return <>{t.shown}</>
 }
 
-// THE SAME SWITCH, BUT IT STARTS ON THE ORIGINAL AND ONLY TRANSLATES WHEN PRESSED (2 Oct 2026).
-// For things that are somebody's own words in the moment - a chat message, a hook - where Ethan
-// wants the original first "and just have the ability to translate". `t` is useTranslateOnDemand.
-// Drawn only for a reader on a language other than English.
+// THE SAME SWITCH, BUT IT STARTS ON THE ORIGINAL AND ONLY TRANSLATES WHEN PRESSED. For things that are somebody's own
+// words in the moment - a chat message, a hook - where the team wants the original first "and just have the ability to
+// translate". `t` is useTranslateOnDemand. Drawn only for a reader on a language other than English.
 export function OnDemandSwitch({ t, className, compact = false }) {
   const tr = useT()
   if (!t.available) return null

@@ -2,13 +2,9 @@ import { useCallback, useEffect, useState } from 'react'
 
 // MOVE THE CARD OUT OF THE WAY OF THE THING IT IS DESCRIBING.
 //
-// WHY THIS EXISTS. On the full-screen creator map the country and town panels
-// live in one fixed corner. That corner is fine most of the time and wrong
-// exactly when it matters: tap Spain and the card lands on Portugal, tap Norway
-// and it covers half of Scandinavia, and the only way to see underneath is to
-// close the card you opened to read. Ethan: "when you tap a country and the
-// popup card comes up, it should be draggable around the page so you can ensure
-// it's not covering any countries you want to see."
+// WHY THIS EXISTS. On the full-screen creator map the country and town panels live in one fixed corner. That corner is
+// fine most of the time and wrong exactly when it matters: tap Spain and the card lands on Portugal, tap Norway and it
+// covers half of Scandinavia, and the only way to see underneath is to close the card you opened to read.
 //
 // THE THREE THINGS THAT MAKE A DRAG HANDLE NOT RUIN A CARD
 //

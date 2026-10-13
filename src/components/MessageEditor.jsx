@@ -24,12 +24,7 @@ import { useT } from '../lib/i18n'
 // server's own sentence rather than silently doing nothing.
 //
 // IT IS AS BIG AS THE THING YOU ARE EDITING, AND THAT WAS A LAYOUT BUG RATHER
-// THAN A SIZE ONE (7 Sep 2026).
-//
-// Ethan: "whenever you edit a message - say I type a long message and then
-// click edit - the edit box is just this tiny little box, and the long message
-// is really hard to see in it. The edit box should match the size of the actual
-// text box you send."
+// THAN A SIZE ONE.
 //
 // The textarea was already auto-growing, which is why the size looked
 // deliberate and was not. The cause is one class up: a chat bubble is

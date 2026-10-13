@@ -7,14 +7,10 @@ import { PURPOSES } from './FlightsParts'
 export function PurposeBar({ list }) {
   // SIX CARDS, NOT ONE STACKED BAR.
   //
-  // The bar was a single rounded strip cut into segments, each in a different
-  // shade of orange, with a legend underneath. The colours were rebuilt once
-  // already to make the segments distinguishable, and the honest conclusion is
-  // that fixing the palette never fixed the control: a reader who wants to know
-  // how many creator trips they took has to find the right orange in the legend,
-  // carry it back up to the strip, judge a width against the whole, and multiply.
-  // Ethan: "rather than doing that, maybe just have cards for each of them to
-  // show the number, it would be clearer and look better."
+  // The bar was a single rounded strip cut into segments, each in a different shade of orange, with a legend underneath.
+  // The colours were rebuilt once already to make the segments distinguishable, and the honest conclusion is that fixing
+  // the palette never fixed the control: a reader who wants to know how many creator trips they took has to find the
+  // right orange in the legend, carry it back up to the strip, judge a width against the whole, and multiply.
   //
   // AND ALL SIX ARE ALWAYS HERE, INCLUDING THE ZEROES. The bar could only draw
   // what existed, so the set of categories changed shape as flights were logged

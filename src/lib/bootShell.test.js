@@ -12,7 +12,7 @@ import appCss from '../index.css?raw'
 //   1  ITS CLASSES COLLIDED WITH THE APP'S. `.btn` and `.page` are real classes
 //      in index.css, so the moment the stylesheet loaded it restyled the
 //      SKELETON - the two button shapes took `.btn`'s padding and inline-flex,
-//      and the page block took `.page`'s `page-in` animation. Ethan: "the two
+//      and the page block took `.page`'s `page-in` animation.
 //      buttons have these really big dark outline bars around them in black."
 //
 //   2  RENAMING THEM MISSED THE SELECTORS WRITTEN AS `#boot.public`. The

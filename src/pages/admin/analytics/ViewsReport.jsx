@@ -17,18 +17,15 @@ import { cx, downloadCsv, formatViews } from '../../../lib/utils'
 import { useT } from '../../../lib/i18n'
 import { teamApi } from '../../../api/team'
 
-// VIEWS GAINED, ANY DAYS, ONE HALF OR BOTH - AND THE WEEKLY SNAPSHOT (9 Oct 2026).
+// VIEWS GAINED, ANY DAYS, ONE HALF OR BOTH - AND THE WEEKLY SNAPSHOT.
 //
-// Ethan: "under analytics I want to get the views from the general community channel, per week ... I can search for the last 7
-// days or whatever, and also the total views, including the VIP. Also, just one or the other." And, for the weekly meeting with the
-// country managers: "a weekly snapshot ... and an SVG that I can share on the Meet."
+// And, for the weekly meeting with the country managers: "a weekly snapshot... and an SVG that I can share on the Meet."
 //
 // Everything is `admin_views_gained`: views GAINED inside the dates (not lifetime totals), community and VIP side by side. It is read
 // when the dates or the Refresh button change and at no other time - no polling - so leaving the tab open costs the database nothing.
 const PERIOD_KEYS = ['last_7', 'this_week', 'last_week', 'last_3', 'this_month', 'last_month', 'last_30', 'last_90', 'custom']
 const PICKER = PERIOD_KEYS.map((k) => PERIODS.find((p) => p.key === k))
-// THE PERIODS AS BUTTONS (11 Oct 2026). Ethan: "if I click Last 7 Days, This Week, or This Month, it updates correctly and
-// shows the correct things". The six that get used are one press each; anything else is behind "More dates".
+// THE PERIODS AS BUTTONS. The six that get used are one press each; anything else is behind "More dates".
 const QUICK = ['last_7', 'this_week', 'last_week', 'this_month', 'last_month', 'last_30']
 // What the picture and the file are called, so a month is not handed round as a "weekly" snapshot.
 const SNAP_TITLE = { last_7: 'Weekly snapshot', this_week: 'Weekly snapshot', last_week: 'Weekly snapshot', this_month: 'Monthly snapshot', last_month: 'Monthly snapshot' }

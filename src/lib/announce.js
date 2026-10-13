@@ -2,11 +2,10 @@ import { chatApi } from '../api/chat'
 
 // POST SOMETHING INTO THE ANNOUNCEMENTS ROOMS IT BELONGS TO.
 //
-// Ethan, about a "find a time": "I think as well as appearing on the calendar
-// page, it should go into the announcements chat of the appropriate chat. If
-// its a global 'find a time' then to the global announcements, if its a spanish
-// one then to spanish announcements, if its a german and romanian one then to
-// both their announcements, creators can access it quickly there."
+// The team, about a "find a time": "I think as well as appearing on the calendar page, it should go into the
+// announcements chat of the appropriate chat. If its a global 'find a time' then to the global announcements, if its a
+// spanish one then to spanish announcements, if its a german and romanian one then to both their announcements, creators
+// can access it quickly there."
 //
 // That is the right instinct and it generalises: anything scoped to a set of
 // markets has an obvious set of rooms to be mentioned in, and a calendar page

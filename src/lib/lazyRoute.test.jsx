@@ -11,9 +11,10 @@ class Catch extends Component {
   render() { return this.state.err ? <p>crashed: {this.state.err.message}</p> : this.props.children }
 }
 
-// A deploy during a session makes Vite's preload helper SWALLOW the failure when main.jsx has preventDefault()ed `vite:preloadError`: the dynamic
-// import then resolves with undefined and React reads `undefined.default` - "Cannot read properties of undefined (reading 'default')" on
-// /milestones and /admin/videos (5 Oct 2026). A resolved-undefined module must wait for the reload, never reach React.
+// A deploy during a session makes Vite's preload helper SWALLOW the failure when main.jsx has preventDefault()ed
+// `vite:preloadError`: the dynamic import then resolves with undefined and React reads `undefined.default` - "Cannot
+// read properties of undefined (reading 'default')" on /milestones and /admin/videos. A resolved-undefined module must
+// wait for the reload, never reach React.
 describe('lazyRoute', () => {
   it('never hands React an undefined module: it stays on the fallback instead of crashing', async () => {
     const Page = lazyRoute(() => Promise.resolve(undefined))

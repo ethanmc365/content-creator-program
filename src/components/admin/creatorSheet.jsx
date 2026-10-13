@@ -7,14 +7,6 @@ import { safeUrl } from '../../lib/safeUrl'
 
 // THE PIECES BOTH CREATOR POPUPS ARE BUILT FROM.
 //
-// Ethan: "the admin popup that shows whenever you click on a creator's name - I
-// really like how that looks, and I think it looks better than the actual popup
-// that shows when you click on a creator on the creator dashboard. So take some
-// inspiration from that one, build and add it to the other one, like the way
-// the contact details show up etc. And the other UI things, like improving the
-// buttons and the layout - I don't like how there's four buttons on one row and
-// then one button on the next row, it just looks bad."
-//
 // There were two panels about the same person, written weeks apart, and the
 // newer one was better. The obvious move is to copy its markup across, and that
 // is the move that guarantees they diverge again the next time either is
@@ -33,12 +25,10 @@ import { safeUrl } from '../../lib/safeUrl'
 /**
  * One destination, as a tile.
  *
- * A TILE AND NOT A BUTTON, AND THAT IS THE LAYOUT COMPLAINT ANSWERED. The
- * roster had five full-width pill buttons wrapping onto two rows - four, then a
- * lonely fifth - which is the "it just looks bad" Ethan describes, and it is
- * also the wrong signal: a pill is what this design language uses for an ACTION,
- * and these are places to go. A fixed grid cannot wrap into an orphan, and four
- * even tiles read as one control with four choices.
+ * A TILE AND NOT A BUTTON, AND THAT IS THE LAYOUT COMPLAINT ANSWERED. The roster had five full-width pill buttons
+ * wrapping onto two rows - four, then a lonely fifth - which is the "it just looks bad" the team describes, and it is
+ * also the wrong signal: a pill is what this design language uses for an ACTION, and these are places to go. A fixed
+ * grid cannot wrap into an orphan, and four even tiles read as one control with four choices.
  */
 export function PageTile({ to, onClose, icon, label }) {
   return (
@@ -56,13 +46,10 @@ export function PageTile({ to, onClose, icon, label }) {
 /**
  * A contact detail, on its own line, with the one action it has attached to it.
  *
- * ONE PER LINE, NOT TWO ACROSS. Ethan: "I don't like how they're side by side.
- * It's better that they're on one line each and with a copy button to easily
- * copy." Two columns is what forced the value to compete with the label for a
- * half-width box - an email is a long, unbreakable string and a phone number is
- * a short one, so a two-up grid is guaranteed to be wrong for one of them. A
- * full-width row gives the value the whole line, which is what makes the copy
- * button worth having: you can read what you are about to copy.
+ * ONE PER LINE, NOT TWO ACROSS. Two columns is what forced the value to compete with the label for a half-width box - an
+ * email is a long, unbreakable string and a phone number is a short one, so a two-up grid is guaranteed to be wrong for
+ * one of them. A full-width row gives the value the whole line, which is what makes the copy button worth having: you
+ * can read what you are about to copy.
  */
 export function ContactRow({ icon, label, value, empty, loading }) {
   return (
@@ -84,14 +71,11 @@ export function ContactRow({ icon, label, value, empty, loading }) {
 /**
  * Every contact detail for one creator: a labelled block of stacked rows.
  *
- * NO ORANGE CARD. It had a `border-brand/30 bg-brand-tint/40` panel round it in
- * both popups, on the reasoning that a phone number wants a visible boundary.
- * Ethan: "you don't need that orange background card for it, you can remove
- * that completely" - and he is right about what it was costing. Both popups are
- * already behind an admin check, so the tint was telling the team something the
- * team already knew, and a full-width tinted slab in the middle of a white sheet
- * is the loudest thing on it. The heading carries the meaning now and the rows
- * carry the data, which is the same layout language as every other block here.
+ * NO ORANGE CARD. It had a `border-brand/30 bg-brand-tint/40` panel round it in both popups, on the reasoning that a
+ * phone number wants a visible boundary. - and they are right about what it was costing. Both popups are already behind
+ * an admin check, so the tint was telling the team something the team already knew, and a full-width tinted slab in the
+ * middle of a white sheet is the loudest thing on it. The heading carries the meaning now and the rows carry the data,
+ * which is the same layout language as every other block here.
  */
 export function ContactBlock({ children }) {
   const tr = useT()

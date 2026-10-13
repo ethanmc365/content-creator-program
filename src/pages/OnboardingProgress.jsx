@@ -63,25 +63,20 @@ export function Progress({ step, total, barPct, current, onLeave, leaving, userI
   const tr = useT()
   return (
     <div className="relative mb-8 flex w-full flex-col items-center gap-5">
-      {/* THE LANGUAGE, WITHIN REACH ALL THE WAY THROUGH (2 Oct 2026): somebody who picked it on the front
-          page can change their mind on any screen, and the answer is kept on the device and on the profile. */}
+      {/* THE LANGUAGE, WITHIN REACH ALL THE WAY THROUGH: somebody who picked it on the front page can change their mind
+          on any screen, and the answer is kept on the device and on the profile. */}
       <div className="absolute right-0 top-0 z-10">
         <LanguagePicker userId={userId} />
       </div>
-      {/* THE MARK IS THE BUTTON (8 Sep 2026).
-          It was an `img`, sitting decoratively above the bar while a squished
-          copy of itself in the corner did the actual navigating. It is a
-          `button` now - a real one, so it is reachable by keyboard and reads as
-          a control to a screen reader, which an image never did - and the hover
-          RAISES it, which is the whole of Ethan's "hovering over that button
-          should raise it so it actually shows that it's a clickable button".
-          The lift is the same -translate-y-0.5 and shadow-lift step every other
-          pressable card in the product uses, so it is this platform's own
-          gesture rather than a new one invented for one screen.
+      {/* THE MARK IS THE BUTTON. It was an `img`, sitting decoratively above the bar while a squished copy of itself in
+          the corner did the actual navigating. It is a `button` now - a real one, so it is reachable by keyboard and
+          reads as a control to a screen reader, which an image never did - and the hover RAISES it, which is the whole
+          of the team's "hovering over that button should raise it so it actually shows that it's a clickable button".
+          The lift is the same -translate-y-0.5 and shadow-lift step every other pressable card in the product uses, so
+          it is this platform's own gesture rather than a new one invented for one screen.
 
-          `hoverable:` gates it on a device that genuinely has a pointer: on a
-          phone a :hover state latches after a tap and stays applied, so the
-          logo would sit lifted for the rest of the session.
+          `hoverable:` gates it on a device that genuinely has a pointer: on a phone a:hover state latches after a tap
+          and stays applied, so the logo would sit lifted for the rest of the session.
 
           The label is on the button rather than the image, because what this
           control DOES is leave - "Tryp.com" as alt text would announce a

@@ -10,14 +10,12 @@ import { viewerZone } from '../../lib/eventTime'
 import { useT } from '../../lib/i18n'
 import { eventsApi } from '../../api/events'
 
-// A VIP'S MONTH, PLANNED ON THE CALENDAR (3 Oct 2026).
+// A VIP'S MONTH, PLANNED ON THE CALENDAR.
 //
-// Ethan: "the calendars are currently blank for them ... Maybe they could have a suggested content plan to reach the
-// goal of posting 5 videos and getting the views, where they could add to their calendar ... post one video here, post
-// one video here, just something simple." The stay-in rule is N videos a month (5 by default, `req_videos`), so the
-// card spreads the videos still to post evenly over the days left - never on the last day, which is the day a reading
-// can still be missing - and one press puts them on the calendar as the creator's own events at 6pm, when most of them
-// post. Each suggested day says whether it is already there, so pressing twice adds nothing twice.
+// The stay-in rule is N videos a month (5 by default, `req_videos`), so the card spreads the videos still to post evenly
+// over the days left - never on the last day, which is the day a reading can still be missing - and one press puts them
+// on the calendar as the creator's own events at 6pm, when most of them post. Each suggested day says whether it is
+// already there, so pressing twice adds nothing twice.
 export const PLAN_TITLE = 'Post a VIP video'
 
 export function planDays({ now, endsAt, done, target }) {

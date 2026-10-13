@@ -24,23 +24,19 @@ export const STEPS = [
 ]
 
 // THE SHORT VERSION, FOR SOMEBODY APPLYING TO WORK ON THE PROGRAMME RATHER
-// THAN TO CREATE FOR IT (29 Sep 2026).
+// THAN TO CREATE FOR IT.
 //
-// Ethan: "a shortened signup (name, photo, bio, tutorial; no bank details or
-// socials)". Four of the nine steps only make sense for a creator: where you
-// post, the languages you film in, your travel map and your travel photos. A
-// market manager has no channels to link and is not entering challenges, and
-// asking them to tap countries on a map before they can run one is the kind of
-// thing that makes a tool feel like it was built for somebody else.
+// Four of the nine steps only make sense for a creator: where you post, the languages you film in, your travel map and
+// your travel photos. A market manager has no channels to link and is not entering challenges, and asking them to tap
+// countries on a map before they can run one is the kind of thing that makes a tool feel like it was built for somebody
+// else.
 //
 // The steps are a LIST now rather than the module constant, so the progress
 // bar, "step 3 of 5", the Back button and the resume-where-you-left-off logic
 // all keep working off the same array without any of them knowing why it is
 // shorter.
-// TRAVEL PHOTOS STAY, AS AN OPTIONAL STEP (29 Sep 2026). Ethan: "give them the option
-// to add travel photos too, but obviously they can easily skip." The photos are what
-// make a profile feel like a person's on the team page; the channels, languages and
-// map are still a creator's business only.
+// TRAVEL PHOTOS STAY, AS AN OPTIONAL STEP. The photos are what make a profile feel like a person's on the team page; the
+// channels, languages and map are still a creator's business only.
 export const TEAM_SKIP = new Set(['socials', 'languages', 'map'])
 
 export const stepsFor = (team) => (team ? STEPS.filter((s) => !TEAM_SKIP.has(s.key)) : STEPS)
@@ -77,11 +73,9 @@ export const DEMO_DRAFT = {
 
 // THE DRAFT AS PROFILE COLUMNS.
 //
-// One shape, written by two callers: the autosave that runs on every step
-// change, and the single submit at the end. They were one inline object inside
-// `finish` until 8 Sep 2026, which is the reason the autosave did not exist -
-// there was nothing to reuse, and a second hand-written copy of twenty columns
-// is a guarantee that the two will disagree eventually.
+// One shape, written by two callers: the autosave that runs on every step change, and the single submit at the end. They
+// were one inline object inside `finish`, which is the reason the autosave did not exist - there was nothing to reuse,
+// and a second hand-written copy of twenty columns is a guarantee that the two will disagree eventually.
 //
 // WHAT IS DELIBERATELY NOT HERE: `onboarded`, `timezone` and the geocoded
 // coordinates. Those are facts about FINISHING, not about the answers, and the
@@ -121,22 +115,13 @@ export function draftProblems(draft, contact, { team = false } = {}) {
   if (!draft.country_code) p.push({ step: 'based', text: 'Choose the country you live in' })
   if (!draft.city?.trim()) p.push({ step: 'based', text: 'Add your town or city' })
   if (!draft.dob) p.push({ step: 'based', text: 'Add your date of birth' })
-  // TOO YOUNG IS A RULE, NOT A DATABASE ERROR (4 Sep 2026).
+  // TOO YOUNG IS A RULE, NOT A DATABASE ERROR.
   //
-  // Ethan, submitting a test application: "on the submit profile page I got
-  // this error - your application could not be saved: new row for relation
-  // profiles violates check constraint profiles_age_check. This shows up
-  // because the date of birth I entered was less than 18 years old. Change it
-  // so that if they're too young it shows a popup saying they're too young and
-  // to reapply later, rather than a weird error message."
-  //
-  // He is right twice over. The rule was only ever enforced by
-  // `profiles_age_check`, which is the LAST line of defence and speaks
-  // Postgres - so somebody was allowed to fill in nine screens and was then
-  // handed a constraint name. And the check never ran until Submit, at the far
-  // end of the flow, when the answer was known on the screen where the date was
-  // typed. It is a validation problem now: named at the field, blocking on the
-  // step, and refused with a sentence rather than an error at the end.
+  // they are right twice over. The rule was only ever enforced by `profiles_age_check`, which is the LAST line of
+  // defence and speaks Postgres - so somebody was allowed to fill in nine screens and was then handed a constraint name.
+  // And the check never ran until Submit, at the far end of the flow, when the answer was known on the screen where the
+  // date was typed. It is a validation problem now: named at the field, blocking on the step, and refused with a
+  // sentence rather than an error at the end.
   else if (ageFromDob(draft.dob) != null && ageFromDob(draft.dob) < MIN_AGE) {
     p.push({ step: 'based', text: 'You need to be at least {n} to join', vars: { n: MIN_AGE } })
   }
@@ -238,8 +223,7 @@ export function DemoGallery() {
   )
 }
 
-// THE ONE ANSWER TO AN UNDER-18 DATE OF BIRTH (12 Oct 2026), in Ethan's words: "just show a popup saying this community
-// is only for creators aged 18 or over". Shown when the date is typed and again if they reach Submit with it.
+// THE ONE ANSWER TO AN UNDER-18 DATE OF BIRTH, in Shown when the date is typed and again if they reach Submit with it.
 export function tooYoungNotice(tr) {
   return notice(
     tr('Nothing has been sent. You are very welcome to apply once you turn 18.'),

@@ -15,11 +15,7 @@ import { DateField } from '../components/DateTimeFields'
 import { useLocale, useT } from '../lib/i18n'
 import { contentApi } from '../api/content'
 
-// WHAT'S NEW (6 Oct 2026).
-//
-// Ethan: "a page to share all the updates ... all the new features, improvements, every time they do this ... in the profile
-// dropdown, right above the get help button ... clean UI and animations ... I should be able to edit them and add new notes when
-// there are new features. Ensure you use the heading tools, bold, bullet points etc."
+// WHAT'S NEW.
 //
 // So: a timeline, newest first, grouped by month. Every card is a title and one line; pressing it opens the write-up (headings, bold,
 // bullets - the same markdown the notes and the resource library use). The team writes and edits them here with the same formatting
@@ -50,7 +46,7 @@ export default function Updates() {
   const [error, setError] = useState('')
   const [edit, setEdit] = useState(null) // {} for a new one, a row to edit
   const [open, setOpen] = useState(() => new Set())
-  // WHICH KIND (12 Oct 2026): "make it even more easy to see and understand" - one row of chips narrows the timeline.
+  // WHICH KIND: "make it even more easy to see and understand" - one row of chips narrows the timeline.
   const [kindFilter, setKindFilter] = useState('all')
   const [seenThen] = useState(() => { try { return localStorage.getItem(SEEN_KEY) || '' } catch { return '' } })
 

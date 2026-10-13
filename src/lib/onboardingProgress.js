@@ -1,13 +1,5 @@
 // HOW FAR SOMEBODY GOT BEFORE THEY STOPPED.
 //
-// Ethan: "if you go to the creators in the admin panel it shows the creators
-// that partly signed up - they're dealing with their profile. This should not
-// be showing up here. The only ones to drop here are creators that are actually
-// accepted into the community. For these ones that partly signed up, I want
-// them to go onto the applications thing, a separate section where market
-// managers can review it and maybe reach out to them... and maybe give a little
-// pointer to where they actually dropped off."
-//
 // The roster and the queue were one list because the DATABASE has one table,
 // which is a reason to write this file rather than a reason to show a country
 // manager forty people who never finished a form.

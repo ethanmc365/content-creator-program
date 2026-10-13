@@ -9,22 +9,16 @@ import { TEAM_LEAD } from '../lib/team'
 
 // WHO TO ASK. One person, by name, with an address you can copy.
 //
-// THE BUG THIS FIXES. "Radio us in" was a `mailto:` link, and a mailto link is
-// a coin toss: on a desktop with no mail client configured it opens nothing at
-// all, and on one with a client that is never used it launches an app the
-// reader has no intention of sending from and then does, as Ethan put it,
-// "nothing". Either way the person who hit an error is now looking at a second
-// broken thing. A card they can read and copy from cannot fail in any of those
-// ways, and it also answers the question a support address does not: who is
-// this, and are they actually going to read it.
+// THE BUG THIS FIXES. "Radio us in" was a `mailto:` link, and a mailto link is a coin toss: on a desktop with no mail
+// client configured it opens nothing at all, and on one with a client that is never used it launches an app the reader
+// has no intention of sending from and then does, as the team put it, "nothing". Either way the person who hit an error
+// is now looking at a second broken thing. A card they can read and copy from cannot fail in any of those ways, and it
+// also answers the question a support address does not: who is this, and are they actually going to read it.
 //
-// THE ADDRESS ITSELF NOW LIVES IN `lib/team` and is shared with the legal pages
-// and the Get help section, because it was written out by hand in six files and
-// three of them disagreed. A REAL FACE, AND A STATIC ONE: this was
-// `<Avatar name>` with no src, so the card offered help from a grey circle with
-// an "E" in it. Ethan: "it should show my profile picture from the platform,
-// not just E." The reasons the photo is a file rather than a query are in
-// lib/team - they are the reasons this screen exists.
+// THE ADDRESS ITSELF NOW LIVES IN `lib/team` and is shared with the legal pages and the Get help section, because it was
+// written out by hand in six files and three of them disagreed. A REAL FACE, AND A STATIC ONE: this was `<Avatar name>`
+// with no src, so the card offered help from a grey circle with an "E" in it. The reasons the photo is a file rather
+// than a query are in lib/team - they are the reasons this screen exists.
 const HELP = TEAM_LEAD
 
 function ContactCard({ open, onClose }) {
@@ -85,9 +79,8 @@ function Footnote({ children }) {
 // visual language for "hold on a moment, but worse" would be a new thing to
 // learn at the moment somebody is least willing to learn one.
 //
-// The copy is Ethan's: a mayday that admits the problem, says help is already
-// on the way, and gives a radio to call in on. Light, because a stack trace is
-// not the reader's fault and a stern error page implies it might be.
+// The copy is the team's: a mayday that admits the problem, says help is already on the way, and gives a radio to call
+// in on. Light, because a stack trace is not the reader's fault and a stern error page implies it might be.
 export function ErrorScreen({ onRetry, detail }) {
   const tr = useT()
   const [help, setHelp] = useState(false)

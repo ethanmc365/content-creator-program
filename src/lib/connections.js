@@ -36,9 +36,6 @@ export async function loadRelationship(myId, otherId) {
 
 // THE PEOPLE, NOT THE NUMBER.
 //
-// Ethan: "mutual connections showing up on a profile, I think that would be
-// good to have, so it shows just connected with who kind of."
-//
 // A count answers "do we overlap"; the faces answer "should I say hello", which
 // is the question somebody is actually asking on a profile. Two queries and one
 // intersection, capped - a profile is not the place to list forty people, and

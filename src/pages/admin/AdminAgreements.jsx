@@ -17,7 +17,7 @@ import { guardianEmail, guardianEmailLang } from '../../lib/guardianEmail'
 import { vipApi } from '../../api/vip'
 import { agreementsApi } from '../../api/agreements'
 
-// ADMIN > AGREEMENTS (7 Oct 2026).
+// ADMIN > AGREEMENTS.
 //
 // The two documents (Community Terms for every creator, the VIP Creator Agreement for VIPs), each as a list of
 // versions. A published version is frozen: acceptances point at its exact text. To change one, start a new version (a
@@ -58,8 +58,8 @@ const sampleFill = (t = '') => String(t || '')
 
 export default function AdminAgreements() {
   const { profile } = useAuth()
-  // THREE DOCUMENTS (10 Oct 2026): the official creators sign their own agreement, stored as a 'vip' agreement tied to their
-  // official programme (migration 379), so the gate, the register and Settings > Agreements all work unchanged.
+  // THREE DOCUMENTS: the official creators sign their own agreement, stored as a 'vip' agreement tied to their official
+  // programme (migration 379), so the gate, the register and Settings > Agreements all work unchanged.
   const [tab, setTab] = useState('creator')
   const audience = tab === 'creator' ? 'creator' : 'vip'
   const [market, setMarket] = useState('') // '' = every VIP market (the shared version), else a programme id
@@ -141,8 +141,8 @@ export default function AdminAgreements() {
     <div className="page max-w-6xl">
       <PageHeader back="/admin" title="Agreements" />
 
-      {/* THE DOCUMENTS (13 Oct 2026, smaller again): one slim pill each, in a single row that swipes on a phone. The pill
-          says which document, and a dot says whether it is live. */}
+      {/* THE DOCUMENTS (smaller again): one slim pill each, in a single row that swipes on a phone. The pill says which
+          document, and a dot says whether it is live. */}
       <div role="tablist" aria-label="Documents" className="-mx-4 mb-4 flex gap-2 overflow-x-auto px-4 pb-1 pt-0.5 [scrollbar-width:none] sm:mx-0 sm:px-0 [&::-webkit-scrollbar]:hidden">
         {docCards.map((c, i) => {
           const picked = tab === c.value
@@ -282,9 +282,9 @@ function PublishedView({ doc, onPreview }) {
 const LANG_NAMES = { en: 'English', es: 'Spanish', pt: 'Portuguese', de: 'German', ro: 'Romanian' }
 
 /**
- * THE SAME DOCUMENT IN THE OTHER APP LANGUAGES (12 Oct 2026, migration 388). A creator reads, accepts and gets a signed
- * copy in their own language when one exists here; English otherwise. Each translation says the English text prevails.
- * They are locked with the document once it is published. A draft edited after translating needs them redone.
+ * THE SAME DOCUMENT IN THE OTHER APP LANGUAGES (migration 388). A creator reads, accepts and gets a signed copy in their
+ * own language when one exists here; English otherwise. Each translation says the English text prevails. They are locked
+ * with the document once it is published. A draft edited after translating needs them redone.
  */
 function Translations({ doc, draft = false }) {
   const [rows, setRows] = useState(null)
@@ -336,9 +336,8 @@ function PreviewButtons({ doc, onPreview, label = 'Preview as a creator' }) {
 }
 
 /**
- * IS IT ON? (7 Oct 2026). Ethan: "There should also be a link for me to turn this on because currently it says
- * 'Draft', but at the bottom it says 'Publish V1'." The answer to "are creators being asked?" is now the first thing
- * on the page, with the button that changes it beside it.
+ * IS IT ON?. The answer to "are creators being asked?" is now the first thing on the page, with the button that changes
+ * it beside it.
  */
 function StatusBanner({ audience, official = false, live, draft, market, sharedLive, canStart, startLabel, onStart, onPublish, onPreview, onOpen }) {
   const who = official ? `every official creator in ${String(market || '').replace(/^Tryp\.com Official /, '') || 'this market'}` : audience === 'vip' ? (market ? `VIPs in ${market}` : 'every VIP') : 'every creator'
@@ -374,7 +373,7 @@ function DraftEditor({ doc, hasLive, onSaved, onPreview, onPublish }) {
   const [note, setNote] = useState(doc.change_note || '')
   const [sig, setSig] = useState(doc.requires_signature)
   const [busy, setBusy] = useState(false)
-  // TEXT SIZE FOR THE PERSON EDITING (9 Oct 2026): a view setting, never saved into the agreement.
+  // TEXT SIZE FOR THE PERSON EDITING: a view setting, never saved into the agreement.
   const [size, setSize] = useState('md')
   const dirty = title !== doc.title || summary !== doc.summary || body !== doc.body || note !== (doc.change_note || '') || sig !== doc.requires_signature
 
@@ -437,7 +436,7 @@ function DraftEditor({ doc, hasLive, onSaved, onPreview, onPublish }) {
 
 function Register({ doc }) {
   const [rows, setRows] = useState(undefined)
-  // OUR COPY OF A SIGNED AGREEMENT (10 Oct 2026): the same PDF the creator downloads, from the frozen signed text.
+  // OUR COPY OF A SIGNED AGREEMENT: the same PDF the creator downloads, from the frozen signed text.
   const [pdfBusy, setPdfBusy] = useState(null)
   async function pdf(r) {
     setPdfBusy(r.profile_id)
@@ -456,9 +455,9 @@ function Register({ doc }) {
   useEffect(() => {
     let alive = true
     agreementsApi.agreementRegister({ p_agreement: doc.id }).then(({ data }) => { if (alive) setRows(data || []) })
-    // Under-18s: has their parent or guardian confirmed on the link yet (migration 367)?
-    // 12 Oct 2026: with the token, so the team can email the parent the link (the creator no longer sends it), and the
-    // creator's language and country, to write to the parent in theirs.
+    // Under-18s: has their parent or guardian confirmed on the link yet (migration 367)?: with the token, so the team
+    // can email the parent the link (the creator no longer sends it), and the creator's language and country, to write
+    // to the parent in theirs.
     agreementsApi.guardianConsents().select('token, confirmed_at, confirmed_name, agreement_acceptances!inner(profile_id, agreement_id, profiles!agreement_acceptances_profile_id_fkey(locale, country))')
       .eq('agreement_acceptances.agreement_id', doc.id)
       .then(({ data }) => { if (alive) setGuardians(Object.fromEntries((data || []).map((g) => [g.agreement_acceptances.profile_id, g]))) })
@@ -529,8 +528,8 @@ function Register({ doc }) {
 }
 
 /**
- * A PARENT TO EMAIL (12 Oct 2026). Ethan sends the parent the link himself, so the row holds everything for that email:
- * the address, the link, and the whole message in the parent's likely language, each a press to copy.
+ * A PARENT TO EMAIL. The team sends the parent the link himself, so the row holds everything for that email: the
+ * address, the link, and the whole message in the parent's likely language, each a press to copy.
  */
 function GuardianRow({ r, g }) {
   const url = g?.token ? guardianUrl(g.token) : null

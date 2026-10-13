@@ -23,11 +23,7 @@ export default function Landing() {
   const tr = useT()
   const { asked: demoAsked } = useDemoMode()
   const { user, loading } = useAuth()
-  // NULL, NOT A PLAUSIBLE-LOOKING GUESS (4 Sep 2026).
-  //
-  // Ethan: "I noticed an issue with the 44 creators, 2 challenges run and the
-  // prizes awarded figures whenever the page first loads. They show incorrect -
-  // it shows 40 creators and 6 challenges run, and then it fixes itself."
+  // NULL, NOT A PLAUSIBLE-LOOKING GUESS.
   //
   // Those were the INITIAL STATE: `{ creators: 40, challenges: 6, prizes: 500 }`,
   // hard-coded here as a placeholder some months ago and never revisited. They
@@ -54,19 +50,14 @@ export default function Landing() {
     return () => window.removeEventListener('scroll', onScroll)
   }, [])
 
-  // NOTHING ENTERS UNTIL THE BOOT LAYER HAS GONE (9 Sep 2026).
+  // NOTHING ENTERS UNTIL THE BOOT LAYER HAS GONE.
   //
-  // Ethan: "the Create. Travel. Earn. - there's still no animation there, it
-  // just loads in."
-  //
-  // There was one, and it ran perfectly, underneath an opaque white sheet. The
-  // hero words animate the moment React commits; `index.html`'s `#boot` layer
-  // is on screen until main.jsx has something real to hand over to, which on a
-  // phone is several hundred milliseconds LATER. So on a desktop the entrance
-  // was mostly visible and on a phone it was entirely finished before anyone
-  // saw the page - which is precisely the difference he reported between the
-  // two. This is the same class of bug as the one in Reveal.jsx: an animation
-  // that runs perfectly and is invisible because it ran in the wrong place.
+  // There was one, and it ran perfectly, underneath an opaque white sheet. The hero words animate the moment React
+  // commits; `index.html`'s `#boot` layer is on screen until main.jsx has something real to hand over to, which on a
+  // phone is several hundred milliseconds LATER. So on a desktop the entrance was mostly visible and on a phone it was
+  // entirely finished before anyone saw the page - which is precisely the difference they reported between the two. This
+  // is the same class of bug as the one in Reveal.jsx: an animation that runs perfectly and is invisible because it ran
+  // in the wrong place.
   //
   // `is-ready` is what starts every CSS entrance on this page (see
   // `.landing-page` in index.css - they are all `animation-play-state: paused`
@@ -83,9 +74,7 @@ export default function Landing() {
     return () => window.removeEventListener('keydown', onKey)
   }, [miniProfile])
 
-  // THE ENTRANCE STARTS WHEN THE SHEET HAS GONE, NOT WHEN IT STARTS TO GO
-  // (10 Sep 2026). Ethan, on the phone: "we still don't have those animations
-  // for Create Earn Travel - they just appear up, everything there flashes up."
+  // THE ENTRANCE STARTS WHEN THE SHEET HAS GONE, NOT WHEN IT STARTS TO GO.
   //
   // `useBootGone` fires when `#boot` begins its 160ms fade, so the first 130ms
   // of a 520ms word - the part carrying the 26px rise and the overshoot - ran
@@ -102,8 +91,8 @@ export default function Landing() {
 
   const [wall, setWall] = useState([])
 
-  // ONLY FOR SOMEBODY WHO WILL SEE THEM (13 Oct 2026). A signed-in creator who lands here is sent on to /home a
-  // moment later, and four public RPCs went out for a page they never saw - on every visit to the bare address.
+  // ONLY FOR SOMEBODY WHO WILL SEE THEM. A signed-in creator who lands here is sent on to /home a moment later, and four
+  // public RPCs went out for a page they never saw - on every visit to the bare address.
   const showsPage = !loading && (!user || demoAsked)
   useEffect(() => {
     if (!showsPage) return
@@ -143,8 +132,7 @@ export default function Landing() {
     // `clip` clips without becoming one.
     <div className={cx('landing-page overflow-x-clip bg-white', ready && 'is-ready')}>
       {/* ---------- Nav ---------- */}
-      {/* THE TOP BAR, THIRD VERSION (4 Sep 2026). Ethan: "the top bar design
-          doesn't look good, that can be improved."
+      {/* THE TOP BAR, THIRD VERSION.
 
           The last one was a full-width strip with a hairline under it - which
           is the header of an application, and this is not an application, it is
@@ -172,12 +160,7 @@ export default function Landing() {
         >
           <Link to="/" className="landing-lift flex items-center gap-2.5">
             <img src="/brand/tryp-logo-360.png" alt="Tryp.com" className="h-8 rounded-lg sm:h-9" />
-            {/* GREY, NOT INK (8 Sep 2026). Ethan: "at the very top bar where it
-                says Content Creator Community, it's in black, and then the
-                Tryp.com sign and the login button - it's in like a grey. I
-                think it'd be better to also make the Content Creator Community
-                in grey, it would just match better with that little bar at the
-                top."
+            {/* GREY, NOT INK.
 
                 Right, and the reason is that the bar has exactly one thing in
                 it that is meant to be loud, which is Join us. Full-strength ink
@@ -214,16 +197,10 @@ export default function Landing() {
       </header>
 
       {/* ---------- Hero ---------- */}
-      {/* THE HERO ARRIVES A WORD AT A TIME (4 Sep 2026).
+      {/* THE HERO ARRIVES A WORD AT A TIME.
 
-          Ethan: "I want super clean animations for these, not just fading, but
-          something more complex and cool that really stands out... maybe just
-          show the dots popping in nicely, or the words popping in, really work
-          and do a nice animation there. Also, hovering over everything I want
-          to magnify a bit, even 'Create. Earn. Travel.'"
-
-          THE COPY AND THE WHITE SPACE ARE UNTOUCHED - the two things he has
-          said twice are already right. What changed is the motion.
+          THE COPY AND THE WHITE SPACE ARE UNTOUCHED - the two things they have said twice are already right. What
+          changed is the motion.
 
           A fade-up is a transition; a word that rises, overshoots its resting
           place by four pixels, pulls into focus out of a six-pixel blur and
@@ -238,10 +215,7 @@ export default function Landing() {
           THE BADGE ABOVE IT is no longer a flat brand-tint chip: it is a white
           pill on a hairline ring carrying a live dot, and it lands BEFORE the
           headline, so the page reads top to bottom rather than all at once. */}
-      {/* THE PHONE GETS ITS OWN SPACING, NOT THE DESKTOP'S DIVIDED BY NOTHING
-          (9 Sep 2026). Ethan: "on mobile it is terrible... buttons are maybe
-          too big or there's too much white space, and everything just doesn't
-          look well on mobile."
+      {/* THE PHONE GETS ITS OWN SPACING, NOT THE DESKTOP'S DIVIDED BY NOTHING.
 
           Measured before this pass, at 375x812: the page was 5,644px - SEVEN
           screens - and about a fifth of that was padding. Every section carried
@@ -251,10 +225,7 @@ export default function Landing() {
           height, and wrong on a phone, where it is a quarter of it. So the
           spacing is a step now rather than a constant, everywhere on this page.
           Nothing about the desktop layout changes. */}
-      {/* AND THEN IT WAS TOO TIGHT (9 Sep 2026). Ethan, after the compaction:
-          "you seem to have compacted it a bit more. I think there should be
-          more white space around Create Earn Travel, the Become a creator and
-          Log in buttons, and the thing showing the challenges."
+      {/* AND THEN IT WAS TOO TIGHT.
 
           The first pass took a page that was seven screens on a phone down to
           three and a half, which was right, and then took the hero with it: at
@@ -269,17 +240,11 @@ export default function Landing() {
           aria-hidden
           className="hero-bloom pointer-events-none absolute left-1/2 top-0 -z-10 h-[28rem] w-[52rem] max-w-[130%] -translate-x-1/2 rounded-full bg-brand-tint/60 blur-3xl"
         />
-        {/* THE BADGE OVER THE HEADLINE IS GONE (4 Sep 2026). Ethan: "I think
-            the Tryp.com Content Creator Community that shows above that is
-            unnecessary, because we have Creator Community on the top left in
-            the top bar - but I would change that to Content Creator Community
-            and remove the one directly above Create Earn Travel."
+        {/* THE BADGE OVER THE HEADLINE IS GONE.
 
-            He is right and the reason is worth keeping: it was the same
-            sentence twice on one screen, thirty pixels apart, and the one in
-            the top bar is the one that belongs there - a masthead names the
-            thing you are looking at. Saying it again immediately above the
-            headline pushed "Create. Earn. Travel." down the page to make room
+            they are right and the reason is worth keeping: it was the same sentence twice on one screen, thirty pixels
+            apart, and the one in the top bar is the one that belongs there - a masthead names the thing you are looking
+            at. Saying it again immediately above the headline pushed "Create. Earn. Travel." down the page to make room
             for a label the reader had just read. */}
         <h1 className="mx-auto max-w-3xl text-[clamp(2.5rem,12vw,3.25rem)] font-bold leading-[1.05] tracking-tight sm:text-7xl">
           {/* Three spans, three delays. `aria-hidden` is NOT used and must not
@@ -337,9 +302,7 @@ export default function Landing() {
           motion-free copy of that rule, because the landing page must not pull
           in the Motion runtime. */}
       <section className="border-y border-gray-100 bg-cloud/50">
-        {/* THE THIRD FIGURE HAS THE MOST CHARACTERS AND THE LEAST ROOM
-            (8 Sep 2026). Ethan: "for that nine thousand plus, it's going off
-            the screen, it doesn't fit well there."
+        {/* THE THIRD FIGURE HAS THE MOST CHARACTERS AND THE LEAST ROOM.
 
             Measured on a 375px viewport: each column is 96px wide and
             "EUR 9,000+" needs 128px at 30px type. Thirty-two pixels over, so it
@@ -361,15 +324,7 @@ export default function Landing() {
           {[
             { key: 'creators', value: stats?.creators, label: 'Creators', format: (n) => String(n) },
             { key: 'challenges', value: stats?.challenges, label: 'Challenges run', format: (n) => String(n) },
-            // PRIZES ARE ROUNDED DOWN AND CARRY A PLUS (8 Sep 2026).
-            //
-            // Ethan: "we don't wanna say exactly how much we've given away,
-            // obviously, but because we uploaded that historical data of the
-            // challenges we can now show the number of how much you actually
-            // give out. Maybe just say whatever the thousand is, then a plus
-            // sign to show that we actually give more than that. So if we gave
-            // five thousand three hundred, you just go five thousand with the
-            // plus."
+            // PRIZES ARE ROUNDED DOWN AND CARRY A PLUS.
             //
             // `prizeFloor` does the rounding (see below); the PLUS is rendered
             // as a separate static character rather than inside `format`,
@@ -380,19 +335,13 @@ export default function Landing() {
             // The plus is a fact about the figure, not about the animation, so
             // it is on screen from the first frame and never moves.
             { key: 'prizes', value: prizeFloor(stats?.prizes), label: 'Prizes awarded', format: money, suffix: prizeFloor(stats?.prizes) < stats?.prizes ? '+' : '' },
-            // SOONER (10 Sep 2026). Ethan: "the 48 creators, challenges run and
-            // prizes awarded animation is slightly delayed - just make it start
-            // slightly sooner." The tile's own entrance is 340ms now rather than
-            // 420 (`.stat-in` in index.css) and the ladder between the three is
-            // 35ms rather than 45, so the last figure begins counting 160ms
-            // earlier than it did. The count still waits for the tile to land -
-            // see `Tally` - because those two running on the same frames is what
-            // made the band judder.
+            // SOONER. The tile's own entrance is 340ms now rather than 420 (`.stat-in` in index.css) and the ladder
+            // between the three is 35ms rather than 45, so the last figure begins counting 160ms earlier than it did.
+            // The count still waits for the tile to land - see `Tally` - because those two running on the same frames is
+            // what made the band judder.
           ].map((s, i) => (
             <div key={s.key} className={stats ? 'stat-in' : undefined} style={stats ? { animationDelay: `${i * 35}ms` } : undefined}>
-              {/* TABULAR FIGURES, AND THE WHOLE REASON THIS BAND WAS JUDDERING
-                  (9 Sep 2026). Ethan: "those numbers animate in now, but it's a
-                  bit glitchy at the start, it goes really juttery."
+              {/* TABULAR FIGURES, AND THE WHOLE REASON THIS BAND WAS JUDDERING.
 
                   Poppins' default figures are PROPORTIONAL - a 1 is narrower
                   than a 4 - so a counter running to €9,000 re-measures and
@@ -407,45 +356,37 @@ export default function Landing() {
                   longer starts until the tile has finished arriving, so the two
                   animations are in sequence rather than on top of each other.
 
-                  ROOM FOR FIVE FIGURES (9 Sep 2026). Ethan: "ensure that
-                  whenever the prizes awarded exceeds ten thousand and we're in
-                  double figures, there's space for that on the phone, because
-                  currently it looks like there isn't." Measured at 375px:
-                  "€10,000+" is 8 glyphs against "€9,000+"'s 7, and the old
-                  clamp floor of 1.35rem left it 6px over its column. The floor
-                  drops to 1.15rem and the column gap and page padding each give
-                  back 4px, which fits "€10,000+" at 320px with room to spare -
-                  and none of it changes what a screen that can hold the number
-                  displays, because the clamp is still 1.875rem at its top and
-                  `sm:text-5xl` still takes over completely at 640px. */}
+                  ROOM FOR FIVE FIGURES. Measured at 375px: "€10,000+" is 8 glyphs against "€9,000+"'s 7, and the old
+                  clamp floor of 1.35rem left it 6px over its column. The floor drops to 1.15rem and the column gap and
+                  page padding each give back 4px, which fits "€10,000+" at 320px with room to spare - and none of it
+                  changes what a screen that can hold the number displays, because the clamp is still 1.875rem at its top
+                  and `sm:text-5xl` still takes over completely at 640px. */}
               <p className="text-[clamp(1.15rem,6.1vw,1.875rem)] font-bold leading-tight tracking-tight text-brand [font-variant-numeric:tabular-nums] sm:text-5xl">
                 {stats
                   ? <><Tally value={s.value} format={s.format} delay={340 + i * 35} />{s.suffix}</>
-                  /* THE PLACEHOLDER IS INVISIBLE, NOT ORANGE (8 Sep 2026).
-                     Ethan: "whenever it's first loading it shows up like the
-                     orange square there, and then the numbers start appearing
-                     and counting up. I really like the animation, it's just
-                     that orange square shouldn't appear there at all."
-
-                     It was `bg-brand/10` - a tinted block sized to the number
-                     that was coming. The intent was right and the execution
-                     announced itself: three orange rectangles are a louder
-                     thing on an empty white band than the numbers that replace
-                     them, so the band read as loading UI rather than as a page
-                     about to speak. The job it was actually doing is RESERVING
-                     THE LINE so nothing below it jumps when the answer lands,
-                     and an empty inline-block of the same height does that
-                     without being seen. The numbers now simply fade up into a
-                     space that was always quietly theirs.
-
-                     `align-top` rather than `align-middle`, and that is a
-                     measurement rather than a preference: an inline-block on
-                     the middle baseline sits its own box on top of the font's
-                     descent, so the placeholder line measured 51.1px against
-                     the real number's 48 and the whole page below it stepped up
-                     3px at the moment the figures landed. The reserve is only
-                     doing its job if it is the SAME height as what replaces
-                     it. */
+                  /*
+                   * THE PLACEHOLDER IS INVISIBLE, NOT ORANGE.
+                   *
+                   * It was `bg-brand/10` - a tinted block sized to the number
+                   * that was coming. The intent was right and the execution
+                   * announced itself: three orange rectangles are a louder
+                   * thing on an empty white band than the numbers that replace
+                   * them, so the band read as loading UI rather than as a page
+                   * about to speak. The job it was actually doing is RESERVING
+                   * THE LINE so nothing below it jumps when the answer lands,
+                   * and an empty inline-block of the same height does that
+                   * without being seen. The numbers now simply fade up into a
+                   * space that was always quietly theirs.
+                   *
+                   * `align-top` rather than `align-middle`, and that is a
+                   * measurement rather than a preference: an inline-block on
+                   * the middle baseline sits its own box on top of the font's
+                   * descent, so the placeholder line measured 51.1px against
+                   * the real number's 48 and the whole page below it stepped up
+                   * 3px at the moment the figures landed. The reserve is only
+                   * doing its job if it is the SAME height as what replaces
+                   * it.
+                   */
                   : <span className="inline-block h-[1em] w-16 align-top sm:w-24" aria-hidden />}
               </p>
               <p className="mt-2 text-[11px] font-medium leading-tight text-smoke sm:text-sm">{tr(s.label)}</p>
@@ -454,41 +395,26 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* THE LIVE CHALLENGE CARD IS GONE (3 Sep 2026).
+      {/* THE LIVE CHALLENGE CARD IS GONE.
 
-          Ethan: "on the landing page I think I wouldn't include the challenge
-          card at all, it's not necessary."
-
-          He is right, and the reason is worth keeping so nobody adds it back.
-          It named whichever challenge happened to be running - "Descubre Espana
-          con Tryp.com" - to a stranger who has no market, cannot enter it, and
-          in most cases does not speak the language it is written in. It read as
-          the page advertising something that is not for you. The stats band
-          above already carries the fact that matters to a visitor (challenges
-          run, prizes awarded) without pinning it to one market's brief.
+          they are right, and the reason is worth keeping so nobody adds it back. It named whichever challenge happened
+          to be running - "Descubre Espana con Tryp.com" - to a stranger who has no market, cannot enter it, and in most
+          cases does not speak the language it is written in. It read as the page advertising something that is not for
+          you. The stats band above already carries the fact that matters to a visitor (challenges run, prizes awarded)
+          without pinning it to one market's brief.
 
           `public_live_challenge` and `prizePotLabel` went with it. */}
 
       {/* ---------- Meet the community ----------
 
-          MOVED UP, ABOVE "HOW IT WORKS" (3 Sep 2026). Ethan: "meet the
-          community - this is the top I like, but again we need the animations
-          here. But this is a really important part, and I would maybe put it up
-          a bit higher on the page."
+          MOVED UP, ABOVE "HOW IT WORKS".
 
-          He is right about the order and the reason is worth stating: everything
-          above it is the programme talking about itself, and this is the only
-          section where the reader meets actual people. Coming after two screens
-          of explanation, the most persuasive thing on the page was the thing
-          most readers never reached. It now sits directly under the headline
-          stats, with the explanation after it.
+          they are right about the order and the reason is worth stating: everything above it is the programme talking
+          about itself, and this is the only section where the reader meets actual people. Coming after two screens of
+          explanation, the most persuasive thing on the page was the thing most readers never reached. It now sits
+          directly under the headline stats, with the explanation after it.
 
-          THE MAP IS NOT IN A BOX ANY MORE (9 Sep 2026). Ethan: "expanding the
-          Meet the Community map and changing the background colour so that
-          rather than it looking like it's a map just floating in the middle, it
-          looks like it's actually part of the screen. And obviously it's
-          interactive - that same square will be there, but it's white and
-          you'll not even notice it."
+          THE MAP IS NOT IN A BOX ANY MORE.
 
           Two changes, and the `flush` prop on CreatorMap is one of them: no
           grey hairline, no 20px radius, and the sea painted by the page rather
@@ -499,23 +425,16 @@ export default function Landing() {
           was, on a phone as well, which is the half of the request that was
           already true and had to stay true. */}
       {(mapData.creators.length > 0 || featured.length > 0) && (
-        // LESS AIR UNDER THE RAIL THAN OVER THE HEADING. Ethan: "there's too
-        // much space between Recently active creators and the How it works
-        // title - that should be the same as the other ones."
+        // LESS AIR UNDER THE RAIL THAN OVER THE HEADING.
         //
-        // MEASURED FIRST, AND IT ALREADY WAS the same: 140px from the bottom of
-        // the faces to "How it works", and 140px from the bottom of the How it
-        // works cards to "Why creators join". So what he is seeing is not this
-        // boundary being bigger than its neighbours, it is this boundary being
-        // bigger than everything ABOVE it inside the same section - the map sits
-        // 12px under its own heading and the faces 24px under theirs, so the
-        // section is tight the whole way down and then ends in the page's
-        // standard gap, which by contrast reads as a hole. Closing the section's
-        // own bottom padding rather than the page's rhythm takes it to 116px,
-        // near enough to its neighbour to stop reading as a gap and short enough
-        // to stop the section trailing off.
-        // (If what was actually wanted was 140 everywhere, this is the one line
-        // to put back.)
+        // MEASURED FIRST, AND IT ALREADY WAS the same: 140px from the bottom of the faces to "How it works", and 140px
+        // from the bottom of the How it works cards to "Why creators join". So what they are seeing is not this boundary
+        // being bigger than its neighbours, it is this boundary being bigger than everything ABOVE it inside the same
+        // section - the map sits 12px under its own heading and the faces 24px under theirs, so the section is tight the
+        // whole way down and then ends in the page's standard gap, which by contrast reads as a hole. Closing the
+        // section's own bottom padding rather than the page's rhythm takes it to 116px, near enough to its neighbour to
+        // stop reading as a gap and short enough to stop the section trailing off. (If what was actually wanted was 140
+        // everywhere, this is the one line to put back.)
         <section className="pb-10 pt-16 sm:pb-16 sm:pt-24">
           <div className="mx-auto max-w-6xl px-5 sm:px-8">
             <h2 className="text-center text-[26px] font-bold tracking-tight sm:text-4xl">{tr("Meet the community")}</h2>
@@ -524,14 +443,7 @@ export default function Landing() {
             </p>
           </div>
 
-          {/* TWO TINTS AND A KEY (4 Sep 2026).
-
-              Ethan: "perhaps in Tryp.com orange we could have the countries
-              that everyone lives in, and then in the lighter orange it could be
-              for all the countries we've travelled to. And maybe a little key
-              on the bottom left to show that. Also, you can make this map stand
-              out more, adding more animations to it, like the nice UI of the
-              pins falling in."
+          {/* TWO TINTS AND A KEY.
 
               The map could already draw both - the creator directory has a
               "Been together" toggle - but the PUBLIC rpc only ever sent where
@@ -547,26 +459,18 @@ export default function Landing() {
               actually see, and the pins now land in a capped shower rather than
               all on one frame. Both of those are in CreatorMap, so the
               directory gets them too. */}
-          {/* EDGE TO EDGE, WITH NOTHING BESIDE IT (9 Sep 2026). Ethan:
-                "I do like the improved map, the way it blends in. The only
-                thing is it seems to be cut slightly - it should reach the end
-                smoothly, there's a tiny gap on each side", and on the desktop:
-                "there's quite a big gap on either side. Ensure the map always
-                fits directly to the screen so the edges are just past the
-                screen, so it looks like the whole map is built there."
+          {/* EDGE TO EDGE, WITH NOTHING BESIDE IT., and on the desktop: "there's quite a big gap on either side. Ensure
+              the map always fits directly to the screen so the edges are just past the screen, so it looks like the
+              whole map is built there."
 
-                It had `px-2 sm:px-6` and a 96rem cap - so on a phone the
-                continents stopped 8px short of both edges, which reads as a
-                picture in a frame rather than as part of the page, and on
-                anything past 1536px there were real margins. No padding and no
-                cap: the svg is `width: 100%` and its own aspect ratio decides
-                the height, so "full width" is all it needs to be told. */}
-          {/* THE TITLE BELONGS TO THE MAP, SO IT SITS ON IT (9 Sep 2026).
-              Ethan, twice in one message - once for each width: "do the same
-              thing where you move the Meet the community and the description
-              title down a bit closer to the actual map", and "the community
-              map seems to be too far away from the title. That title and
-              description should be a bit closer to the map."
+              It had `px-2 sm:px-6` and a 96rem cap - so on a phone the
+              continents stopped 8px short of both edges, which reads as a
+              picture in a frame rather than as part of the page, and on
+              anything past 1536px there were real margins. No padding and no
+              cap: the svg is `width: 100%` and its own aspect ratio decides
+              the height, so "full width" is all it needs to be told. */}
+          {/* THE TITLE BELONGS TO THE MAP, SO IT SITS ON IT., and "the community map seems to be too far away from the
+              title. That title and description should be a bit closer to the map."
 
               28/44px of gap was the same measurement every other section on
               this page uses between its heading and its content, and it is
@@ -576,14 +480,7 @@ export default function Landing() {
               its top edge, so an identical gap reads as a much bigger one and
               the heading floats between two sections instead of naming the
               one below it. */}
-          {/* THE MAP IS ITS OWN REVEAL NOW, SO IT IS NOT WRAPPED IN ONE
-              (10 Sep 2026).
-
-              Ethan: "I scrolled on and it shows the community map and it's just
-              frozen... occasionally, if I refresh and scroll down quickly,
-              it'll actually show the animation where the icons drop in nice and
-              the planes are immediately going. So just as I scroll down,
-              everything should appear nicely, not the delay."
+          {/* THE MAP IS ITS OWN REVEAL NOW, SO IT IS NOT WRAPPED IN ONE.
 
               There were TWO entrances here and they knew nothing about each
               other. `Reveal` faded the whole block in when it came near the
@@ -600,12 +497,9 @@ export default function Landing() {
               time container of an SVG that is not being painted - so the
               aircraft were not merely late, they were stopped.
 
-              THE GAP ABOVE IT IS SMALL FOR A REASON. Ethan, earlier: "the Meet
-              the Community sign is still slightly too far away from the map."
-              The number here is only half of why: the svg's northern coast is
-              11.9% of its own height below its top edge (measured - viewBox
-              880x480, land starts at y=57), so about eighty pixels of empty sky
-              get added to whatever is set here on a desktop. */}
+              THE GAP ABOVE IT IS SMALL FOR A REASON. The number here is only half of why: the svg's northern coast is
+              11.9% of its own height below its top edge (measured - viewBox 880x480, land starts at y=57), so about
+              eighty pixels of empty sky get added to whatever is set here on a desktop. */}
           {mapData.creators.length > 0 && (
             <div className="mt-1 w-full sm:mt-1">
               <CreatorMap
@@ -622,21 +516,11 @@ export default function Landing() {
 
           {featured.length > 0 && (
             <div className="mx-auto max-w-6xl px-5 sm:px-8">
-              {/* THE SAME SIZE AS THE OTHER TWO SECTION HEADINGS (9 Sep
-                  2026). Ethan: "recently active creators has a small title
-                  compared to How it works and Why creators join - ensure it has
-                  the same title size." It was an `h3` at 18px because it began
-                  life as a sub-heading of "Meet the community"; it is a section
-                  in its own right and reads as one. Still an `h3` in the
-                  document outline, which is correct - it IS under that h2 -
-                  and simply sized like what it is. */}
+              {/* THE SAME SIZE AS THE OTHER TWO SECTION HEADINGS. It was an `h3` at 18px because it began life as a
+                  sub-heading of "Meet the community"; it is a section in its own right and reads as one. Still an `h3`
+                  in the document outline, which is correct - it IS under that h2 - and simply sized like what it is. */}
               <h3 className="mt-12 text-center text-[26px] font-bold tracking-tight sm:mt-20 sm:text-4xl">{tr("Recently active creators")}</h3>
-              {/* TWENTY PEOPLE, NOT FOUR (9 Sep 2026). Ethan: "it currently
-                  shows four - I think we can show, like, the twenty most active
-                  creators here, and you can scroll through them. So you're
-                  scrolling to the right rather than just scrolling down. And
-                  make sure you can see at least part of one more creator, so
-                  they know they can scroll."
+              {/* TWENTY PEOPLE, NOT FOUR.
 
                   The `limit 4` was migration 022's, written when there were
                   barely four creators; migration 210 raises it to twenty and
@@ -664,11 +548,7 @@ export default function Landing() {
                 stagger={0.06}
                 label={tr("Recently active creators")}
               >
-                {/* THE FACES DO SOMETHING NOW (9 Sep 2026). Ethan: "whenever
-                    you click on recently active creators, it seems to show
-                    nothing. It should show the pop up showing a little bit of
-                    info on the creator, and then you have to sign up to see
-                    everything - like it shows on the travel map."
+                {/* THE FACES DO SOMETHING NOW.
 
                     They were plain divs, which is the worst of both: they lift
                     and magnify under a pointer exactly like every other card on
@@ -689,9 +569,9 @@ export default function Landing() {
                     onClick={() => setMiniProfile(c)}
                     className="landing-lift card flex h-full w-full flex-col items-center gap-2.5 !p-5 text-center sm:gap-3 sm:!p-7 hoverable:hover:shadow-lift"
                   >
-                    {/* CENTRED BY THE BOX, NOT BY THE TEXT (1 Oct 2026). The photo is an inline
-                        <img>, so it sat on a text baseline inside its wrapper and drifted off
-                        centre; the wrapper is a centring flex box now and the image a block. */}
+                    {/* CENTRED BY THE BOX, NOT BY THE TEXT. The photo is an inline <img>, so it sat on a text baseline
+                        inside its wrapper and drifted off centre; the wrapper is a centring flex box now and the image a
+                        block. */}
                     <span className="landing-lift-icon flex w-full justify-center">
                       <Avatar src={c.photo_url} name={c.name} size="lg" className="block" />
                     </span>
@@ -709,53 +589,30 @@ export default function Landing() {
       )}
 
       {/* ---------- How it works ---------- */}
-      {/* THE SAME CLOSING GAP AS THE SECTION ABOVE IT (10 Sep 2026). Ethan:
-          "there's slightly too much space between How it works, those cards,
-          and the Why creators join title - just tidy it up and make sure it's
-          even." Measured on a phone: 116px under the recently-active rail (its
-          own bottom padding was closed last pass) against 140px here, so this
-          was the one left standing at the page's old rhythm. Both are pb-10
-          now, and every heading on the page has the same amount of air over it. */}
+      {/* THE SAME CLOSING GAP AS THE SECTION ABOVE IT. Measured on a phone: 116px under the recently-active rail (its
+          own bottom padding was closed last pass) against 140px here, so this was the one left standing at the page's
+          old rhythm. Both are pb-10 now, and every heading on the page has the same amount of air over it. */}
       <section className="mx-auto max-w-6xl px-5 pb-10 pt-16 sm:px-8 sm:pb-16 sm:pt-24">
         <h2 className="text-center text-[26px] font-bold tracking-tight sm:text-4xl">{tr("How it works")}</h2>
         <p className="mx-auto mt-3 max-w-md text-center text-sm text-smoke sm:mt-4 sm:text-base">{tr("Three steps between you and your first payout.")}</p>
-        {/* THE THREE STEPS ARRIVE IN ORDER, which is the one place on this page
-            where a stagger carries meaning rather than decoration: they are
-            numbered 01, 02, 03 and they are a sequence, so they should land as
-            one. The copy is untouched except for one word - Ethan: "the how it
-            works, that's good. I think you can just improve the UI, but I like
-            the copy."
+        {/* THE THREE STEPS ARRIVE IN ORDER, which is the one place on this page where a stagger carries meaning rather
+            than decoration: they are numbered 01, 02, 03 and they are a sequence, so they should land as one. The copy
+            is untouched except for one word -
 
-            THE THREE CARDS ARE THE SAME HEIGHT (4 Sep 2026). Ethan: "one thing
-            I noticed here is that the Earn card is bigger than the other two
-            cards, which doesn't make sense and looks bad." A grid stretches its
-            ITEMS, and `Reveal` wraps every child in a div of its own - so the
-            three wrappers were all the same height and the cards INSIDE them
-            were not, each sizing to its own paragraph. `h-full` on the card
-            makes it fill the wrapper the grid already sized.
+            THE THREE CARDS ARE THE SAME HEIGHT. A grid stretches its ITEMS, and `Reveal` wraps every child in a div of
+            its own - so the three wrappers were all the same height and the cards INSIDE them were not, each sizing to
+            its own paragraph. `h-full` on the card makes it fill the wrapper the grid already sized.
 
-            AND THE SAME WIDTH, WHICH IS THE OTHER HALF (9 Sep 2026). Ethan:
-            "on the how it works, all those cards should be the same size, so
-            increase them to match each other if you need to." A snap rail sizes
-            each item to a percentage of the SCROLLER, not of the row, so the
-            three were already the same width - what differed was their CONTENT
-            height inside a rail, where `items-stretch` on a flex row makes the
-            wrappers equal and `h-full` was the thing carrying that down to the
-            card. That is now shared with every other rail on the page (see
-            `Rail`), so this cannot drift out of step with the two below it
-            again: one component, one set of widths, one stretch rule.
+            AND THE SAME WIDTH, WHICH IS THE OTHER HALF. A snap rail sizes each item to a percentage of the SCROLLER, not
+            of the row, so the three were already the same width - what differed was their CONTENT height inside a rail,
+            where `items-stretch` on a flex row makes the wrappers equal and `h-full` was the thing carrying that down to
+            the card. That is now shared with every other rail on the page (see `Rail`), so this cannot drift out of step
+            with the two below it again: one component, one set of widths, one stretch rule.
 
-            AND "PARTICIPATION" IS GONE FROM THAT PARAGRAPH. Ethan: "I would
-            remove the word participation - maybe that way you can fit it in."
-            It is internal vocabulary: a creator does not need to know which
-            SORT of voucher it is in order to want one, and dropping it is what
-            gets the sentence onto three lines instead of four, which is most of
-            why that card was the tall one to begin with. */}
-        {/* THREE STEPS READ AS A ROW ON A PHONE TOO (9 Sep 2026).
-
-            Ethan: "the cards are really squished, really long, and it really
-            needs a big redesign... use desktop as your inspiration, surely have
-            the same sort of design."
+            AND "PARTICIPATION" IS GONE FROM THAT PARAGRAPH. It is internal vocabulary: a creator does not need to know
+            which SORT of voucher it is in order to want one, and dropping it is what gets the sentence onto three lines
+            instead of four, which is most of why that card was the tall one to begin with. */}
+        {/* THREE STEPS READ AS A ROW ON A PHONE TOO.
 
             Stacked, these three were 1,322px - one and a half screens for three
             sentences - and worse than merely long: 01, 02 and 03 are a
@@ -764,13 +621,10 @@ export default function Landing() {
             three are beside each other, and that is the thing worth carrying
             over rather than the grid that produces it.
 
-            THE RAIL IS NOW EVERY WIDTH, not just the phone. Ethan asked for the
-            same swipe on two more sections and said why: "I really like how you
-            built that in, and I want that built in more." Three cards at 30% on
-            a laptop is the same row the `sm:grid-cols-3` drew, minus nothing -
-            they fit, so nothing scrolls and the arrows disable themselves. What
-            it buys is one implementation for all three rails instead of a grid
-            that has to be kept in step with two rails by hand.
+            THE RAIL IS NOW EVERY WIDTH, not just the phone. Three cards at 30% on a laptop is the same row the
+            `sm:grid-cols-3` drew, minus nothing - they fit, so nothing scrolls and the arrows disable themselves. What
+            it buys is one implementation for all three rails instead of a grid that has to be kept in step with two
+            rails by hand.
 
             AND THE ANIMATION COMES BACK BY ITSELF. A rail is one screen tall,
             so `Reveal` stays in its container mode and the 01-02-03 stagger
@@ -805,9 +659,7 @@ export default function Landing() {
       </section>
 
       {/* ---------- Benefits ---------- */}
-      {/* WHY CREATORS JOIN, REDRAWN (4 Sep 2026). Ethan: "the 'why creators
-          join' is good, but I would improve the UI of it, and again add the
-          animations."
+      {/* WHY CREATORS JOIN, REDRAWN.
 
           It was four white boxes with an icon, a bold line and a paragraph -
           correct, and completely flat: four identical rectangles on a grey
@@ -816,16 +668,13 @@ export default function Landing() {
           Three changes, and none of them adds a colour (the palette is white,
           ink and one orange, and this section was never the place to break
           that):
-            * each card carries a numbered rule at the top, so the four read as
-              a list rather than as a wall;
-            * the icon takes the brand orange properly, and it gets its own
-              movement on hover rather than riding the card's;
-            * they arrive in turn, and they magnify under a pointer like
-              everything else on the page now does. */}
-      {/* WHITE, LIKE THE REST OF THE PAGE (10 Sep 2026). Ethan, on both
-          layouts: "for the Why creators joined, for some reason it's like a
-          grey background instead of a white background - it should still be the
-          same white. We want the whole screen to be nice white."
+          each card carries a numbered rule at the top, so the four read as
+          a list rather than as a wall;
+          the icon takes the brand orange properly, and it gets its own
+          movement on hover rather than riding the card's;
+          they arrive in turn, and they magnify under a pointer like
+          everything else on the page now does. */}
+      {/* WHITE, LIKE THE REST OF THE PAGE.
 
           It was `bg-cloud/50` to separate four cards from the section above
           them, which is a job the cards' own shadow already does - and the
@@ -853,11 +702,10 @@ export default function Landing() {
             <p className="mx-auto mt-3 max-w-md text-center text-sm text-smoke sm:mt-4 sm:text-base">
               {tr("The creators whose videos have earned the most views on Tryp.com. Every one of them started where you are now.")}
             </p>
-            {/* ONE ROW THAT SCROLLS, MOST VIEWS ON THE LEFT (30 Sep 2026). Ethan: same
-                horizontal scroll as the rest of the page, "so it only takes up one
-                line", each card showing the creator's ACCUMULATED VIEWS, no 1st/2nd/3rd,
-                and the top thirty always there. The RPC returns them already sorted by
-                views; a small trophy count marks the ones who have won a challenge. */}
+            {/* ONE ROW THAT SCROLLS, MOST VIEWS ON THE LEFT. The team: same horizontal scroll as the rest of the page,
+                "so it only takes up one line", each card showing the creator's ACCUMULATED VIEWS, no 1st/2nd/3rd, and
+                the top thirty always there. The RPC returns them already sorted by views; a small trophy count marks the
+                ones who have won a challenge. */}
             <Rail
               className="mt-8 sm:mt-12"
               itemClassName="w-[46%] sm:w-[28%] md:w-[22%] lg:w-[calc((100%-4rem)/5)]"
@@ -865,11 +713,10 @@ export default function Landing() {
               stagger={0.05}
               label={tr("Wall of fame")}
             >
-              {/* EVERY CARD OPENS THE CREATOR (1 Oct 2026). Ethan: the first card "shows a weird
-                  orange border on top" and "clicking on it seems to provide no information. It
-                  should just show the information like when you click on Recently Active
-                  Creators." The stripe is gone, and each card is a button into the same
-                  mini profile, with their views, wins and videos on it. */}
+              {/* EVERY CARD OPENS THE CREATOR. The team: the first card "shows a weird orange border on top" and
+                  "clicking on it seems to provide no information. It should just show the information like when you
+                  click on Recently Active Creators." The stripe is gone, and each card is a button into the same mini
+                  profile, with their views, wins and videos on it. */}
               {wall.map((w, i) => (
                 <button
                   type="button"
@@ -901,8 +748,7 @@ export default function Landing() {
           <p className="mx-auto mt-3 max-w-md text-center text-sm text-smoke sm:mt-4 sm:text-base">
             {tr("Four reasons, and the first one is paid in cash.")}
           </p>
-          {/* THE SAME RAIL AS THE OTHER TWO (9 Sep 2026). Ethan: "again, this
-              should be that same scrolling feature, because I like it."
+          {/* THE SAME RAIL AS THE OTHER TWO.
 
               This was a two-across grid on a phone, which was itself a fix for
               a worse thing (`grid-cols-1` made four full-width slabs, 1,344px
@@ -934,13 +780,8 @@ export default function Landing() {
               >
                 {/* The rule number, quiet enough to be furniture and present
                     enough to make the four read in order. */}
-                {/* `text-cloud` on white was invisible. Ethan: "I noticed you
-                    added 1, 2, 3, 4 on the Why creators join, but it's very,
-                    very hard to see - maybe make it slightly darker grey so you
-                    can actually see it." It is furniture, so it must not
-                    compete with the heading; it is also a reading order, so it
-                    has to be legible. `text-gray-300` is the step that is
-                    both. */}
+                {/* `text-cloud` on white was invisible. It is furniture, so it must not compete with the heading; it is
+                    also a reading order, so it has to be legible. `text-gray-300` is the step that is both. */}
                 <span className="absolute right-4 top-4 text-lg font-bold tabular-nums text-gray-300 sm:right-6 sm:top-6 sm:text-2xl" aria-hidden>
                   0{i + 1}
                 </span>
@@ -955,9 +796,7 @@ export default function Landing() {
 
       {/* ---------- Mini profile + join prompt (from a map pin) ----------
 
-          IT ARRIVES LIKE EVERY OTHER SHEET IN THE PRODUCT NOW (9 Sep 2026).
-          Ethan: "whenever a creator's little profile pop up shows up, it's a
-          bit glitchy."
+          IT ARRIVES LIKE EVERY OTHER SHEET IN THE PRODUCT NOW.
 
           Three things, and the first is most of it. The SCRIM was painted at
           full strength on the frame it mounted, so the page went dark in one
@@ -968,16 +807,14 @@ export default function Landing() {
 
           `.scrim-in` and `.sheet-in` are the same two classes `Modal` uses, so
           this hand-rolled dialog and the fifty built ones now move alike. */}
-      {/* CENTRED AT EVERY WIDTH (9 Sep 2026). Ethan: "on this card, even on
-            the travel map, it's down at the bottom of the screen, which looks
-            weird. It should be in the middle as a nice pop up."
+      {/* CENTRED AT EVERY WIDTH.
 
-            A bottom sheet is the right shape for something you ACT in - a form,
-            a long list, anything your thumb has to reach. This is a portrait, a
-            sentence and two buttons: it is a card, and a card belongs where the
-            eye already is. `items-center` and a full radius, so it is a
-            floating dialog rather than a drawer, and `animate-fade-up` rather
-            than `sheet-in` because a 12px rise is what a centred card does. */}
+          A bottom sheet is the right shape for something you ACT in - a form,
+          a long list, anything your thumb has to reach. This is a portrait, a
+          sentence and two buttons: it is a card, and a card belongs where the
+          eye already is. `items-center` and a full radius, so it is a
+          floating dialog rather than a drawer, and `animate-fade-up` rather
+          than `sheet-in` because a 12px rise is what a centred card does. */}
       {miniProfile && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-label={`${miniProfile.name}'s profile`}>
           <button aria-label={tr("Close")} className="scrim-in absolute inset-0 bg-ink/50 backdrop-blur-sm" onClick={() => setMiniProfile(null)} />
@@ -1028,12 +865,7 @@ export default function Landing() {
       )}
 
       {/* ---------- Final CTA ---------- */}
-      {/* THE PAGE STOPS SHORTLY AFTER THE LAST THING IT SAYS (9 Sep 2026).
-          Ethan: "at the bottom we have 'your next trip could pay for itself',
-          and there seems to be a little bit too much white below that, and
-          below the Tryp.com Content Creator Community - and it shows the logo
-          just above that at the bottom. I don't think we need to show the logo
-          there because we already have the logo at the top."
+      {/* THE PAGE STOPS SHORTLY AFTER THE LAST THING IT SAYS.
 
           Measured at 375px: 64px of section padding under the panel, then a
           40px footer pad, a 32px logo, a 16px gap and two lines - 220px of
@@ -1063,18 +895,12 @@ export default function Landing() {
       </section>
 
       {/* ---------- Footer ---------- */}
-      {/* NO LOGO, NO RULE, ONE LINE (9 Sep 2026). See the note on the section
-          above for the ask. The hairline went with the logo for the same
-          reason: it was there to separate a footer block from the page, and
-          two lines of small grey type at the very bottom are not a block that
-          needs separating - they are the end. The two legal links join the
-          copyright on one line at `sm` and wrap to their own beneath it on a
-          phone, which is the only width where three items do not fit. */}
-      {/* CLOSER TO THE CARD ABOVE IT (9 Sep 2026). Ethan, on both layouts:
-          "at the very bottom it says 2026 Tryp.com Content Creator Community. I
-          would move that up slightly so there's not as much space between the
-          'your next trip could pay for itself' card and the bottom." The panel
-          above already ends in a generous 48px of its own padding, so this was
+      {/* NO LOGO, NO RULE, ONE LINE. See the note on the section above for the ask. The hairline went with the logo for
+          the same reason: it was there to separate a footer block from the page, and two lines of small grey type at the
+          very bottom are not a block that needs separating - they are the end. The two legal links join the copyright on
+          one line at `sm` and wrap to their own beneath it on a phone, which is the only width where three items do not
+          fit. */}
+      {/* CLOSER TO THE CARD ABOVE IT. The panel above already ends in a generous 48px of its own padding, so this was
           adding a second gap to a page that had just finished speaking. */}
       <footer className="pb-8 pt-0 sm:pb-10 sm:pt-1">
         <div className="mx-auto flex max-w-6xl flex-col items-center gap-1.5 px-5 text-center text-xs text-smoke sm:flex-row sm:justify-center sm:gap-0 sm:px-8">

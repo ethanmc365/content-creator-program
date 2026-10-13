@@ -1,9 +1,4 @@
-// GROUPING FOR THE PAYOUTS TAB (23 Sep 2026).
-//
-// Ethan: "everything seems mixed in with each other, this could be confusing
-// when we have multiple challenges going on at once. I think they should be
-// split into sections like for each challenge, or if referral reward or
-// milestone."
+// GROUPING FOR THE PAYOUTS TAB.
 //
 // One section per challenge (the running ones first, then the most recently
 // ended), then milestone rewards, then anything left over. REFERRAL REWARDS

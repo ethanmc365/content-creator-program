@@ -13,10 +13,6 @@ import { useT } from '../lib/i18n'
 //
 // EVERY CARD IS THE SAME HEIGHT, AND THAT WAS THE BUG.
 //
-// Ethan: "the creator cards showing below the map can be improved. They can be
-// made slightly smaller and they should all be the same size, currently some
-// are different sizes."
-//
 // Three separate things were making them differ, and all three are fixed by
 // giving the variable parts a FIXED number of lines rather than by hoping the
 // content behaves:
@@ -34,15 +30,9 @@ import { useT } from '../lib/i18n'
 //     where it is usually the first one you see. It renders a quiet "This is
 //     you" strip instead, which costs the same height and says something true.
 //
-// AND THEN IT WENT THE OTHER WAY, ON PURPOSE. It was `!p-4` with an `md`
-// avatar so FOUR fitted across a desktop, on the argument that a directory is
-// something you scan. Four across is 260px a card, and at 260px a name, a
-// place, two lines of bio, a row of platform marks, a countries chip and two
-// buttons are not a card, they are a compression. Ethan: "when you scroll down
-// the creator cards I don't like how they look - it looks extremely crowded,
-// the connected button, the message button, everything looks really compact...
-// I think go for two cards and really improve the design of the information
-// they show."
+// AND THEN IT WENT THE OTHER WAY, ON PURPOSE. It was `!p-4` with an `md` avatar so FOUR fitted across a desktop, on the
+// argument that a directory is something you scan. Four across is 260px a card, and at 260px a name, a place, two lines
+// of bio, a row of platform marks, a countries chip and two buttons are not a card, they are a compression.
 //
 // So: two across (see Directory), and the extra 240px is spent on the two
 // things that were suffering - the person at the top of the card, and the
@@ -60,11 +50,9 @@ export default function CreatorCard({ creator, relation, onRelationChange, curre
   const navigate = useNavigate()
   const isMe = creator.id === user?.id
 
-  // A DM IS OPENED, NOT CREATED (9 Sep 2026). `openConversation` INSERTS a row,
-  // so pressing Message and then changing your mind left an empty thread in two
-  // inboxes. `/messages?to=` opens the thread either way and Messages.jsx
-  // creates the row on the first send - see `ensureConversation` there. It is
-  // also instant, which the round trip this replaced was not.
+  // A DM IS OPENED, NOT CREATED. `openConversation` INSERTS a row, so pressing Message and then changing your mind left
+  // an empty thread in two inboxes. `/messages?to=` opens the thread either way and Messages.jsx creates the row on the
+  // first send - see `ensureConversation` there. It is also instant, which the round trip this replaced was not.
   function message(e) {
     e.preventDefault()
     navigate(`/messages?to=${creator.id}`)
@@ -76,11 +64,7 @@ export default function CreatorCard({ creator, relation, onRelationChange, curre
       className="card group flex h-full flex-col gap-3.5 !p-5 transition-all duration-200 hover:-translate-y-0.5 hover:border-brand/25 hover:shadow-lift active:-translate-y-0.5 active:shadow-lift"
       {...rest}
     >
-      {/* THE RIGHT-HAND SPACE IS NOW HOLDING SOMETHING (2 Sep 2026).
-
-          Ethan: "we have a lot of space on the right of those cards to add in
-          some more information - maybe their local time, their home town and
-          their age. That could work nicely there."
+      {/* THE RIGHT-HAND SPACE IS NOW HOLDING SOMETHING.
 
           Going from four cards across to two bought 240px per card and spent
           none of it: the header was a face, a name, a place and then a third of
@@ -123,23 +107,15 @@ export default function CreatorCard({ creator, relation, onRelationChange, curre
       </div>
 
       {/* A BOX THAT IS EXACTLY TWO LINES TALL, AND THAT IS THE WHOLE FIX.
-          THE BUG THIS FIXES: it was `line-clamp-2 min-h-[2.5rem] leading-snug`,
-          and those two numbers do not agree. `leading-snug` on 13px type is
-          17.9px a line, so two lines is 35.8px - but the minimum height is 40px,
-          which leaves four pixels of a THIRD line showing under the clamp.
-          `-webkit-line-clamp` stops the ellipsis, it does not stop the paint, so
-          what a reader sees is the top sliver of the next row of glyphs: the
-          flat-topped ones vanish and the tall ones (emoji, capitals, accents)
-          leave a row of chopped-off heads. Ethan: "on some creator cards like
-          kiera's you say some text or emojis cut off, obviously can't fit all
-          the text but don't cut just bottom half off."
-          `leading-5` is 20px exactly and `h-10` is 40px exactly, so the box is
-          two whole lines and there is no room for a third to peek. The height is
-          fixed rather than a minimum for the same reason it was there at all:
-          every card in the grid has to be the same height.
-          A bio with a hard line break in it would still lay out as three lines
-          and clamp at two, which is the correct outcome - the clamp is now the
-          only thing deciding what is visible. */}
+          THE BUG THIS FIXES: it was `line-clamp-2 min-h-[2.5rem] leading-snug`, and those two numbers do not agree.
+          `leading-snug` on 13px type is 17.9px a line, so two lines is 35.8px - but the minimum height is 40px, which
+          leaves four pixels of a THIRD line showing under the clamp. `-webkit-line-clamp` stops the ellipsis, it does
+          not stop the paint, so what a reader sees is the top sliver of the next row of glyphs: the flat-topped ones
+          vanish and the tall ones (emoji, capitals, accents) leave a row of chopped-off heads. `leading-5` is 20px
+          exactly and `h-10` is 40px exactly, so the box is two whole lines and there is no room for a third to peek. The
+          height is fixed rather than a minimum for the same reason it was there at all: every card in the grid has to be
+          the same height. A bio with a hard line break in it would still lay out as three lines and clamp at two, which
+          is the correct outcome - the clamp is now the only thing deciding what is visible. */}
       {/* The bio is COLLAPSED to flowing text first. A creator who wrote their
           bio as four short lines would otherwise lay out as four lines and the
           clamp would show the first two with no ellipsis, which reads as the
@@ -153,15 +129,10 @@ export default function CreatorCard({ creator, relation, onRelationChange, curre
           adding a second line to their card and nobody else's. `h-6` rather than
           a minimum, for the same reason the bio box is a fixed height. */}
       <div className="flex h-6 items-center gap-x-2 overflow-hidden whitespace-nowrap text-[11px] text-smoke">
-        {/* THE PLATFORM MARKS ARE IN THEIR OWN COLOURS (2 Sep 2026).
-            Ethan: "rather than just those grey icons, have the actual colourful
-            social media icons appearing there."
-            `PlatformBadges` draws a grey glyph on a grey disc, which across the
-            product is the universal look of a DISABLED control - so a row
-            saying "this creator posts on TikTok and Instagram" read as two
-            things switched off. The challenge form and the challenge brief both
-            moved to `SocialMark colored` for exactly this; the directory was
-            the last grey one left. */}
+        {/* THE PLATFORM MARKS ARE IN THEIR OWN COLOURS. `PlatformBadges` draws a grey glyph on a grey disc, which across
+            the product is the universal look of a DISABLED control - so a row saying "this creator posts on TikTok and
+            Instagram" read as two things switched off. The challenge form and the challenge brief both moved to
+            `SocialMark colored` for exactly this; the directory was the last grey one left. */}
         {platformsForProfile(creator).length > 0 && (
           <span className="flex shrink-0 items-center gap-1.5">
             {platformsForProfile(creator).map((p) => (
@@ -169,19 +140,12 @@ export default function CreatorCard({ creator, relation, onRelationChange, curre
             ))}
           </span>
         )}
-        {/* THE ONE PIECE OF COLOUR ON THE CARD.
-            This was a grey globe and a bare number sitting in a row of grey
-            platform glyphs, so the single most interesting fact about a travel
-            creator - how much of the world they have actually been to - read as
-            a piece of metadata. Ethan: "they're missing something in tryp.com
-            orange beside the social media icons saying like 25 countries or
-            whatever they've been to, just to bring some colour and make it look
-            good."
-            It is a brand-tint chip now, the same object as the live-trip chip
-            beside it, and it says the unit out loud. Nothing at all when the
-            count is zero: "0 countries" is a worse thing to print about
-            somebody than silence, and the row is a fixed height so the card
-            does not change shape either way. */}
+        {/* THE ONE PIECE OF COLOUR ON THE CARD. This was a grey globe and a bare number sitting in a row of grey
+            platform glyphs, so the single most interesting fact about a travel creator - how much of the world they have
+            actually been to - read as a piece of metadata. It is a brand-tint chip now, the same object as the live-trip
+            chip beside it, and it says the unit out loud. Nothing at all when the count is zero: "0 countries" is a
+            worse thing to print about somebody than silence, and the row is a fixed height so the card does not change
+            shape either way. */}
         {creator.countries_visited?.length > 0 && (
           <span
             className="inline-flex shrink-0 items-center gap-1 rounded-full bg-brand-tint px-2 py-0.5 font-semibold text-brand"

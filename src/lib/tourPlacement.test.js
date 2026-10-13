@@ -4,11 +4,9 @@ import { placeCard, restingPlace, union, overlaps, CARD_W } from './tourPlacemen
 // THE ONE RULE: the walkthrough card never covers what it is pointing at, and
 // never covers what that thing opened.
 //
-// Ethan walked the tour twice and reported the same thing both times - "some
-// cards are still blocking the pages and instructions, like on the profile drop
-// down menu". This is that, as arithmetic, because the placement used to live
-// inside a requestAnimationFrame loop where it could only be checked by looking
-// at it.
+// The team walked the tour twice and reported the same thing both times - "some cards are still blocking the pages and
+// instructions, like on the profile drop down menu". This is that, as arithmetic, because the placement used to live
+// inside a requestAnimationFrame loop where it could only be checked by looking at it.
 
 const CARD_H = 260
 const boxOf = (p, h = CARD_H) => ({ top: p.top, left: p.left, right: p.left + CARD_W, bottom: p.top + h })
@@ -48,11 +46,9 @@ describe('placeCard', () => {
   })
 
 
-  // THE LIVE CHALLENGE CARD, AT ITS REAL SIZE. 578px tall and 1088 wide in a
-  // 900px window: nothing fits above, below or beside it, which is the case
-  // Ethan hit as "the card is covering the brief". TourHost now scrolls a tall
-  // anchor to the top of the window to create the room; this asserts what
-  // happens when even that is not enough.
+  // THE LIVE CHALLENGE CARD, AT ITS REAL SIZE. 578px tall and 1088 wide in a 900px window: nothing fits above, below or
+  // beside it, which is the case the team hit as "the card is covering the brief". TourHost now scrolls a tall anchor to
+  // the top of the window to create the room; this asserts what happens when even that is not enough.
   it('picks the side with the most room when the anchor fills the window', () => {
     const avoid = { top: 253, left: 176, right: 1264, bottom: 831 }
     const p = placeCard(avoid, desktop, 305)
@@ -133,11 +129,7 @@ describe('restingPlace', () => {
   const vp = { w: 1440, h: 900 }
   const card = { w: CARD_W, h: 260 }
 
-  // LIFTED OFF THE BOTTOM EDGE, HORIZONTALLY CENTRED (9 Sep 2026).
-  //
-  // Ethan: "the card should start slightly higher up, not at the very bottom
-  // but more up in the middle - slightly higher up. And when I click show me
-  // around the card gets bigger saying nice one, and it just hides a bit."
+  // LIFTED OFF THE BOTTOM EDGE, HORIZONTALLY CENTRED.
   //
   // The second half is what makes this a bug rather than a preference: the
   // acknowledgement GROWS the card, and a card whose bottom edge is already
@@ -156,10 +148,8 @@ describe('restingPlace', () => {
   })
 
   it('moves out of the centre column when the step needs it kept clear', () => {
-    // Every form in this app is a centred column, so a card that says "fill
-    // this in" must not be sitting on top of the thing being filled in.
-    // ...and it stops short of the right edge rather than being jammed against
-    // it. Ethan: "I would still bring it out of the corner ever so slightly."
+    // Every form in this app is a centred column, so a card that says "fill this in" must not be sitting on top of the
+    // thing being filled in....and it stops short of the right edge rather than being jammed against it.
     const r = restingPlace(vp, card, true)
     expect(r.left).toBe(1440 - CARD_W - 64)
     expect(r.left).toBeGreaterThan(restingPlace(vp, card).left)

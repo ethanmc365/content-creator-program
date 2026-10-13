@@ -9,13 +9,12 @@ import { toastSuccess } from '../../lib/toast'
 import { cx, timeAgo } from '../../lib/utils'
 import { challengesApi } from '../../api/challenges'
 
-// WHO HAS NOT POSTED YET (built 4 Oct 2026, migration 325; rebuilt the same day, migration 332).
+// WHO HAS NOT POSTED YET (built, migration 325; rebuilt the same day, migration 332).
 //
-// Ethan, on getting the global challenge past 50 creators: "check what creators have actually been on the platform, how many have been
-// on since this challenge started and have not posted, and how many haven't been on at all ... why are we not getting them engaged?"
-// And on the first version: "build it better. I want to be able to see market by market ... more like the Participation by market with
-// those nice charts, gradients, numbers ... clicking on Spain, UK, Ireland or Portugal should show the people who participated and who
-// didn't. I can easily re-try to send a push to them. And for the ones that never opened the app, a button to copy all the emails."
+// And on the first version: "build it better. I want to be able to see market by market... more like the Participation
+// by market with those nice charts, gradients, numbers... clicking on Spain, UK, Ireland or Portugal should show the
+// people who participated and who didn't. I can easily re-try to send a push to them. And for the ones that never opened
+// the app, a button to copy all the emails."
 //
 // The funnel, in the order a creator moves through it: in the audience -> opened the platform since it started -> posted. The people who
 // have not posted are split four ways, because the message to somebody who was here yesterday is not the one for somebody who never opened it:

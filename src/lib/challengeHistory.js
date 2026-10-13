@@ -13,12 +13,11 @@ import { challengesApi } from '../api/challenges'
 // import and its reconciliation.
 
 /** The columns a person edits. Everything else is derived or bookkeeping. */
-// WHAT A PERSON EDITS, AND IT IS SHORTER THAN THE SPREADSHEET WAS (8 Sep 2026).
+// WHAT A PERSON EDITS, AND IT IS SHORTER THAN THE SPREADSHEET WAS.
 //
-// `content_type` and `objective` came off the import and are no longer tracked
-// anywhere - Ethan removed the Challenges tab's "by content type" card and then
-// the two fields behind it - so they are no longer WRITTEN. `cohort` goes the
-// same way: the platform is one general community for now.
+// `content_type` and `objective` came off the import and are no longer tracked anywhere - the team removed the
+// Challenges tab's "by content type" card and then the two fields behind it - so they are no longer WRITTEN. `cohort`
+// goes the same way: the platform is one general community for now.
 //
 // The columns stay on the table on purpose. Forty-nine imported rows carry
 // values in them, dropping a column is not reversible, and nothing costs
@@ -99,11 +98,9 @@ export function rollUp(rows) {
 /**
  * The rows that are NOT also live challenges on this platform.
  *
- * The UK challenge that ran 20 Jul to 20 Aug 2026 exists in both places - the
- * team tracked it on the spreadsheet while the platform was being built. Any
- * total that adds the sheet's figure to the platform's counts one contest
- * twice, so every roll-up filters through this and the live side supplies that
- * challenge's numbers instead.
+ * The UK challenge that ran 20 Jul to exists in both places - the team tracked it on the spreadsheet while the platform
+ * was being built. Any total that adds the sheet's figure to the platform's counts one contest twice, so every roll-up
+ * filters through this and the live side supplies that challenge's numbers instead.
  */
 export const historyOnly = (rows) => rows.filter((r) => !r.challenge_id)
 

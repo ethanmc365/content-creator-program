@@ -44,10 +44,8 @@ export const TEMPLATE_FIELDS = [
   'participation_threshold',
   'participation_prize',
   'participation_cap',
-  // WHAT the threshold counts - videos or points (migration 241). It was
-  // missing, so "reach 18 points" came back as "post 18 videos" (Ethan, 24
-  // Sep 2026: "It saved as videos posted being 18, but it was actually points
-  // scored as 18").
+  // WHAT the threshold counts - videos or points (migration 241). It was missing, so "reach 18 points" came back as
+  // "post 18 videos" ( ).
   'participation_basis',
   'participation_reward_type',
   'participation_amount',

@@ -4,9 +4,9 @@ import { renderNote } from '../../lib/noteMarkdown'
 import { useLocale } from '../../lib/i18n'
 import { agreementsApi } from '../../api/agreements'
 
-// ONE SET OF TERMS (7 Oct 2026). Once the team publishes the Community Terms on Admin > Agreements, this public page
-// shows exactly that text - the same words a creator accepts in the app - and the hand-written page below is only the
-// fallback for before then (or if the read fails).
+// ONE SET OF TERMS. Once the team publishes the Community Terms on Admin > Agreements, this public page shows exactly
+// that text - the same words a creator accepts in the app - and the hand-written page below is only the fallback for
+// before then (or if the read fails).
 export default function Terms() {
   const [doc, setDoc] = useState(undefined)
   const locale = useLocale()
@@ -34,8 +34,8 @@ export default function Terms() {
   )
 }
 
-// THE PUBLIC COPY HAS NOBODY'S NAME IN IT (7 Oct 2026). The terms carry fill-ins ({{creator_name}} and friends) that
-// are completed for each creator when they read and accept them in the app; on the public page they read generically.
+// THE PUBLIC COPY HAS NOBODY'S NAME IN IT. The terms carry fill-ins ({{creator_name}} and friends) that are completed
+// for each creator when they read and accept them in the app; on the public page they read generically.
 export function publicText(md = '') {
   return String(md || '')
     .replaceAll('{{creator_name}}', 'the Creator')
@@ -46,10 +46,6 @@ export function publicText(md = '') {
 }
 
 // TERMS OF SERVICE, REWRITTEN 4 SEP 2026.
-//
-// Ethan: "I would properly update the privacy policy now, within the legal
-// things that you think we need to have... so please update them, and the terms
-// of service - properly research and update them."
 //
 // The old terms were eight short sections written for a much smaller product,
 // and the research turned up four things that were genuinely missing rather

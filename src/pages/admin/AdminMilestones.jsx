@@ -161,11 +161,9 @@ export default function AdminMilestones() {
 
   // OPENING THE EDITOR HAS TO TAKE YOU TO IT.
   //
-  // The form renders ABOVE the ladder, and the ladder is eleven rows long - so
-  // clicking the pencil on the ninth stop changed something eight hundred
-  // pixels off the top of the screen and left you looking at the list you just
-  // clicked in, with no sign anything had happened. Ethan's report was that he
-  // did not realise he was editing at all.
+  // The form renders ABOVE the ladder, and the ladder is eleven rows long - so clicking the pencil on the ninth stop
+  // changed something eight hundred pixels off the top of the screen and left you looking at the list you just clicked
+  // in, with no sign anything had happened. The team's report was that he did not realise they were editing at all.
   //
   // Scrolled after paint, because the form does not exist in the DOM until the
   // render that `setEditing` causes.
@@ -450,12 +448,9 @@ export default function AdminMilestones() {
 
           {/* ---------- what they get ---------- */}
           <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2">
-            {/* WHAT THEY GET, AS SEVERAL THINGS (26 Sep 2026). Ethan: "give a
-                new title as a reward and also a watch as a reward ... Also,
-                add merch." Pick any mix; each one opens the field it needs. The
-                title and the voucher are paid by the platform by itself; merch,
-                prizes and anything else go on the team's "to send" list below
-                the route when somebody reaches the stop. */}
+            {/* WHAT THEY GET, AS SEVERAL THINGS. Pick any mix; each one opens the field it needs. The title and the
+                voucher are paid by the platform by itself; merch, prizes and anything else go on the team's "to send"
+                list below the route when somebody reaches the stop. */}
             <div className="sm:col-span-2">
               <Field label="What they get" hint="Pick as many as you like.">
                 <div className="flex flex-wrap gap-1.5">
@@ -725,7 +720,7 @@ export default function AdminMilestones() {
 }
 
 
-// WHAT THE TEAM OWES, AND TICKING IT OFF (26 Sep 2026, migration 267).
+// WHAT THE TEAM OWES, AND TICKING IT OFF (migration 267).
 //
 // A title and a voucher pay themselves. A hoodie or a watch does not - somebody
 // has to post it - so everybody who has reached a stop that gives an item is

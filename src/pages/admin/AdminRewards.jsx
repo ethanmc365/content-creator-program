@@ -52,11 +52,9 @@ function detailRows(p) {
 //
 // ON THE PAYOUTS TAB, WHERE IT IS ACTUALLY DUE.
 //
-// It sat beside the invoice queue for a while, and that was wrong for a plain
-// reason Ethan put better than I would: a referral pays a Tryp.com VOUCHER.
-// There is no document, no approval and no bank transfer, so parking it next to
-// the invoice pipeline implied it went through the same machinery. It belongs
-// with the other vouchers, which is here.
+// It sat beside the invoice queue for a while, and that was wrong for a plain reason the team put better than I would: a
+// referral pays a Tryp.com VOUCHER. There is no document, no approval and no bank transfer, so parking it next to the
+// invoice pipeline implied it went through the same machinery. It belongs with the other vouchers, which is here.
 //
 // It keeps its own section rather than dissolving into the reward list, because
 // "who is owed a referral voucher" is a question somebody asks on its own.
@@ -157,14 +155,12 @@ function RewardRow({ r, invoiceOf, viewer, busyId, onInvoice, onDistribute }) {
         )}
       </div>
       <span className="font-bold tabular-nums">{formatMoney(r.amount, r.currency)}</span>
-      {/* A DISTRIBUTED VOUCHER WITH NO CODE IS NOT DONE (29 Sep 2026).
-          It was wearing the same green "distributed" badge as a voucher the
-          creator can actually spend, so six of them sat here looking finished
-          while six creators had nothing to redeem. The badge now says which
-          of the two it is, and the row sorts into the "Needs a code" filter. */}
+      {/* A DISTRIBUTED VOUCHER WITH NO CODE IS NOT DONE. It was wearing the same green "distributed" badge as a voucher
+          the creator can actually spend, so six of them sat here looking finished while six creators had nothing to
+          redeem. The badge now says which of the two it is, and the row sorts into the "Needs a code" filter. */}
       {(() => {
-        // A SENT INVOICE IS NOT A PAID ONE (1 Oct 2026). It sits in "Still to pay" with the day
-        // it settles by itself (seven days after sending, `auto_settle_sent_invoices_internal`).
+        // A SENT INVOICE IS NOT A PAID ONE. It sits in "Still to pay" with the day it settles by itself (seven days
+        // after sending, `auto_settle_sent_invoices_internal`).
         const inv = invoiceOf.get(r.id)
         if (r.reward_type === 'cash' && inv && inv.stage !== 'paid') {
           if (inv.stage === 'sent' && inv.sent_at) {
@@ -217,9 +213,9 @@ const STAGE_WORD = { draft: 'invoice draft', awaiting_approval: 'awaiting approv
 // lib/rewardsGrouping. Capped at six rows so a challenge with forty winners
 // does not turn the page back into one long scroll; "+N more" opens the rest.
 function RewardGroupCard({ group, ...rowProps }) {
-  // PAID PRIZES, FOLDED (1 Oct 2026). Ethan: the by-challenge list should "look good and tidy
-  // whenever there are more challenges". Everything owed is in "Still to pay" above, so a
-  // challenge here is a settled record: one line with its total, opened when you need a name.
+  // PAID PRIZES, FOLDED. The team: the by-challenge list should "look good and tidy whenever there are more challenges".
+  // Everything owed is in "Still to pay" above, so a challenge here is a settled record: one line with its total, opened
+  // when you need a name.
   const [open, setOpen] = useState(false)
   const paid = rewardsTotal(group.rows)
   return (
@@ -245,16 +241,15 @@ function RewardGroupCard({ group, ...rowProps }) {
   )
 }
 
-// A STRIP THAT CANNOT BE MISSED (30 Sep 2026): whatever still needs paying or handing over,
-// pinned above everything else on its tab, in the warm colour of "your move". Empty, it is one
-// quiet green line so a clear desk is also visible.
+// A STRIP THAT CANNOT BE MISSED: whatever still needs paying or handing over, pinned above everything else on its tab,
+// in the warm colour of "your move". Empty, it is one quiet green line so a clear desk is also visible.
 function StillToPay({ title, hint, rows, loading, openInvoices = 0, ...rowProps }) {
   if (loading) return <Skeleton className="mb-8 h-24 w-full" />
   // An invoice raised by hand (no prize behind it) that is sent and not yet paid is still money
   // going out, so the desk is not clear while one exists.
   if (rows.length === 0 && openInvoices > 0) {
     return (
-      // Brand, not yellow (2 Oct 2026), and no "under Invoices below".
+      // Brand, not yellow, and no "under Invoices below".
       <div className="mb-8 flex items-center gap-2.5 rounded-card border border-gray-100 bg-white px-5 py-3.5 text-sm font-medium text-ink shadow-card">
         <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-brand"><Icon name="clock" className="h-4 w-4" /></span>
         {openInvoices === 1 ? 'One invoice is sent and not marked paid yet.' : `${openInvoices} invoices are sent and not marked paid yet.`}
@@ -284,10 +279,9 @@ function StillToPay({ title, hint, rows, loading, openInvoices = 0, ...rowProps 
   )
 }
 
-// PAID OUT SO FAR, READABLE (30 Sep 2026). Ethan: "The payout so far, everything looks hard to read
-// there. The information is just in a line. Improve it." It was two rows of label and number. Now: the
-// total, the split between cash and vouchers as one bar with both halves named, how many payouts and
-// creators that is, and the last six months as a small chart (cash and vouchers stacked, in euros).
+// PAID OUT SO FAR, READABLE. It was two rows of label and number. Now: the total, the split between cash and vouchers as
+// one bar with both halves named, how many payouts and creators that is, and the last six months as a small chart (cash
+// and vouchers stacked, in euros).
 function PaidOut({ rewards, cashOut, voucherOut, paid }) {
   const paidRows = rewards.filter((r) => r.status === 'distributed')
   const total = (cashOut.amount || 0) + (voucherOut.amount || 0)
@@ -317,10 +311,8 @@ function PaidOut({ rewards, cashOut, voucherOut, paid }) {
         <span className="text-xs text-smoke">{paidRows.length} payouts · {people} creators</span>
       </div>
       <p className="mt-2 text-3xl font-bold tabular-nums tracking-tight">{money(paid)}</p>
-      {/* ONE BAR, TWO SHARES, NO GAP (1 Oct 2026). Ethan: "there's a space between the progress bar.
-          Can it merge those colours into a nice gradient to show them as still separate". Cash runs
-          deep to bright orange and eases into the vouchers' soft peach across a short seam, so the two
-          still read as two without a hole between them. */}
+      {/* ONE BAR, TWO SHARES, NO GAP. Cash runs deep to bright orange and eases into the vouchers' soft peach across a
+          short seam, so the two still read as two without a hole between them. */}
       <div className="relative mt-4 h-3 overflow-hidden rounded-full bg-cloud">
         {total > 0 && (
           <span
@@ -356,7 +348,7 @@ function PaidOut({ rewards, cashOut, voucherOut, paid }) {
   )
 }
 
-// THE FIRST PAGE (30 Sep 2026): the money at a glance and whatever needs following up.
+// THE FIRST PAGE: the money at a glance and whatever needs following up.
 function Overview({ loading, spend, paid, pending, invoiceStages, cashToPay, vouchersNeedCode, referralPending, rewards, go }) {
   const count = (st) => invoiceStages.filter((i) => i.stage === st).length
   const jobs = [
@@ -374,8 +366,7 @@ function Overview({ loading, spend, paid, pending, invoiceStages, cashToPay, vou
     <div className="space-y-8">
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <StatCard label="Total community spend" value={money(spend)} />
-        {/* SAME AS ITS NEIGHBOURS (30 Sep 2026). Ethan: "For that card that says Distributed, it's a
-            different colour. I don't like that it's a different colour. Just align it with the others." */}
+        {/* SAME AS ITS NEIGHBOURS. */}
         <StatCard label="Distributed" value={money(paid)} />
         <StatCard label="Pending payout" value={money(pending)} hint={pending.amount > 0 ? "Don't keep creators waiting" : 'All settled'} />
       </div>
@@ -433,10 +424,9 @@ export default function AdminRewards() {
   // The old five tabs collapse to three. `queue`, `invoices` and `referrals`
   // were three views of one question - what money is going out - so they are
   // one page now, and every link anybody has bookmarked still lands on it.
-  // REORGANISED 30 Sep 2026. Ethan: everything about vouchers on the Vouchers tab, "payouts
-  // could be renamed cash and just have cash stuff", the invoices page "combined with this
-  // and called cash invoices", and the first page "an overview ... of anything important to
-  // follow up with". Old links (?tab=queue / invoices / payouts / referrals) still land.
+  // REORGANISED. The team: everything about vouchers on the Vouchers tab, "payouts could be renamed cash and just have
+  // cash stuff", the invoices page "combined with this and called cash invoices", and the first page "an overview... of
+  // anything important to follow up with". Old links (?tab=queue / invoices / payouts / referrals) still land.
   const TABS = ['overview', 'cash', 'vouchers', 'details']
   const LEGACY_TAB = { queue: 'cash', invoices: 'cash', payouts: 'cash', referrals: 'vouchers' }
   const [tab, setTab] = useState(() => {
@@ -462,22 +452,18 @@ export default function AdminRewards() {
   const [creators, setCreators] = useState([])
   const [challenges, setChallenges] = useState([])
   const [loading, setLoading] = useState(true)
-  // CASH AND VOUCHERS ARE TWO DIFFERENT JOBS. A cash prize is paid by an
-  // invoice somebody has to approve and send; a voucher is a code somebody
-  // hands over. Reading them in one list means reading past the ones you are
-  // not doing today, which is Ethan's "clear view of what we need to do".
+  // CASH AND VOUCHERS ARE TWO DIFFERENT JOBS. A cash prize is paid by an invoice somebody has to approve and send; a
+  // voucher is a code somebody hands over. Reading them in one list means reading past the ones you are not doing today,
+  // which is the team's "clear view of what we need to do".
   const [busyId, setBusyId] = useState(null)
 
   // "Add reward" modal
   const [showAdd, setShowAdd] = useState(false)
   const [adding, setAdding] = useState(false)
-  // EUROS BY DEFAULT. Five of the six open markets settle in euros and the
-  // programme's own reporting is in euros, so pounds as the default meant every
-  // new payout outside the UK started wrong and had to be corrected by hand.
-  // Ethan: "payouts is actually in pounds, it should be in euros now too as
-  // most markets will be operating in euros."
-  // A DEFAULT, NOT A CONVERSION: rewards already raised keep the currency they
-  // were raised in, because that is what the invoice says and what was paid.
+  // EUROS BY DEFAULT. Five of the six open markets settle in euros and the programme's own reporting is in euros, so
+  // pounds as the default meant every new payout outside the UK started wrong and had to be corrected by hand. A
+  // DEFAULT, NOT A CONVERSION: rewards already raised keep the currency they were raised in, because that is what the
+  // invoice says and what was paid.
   const [newReward, setNewReward] = useState({ creator_id: '', challenge_id: '', reward_type: 'cash', currency: 'EUR', amount: '', payment_notes: '' })
 
   // "Mark distributed" modal (replaces a flaky window.prompt).
@@ -578,12 +564,10 @@ export default function AdminRewards() {
   // Referral vouchers, split out. `source` is set by the trigger in migration
   // 109; anything older has the column default of 'challenge'.
   //
-  // DELIBERATELY NOT SCOPED BY MARKET. A referral is one creator bringing in
-  // another and the two can be in different markets; there is no market that
-  // owns the pair. Scoping it made the market bar look like it governed the
-  // whole page when it governs the invoice queue, and Ethan read it that way
-  // immediately. When referrals do become a per-market thing, this is the line
-  // that changes.
+  // DELIBERATELY NOT SCOPED BY MARKET. A referral is one creator bringing in another and the two can be in different
+  // markets; there is no market that owns the pair. Scoping it made the market bar look like it governed the whole page
+  // when it governs the invoice queue, and the team read it that way immediately. When referrals do become a per-market
+  // thing, this is the line that changes.
   const referralRewards = useMemo(() => allRewards.filter((r) => r.source === 'referral'), [allRewards])
   const referralPending = useMemo(() => referralRewards.filter((r) => r.status === 'pending'), [referralRewards])
   // Same story as the stat cards above: euros, converted, whole. A referral
@@ -641,10 +625,9 @@ export default function AdminRewards() {
     e.preventDefault()
     const isVoucher = distributing.reward_type === 'voucher'
     const code = distCode.trim() || null
-    // FUTURE VOUCHERS CARRY THEIR CODE (29 Sep 2026). Ethan: the old ones went out
-    // by chat, but "the codes for all future vouchers should be inputted". So a
-    // voucher cannot be marked handed over without one, unless the team says it
-    // really was sent by chat.
+    // FUTURE VOUCHERS CARRY THEIR CODE. The team: the old ones went out by chat, but "the codes for all future vouchers
+    // should be inputted". So a voucher cannot be marked handed over without one, unless the team says it really was
+    // sent by chat.
     if (isVoucher && !code && !distChat) {
       notice('Enter the voucher code, or tick that you sent it by chat instead.')
       return
@@ -715,14 +698,12 @@ export default function AdminRewards() {
     () => Object.fromEntries(challenges.map((c) => [c.id, c])),
     [challenges],
   )
-  // SPLIT INTO SECTIONS (23 Sep 2026). Ethan: "everything seems mixed in with
-  // each other, this could be confusing when we have multiple challenges going
-  // on at once." One card per challenge (running first), then milestones, then
-  // anything left over - referrals keep their own `ReferralSection` above.
-  // ANYTHING THAT NEEDS PAYING IS ALWAYS AT THE TOP (30 Sep 2026). Ethan: the list "is grouped
-  // by challenge etc which is good but anything that needs paid should always appear at the top
-  // so you can't miss it". Two things do it: a "Still to pay" strip above everything, and inside
-  // the groups the unpaid rows come first and a group with money owed comes before one without.
+  // SPLIT INTO SECTIONS. One card per challenge (running first), then milestones, then anything left over - referrals
+  // keep their own `ReferralSection` above.
+  // ANYTHING THAT NEEDS PAYING IS ALWAYS AT THE TOP. The team: the list "is grouped by challenge etc which is good but
+  // anything that needs paid should always appear at the top so you can't miss it". Two things do it: a "Still to pay"
+  // strip above everything, and inside the groups the unpaid rows come first and a group with money owed comes before
+  // one without.
   const cashFiltered = useMemo(() => rewards.filter((r) => r.reward_type === 'cash'), [rewards])
   const cashGroups = useMemo(() => {
     const groups = groupRewards(cashFiltered, challengesById).map((g) => ({
@@ -757,12 +738,9 @@ export default function AdminRewards() {
 
   // EUROS, AND ADDED UP THE WAY THE CREATOR'S OWN PAGE ADDS THEM UP.
   //
-  // THE BUG THIS FIXES: these were raw `reduce`s over `r.amount` across every
-  // currency in the table, printed through `formatMoney` with no currency at
-  // all - so nine GBP rows and a EUR one were summed as if pounds and euros
-  // were the same number, and the result was labelled in whichever currency
-  // formatMoney happened to default to. Ethan: "rewards/invoices payouts are
-  // in pounds and should be euros."
+  // THE BUG THIS FIXES: these were raw `reduce`s over `r.amount` across every currency in the table, printed through
+  // `formatMoney` with no currency at all - so nine GBP rows and a EUR one were summed as if pounds and euros were the
+  // same number, and the result was labelled in whichever currency formatMoney happened to default to.
   //
   // `rewardsTotal` is the function Rewards.jsx already uses for exactly this:
   // it converts every row into euros, rounds to whole euros (a converted total
@@ -855,7 +833,7 @@ export default function AdminRewards() {
           page. A tab is navigation; a button does something. */}
       <div className="mb-8 flex flex-wrap gap-1 border-b border-gray-100">
         {[['overview', 'Overview'], ['cash', 'Cash & Invoices'], ['vouchers', 'Vouchers'], ['details', 'Payment details']].map(([key, label]) => {
-          // A DOT ON A TAB THAT HAS A JOB IN IT (4 Oct 2026), so nobody opens Cash to find only a voucher.
+          // A DOT ON A TAB THAT HAS A JOB IN IT, so nobody opens Cash to find only a voucher.
           const todo = key === 'cash'
             ? invoiceStages.filter((i) => i.stage === 'awaiting_approval' || i.stage === 'approved').length + cashOutstanding.length
             : key === 'vouchers' ? vouchersNeedCode.length + referralPending.length : 0
@@ -960,7 +938,7 @@ export default function AdminRewards() {
           value={market}
           onChange={setMarket}
         />
-        {/* ACROSS BOTH COLUMNS (1 Oct 2026), so it lines up with the grid of cards under it. */}
+        {/* ACROSS BOTH COLUMNS, so it lines up with the grid of cards under it. */}
         <div className="mb-6">
           <div className="relative">
             <Icon name="magnifier" className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-smoke" />
@@ -1112,10 +1090,8 @@ export default function AdminRewards() {
               <span className="font-semibold text-ink">{formatMoney(distributing.amount, distributing.currency)}</span>{' '}
               to <span className="font-semibold text-ink">{distributing.profiles?.name}</span>. They'll be notified automatically.
             </p>
-            {/* THE CODE GOES ON THE REWARD, NOT IN A DM (24 Sep 2026). The
-                creator sees it on /rewards as a ticket they can copy and tick
-                off once used. REQUIRED from 29 Sep 2026 unless the team says it was
-                sent by chat, which is what the older ones were. */}
+            {/* THE CODE GOES ON THE REWARD, NOT IN A DM. The creator sees it on /rewards as a ticket they can copy and
+                tick off once used. REQUIRED unless the team says it was sent by chat, which is what the older ones were. */}
             {distributing.reward_type === 'voucher' && (
               <div>
                 <label htmlFor="dist-code" className="label">Voucher code <span className="font-normal text-smoke">(required, shown to the creator)</span></label>

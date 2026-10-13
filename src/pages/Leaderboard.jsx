@@ -28,10 +28,9 @@ import { marketsApi } from '../api/markets'
 // lists only the people already winning tells a new creator nothing about where
 // they stand, which is the one thing they opened it to find out.
 
-// THE PODIUM IS THE SHARED ONE (components/Podium). It was written here first
-// and the challenge podium was written separately, so the two drifted on colour
-// and then on shape. Ethan: "I want them to be the same." They are the same
-// component now, which is the only version of that promise that keeps.
+// THE PODIUM IS THE SHARED ONE (components/Podium). It was written here first and the challenge podium was written
+// separately, so the two drifted on colour and then on shape. They are the same component now, which is the only version
+// of that promise that keeps.
 //
 // NO BADGE ON THE FACE. There was a star here - and before that a trophy, which
 // at fourteen pixels collapsed into a small red X on somebody's photograph. The
@@ -66,10 +65,9 @@ export default function Leaderboard() {
   // submissions.logged_views), so the board re-ranks in place rather than
   // making people refresh to watch it move.
   //
-  // ONE RELOAD PER BURST, NOT PER ROW (13 Oct 2026). The sync writes every
-  // entry it reads, hundreds in a row, and each write used to re-run the whole
-  // leaderboard query for every open board. Changes now settle for a moment
-  // and reload once; a hidden tab waits until it is looked at again.
+  // ONE RELOAD PER BURST, NOT PER ROW. The sync writes every entry it reads, hundreds in a row, and each write used to
+  // re-run the whole leaderboard query for every open board. Changes now settle for a moment and reload once; a hidden
+  // tab waits until it is looked at again.
   useEffect(() => {
     let timer = null
     let missed = false
@@ -99,8 +97,7 @@ export default function Leaderboard() {
 
   const posted = useMemo(() => (rows || []).filter((r) => r.views > 0), [rows])
   const top = posted.slice(0, 3)
-  // EVERYBODY, FROM FIRST (4 Sep 2026). Ethan: "even though we have the podium,
-  // it should still show everyone in the actual leaderboard below."
+  // EVERYBODY, FROM FIRST.
   //
   // This list used to begin at FOURTH, so the podium was not a picture of the
   // board's head, it was a replacement for it - the three names at the top were
@@ -125,11 +122,9 @@ export default function Leaderboard() {
   // under the top ten reads as a wall of failure rather than as a standing.
   const yetToPost = (rows || []).length - posted.length
   const ownIndex = (rows || []).findIndex((r) => r.creator_id === profile?.id)
-  // THE TEAM SEES IT TOO (12 Oct 2026). Ethan: "Maybe it's just not showing up for me because I'm not on it, but I want to
-  // see how that shows up for the creator." An admin off the board gets the same card for a creator halfway down,
-  // marked as what a creator sees, and Show me finds that creator's row.
-  // AND NOW IT IS GONE AGAIN (13 Oct 2026). Ethan, having seen it: "remove that function for me because I don't want to
-  // see it anymore ... for all the admins." An admin who is not on the board sees no card; a creator sees their own.
+  // THE TEAM SEES IT TOO. An admin off the board gets the same card for a creator halfway down, marked as what a creator
+  // sees, and Show me finds that creator's row.
+  // AND NOW IT IS GONE AGAIN. An admin who is not on the board sees no card; a creator sees their own.
   const mine = ownIndex
   const focusId = mine >= 0 ? rows[mine].creator_id : null
   const focusPerson = mine >= 0 ? (ownIndex >= 0 ? profile : rows[mine]) : null
@@ -157,9 +152,7 @@ export default function Leaderboard() {
           creator wanting to know where they stand among their own is asking a
           different, equally fair question. */}
       {markets.length > 1 && !lockedToOwn && (
-        // ONE SCROLLING ROW (12 Oct 2026). Ethan: "I would rather have it
-        // scrollable to the right or the left rather than having everything
-        // below each other on different lines."
+        // ONE SCROLLING ROW.
         <div className="-mx-4 mb-5 flex gap-1.5 overflow-x-auto scroll-px-4 px-4 pb-1 sm:mx-0 sm:px-0">
           {[{ id: '', name: tr('Worldwide') }, ...markets].map((m) => {
             const on = (market || '') === m.id
@@ -182,10 +175,8 @@ export default function Leaderboard() {
         </div>
       )}
 
-      {/* WHERE AM I (12 Oct 2026). Ethan: "there should be a quick button to
-          show where I am... rather than having to go through the 221 creators
-          to find it." One line with the reader's place and a Show me that opens
-          the list if needed, scrolls their row to the middle and flashes it. */}
+      {/* WHERE AM I. One line with the reader's place and a Show me that opens the list if needed, scrolls their row to
+          the middle and flashes it. */}
       {rows !== null && mine >= 0 && (
         <div className="mb-5 flex items-center gap-3 rounded-card border border-gray-100 bg-white px-4 py-3 shadow-card animate-rise">
           <Avatar src={focusPerson?.photo_url} name={focusPerson?.name} size="sm" />
@@ -238,16 +229,13 @@ export default function Leaderboard() {
                 const place = i + 1
                 const isMe = c.creator_id === profile?.id
                 return (
-                  /* THE BOARD ARRIVES IN ORDER: THE PODIUM, THEN THE REST.
-                     Ethan: "improve the animation of this - first the podium
-                     shows up, and then the other ones, four, five, six, seven."
-                     The podium's own ladder finishes at about 240ms, so the
-                     rows start after it rather than alongside it, and each is
-                     one 45ms step behind the last. THE LADDER IS CAPPED AT
-                     EIGHT: an uncapped stagger over forty rows would take two
-                     seconds to finish, and a list that is still assembling
-                     after two seconds reads as a slow page, not as a flourish.
-                     Everything past the eighth simply arrives with the eighth. */
+                  /*
+                   * THE BOARD ARRIVES IN ORDER: THE PODIUM, THEN THE REST. The podium's own ladder finishes at about
+                   * 240ms, so the rows start after it rather than alongside it, and each is one 45ms step behind the
+                   * last. THE LADDER IS CAPPED AT EIGHT: an uncapped stagger over forty rows would take two seconds to
+                   * finish, and a list that is still assembling after two seconds reads as a slow page, not as a
+                   * flourish. Everything past the eighth simply arrives with the eighth.
+                   */
                   /* THE DIVIDER MOVES TO THE WRAPPER. `last:border-0` picks the
                      last element among its SIBLINGS, and once every row is
                      wrapped, each Link is the only child of its own wrapper -
@@ -314,18 +302,12 @@ export default function Leaderboard() {
             </div>
           )}
 
-          {/* EXPANDING SHOWS EVERYONE, INCLUDING THE PEOPLE ON NOUGHT.
-              Ethan: "it should show up absolutely everyone here whenever you
-              click to expand it."
-              Two things were hiding people. The board only ever drew the
-              creators with views above zero, and counted the rest in a line at
-              the foot - which was a deliberate call ("forty names on nought
-              views reads as a wall of failure rather than as a standing") and
-              is the right DEFAULT, not the right only option. And a long board
-              is a long scroll before you reach anything else.
-              So the default is the podium plus nine, the button says how many
-              more there are, and opening it lists every single creator in the
-              programme in order, the zeroes included and drawn quietly. */}
+          {/* EXPANDING SHOWS EVERYONE, INCLUDING THE PEOPLE ON NOUGHT. Two things were hiding people. The board only
+              ever drew the creators with views above zero, and counted the rest in a line at the foot - which was a
+              deliberate call ("forty names on nought views reads as a wall of failure rather than as a standing") and is
+              the right DEFAULT, not the right only option. And a long board is a long scroll before you reach anything
+              else. So the default is the podium plus nine, the button says how many more there are, and opening it lists
+              every single creator in the programme in order, the zeroes included and drawn quietly. */}
           {hiddenCount > 0 && (
             <button
               type="button"

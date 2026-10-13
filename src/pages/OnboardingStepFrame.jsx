@@ -5,12 +5,10 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 /**
  * ONE CARD, WHOSE HEIGHT FOLLOWS THE STEP INSIDE IT.
  *
- * The slide-in was already there (`.onb-screen`, index.css). What was missing
- * is that the box around it changed size instantly: welcome is short, the
- * photos step is tall, and moving between them snapped the card - and every
- * button under it - by a couple of hundred pixels on the frame the slide
- * started. That reads as the whole page jumping, which is exactly what Ethan
- * described.
+ * The slide-in was already there (`.onb-screen`, index.css). What was missing is that the box around it changed size
+ * instantly: welcome is short, the photos step is tall, and moving between them snapped the card - and every button
+ * under it - by a couple of hundred pixels on the frame the slide started. That reads as the whole page jumping, which
+ * is exactly what the team described.
  *
  * A ResizeObserver on the CONTENT keeps `height` on the frame, so the card also
  * grows smoothly when something inside a step appears (an error line, the

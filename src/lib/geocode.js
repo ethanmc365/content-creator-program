@@ -13,8 +13,8 @@ import { COUNTRIES, countryMatches } from './countries'
 
 const CACHE_PREFIX = 'tryp_geocode_'
 const MISS_TTL_MS = 7 * 24 * 3600 * 1000
-// Misses remembered before the 8 Oct 2026 fix are not trusted: Nominatim was refusing every request from the edge,
-// so "not found" then meant "never asked".
+// Misses remembered before the fix are not trusted: Nominatim was refusing every request from the edge, so "not found"
+// then meant "never asked".
 const MISS_TRUSTED_AFTER = Date.UTC(2026, 9, 8, 11, 0)
 const mem = new Map() // in-session cache + in-flight de-dupe
 
@@ -29,10 +29,9 @@ export async function geocodeCity(city, country) {
 
   if (mem.has(k)) return mem.get(k)
 
-  // localStorage cache (persists across sessions). A MISS IS REMEMBERED TOO, for a week (7 Oct
-  // 2026): a town the geocoder cannot place ("Melbournr", "28821", "-") used to be asked for again
-  // on every map view in every browser - 3,700 edge calls a day, each three writes to the rate
-  // limiter, on the day the database ran out of room.
+  // localStorage cache (persists across sessions). A MISS IS REMEMBERED TOO, for a week: a town the geocoder cannot
+  // place ("Melbournr", "28821", "-") used to be asked for again on every map view in every browser - 3,700 edge calls a
+  // day, each three writes to the rate limiter, on the day the database ran out of room.
   try {
     const cached = localStorage.getItem(CACHE_PREFIX + k)
     if (cached) {
@@ -80,9 +79,8 @@ export async function geocodeCity(city, country) {
 
 const fold = (t) => (t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase()
 
-// "DID YOU MEAN MELBOURNE?" (8 Oct 2026). Ethan: "when you notice there's something wrong, suggest it. They
-// could always change it again later". Returns { city, country } when the geocoder only found the town by
-// correcting its spelling, and null when what was typed is already right (or could not be placed at all).
+// "DID YOU MEAN MELBOURNE?". Returns { city, country } when the geocoder only found the town by correcting its spelling,
+// and null when what was typed is already right (or could not be placed at all).
 export async function suggestCity(city, country) {
   if (!city?.trim()) return null
   const hit = await geocodeCity(city, country)
@@ -93,10 +91,9 @@ export async function suggestCity(city, country) {
   return { city: s.city, country: country?.trim() ? country.trim() : s.country }
 }
 
-// TIDYING WHAT PEOPLE TYPE (9 Oct 2026). Ethan: "fix all those typos so they properly show on the map ... Uk / UK / Uk with a
-// space ... lower-case towns". Nothing is guessed: a town only gets its capitals, a country only becomes the platform's own
-// spelling when the typed name matches one of the known countries or its aliases (uk, usa, holland ...), and anything else is
-// left exactly as typed.
+// TIDYING WHAT PEOPLE TYPE. Nothing is guessed: a town only gets its capitals, a country only becomes the platform's own
+// spelling when the typed name matches one of the known countries or its aliases (uk, usa, holland...), and anything
+// else is left exactly as typed.
 const SMALL = new Set(['de', 'del', 'la', 'las', 'los', 'el', 'da', 'do', 'dos', 'das', 'di', 'of', 'the', 'am', 'im', 'an', 'en', 'sur', 'sous', 'le', 'les', 'y', 'e', 'van', 'von', 'upon'])
 export function tidyPlace(text) {
   const raw = (text || '').replace(/\s+/g, ' ').trim()
@@ -117,8 +114,8 @@ export function tidyCountry(text) {
 }
 
 /**
- * Is this worth asking a geocoder about? A dash, a postcode or two letters is not a town, and asking for it on every map view
- * in every browser was the "constantly trying to place them" Ethan saw (the answer is a miss every time).
+ * Is this worth asking a geocoder about? A dash, a postcode or two letters is not a town, and asking for it on every map
+ * view in every browser was the "constantly trying to place them" the team saw (the answer is a miss every time).
  */
 export function plausibleCity(city) {
   const c = (city || '').trim()

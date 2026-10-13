@@ -35,11 +35,9 @@ export const TOUR_VERSION = 4
 // The five named parts. Twenty stops read as a list of twenty things; five
 // parts read as a walk with a shape, and a shape is what stops somebody
 // quitting a third of the way in.
-// THREE PARTS, FOR TEN STOPS (3 Sep 2026).
+// THREE PARTS, FOR TEN STOPS.
 //
-// It was five parts over twenty stops. Ethan, after walking the whole thing:
-// "cut back any unnecessary steps... really improve it and simplify it. Remember
-// it should be easy for the creators."
+// It was five parts over twenty stops.
 //
 // Twenty stops is not a walk round, it is a training course, and the half of
 // them that were "here is another page" taught nothing that opening the page
@@ -48,8 +46,7 @@ export const TOUR_VERSION = 4
 // connection request, been in a room and a DM, and turned notifications on.
 export const TOUR_PARTS = [
   { key: 'start', label: 'Around the app' },
-  // 'Get paid, stay told' was tried and reverted at Ethan's request (4 Sep
-  // 2026): "I don't like this copy, just keep the previous copy there."
+  // 'Get paid, stay told' was tried and reverted at
   { key: 'you', label: 'Your account' },
 ]
 
@@ -81,16 +78,6 @@ const ALL = 'both'
 // ═════════════════════════════════════════════════════════════════════════════
 // SIX STOPS, EVERY ONE A PRESS (4 Sep 2026 - THE THIRD REBUILD).
 //
-// Ethan: "the interactive tutorial is still working really badly, especially on
-// mobile - if I click a button it all just goes away. I was thinking maybe it
-// should be less interactive... but then how do you know how much time you need
-// to read? So maybe just keep the clicks, but simple clicks, and shorten it a
-// lot - because the most important thing for this is just getting the bank
-// details, which I still haven't seen included at all, and the notifications,
-// which I have. Just a clean, quick interactive tutorial where you click the
-// buttons and complete it. I don't like at the start where there's a timer to
-// start - you should always have to click something to proceed."
-//
 // FOUR CHANGES, AND EACH ONE REMOVES A CLASS OF FAILURE RATHER THAN A BUG.
 //
 //  1. TEN STOPS BECOME SIX, and the two that carry the point are last. What
@@ -107,7 +94,7 @@ const ALL = 'both'
 //
 //  3. BANK DETAILS ARE BACK, AND THEY COME BEFORE THE GATE. Notifications is
 //     the one step that cannot be skipped, so anything AFTER it is unreachable
-//     to somebody who refuses - and the payment step is the one Ethan says
+//     to somebody who refuses - and the payment step is the one the team says
 //     matters most, so it must not sit behind the gate. The required step is
 //     always the last thing before the sign-off, and there is a test that says
 //     so, which is how this was caught rather than shipped.
@@ -115,7 +102,7 @@ const ALL = 'both'
 //     because a hard gate produces somebody who closes the app - which is still
 //     true, so this is NOT a gate: the step takes them to the field, asks, and
 //     has a "I'll do this later" that genuinely moves on. BankDetailsPrompt
-//     still asks on later opens. Ethan is right that it matters most: a creator
+//     still asks on later opens. The team is right that it matters most: a creator
 //     who wins a prize and has no payee details is an invoice that cannot be
 //     paid, and that is the one failure this walk can actually prevent.
 //
@@ -181,12 +168,7 @@ export const TOUR_STEPS = [
     at: '/settings?section=payment',
     goal: { kind: 'payee' },
     on: ALL,
-    // THE ONE STEP WHOSE PAGE HAS TO BE TYPED INTO (4 Sep 2026).
-    //
-    // Ethan: "when it has to go to the payment details section, the card is
-    // actually covering some of it and I can't type in all my info. Ensure it
-    // doesn't cover the card - maybe it moves to the left side or the right
-    // side, or can be temporarily hidden if you're typing."
+    // THE ONE STEP WHOSE PAGE HAS TO BE TYPED INTO.
     //
     // Measured at 375px: the card occupied 453-728 and the currency chooser
     // sits at 368, so "Save payment details" and every field the chooser opens
@@ -210,9 +192,8 @@ export const TOUR_STEPS = [
     at: '/settings?section=notifications',
     goal: { kind: 'push' },
     on: ALL,
-    // THE ONE HARD GATE, AND IT STAYS ONE. Ethan, when it was built: "remember
-    // that you can't skip enabling notifications." A brief nobody heard about
-    // is a brief nobody entered, and this is the only step that prevents that.
+    // THE ONE HARD GATE, AND IT STAYS ONE. A brief nobody heard about is a brief nobody entered, and this is the only
+    // step that prevents that.
     required: true,
   },
   {
@@ -222,13 +203,7 @@ export const TOUR_STEPS = [
     body: "Now it's up to you to explore the rest of the platform, you can start by saying 'Hi' in the chat!",
     do: null,
     anchor: null,
-    // IT FINISHES WHERE THE APP STARTS (9 Sep 2026).
-    //
-    // Ethan: "I'm not sure that we're taken back to the worldwide page at the
-    // end, which I mentioned, which we're not - and then we should click the
-    // finish button there, because they're wanting to start on the worldwide
-    // page, not on the notifications page in case they immediately start
-    // turning off notifications."
+    // IT FINISHES WHERE THE APP STARTS.
     //
     // This step had no `at` at all, so it drew wherever the previous step had
     // left the creator - which is always `/settings?section=notifications`,
@@ -256,12 +231,11 @@ export const TOUR_STEPS = [
  * percentage is computed off THIS list, never off TOUR_STEPS, or a creator on
  * the legacy shell tops out at sixty per cent.
  */
-// THE VIP WALK (7 Oct 2026). Ethan: "we now also have VIP members. We obviously don't want them seeing the exact same
-// walkthrough because it's not showing challenges. It'll be showing the VIP room." A VIP is paid by views and never
-// sees a challenge, so their walk is built round their own page: what this month is earning, where a video is added
-// (the one thing they must do for every post), where the money goes, their rooms, and then the same two account
-// steps every creator does, with the words about pay written for pay by views. Same shape, same parts, same rules:
-// every stop is a press, notifications is the one required step and comes last before the sign-off.
+// THE VIP WALK. A VIP is paid by views and never sees a challenge, so their walk is built round their own page: what
+// this month is earning, where a video is added (the one thing they must do for every post), where the money goes, their
+// rooms, and then the same two account steps every creator does, with the words about pay written for pay by views. Same
+// shape, same parts, same rules: every stop is a press, notifications is the one required step and comes last before the
+// sign-off.
 const byKey = (k) => TOUR_STEPS.find((s) => s.key === k)
 export const VIP_TOUR_STEPS = [
   {
@@ -363,10 +337,7 @@ export function partOf(step) {
 
 // WHOSE BROWSER FLAGS THESE ARE.
 //
-// THE BUG THIS FIXES (8 Sep 2026). Ethan: "I just created a new test account to
-// try it out, and it didn't show up straight away. Remember, as soon as you log
-// in to the test account, until you've actually completed the tutorial, you
-// should always be prompted to do it."
+// THE BUG THIS FIXES.
 //
 // Every key below used to be `tryp_tour_<thing>_<layout>_v4` and nothing else -
 // scoped to the BROWSER and the LAYOUT, but not to the PERSON. localStorage is
@@ -408,7 +379,7 @@ export function setTourScope(userId) {
  */
 export const tourKey = (name) => `tryp_tour_${name}${scope}`
 
-/** The VIP the Testing Centre asked the VIP walk to be shown as, or null for "a new VIP" (12 Oct 2026). */
+/* The VIP the Testing Centre asked the VIP walk to be shown as, or null for "a new VIP". */
 export function tourPreviewWho() { try { return localStorage.getItem(tourKey('vip_who')) || null } catch { return null } }
 export function setTourPreviewWho(id) { try { if (id) localStorage.setItem(tourKey('vip_who'), id); else localStorage.removeItem(tourKey('vip_who')) } catch { /* private mode */ } }
 
@@ -424,9 +395,6 @@ const SEEN_KEY = (layout) => `tryp_tour_seen_${layout}${scope}_v${TOUR_VERSION}`
  * their phone has not seen the phone one.
  */
 // WHERE THEY GOT TO, SO CLOSING THE APP DOES NOT START THEM AGAIN.
-//
-// Ethan: "ensure that if they leave the app and come back, it automatically
-// stays at the place they were in the tutorial and doesn't reset or cancel."
 //
 // A walkthrough that navigates you around the product is one you WILL leave
 // halfway - a notification arrives, the phone rings, the app is backgrounded
@@ -455,20 +423,14 @@ export function clearStep(layout) {
 }
 
 // ---------------------------------------------------------------------------
-// THE WALK WAS OPEN WHEN THE PAGE WENT AWAY, AND IT SHOULD BE OPEN WHEN IT
-// COMES BACK (4 Sep 2026).
+// THE WALK WAS OPEN WHEN THE PAGE WENT AWAY, AND IT SHOULD BE OPEN WHEN IT COMES BACK.
 //
-// Ethan, again: "the interactive tutorial - if I tap anywhere, like the button
-// it told me to tap, the tutorial just stops."
-//
-// `savedStep` has always remembered WHERE somebody was. Nothing remembered
-// THAT they were mid-walk, so any reload dropped the overlay and only
-// `shouldAutoStart` could bring it back - and `shouldAutoStart` says no to an
-// admin, to anybody who has finished it once, and to anybody who has the
-// per-layout local flag. Every one of those describes Ethan testing it. So on
-// his phone, a reload - a stale chunk after a deploy (lib/lazyRoute reloads
-// once by design), iOS killing a backgrounded PWA, a pull-to-refresh - looked
-// exactly like the tutorial stopping when he tapped something.
+// `savedStep` has always remembered WHERE somebody was. Nothing remembered THAT they were mid-walk, so any reload
+// dropped the overlay and only `shouldAutoStart` could bring it back - and `shouldAutoStart` says no to an admin, to
+// anybody who has finished it once, and to anybody who has the per-layout local flag. Every one of those describes the
+// team testing it. So on their phone, a reload - a stale chunk after a deploy (lib/lazyRoute reloads once by design),
+// iOS killing a backgrounded PWA, a pull-to-refresh - looked exactly like the tutorial stopping when he tapped
+// something.
 //
 // This is the missing half: a flag that says the overlay is UP. It is written
 // when the walk opens and cleared only when it ends - finished or dismissed -
@@ -527,8 +489,7 @@ export const tourEnabled = () => readFlag('tour_enabled')
 export function shouldAutoStart({ profile, enabled, layout }) {
   if (!enabled) return false
   if (!profile) return false
-  // ADMINS ONLY. `is_test` USED TO BE HERE AND IT IS WHY THIS HAS NEVER BEEN
-  // TESTABLE (4 Sep 2026).
+  // ADMINS ONLY. `is_test` USED TO BE HERE AND IT IS WHY THIS HAS NEVER BEEN TESTABLE.
   //
   // An admin is excluded because they are the one demonstrating it. That is
   // right. `is_test` was excluded alongside it on the same reflex - and the one

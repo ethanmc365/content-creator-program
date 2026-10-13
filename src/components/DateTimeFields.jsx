@@ -30,9 +30,6 @@ import { useT } from '../lib/i18n'
 
 // A CLICK ANYWHERE IN THE BOX STARTS WHERE THE FIELD IS UNFINISHED.
 //
-// Ethan: "when I click anywhere on the box it should always start with me
-// entering DD then MM then Year, not me clicking near year starts at year."
-//
 // The segments are real inputs sitting side by side, so the browser did the
 // literal thing and focused whichever one your pointer happened to land on -
 // which on an empty field means typing the day into the year box. Reading order
@@ -70,14 +67,11 @@ function Part({ id, label, value, onChange, onOverflow, onBack, width, max, inpu
       }}
       placeholder={focused ? '0'.repeat(max) : label}
       className={cx(
-        // `no-ios-zoom` IS 16px ON A PHONE. Ethan, of the calendar's "find a
-        // time": "please ensure you've fixed the issue with the zooming in
-        // across the platform because clicking on a text box here automatically
-        // is zooming in." iOS Safari zooms the page into any field under 16px
-        // and never zooms back out; at `text-sm` every date and time segment on
-        // the platform was one - the calendar, the flight log, the challenge
-        // form and this dialog all draw this component. The segment widths
-        // below are wide enough for 16px tabular digits.
+        // `no-ios-zoom` IS 16px ON A PHONE. The team, of the calendar's "find a time": "please ensure you've fixed the
+        // issue with the zooming in across the platform because clicking on a text box here automatically is zooming
+        // in." iOS Safari zooms the page into any field under 16px and never zooms back out; at `text-sm` every date and
+        // time segment on the platform was one - the calendar, the flight log, the challenge form and this dialog all
+        // draw this component. The segment widths below are wide enough for 16px tabular digits.
         'no-ios-zoom bg-transparent text-center tabular-nums text-ink outline-none placeholder:text-gray-300',
         // NO RING ON THE SEGMENT. THIS IS THE ORANGE BOX.
         //
@@ -279,14 +273,10 @@ export function TimeField({ id, label, value, onChange, hint, optional = false }
       <span className="text-gray-300">:</span>
       <Part id={`${id}-m`} inputRef={mRef} label="MM" max={2} width="w-8" value={m}
         onChange={setM} onBack={() => hRef.current?.focus()} />
-      {/* THE WORD "OPTIONAL" IS GONE. Ethan: "the repeat until with the time
-          shows the word optional half out of the box, remove the word
-          optional." It was absolutely the wrong element for the job - an
-          `ml-auto` span inside a fixed-width row of digit segments, so on any
-          field narrow enough (the repeat-until time is the narrowest on the
-          platform) it was pushed through the border. Whether a field is
-          required is stated by the LABEL, which every caller already sets, and
-          which has room for it. */}
+      {/* THE WORD "OPTIONAL" IS GONE. It was absolutely the wrong element for the job - an `ml-auto` span inside a
+          fixed-width row of digit segments, so on any field narrow enough (the repeat-until time is the narrowest on the
+          platform) it was pushed through the border. Whether a field is required is stated by the LABEL, which every
+          caller already sets, and which has room for it. */}
     </Frame>
   )
 }

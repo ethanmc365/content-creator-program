@@ -4,14 +4,12 @@ import { DM_CACHE_KEY, DM_PEOPLE_CACHE_KEY, fetchDmPeople, fetchInbox } from './
 import { isSlowNetwork } from './netQuality'
 import { challengesApi } from '../api/challenges'
 
-// THE TABS YOU HAVE NOT OPENED YET, FETCHED WHILE YOU READ THE ONE YOU HAVE (2 Oct 2026).
+// THE TABS YOU HAVE NOT OPENED YET, FETCHED WHILE YOU READ THE ONE YOU HAVE.
 //
-// Ethan: "clicking on challenges, or DMs etc takes a bit too long to load ... try to increase this load time
-// without decreasing performance." lib/pageCache already made every SECOND visit to a tab instant; the first
-// one still mounted empty, fired its queries and drew a skeleton for most of a second on a phone. So once the app
-// is up and idle, the two tabs people open most after the hub get their first query run ahead of time and the
-// answer dropped into the page cache - the tap then paints real content on its first frame, and the page's own
-// load still runs and corrects anything that changed.
+// lib/pageCache already made every SECOND visit to a tab instant; the first one still mounted empty, fired its queries
+// and drew a skeleton for most of a second on a phone. So once the app is up and idle, the two tabs people open most
+// after the hub get their first query run ahead of time and the answer dropped into the page cache - the tap then paints
+// real content on its first frame, and the page's own load still runs and corrects anything that changed.
 //
 // What keeps it from costing performance: it waits for idle AND a few seconds, it runs one read at a time, it never
 // runs on a slow connection (lib/netQuality), never twice in a session, and never over a cache the page wrote itself.
@@ -37,7 +35,7 @@ export function warmPagesWhenIdle(userId, { challenges = true } = {}) {
         const { conversations } = await fetchInbox(userId)
         if (!readPageCache(DM_CACHE_KEY) && await same()) writePageCache(DM_CACHE_KEY, conversations)
       }
-      // The DM tab's right-hand "Connect with someone new" pane (2 Oct 2026).
+      // The DM tab's right-hand "Connect with someone new" pane.
       if (!readPageCache(DM_PEOPLE_CACHE_KEY)) {
         const got = await fetchDmPeople(userId)
         if (!readPageCache(DM_PEOPLE_CACHE_KEY) && await same()) writePageCache(DM_PEOPLE_CACHE_KEY, got)

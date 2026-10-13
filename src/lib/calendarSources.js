@@ -17,8 +17,8 @@ import { flightsApi } from '../api/flights'
 //   their invoices         - `/admin/rewards` knew you were being paid on the 12th
 //   their own content days - nowhere, because they did not exist
 //
-// A creator opening the calendar to answer "what does my September look like"
-// got the programme's September and none of their own. Ethan asked for all four.
+// A creator opening the calendar to answer "what does my September look like" got the programme's September and none of
+// their own. The team asked for all four.
 //
 // THE RULE THAT MAKES THIS SAFE: everything in here except events and challenges
 // is SCOPED TO ONE PERSON BY THE QUERY, not by a filter afterwards. Flights,
@@ -140,12 +140,8 @@ export async function loadCalendar({ userId, scopeIds, vip = null }) {
     })
   }
 
-  // CHALLENGE DATES ARE SCOPED NOW, WHICH THEY WERE NOT.
-  // They were built with no community on them at all, so a Spanish challenge's
-  // opening and closing dates landed on all 45 creators' calendars including
-  // the 43 who could not enter it. Ethan: "Ensure that challenge start events
-  // and deadline events for each market challenge only appear to the
-  // appropriate creators who are in the markets."
+  // CHALLENGE DATES ARE SCOPED NOW, WHICH THEY WERE NOT. They were built with no community on them at all, so a Spanish
+  // challenge's opening and closing dates landed on all 45 creators' calendars including the 43 who could not enter it.
   for (const c of challenges ?? []) {
     if (!inScope(scopeIds, c.community_id)) continue
     if (c.start_date) {
@@ -252,10 +248,8 @@ export async function loadCalendar({ userId, scopeIds, vip = null }) {
     })
   }
 
-  // A VIP'S MONTH HAS DATES TOO (3 Oct 2026). Ethan: "for the calendar, we should have certain things showing up for
-  // the VIPs, like when it's coming to the end of the month." Three, all derived from their own overview and so never
-  // out of date: a week to go on the stay-in rule, the day the month closes, and - while a payout is open - the last
-  // day to take it.
+  // A VIP'S MONTH HAS DATES TOO. Three, all derived from their own overview and so never out of date: a week to go on
+  // the stay-in rule, the day the month closes, and - while a payout is open - the last day to take it.
   if (vip?.month?.ends_at) {
     const ends = new Date(vip.month.ends_at)
     const need = Number(vip.programme?.req_videos) || 5
@@ -278,13 +272,9 @@ export async function loadCalendar({ userId, scopeIds, vip = null }) {
 
   items.sort((a, b) => new Date(a.date) - new Date(b.date))
 
-  // TRAVEL DAYS ARE A TINT, NOT AN ENTRY.
-  // A six-day trip put on the grid as six identical cards buries whatever else
-  // is happening that week. Ethan: "on the trip days between maybe the calendar
-  // boxes or weekly boxes should be highlighted in a light orange colour,
-  // showing that theyre travelling those days." So the range collapses to a set
-  // of day keys the grid can look up, and the trip itself still appears once,
-  // on the day it starts.
+  // TRAVEL DAYS ARE A TINT, NOT AN ENTRY. A six-day trip put on the grid as six identical cards buries whatever else is
+  // happening that week. So the range collapses to a set of day keys the grid can look up, and the trip itself still
+  // appears once, on the day it starts.
   const travelDays = new Map()
   const addTravel = (keys, label) => {
     for (const k of keys) if (!travelDays.has(k)) travelDays.set(k, label)

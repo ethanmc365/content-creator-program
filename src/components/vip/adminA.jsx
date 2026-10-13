@@ -20,7 +20,7 @@ import { profilesApi } from '../../api/profiles'
 import { marketsApi } from '../../api/markets'
 import { teamApi } from '../../api/team'
 
-// THE TEAM'S SIDE OF THE VIP PROGRAMME, PART ONE: who is in, and how this month is going (2 Oct 2026).
+// THE TEAM'S SIDE OF THE VIP PROGRAMME, PART ONE: who is in, and how this month is going.
 
 /** Numbers across the top, in the platform's own card. */
 export function Stat({ label, value, hint, tone }) {
@@ -45,7 +45,7 @@ export function readErrorText(code, tr) {
   }
 }
 
-/** VIP creators / the Tryp.com team / everyone: the one switch the board and the members list share (9 Oct 2026). */
+/* VIP creators / the Tryp.com team / everyone: the one switch the board and the members list share. */
 export function WhoSwitch({ value, onChange, counts }) {
   const tr = useKindT()
   return (
@@ -68,7 +68,7 @@ export function VipOverviewTab({ programme }) {
   const [teamIds, setTeamIds] = useState(() => new Set()) // migration 365: Tryp.com team creators, counted apart
   const [who, setWho] = useState('vip') // 9 Oct 2026: one board, a switch for VIP creators / the Tryp.com team / everyone
   const cur = programme.currency
-  // AN OFFICIAL PROGRAMME COSTS ITS FEES TOO (11 Oct 2026): views pay alone was about a third of what the month costs.
+  // AN OFFICIAL PROGRAMME COSTS ITS FEES TOO: views pay alone was about a third of what the month costs.
   const [deals, setDeals] = useState(null)
   useEffect(() => {
     if (programme.kind !== 'official') return undefined
@@ -165,18 +165,17 @@ export function VipOverviewTab({ programme }) {
         <SuggestionsCard programme={programme} onPick={setPickProfile} />
       </div>
 
-      {/* ONE BOARD, A SWITCH (9 Oct 2026). Ethan: "I don't want it stacked ... a toggle for team, just general VIP creators,
-          or everyone combined." It was two boards stacked (8 Oct, migration 365). Now it is one board and the switch picks
-          who is on it; the people are ranked on the view they have chosen, and the numbers above stay the whole programme. */}
+      {/* ONE BOARD, A SWITCH. It was two boards stacked (8 Oct, migration 365). Now it is one board and the switch picks
+          who is on it; the people are ranked on the view they have chosen, and the numbers above stay the whole
+          programme. */}
       {(() => {
         const vipList = members.filter((m) => !teamIds.has(m.profile_id))
         const teamList = members.filter((m) => teamIds.has(m.profile_id))
         const list = who === 'team' ? teamList : who === 'vip' ? vipList : members
         const title = who === 'team' ? tr('Tryp.com team creators') : who === 'all' ? tr('Everyone, live') : tr('The board, live')
         return (
-        // THE BOARD, LIVE, AS A BOARD (1 Oct 2026). Ethan: "with the board live, I want you to improve the UI of that."
-        // Each VIP is a row with their place, their views as a bar against the leader's, what they have earned and are on
-        // pace for, their target, and a plain "no videos yet" when that is the story.
+        // THE BOARD, LIVE, AS A BOARD. Each VIP is a row with their place, their views as a bar against the leader's,
+        // what they have earned and are on pace for, their target, and a plain "no videos yet" when that is the story.
         <section>
           <div className="mb-3 flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
             <h2 className="flex items-center gap-2 text-[15px] font-bold text-ink"><span className="relative flex h-2 w-2"><span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-brand/60" /><span className="relative inline-flex h-2 w-2 rounded-full bg-brand" /></span>{title}</h2>
@@ -242,9 +241,8 @@ export function VipOverviewTab({ programme }) {
 }
 
 /**
- * EVERY VIP VIDEO, IN ONE PLACE (13 Oct 2026). Ethan: "there seems to be no way for an admin to easily see all the
- * videos". The programme's videos, newest first, with a search, a platform filter and "Needs a look" (the ones the reader
- * could not read). Twelve show until "Show all" is pressed.
+ * EVERY VIP VIDEO, IN ONE PLACE. The programme's videos, newest first, with a search, a platform filter and "Needs a
+ * look" (the ones the reader could not read). Twelve show until "Show all" is pressed.
  *
  * "STOP COUNTING" IS GONE (same day): a video earns only in the month it was posted (vip_video_counted) and the reader
  * leaves it alone once that month is over (migration 397), so there is nothing for the team to switch off by hand. A
@@ -425,11 +423,10 @@ export function payFor(views, baseCpm, tiers, flat) {
   return Math.round(pay * 100) / 100
 }
 
-// EVERYTHING ABOUT ONE VIP, IN ONE SHEET (2 Oct 2026, migration 311). Ethan: "ensure the function is set up so they can
-// set CPM rates per creator etc and a lot of settings to customise for each VIP creator." Grouped the way the team
-// thinks about a deal: their place, their pay (own rate, own rate steps, a monthly fee, a cap, whether the market's
-// bonuses apply), what they are aiming at, how they appear, and the team's own notes. A live line shows what the
-// deal pays at three view counts, so a change is checked before it is saved. One call writes the lot.
+// EVERYTHING ABOUT ONE VIP, IN ONE SHEET (migration 311). Grouped the way the team thinks about a deal: their place,
+// their pay (own rate, own rate steps, a monthly fee, a cap, whether the market's bonuses apply), what they are aiming
+// at, how they appear, and the team's own notes. A live line shows what the deal pays at three view counts, so a change
+// is checked before it is saved. One call writes the lot.
 function EditMemberModal({ m, programme, onClose, onSaved, onMoveBack }) {
   const tr = useKindT()
   const cur = programme.currency
@@ -506,8 +503,8 @@ function EditMemberModal({ m, programme, onClose, onSaved, onMoveBack }) {
       {opts.hint && <span className="mt-1 block text-[11px] text-smoke">{opts.hint}</span>}
     </label>
   )
-  // THE HOUSE SWITCH (3 Oct 2026). Ethan: the toggle "is really weird and it's incorrect". It was a switch built inside
-  // this component, so it was a new component on every keystroke and never animated; it is the shared Toggle now.
+  // THE HOUSE SWITCH. The team: the toggle "is really weird and it's incorrect". It was a switch built inside this
+  // component, so it was a new component on every keystroke and never animated; it is the shared Toggle now.
   const switchRow = (on, onChange, label, hint) => (
     <div className="flex items-center gap-3 rounded-xl bg-cloud/50 px-3.5 py-3">
       <span className="min-w-0 flex-1">
@@ -535,9 +532,8 @@ function EditMemberModal({ m, programme, onClose, onSaved, onMoveBack }) {
 
         {section('money', tr('Their pay'), (
           <div className="space-y-4">
-            {/* EVERY AMOUNT SAYS ITS CURRENCY (3 Oct 2026). Ethan: "Monthly cap is in euros, I assume, right? It should
-                maybe make that more clear." And the "monthly fee" is what it is: a bonus paid every month the conditions
-                are met. */}
+            {/* EVERY AMOUNT SAYS ITS CURRENCY. And the "monthly fee" is what it is: a bonus paid every month the
+                conditions are met. */}
             <div className="grid grid-cols-2 gap-3">
               {field(tr('Own rate per 1,000 views ({c})', { c: sym }), f.cpm, (v) => set({ cpm: v }), { placeholder: rate(programme.cpm), hint: tr('Empty uses the market rate.') })}
               {field(tr('Monthly cap ({c})', { c: sym }), f.cap, (v) => set({ cap: v }), { placeholder: programme.monthly_cap ? String(programme.monthly_cap) : tr('No cap'), hint: tr('The most their views can earn in a month.') })}
@@ -587,8 +583,8 @@ function EditMemberModal({ m, programme, onClose, onSaved, onMoveBack }) {
           </div>
         ), 2)}
 
-        {/* NO HEADLINE TO SET FOR THEM (3 Oct 2026): "I don't get why we would be setting the headline for them." A VIP
-            writes their own on their Stats page. */}
+        {/* NO HEADLINE TO SET FOR THEM: "I don't get why we would be setting the headline for them." A VIP writes their
+            own on their Stats page. */}
         {section('globe', tr('On the VIP map'), switchRow(f.onMap, (v) => set({ onMap: v }), tr('Show them on the VIP map'), tr('Only once they have a town on their profile.')), 3)}
 
         {section('pencil', tr('For the team'), (
@@ -607,10 +603,8 @@ function EditMemberModal({ m, programme, onClose, onSaved, onMoveBack }) {
   )
 }
 
-// BACK TO THE COMMUNITY, AND WHERE (3 Oct 2026). Ethan: "pressing that, it should show up which place to actually move
-// them in like worldwide, Spain, etc. and show the suggested one." The suggestion is their home market if they have one,
-// otherwise the market this VIP programme belongs to. Worldwide means no market of its own: they keep the ones they
-// were already in.
+// BACK TO THE COMMUNITY, AND WHERE. The suggestion is their home market if they have one, otherwise the market this VIP
+// programme belongs to. Worldwide means no market of its own: they keep the ones they were already in.
 export function MoveBackModal({ person, programme, onClose, onDone }) {
   const tr = useKindT()
   const [markets, setMarkets] = useState(null)
@@ -685,8 +679,7 @@ export function VipMembersTab({ programme }) {
   const [reviews, setReviews] = useState({}) // profile id -> the date their own rate is to be looked at again
   const [staff, setStaff] = useState(null)
   const [teamBusy, setTeamBusy] = useState(null)
-  // EMAILS, ON DEMAND (9 Oct 2026). Ethan: "all the functions that we now need for the VIPs, like under email, to easily
-  // copy all the emails." Read only when somebody presses a copy button, so opening this tab costs nothing extra.
+  // EMAILS, ON DEMAND. Read only when somebody presses a copy button, so opening this tab costs nothing extra.
   const emailsRef = useRef(null)
   async function addressesFor(list) {
     if (!emailsRef.current) {
@@ -704,8 +697,8 @@ export function VipMembersTab({ programme }) {
     if (ok) toastSuccess(oneName ? tr('Copied {n}\'s email.', { n: oneName }) : tr('Copied {n} email addresses.', { n: a.length }))
     else notice(tr('Could not copy. Try again.'))
   }
-  // OFFICIAL CREATOR OR VIP (10 Oct 2026, migration 376). This used to set a label; it now MOVES the person, with this
-  // month's videos, into the official programme of the same market (or back), so they leave this list.
+  // OFFICIAL CREATOR OR VIP (migration 376). This used to set a label; it now MOVES the person, with this month's
+  // videos, into the official programme of the same market (or back), so they leave this list.
   const officialHere = programme.kind === 'official'
   async function toggleTeam(m) {
     const next = !officialHere
@@ -729,8 +722,8 @@ export function VipMembersTab({ programme }) {
     ])
     setData(o)
     setReviews(Object.fromEntries((r.data || []).map((x) => [x.profile_id, x])))
-    // THE PEOPLE WHO RUN IT (8 Oct 2026, migration 365): "it's not showing correctly who's in the team ... I don't
-    // even see Marta". vip_managers is owner-only to read; vip_team_people names them to anybody with VIP access.
+    // THE PEOPLE WHO RUN IT (migration 365): "it's not showing correctly who's in the team... I don't even see Marta".
+    // vip_managers is owner-only to read; vip_team_people names them to anybody with VIP access.
     const { data: tp } = await vipApi.teamPeople()
     const ids = [...new Set((tp || []).filter((x) => x.kind === 'staff' && x.programme_id === programme.id).map((x) => x.profile_id))]
     const { data: pf } = ids.length ? await profilesApi.profiles().select('id, name, photo_url, role_title').in('id', ids) : { data: [] }
@@ -748,8 +741,7 @@ export function VipMembersTab({ programme }) {
   const members = everyone.filter((m) => (show === 'all' || m.status === show) && (who === 'all' || (who === 'team') === isTeam(m)) && (!query.trim() || m.name.toLowerCase().includes(query.trim().toLowerCase())))
   return (
     <div className="space-y-8">
-      {/* THE SIGN-UP LINK AND ITS NUMBERS COME FIRST (4 Oct 2026). Ethan: "the VIP sign-up link, when I click on Members, should
-          always be at the top rather than at the bottom ... the metrics showing 0 signed up ... should also be at the top." */}
+      {/* THE SIGN-UP LINK AND ITS NUMBERS COME FIRST. */}
       {/* The VIP sign-up link is for VIPs; official creators are placed by the team, never by a link. */}
       {!officialHere && <VipLinkCard />}
 
@@ -875,9 +867,8 @@ export function VipMoveBlock({ creator, onChanged }) {
   const [pick, setPick] = useState(null)
   const [done, setDone] = useState('')
   const [isVip, setIsVip] = useState(!!creator.is_vip)
-  // AN ADMIN IS NOT A VIP CREATOR (2 Oct 2026). Ethan: "whenever I view an admin's profile and click to see the admin
-  // tools popup, it shows that I can promote them to join the VIP community as a creator which is obviously wrong." For
-  // somebody on the team this block is about VIP TEAM access instead (see VipTeamAccess below).
+  // AN ADMIN IS NOT A VIP CREATOR. For somebody on the team this block is about VIP TEAM access instead (see
+  // VipTeamAccess below).
   const [staff, setStaff] = useState(null)
   useEffect(() => {
     let alive = true
@@ -888,8 +879,8 @@ export function VipMoveBlock({ creator, onChanged }) {
         if (alive) setStaff(prof)
         return
       }
-      // ALL AT ONCE (13 Oct 2026). Ethan: the VIP block "appears late". It asked vip_can_manage once per programme, one
-      // after another, so the block arrived a beat after everything else on the sheet; now every question goes together.
+      // ALL AT ONCE. The team: the VIP block "appears late". It asked vip_can_manage once per programme, one after
+      // another, so the block arrived a beat after everything else on the sheet; now every question goes together.
       const [{ data }, { data: row }] = await Promise.all([
         vipApi.programmes().select('*').eq('active', true).order('name'),
         prof?.is_vip ? vipApi.members().select('programme_id, status').eq('profile_id', creator.id).maybeSingle() : Promise.resolve({ data: null }),
@@ -919,9 +910,8 @@ export function VipMoveBlock({ creator, onChanged }) {
   const here = programmes.find((p) => p.id === member?.programme_id)
   const short = (p) => p.name.replace(/^VIP /, '')
   const target = programmes.find((p) => p.id === choice) || programmes[0]
-  // ONE ROW, ONE BUTTON (13 Oct 2026). Ethan: "tidy up how the VIP community section looks ... those different 'Move to'
-  // buttons". A wrap of "Move to VIP Spain / Move to VIP Romania / Move to Official ..." is now: where they are on the
-  // left, and on the right a picker of the communities you run plus a single Move button.
+  // ONE ROW, ONE BUTTON. A wrap of "Move to VIP Spain / Move to VIP Romania / Move to Official..." is now: where they
+  // are on the left, and on the right a picker of the communities you run plus a single Move button.
   return (
     <div className="animate-fade-up">
       <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-gray-400">{tr('VIP community')}</p>

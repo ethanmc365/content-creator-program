@@ -7,12 +7,7 @@ export default function MessagesEmptyThread({ discover, discoverPeople, newHereC
   return (
     <div className="flex h-full flex-col justify-center overflow-y-auto p-8">
       <div className="mx-auto w-full max-w-3xl">
-        {/* THE HEADING IS TITLE CASE AND IT NAMES THE LIST UNDER IT
-            (7 Sep 2026). Ethan: "I would capitalise it... maybe say
-            'connect with someone new' rather than 'say hello to
-            someone', and show new people they haven't connected with.
-            If they've connected with everyone, you can have this say
-            'say hello to someone'."
+        {/* THE HEADING IS TITLE CASE AND IT NAMES THE LIST UNDER IT.
 
             Both sentences are here because they are two different
             screens, and which one you get is decided by the same memo
@@ -21,9 +16,8 @@ export default function MessagesEmptyThread({ discover, discoverPeople, newHereC
             invite somebody to "connect with" people they were already
             connected to.
 
-            NO EXPLANATORY LINE, still (4 Sep 2026): the heading says
-            what to do and the cards say who with. The sub-line here is
-            the one thing neither of them can say - WHY these six. */}
+            NO EXPLANATORY LINE, still: the heading says what to do and the cards say who with. The sub-line here is the
+            one thing neither of them can say - WHY these six. */}
         <p className="text-center text-xl font-bold tracking-tight sm:text-2xl">
           {discover.mode === 'new' ? tr('Connect With Someone New') : tr('Say Hello to Someone')}
         </p>
@@ -46,32 +40,22 @@ export default function MessagesEmptyThread({ discover, discoverPeople, newHereC
           </div>
         ) : discoverPeople.length > 0 ? (
           <>
-            {/* NO SUB-LINE (8 Sep 2026). Ethan: "remove this copy -
-                'Creators you have not met yet, and a few worth picking
-                back up.'"
+            {/* NO SUB-LINE.
 
-                It was three sentences behind one ternary, which made it
-                the last thing on this pane whose WORDING depended on a
-                count that changes as queries land - the visible half of
-                the flash he reported in the same breath. And it was
-                restating the heading above it and the badges below it:
-                the cards already say "Not met" or "New here" on the
-                people it was describing. */}
+                It was three sentences behind one ternary, which made it the last thing on this pane whose WORDING
+                depended on a count that changes as queries land - the visible half of the flash they reported in the
+                same breath. And it was restating the heading above it and the badges below it: the cards already say
+                "Not met" or "New here" on the people it was describing. */}
             {/* CARDS, NOT A BORDERED TABLE OF ROWS. The list was two
                 columns of full-width rows inside one boxed card, which
                 put a hairline grid across the middle of the largest
                 empty space in the product - the same "weird lines"
                 problem the wrapped pills had before it.
 
-                THE FACE LEADS AND THE CARD IS A TILE (7 Sep 2026).
-                Ethan: "improve the UI of this." Six rows of avatar +
-                name in two columns is an address book; what this pane
-                is for is recognising a face and pressing it. So the
-                photo is the top of the card at 56px, the name sits
-                under it, and three go across on a wide pane - which is
-                also what makes six of them read as six rather than as
-                "two creators", which is what a two-column grid of six
-                looks like at a glance. */}
+                THE FACE LEADS AND THE CARD IS A TILE. Six rows of avatar + name in two columns is an address book; what
+                this pane is for is recognising a face and pressing it. So the photo is the top of the card at 56px, the
+                name sits under it, and three go across on a wide pane - which is also what makes six of them read as six
+                rather than as "two creators", which is what a two-column grid of six looks like at a glance. */}
             <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {discoverPeople.map((p, i) => {
                 const isNew = p.created_at && new Date(p.created_at).getTime() > newHereCutoff

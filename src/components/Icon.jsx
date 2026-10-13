@@ -17,12 +17,11 @@ const PATHS = {
   // a single-`d` copy of the Heroicons glyph and CLAIM it was layered, which is
   // exactly why it drew wrong.
   lock: 'M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z',
-  // A speech bubble with lines in it: an opener, said out loud. The admin
-  // Hooks page (Ethan did not like the bulb, 26 Sep 2026).
+  // A speech bubble with lines in it: an opener, said out loud. The admin Hooks page (the team did not like the bulb).
   quote: 'M7.5 8.25h9m-9 3H12m-9.75 1.51c0 1.6 1.123 2.994 2.707 3.227 1.129.166 2.27.293 3.423.379.35.026.67.21.865.501L12 21l2.755-4.133a1.14 1.14 0 01.865-.501 48.172 48.172 0 003.423-.379c1.584-.233 2.707-1.626 2.707-3.228V6.741c0-1.602-1.123-2.995-2.707-3.228A48.394 48.394 0 0012 3c-2.392 0-4.744.175-7.043.513C3.373 3.746 2.25 5.14 2.25 6.741v6.018z',
   bulb: 'M12 18v-5.25m0 0a6.01 6.01 0 001.5-.189m-1.5.189a6.01 6.01 0 01-1.5-.189m3.75 7.478a12.06 12.06 0 01-4.5 0m3.75 2.383a14.406 14.406 0 01-3 0M14.25 18v-.192c0-.983.658-1.823 1.508-2.316a7.5 7.5 0 10-7.517 0c.85.493 1.509 1.333 1.509 2.316V18',
   trophy: 'M16.5 18.75h-9m9 0a3 3 0 013 3h-15a3 3 0 013-3m9 0v-3.375c0-.621-.503-1.125-1.125-1.125h-.871M7.5 18.75v-3.375c0-.621.504-1.125 1.125-1.125h.872m5.007 0H9.497m5.007 0a7.454 7.454 0 01-.982-3.172M9.497 14.25a7.454 7.454 0 00.981-3.172M5.25 4.236c-.982.143-1.954.317-2.916.52A6.003 6.003 0 007.73 9.728M5.25 4.236V4.5c0 2.108.966 3.99 2.48 5.228M5.25 4.236V2.721C7.456 2.41 9.71 2.25 12 2.25c2.291 0 4.545.16 6.75.47v1.516M7.73 9.728a6.726 6.726 0 002.748 1.35m8.272-6.842V4.5c0 2.108-.966 3.99-2.48 5.228m2.48-5.492a46.32 46.32 0 012.916.52 6.003 6.003 0 01-5.395 4.972m0 0a6.726 6.726 0 01-2.749 1.35m0 0a6.772 6.772 0 01-3.044 0',
-  // Three sliders: "filter this list" (12 Oct 2026).
+  // Three sliders: "filter this list".
   sliders: 'M10.5 6h9.75M10.5 6a1.5 1.5 0 11-3 0m3 0a1.5 1.5 0 10-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-9.75 0h9.75',
   money: 'M2.25 18.75a60.07 60.07 0 0115.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 013 6h-.75m0 0v-.375c0-.621.504-1.125 1.125-1.125H20.25M2.25 6v9m18-10.5v.75c0 .414.336.75.75.75h.75m-1.5-1.5h.375c.621 0 1.125.504 1.125 1.125v9.75c0 .621-.504 1.125-1.125 1.125h-.375m1.5-1.5H21a.75.75 0 00-.75.75v.75m0 0H3.75m0 0h-.375a1.125 1.125 0 01-1.125-1.125V15m1.5 1.5v-.75A.75.75 0 003 15h-.75M15 10.5a3 3 0 11-6 0 3 3 0 016 0zm3 0h.008v.008H18V10.5zm-12 0h.008v.008H6V10.5z',
   chart: 'M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z',
@@ -47,8 +46,8 @@ const PATHS = {
   gamepad: 'M11.25 6.75v6m0 0v6m0-6h6m-6 0h-6M9 12.75a.75.75 0 11-1.5 0 .75.75 0 011.5 0zm7.5-3a.75.75 0 11-1.5 0 .75.75 0 011.5 0zm-3 3a.75.75 0 11-1.5 0 .75.75 0 011.5 0z',
   // Arcade joystick: round knob on top of a stick rising from a rounded base.
   joystick: 'M14.5 4.75a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z M12 7.25V13.5 M5 13.5h14a1.5 1.5 0 011.5 1.5v3a1.5 1.5 0 01-1.5 1.5H5a1.5 1.5 0 01-1.5-1.5v-3A1.5 1.5 0 015 13.5z',
-  // KPI metrics (2 Oct 2026): one glyph each, so no two measures in the picker look alike.
-  // Translate (Heroicons "language"): the chat action that translates a message.
+  // KPI metrics: one glyph each, so no two measures in the picker look alike. Translate (Heroicons "language"): the chat
+  // action that translates a message.
   language: 'm10.5 21 5.25-11.25L21 21m-9-3h7.5M3 5.621a48.474 48.474 0 0 1 6-.371m0 0c1.12 0 2.233.038 3.334.114M9 5.25V3m3.334 2.364C11.176 10.658 7.69 15.08 3 17.502m9.334-12.138c.896.061 1.785.147 2.666.257m-4.589 8.495a18.023 18.023 0 0 1-3.827-5.802',
   userPlus: 'M18 7.5v3m0 0v3m0-3h3m-3 0h-3m-2.25-4.125a3.375 3.375 0 1 1-6.75 0 3.375 3.375 0 0 1 6.75 0ZM3 19.235v-.11a6.375 6.375 0 0 1 12.75 0v.109A12.318 12.318 0 0 1 9.374 21c-2.331 0-4.512-.645-6.374-1.766Z',
   userGroup: 'M18 18.72a9.094 9.094 0 0 0 3.741-.479 3 3 0 0 0-4.682-2.72m.94 3.198.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0 1 12 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 0 1 6 18.719m12 0a5.971 5.971 0 0 0-.941-3.197m0 0A5.995 5.995 0 0 0 12 12.75a5.995 5.995 0 0 0-5.058 2.772m0 0a3 3 0 0 0-4.681 2.72 8.986 8.986 0 0 0 3.74.477m.94-3.197a5.971 5.971 0 0 0-.94 3.197M15 6.75a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm6 3a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Zm-13.5 0a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Z',
@@ -70,14 +69,11 @@ const PATHS = {
   chevronUp: 'M4.5 15.75 12 8.25l7.5 7.5',
   'arrow-down': 'M19.5 13.5 12 21m0 0-7.5-7.5M12 21V3',
   'arrow-up': 'M4.5 10.5 12 3m0 0 7.5 7.5M12 3v18',
-  // SAVING A PHOTO IS NOT "SCROLL DOWN" (2 Sep 2026).
+  // SAVING A PHOTO IS NOT "SCROLL DOWN".
   //
-  // Ethan, of the photo bar: "I don't really like the download icon, I think
-  // you can improve it" - with a picture of the one everybody draws: a short
-  // arrow dropping INTO a tray. `arrow-down` is a full-height bare arrow, which
-  // is the glyph for "go down the page", and next to Full screen and Reply it
-  // read as a direction rather than as an action. The tray is the whole
-  // difference: an arrow with somewhere to land is a download.
+  // - with a picture of the one everybody draws: a short arrow dropping INTO a tray. `arrow-down` is a full-height bare
+  // arrow, which is the glyph for "go down the page", and next to Full screen and Reply it read as a direction rather
+  // than as an action. The tray is the whole difference: an arrow with somewhere to land is a download.
   download: 'M12 3.75v10.5m0 0 4.25-4.25M12 14.25 7.75 10M4.5 16.5v2.25A1.75 1.75 0 0 0 6.25 20.5h11.5a1.75 1.75 0 0 0 1.75-1.75V16.5',
   // TWO ARROWS ROUND A CIRCLE - "read it again". Drawn for the video tracker's
   // "Sync from entries", which had been reaching for `download` (that is a file
@@ -92,7 +88,7 @@ const PATHS = {
   clock: 'M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z',
   mute: 'M17.25 9.75L19.5 12m0 0l2.25 2.25M19.5 12l2.25-2.25M19.5 12l-2.25 2.25M6.75 8.25l4.72-4.72a.75.75 0 011.28.53v15.88a.75.75 0 01-1.28.53l-4.72-4.72H4.51c-.88 0-1.704-.506-1.938-1.354A9.01 9.01 0 012.25 12c0-.83.112-1.633.322-2.396C2.806 8.756 3.63 8.25 4.51 8.25H6.75z',
   key: 'M15.75 5.25a3 3 0 013 3m3 0a6 6 0 01-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1121.75 8.25z',
-  // The official-creator mark (10 Oct 2026): Heroicons' check-badge, a verified seal.
+  // The official-creator mark: Heroicons' check-badge, a verified seal.
   badge: 'M9 12.75 11.25 15 15 9.75M21 12c0 1.268-.63 2.39-1.593 3.068a3.745 3.745 0 01-1.043 3.296 3.745 3.745 0 01-3.296 1.043A3.745 3.745 0 0112 21c-1.268 0-2.39-.63-3.068-1.593a3.746 3.746 0 01-3.296-1.043 3.745 3.745 0 01-1.043-3.296A3.745 3.745 0 013 12c0-1.268.63-2.39 1.593-3.068a3.745 3.745 0 011.043-3.296 3.746 3.746 0 013.296-1.043A3.746 3.746 0 0112 3c1.268 0 2.39.63 3.068 1.593a3.746 3.746 0 013.296 1.043 3.746 3.746 0 011.043 3.296A3.745 3.745 0 0121 12z',
   star: 'M11.48 3.499a.562.562 0 011.04 0l2.125 5.111a.563.563 0 00.475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 00-.182.557l1.285 5.385a.562.562 0 01-.84.61l-4.725-2.885a.562.562 0 00-.586 0L6.982 20.54a.562.562 0 01-.84-.61l1.285-5.386a.562.562 0 00-.182-.557l-4.204-3.602a.562.562 0 01.321-.988l5.518-.442a.563.563 0 00.475-.345L11.48 3.5z',
   ban: 'M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636',
@@ -134,17 +130,9 @@ const PATHS = {
   // ----------------------------------------------------------------------
   // THE PLATFORM GLYPHS THE INSTALL STEPS NAME.
   //
-  // Ethan, on the add-to-home-screen card: "for iPhone I noticed you've drawn
-  // the wrong symbols. You click the three dots in the bottom right corner,
-  // then the share icon, which is like a square with a little arrow coming out
-  // of it. Get these proper icons from Apple. Then you press View More, which
-  // is a little arrow pointing down. Then you click Add to Home Screen, which
-  // is like a rounded square with a plus in it."
-  //
-  // He is right that they were wrong: the card was drawing Heroicons' `share`,
-  // which is the three-nodes-and-two-lines network glyph, for a button that on
-  // iOS is a box with an arrow coming out of the top. An instruction that names
-  // a symbol and then draws a different symbol is worse than no symbol.
+  // they are right that they were wrong: the card was drawing Heroicons' `share`, which is the three-nodes-and-two-lines
+  // network glyph, for a button that on iOS is a box with an arrow coming out of the top. An instruction that names a
+  // symbol and then draws a different symbol is worse than no symbol.
   //
   // These are DRAWN IN THIS SET'S LANGUAGE - 24-unit box, `currentColor`, the
   // same 1.7 stroke as everything else - rather than lifted from Apple's SF
@@ -170,11 +158,7 @@ const PATHS = {
 // default outline set). `magnifier` is the Guess the Country mark - a bold
 // magnifying glass with a glint inside the lens.
 const LAYERED_PATHS = {
-  // A LIFE RING THAT IS ACTUALLY A LIFE RING (12 Sep 2026).
-  //
-  // Ethan, of the Get help card in Settings: "the icon for it is really bad, I
-  // like the idea of a lifering but it's distorted, please fix it and have an
-  // actual good lifering icon."
+  // A LIFE RING THAT IS ACTUALLY A LIFE RING.
   //
   // WHAT WAS WRONG, AND IT IS NOT A MATTER OF TASTE. The old glyph was
   // Heroicons' `lifebuoy` pasted into `PATHS` as ONE `d` string - and a comment
@@ -203,10 +187,7 @@ const LAYERED_PATHS = {
     // hub's or the rim's tangents.
     { d: 'M14.83 9.17 18.36 5.64M14.83 14.83 18.36 18.36M9.17 14.83 5.64 18.36M9.17 9.17 5.64 5.64', strokeWidth: 1.9 },
   ],
-  // A HAND THAT IS ACTUALLY WAVING (1 Sep 2026).
-  //
-  // Ethan: "I want the introductions icon changed to this one I attached but
-  // with the custom colour and design, this is a more wave like icon."
+  // A HAND THAT IS ACTUALLY WAVING.
   //
   // What it was: Heroicons' `hand-raised` - a good, clean open hand, and a
   // completely STILL one. At 18px in a tab strip a raised palm reads as "stop"
@@ -221,13 +202,7 @@ const LAYERED_PATHS = {
   //
   // It takes `currentColor` like every other glyph here, so the room list's
   // brand orange applies unchanged.
-  // THE HAND IS THE ICON, AND IT FILLS THE BOX (2 Sep 2026).
-  //
-  // Ethan: "I like the new introductions icon you made, but it seems a bit
-  // small - make it slightly bigger so the hand is much more the size of the
-  // other icons, because currently it looks out of place. And just have the
-  // waving hand tilted, remove the two lines on either side of it, because then
-  // it would fit in better with the design."
+  // THE HAND IS THE ICON, AND IT FILLS THE BOX.
   //
   // Both halves of that are one fault. The four motion flourishes lived at the
   // CORNERS of the 24-unit box, so the hand had to be shrunk to 0.72 to leave
@@ -269,11 +244,8 @@ const FILLED_PATHS = {
 
 // THE WORLD, NOT A WIREFRAME.
 //
-// `globe` was Heroicons' globe-alt: a circle with three meridians and two
-// parallels. Ethan: "I don't like how it currently is with all the lines, but
-// rather actually show the world with the countries" - and he is right that a
-// nav tab labelled Worldwide reading as a wireframe sphere says "geometry"
-// where it should say "the planet".
+// `globe` was Heroicons' globe-alt: a circle with three meridians and two parallels. - and they are right that a nav tab
+// labelled Worldwide reading as a wireframe sphere says "geometry" where it should say "the planet".
 //
 // So: a stroked ring with the landmasses filled inside it. Two masses, the
 // Americas on the left and Europe-Africa on the right, with the Atlantic
@@ -324,11 +296,9 @@ function WorldIcon({ className, style }) {
   )
 }
 
-// `style` IS TAKEN, FOR THE ONE CALLER THAT CANNOT USE A CLASS (28 Sep 2026).
-// A certificate renders at whatever size it is being drawn at - a preview card,
-// a 3000px download, a 1080x1920 story - so its glyphs are sized in pixels
-// computed from the page, not from a Tailwind step. Everywhere else should
-// still reach for `className`.
+// `style` IS TAKEN, FOR THE ONE CALLER THAT CANNOT USE A CLASS. A certificate renders at whatever size it is being drawn
+// at - a preview card, a 3000px download, a 1080x1920 story - so its glyphs are sized in pixels computed from the page,
+// not from a Tailwind step. Everywhere else should still reach for `className`.
 export default function Icon({ name, className = 'h-5 w-5', strokeWidth = 1.7, style }) {
   if (name === 'globe') return <WorldIcon className={className} style={style} />
   const layered = LAYERED_PATHS[name]

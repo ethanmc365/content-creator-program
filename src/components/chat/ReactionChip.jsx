@@ -5,15 +5,7 @@ import { cx } from '../../lib/utils'
 import { useT } from '../../lib/i18n'
 import { profilesApi } from '../../api/profiles'
 
-// A REACTION, AND WHO IS BEHIND IT (22 Sep 2026, third design).
-//
-// Ethan: "whenever you hover over one to see who reacted, it shows up their
-// names all in a row in black which can't really be read, it should be a nice
-// popup, similar to how it looks when you check who views the message, but
-// just a popup when hovering over it, or when holding down on it on mobile.
-// Also holding down on the reaction button shouldn't show up the blue bar to
-// copy text... I also want you to improve the UI of the reactions, currently
-// it shows a heart with 1 and has a weird box around it."
+// A REACTION, AND WHO IS BEHIND IT (third design).
 //
 // So:
 //  * THE CHIP IS THE EMOJI AND THE NUMBER. No border, no box. Yours carries a
@@ -166,8 +158,7 @@ export default function ReactionChip({ emoji, count, mine, names = [], ids = [],
         className={cx(
           'reaction-chip inline-flex select-none items-center gap-1 rounded-full px-1.5 py-0.5 leading-none transition-[transform,background-color] duration-150 ease-out',
           'hoverable:hover:scale-110 active:scale-95',
-          // No tinted card behind your own reaction (12 Oct 2026, Ethan: "it shows like an orange colour card around the
-          // reaction and number ... I don't like it"). Yours is told by the brand-coloured count alone.
+          // No tinted card behind your own reaction (). Yours is told by the brand-coloured count alone.
           'hoverable:hover:bg-cloud',
         )}
       >

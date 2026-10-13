@@ -5,12 +5,6 @@ import { shapeForPath } from '../lib/routeChunks'
 /**
  * THE SHAPE OF THE PAGE THAT IS ARRIVING, NOT A LOADING SCREEN OVER THE APP.
  *
- * Ethan, three times now, and the third time is what produced this version:
- * "clicking between pages briefly flashes up the loading screen every time. I
- * don't want this to happen, instead I want a skeleton loader / skeleton
- * screen: the main term for a blank UI preview that COPIES THE SHAPE of the
- * content before it loads."
- *
  * Those last five words are the brief, and they are what the first two attempts
  * missed. Both of them were about WHEN the placeholder appears - move the
  * boundary, then delay the fallback - when the complaint was about WHAT it is.

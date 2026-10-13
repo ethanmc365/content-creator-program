@@ -71,17 +71,12 @@ export default function ViewSyncPanel({ challengeId, submissions = [], onSynced,
 
   useEffect(() => { refresh() }, [refresh])
 
-  // A PRESS ALWAYS FINISHES VISIBLY (21 Sep 2026).
+  // A PRESS ALWAYS FINISHES VISIBLY.
   //
-  // Ethan, the night the Global Challenge opened: "I tried to sync the view
-  // counts of the 1 video that has been submitted so far but it didn't seem to
-  // work at all." It HAD worked - TikTok read 200, which is what the entry
-  // already said - but the page never showed it. The rebuild and the reload
-  // only ran when a poll had SEEN `running: true`, and one video is read in
-  // under a second, inside the first 1.5s poll, so a small sync finished
-  // unseen: no rebuilt board, no refreshed numbers, nothing on screen. Now
-  // `runNow` finishes it itself when the run is already over, and the finish
-  // says in words what was read and what moved.
+  // It HAD worked - TikTok read 200, which is what the entry already said - but the page never showed it. The rebuild
+  // and the reload only ran when a poll had SEEN `running: true`, and one video is read in under a second, inside the
+  // first 1.5s poll, so a small sync finished unseen: no rebuilt board, no refreshed numbers, nothing on screen. Now
+  // `runNow` finishes it itself when the run is already over, and the finish says in words what was read and what moved.
   const finish = useCallback((st) => {
     const lr = st?.last_run || {}
     return challengesApi.rebuildChallengeResults({ p_challenge: challengeId })
@@ -92,11 +87,9 @@ export default function ViewSyncPanel({ challengeId, submissions = [], onSynced,
 
   // Poll only while a run is going, and finish the moment it stops.
   //
-  // THIS NEVER FINISHED BEFORE (found 21 Sep 2026). It cleared the interval
-  // in its cleanup and then, in the body, only finished if the interval was
-  // still set - but React runs the cleanup first on the very render where
-  // `running` flips to false, so that check was always false and the rebuild
-  // and reload below never ran after ANY sync. `wasRunning` is the only
+  // THIS NEVER FINISHED BEFORE (found). It cleared the interval in its cleanup and then, in the body, only finished if
+  // the interval was still set - but React runs the cleanup first on the very render where `running` flips to false, so
+  // that check was always false and the rebuild and reload below never ran after ANY sync. `wasRunning` is the only
   // signal the body needs.
   const runningNow = status?.run?.running === true
   const lastRunNow = status?.last_run ?? null
@@ -131,10 +124,9 @@ export default function ViewSyncPanel({ challengeId, submissions = [], onSynced,
   // Grouped by REASON rather than listed row by row: an admin needs to know
   // "one of these is a photo post" once, not once per entry.
   //
-  // FACEBOOK IS ONE GROUP (28 Sep 2026). Facebook now answers every server with
-  // its login page, so "platform refused", "count hidden" and "no count" were
-  // three cards saying one thing: a person has to type these in. They share one
-  // card with a box per entry, so it is done without scrolling to the list.
+  // FACEBOOK IS ONE GROUP. Facebook now answers every server with its login page, so "platform refused", "count hidden"
+  // and "no count" were three cards saying one thing: a person has to type these in. They share one card with a box per
+  // entry, so it is done without scrolling to the list.
   const FB_CODES = new Set(['blocked', 'count_hidden', 'no_count_in_page', 'no_video_id'])
   const keyFor = (s) => (s.platform === 'Facebook' && FB_CODES.has(s.views_sync_error) ? 'facebook' : s.views_sync_error)
   const problems = submissions.reduce((acc, s) => {
@@ -177,15 +169,12 @@ export default function ViewSyncPanel({ challengeId, submissions = [], onSynced,
   const igFailed = igRows.filter((s) => s.views_sync_error === 'no_video_id' || s.views_sync_error === 'not_on_reels_tab')
   const instagramLooksBroken = igRows.length >= 3 && igFailed.length === igRows.length
 
-  // ONE COUNT, SAID THE SAME WAY IN BOTH PLACES (28 Sep 2026). Ethan: "it says
-  // 192 of 193 automatic, but then it says 187 of 193 videos: 6 cannot be
-  // read." The first counted every entry that had EVER been read automatically,
-  // including five that failed this time; the second counted this run. Both now
-  // count entries that have a number and nothing wrong with them.
+  // ONE COUNT, SAID THE SAME WAY IN BOTH PLACES. The first counted every entry that had EVER been read automatically,
+  // including five that failed this time; the second counted this run. Both now count entries that have a number and
+  // nothing wrong with them.
   const flagged = submissions.filter((s) => s.views_sync_error).length
-  // NEW IS NOT TYPED (13 Oct 2026). Ethan: "it shows that 10 have been typed in by hand, which doesn't make sense."
-  // `views_source` starts as 'manual' on every entry, so ten entries posted after the last read - never read at all -
-  // were counted as typed. Typed means a number with nobody reading it; new means no number yet.
+  // NEW IS NOT TYPED. `views_source` starts as 'manual' on every entry, so ten entries posted after the last read -
+  // never read at all - were counted as typed. Typed means a number with nobody reading it; new means no number yet.
   const unread = submissions.filter((s) => !s.views_synced_at && s.logged_views == null && !s.views_sync_error).length
   const readFine = submissions.length - flagged - unread
   const typed = submissions.filter((s) => s.views_source === 'manual' && s.logged_views != null && !s.views_sync_error).length
@@ -229,7 +218,7 @@ export default function ViewSyncPanel({ challengeId, submissions = [], onSynced,
     <section className="mb-8 overflow-hidden rounded-card border border-gray-100 shadow-card">
       {/* ---- The action, given the room an action deserves ---- */}
       <div className="flex flex-col gap-5 p-5 sm:flex-row sm:items-center sm:justify-between sm:p-7">
-        {/* No eye badge (2 Oct 2026, Ethan: "not necessary"). Just the title and the line. */}
+        {/* No eye badge (). Just the title and the line. */}
         <div className="flex min-w-0 items-start gap-3">
           <div className="min-w-0">
             <h2 className="text-base font-semibold">View counts</h2>
@@ -249,11 +238,9 @@ export default function ViewSyncPanel({ challengeId, submissions = [], onSynced,
         </button>
       </div>
 
-      {/* HOW OFTEN, AS CHIPS AND NOT A DROPDOWN (22 Sep 2026). Ethan: "when you
-          click this and it shows the selection drop down... the bottom of it is
-          cut off." The menu opened inside this card's `overflow-hidden`, which
-          the progress bar needs. Six options fit on one row, so there is no menu
-          to clip: every choice is visible and one press picks it. */}
+      {/* HOW OFTEN, AS CHIPS AND NOT A DROPDOWN. The menu opened inside this card's `overflow-hidden`, which the
+          progress bar needs. Six options fit on one row, so there is no menu to clip: every choice is visible and one
+          press picks it. */}
       <div className="flex flex-col gap-2 border-t border-gray-100 px-5 py-4 sm:flex-row sm:items-center sm:gap-4 sm:px-7">
         <p className="shrink-0 text-[11px] font-semibold uppercase tracking-[0.12em] text-smoke">Sync automatically every</p>
         <div role="radiogroup" aria-label="How often view counts are read" className="flex flex-wrap gap-1.5">
@@ -297,10 +284,8 @@ export default function ViewSyncPanel({ challengeId, submissions = [], onSynced,
 
       {error ? <p className="px-5 pb-5 text-sm text-brand sm:px-7">{error}</p> : null}
 
-      {/* ONE LINE, AND IT SAYS WHETHER IT WORKED (22 Sep 2026). Ethan: it
-          should just say it read all the videos; the "Jessica: 3,000 to 3,014"
-          list under it was noise. A failure still says how many, and the
-          reasons are grouped just below. */}
+      {/* ONE LINE, AND IT SAYS WHETHER IT WORKED. The team: it should just say it read all the videos; the "Jessica:
+          3,000 to 3,014" list under it was noise. A failure still says how many, and the reasons are grouped just below. */}
       {outcome ? (() => {
         // Never more than there are entries: an old run could count a re-read twice.
         const n = submissions.length
@@ -321,13 +306,10 @@ export default function ViewSyncPanel({ challengeId, submissions = [], onSynced,
       })() : null}
 
       {/* ---- What needs a person ----
-          REDRAWN 26 Sep 2026. Ethan: "The UI for these errors needs to be
-          improved. I don't like the current colour." The amber wash is gone:
-          each reason is a white card with a brand disc when it needs you and a
-          grey one when it will sort itself out, and the entries under it are
-          chips you can open or pin. "Show entry" no longer scrolls you a
-          hundred rows down; it lifts every entry with that reason to the top
-          of the list, where the list starts. */}
+          REDRAWN. The amber wash is gone: each reason is a white card with a brand disc when it needs you and a grey one
+          when it will sort itself out, and the entries under it are chips you can open or pin. "Show entry" no longer
+          scrolls you a hundred rows down; it lifts every entry with that reason to the top of the list, where the list
+          starts. */}
       {problemList.length > 0 ? (
         <div className="grid gap-3 border-t border-gray-100 bg-cloud/30 px-5 py-5 sm:px-7">
           {problemList.map(({ code, rows, meta }, i) => (
@@ -370,9 +352,7 @@ export default function ViewSyncPanel({ challengeId, submissions = [], onSynced,
                   <FacebookRow key={r.id} row={r} onSave={onSaveViews} onShow={onShowEntries} />
                 ) : (
                   <li key={r.id} className="flex min-w-0 max-w-full items-center gap-1.5 rounded-full border border-gray-100 bg-cloud/50 py-1 pl-1 pr-1 text-xs">
-                    {/* THE NAME LIFTS THAT ONE ENTRY TO THE TOP (28 Sep 2026).
-                        Ethan: "if I click on 'Antonio posted a TikTok there', it
-                        should just bring it to the top." */}
+                    {/* THE NAME LIFTS THAT ONE ENTRY TO THE TOP. */}
                     <button
                       type="button"
                       onClick={() => onShowEntries?.([r.id], `${r.profiles?.name?.split(' ')[0] || 'Entry'}'s ${r.platform}`)}

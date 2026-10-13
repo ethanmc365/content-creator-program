@@ -1,11 +1,8 @@
 // "THE APP IS BACK" - ONE DEFINITION FOR EVERYTHING THAT HAS TO RE-SYNC.
 //
-// A realtime socket does not survive a phone locking, an installed app being
-// swapped out, or a laptop lid closing. It reconnects, but anything that
-// happened while it was down is simply never delivered - so a room read on the
-// phone kept its dot on the laptop, and a dot cleared on the laptop came back
-// on the phone, until a full reload. Ethan: "everything doesn't seem to be
-// syncing correctly."
+// A realtime socket does not survive a phone locking, an installed app being swapped out, or a laptop lid closing. It
+// reconnects, but anything that happened while it was down is simply never delivered - so a room read on the phone kept
+// its dot on the laptop, and a dot cleared on the laptop came back on the phone, until a full reload.
 //
 // Every live counter (room dots, the bell, the DM badge) re-reads on the
 // events that mean "you are looking at this again": the tab becoming visible,

@@ -71,9 +71,9 @@ export default function MessagesThread({
       // Tapping the thread dismisses the keyboard (WhatsApp-style); a
       // scroll drag doesn't fire click, so scrolling history leaves it up.
       onClick={() => { if (isMobile && kbOpen) document.activeElement?.blur?.() }}
-      // A THREAD WITH NOTHING IN IT MUST STILL OWN THE GESTURE (9 Sep 2026).
+      // A THREAD WITH NOTHING IN IT MUST STILL OWN THE GESTURE.
       //
-      //    Ethan: "on mobile, scrolling on a chat with no messages or only one or two
+      //    The team: "on mobile, scrolling on a chat with no messages or only one or two
       //    messages causes a weird laggy glitch where the screen starts juttering."
       //
       //    Only on the short ones, and that is the whole clue. A scroller whose
@@ -153,26 +153,17 @@ export default function MessagesThread({
             )}
             style={entering ? { animationDelay: `${Math.min(i, 12) * 24}ms` } : undefined}
           >
-            {/* THE FACE IS INSIDE MessageActions NOW (28 Sep 2026).
-                It used to be a sibling here, `self-end` in this flex
-                row - so the moment the action bar made space under
-                the bubble the row grew and the face went down with
-                it. Ethan: "it moves their profile picture down. This
-                shouldn't move their profile picture." Passed as
-                `lead`, it shares a row with the bubble alone and
-                nothing opening underneath can reach it. */}
+            {/* THE FACE IS INSIDE MessageActions NOW. It used to be a sibling here, `self-end` in this flex row - so the
+                moment the action bar made space under the bubble the row grew and the face went down with it. Passed as
+                `lead`, it shares a row with the bubble alone and nothing opening underneath can reach it. */}
             <div
               // A queued message fades back a little: still yours,
               // still there, just not out in the world yet.
               className={cx('w-full min-w-0 max-w-[80%] sm:max-w-[65%]', m.pending && 'opacity-60')}
               // PRESS A MESSAGE TO OPEN ITS ACTIONS. AT EVERY WIDTH.
-              // THE BUG THIS FIXES: this was gated on `isMobile`, and
-              // a laptop was meant to get the actions on hover
-              // instead - which nobody could make appear. Ethan: "a
-              // problem with the DMs is that it's not showing at all,
-              // whenever I'm hovering over a message". One behaviour
-              // now, the same one the rooms use. A press that ended a
-              // text selection is not a press.
+              // THE BUG THIS FIXES: this was gated on `isMobile`, and a laptop was meant to get the actions on hover
+              // instead - which nobody could make appear. One behaviour now, the same one the rooms use. A press that
+              // ended a text selection is not a press.
               // ONLY THE BUBBLE OPENS THE BAR - same rule as the
               // rooms. The name line, the chips and the "Seen by"
               // receipt are inside this column too, and a press on
@@ -220,8 +211,7 @@ export default function MessagesThread({
                 <>
                   <p className={cx('mt-1 text-[10px] text-gray-400', mine && 'text-right')}>
                     <span title={messageTimeTitle(m.created_at)}>{formatMessageTime(m.created_at)}</span>
-                    {/* A TEAM EDIT IS NOT ANNOUNCED TO CREATORS (12 Oct 2026). Ethan: "only I will see that it was
-                        edited, but the creators won't see that the message was edited." */}
+                    {/* A TEAM EDIT IS NOT ANNOUNCED TO CREATORS. */}
                     {m.edited_at && (isAdmin || !(mine ? isAdmin : isGroup ? sender?.is_admin : active?.other?.is_admin)) && <span title={`Edited ${messageTimeTitle(m.edited_at)}`}> · edited</span>}
                     {m.pending
                       ? <PendingLabel tries={m.tries} prefix=" · " />

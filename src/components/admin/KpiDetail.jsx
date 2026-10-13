@@ -13,11 +13,7 @@ import { useT } from '../../lib/i18n'
 import { CountUp } from '../network/Motion'
 import { marketsApi } from '../../api/markets'
 
-// ONE KPI, OPENED UP (28 Sep 2026).
-//
-// Ethan: "whenever I click on it, it shows a graph of how it was met over time,
-// this target, who's recruited, and everything else ... maybe more graphs
-// below, just something that really makes it easier to understand."
+// ONE KPI, OPENED UP.
 //
 // Three answers, top to bottom:
 //   1. Where it stands: the number, the target, the pace, in words.
@@ -57,9 +53,8 @@ function fetchDetail(scope, basis, period, metric) {
   return p
 }
 
-// OPENED BEFORE IT IS PRESSED (1 Oct 2026). Ethan: "whenever I click on something, like '3 challenges
-// run,' it shows the pop-up, and then it takes the graph a bit to load." A card that is hovered or
-// focused starts fetching its story, so by the time it is pressed the charts are usually already here.
+// OPENED BEFORE IT IS PRESSED. A card that is hovered or focused starts fetching its story, so by the time it is pressed
+// the charts are usually already here.
 export function prefetchKpiDetail({ row, scope, basis = 'all', period }) {
   if (!row || row.metric === 'custom' || !scope || !period) return
   if (detailCache.has(cacheKey(scope, basis, period, row.metric))) return
@@ -168,12 +163,9 @@ export default function KpiDetail({ row, scope, basis = 'all', currency = 'EUR',
               </div>
               <span className="kpi-pop rounded-full bg-white px-3 py-1 text-xs font-bold uppercase tracking-wide text-brand shadow-card" style={{ '--d': '260ms' }}>{tr(st.label)}</span>
             </div>
-            {/* THE SAME BAR AS THE CARD (30 Sep 2026). This header used to draw
-                its own flat green bar on the orange, so a card that read orange
-                opened into a green one. Ethan: "ensure the colours match and
-                show the same way." The bar now sits on a white inset - which
-                also keeps red and amber readable, neither of which survives on
-                an orange background - and is the very component the card uses. */}
+            {/* THE SAME BAR AS THE CARD. This header used to draw its own flat green bar on the orange, so a card that
+                read orange opened into a green one. The bar now sits on a white inset - which also keeps red and amber
+                readable, neither of which survives on an orange background - and is the very component the card uses. */}
             <div className="relative mt-4 rounded-2xl bg-white px-4 py-3 text-ink shadow-card">
               <KpiProgress status={status} pct={pct} progress={progress} isLevel={isLevel} size="lg" startsIn={daysUntil(period)} />
             </div>
@@ -193,8 +185,8 @@ export default function KpiDetail({ row, scope, basis = 'all', currency = 'EUR',
             </p>
           </div>
 
-          {/* FOUR NUMBERS, READ AT A GLANCE (30 Sep 2026). Ethan: the detail view "seems hard to read
-              the data". The sentence above says it; these say it without reading. */}
+          {/* FOUR NUMBERS, READ AT A GLANCE. The team: the detail view "seems hard to read the data". The sentence above
+              says it; these say it without reading. */}
           <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
             <DetailStat i={0} label={tr('So far')} value={status === 'upcoming' ? '-' : f(row.actual)} />
             <DetailStat i={1} label={isLevel ? tr('The goal') : tr('Goal')} value={f(row.target_value)} />
@@ -218,9 +210,10 @@ export default function KpiDetail({ row, scope, basis = 'all', currency = 'EUR',
           ) : err ? (
             <p className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">{err}</p>
           ) : !data ? (
-            /* THE SAME SHAPE AS WHAT ARRIVES (2 Oct 2026). Ethan: "the first stuff loads in, then the
-               second graphs load in, and it makes the card jump." The placeholder is now the exact
-               height of each section it stands in for, so the data lands without moving anything. */
+            /*
+             * THE SAME SHAPE AS WHAT ARRIVES. The placeholder is now the exact height of each section it stands in for,
+             * so the data lands without moving anything.
+             */
             <div aria-hidden>
               <div className="border-t border-gray-100 pt-5">
                 <Skeleton className="mb-3 h-5 w-40" />
@@ -293,11 +286,8 @@ export default function KpiDetail({ row, scope, basis = 'all', currency = 'EUR',
 
               {/* ---- 3. What it is made of ---- */}
               <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-                {/* FULL WIDTH WHEN IT IS ALONE (28 Sep 2026). Ethan: "The one who
-                    joined is only half a screen. It should be full screen as
-                    well, like the graphs." A recruitment KPI has no challenges
-                    beside it, so its list took one column of two and left the
-                    other empty. */}
+                {/* FULL WIDTH WHEN IT IS ALONE. A recruitment KPI has no challenges beside it, so its list took one
+                    column of two and left the other empty. */}
                 {row.metric !== 'challenges_run' && (
                   <section className={cx(
                     'kpi-rise border-t border-gray-100 pt-5',

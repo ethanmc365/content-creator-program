@@ -5,12 +5,10 @@ import { usePinnedToBottom } from './pinnedBar'
 
 // A BAR THAT HAS COME OFF THE BOTTOM, WITHOUT AN IPHONE TO COME OFF IT ON.
 //
-// jsdom has no compositor, so the fault itself cannot be reproduced here - and
-// it does not need to be. What has to be true is the thing the fix rests on:
-// that a bar whose measured bottom is not the bottom of the viewport gets put
-// back, that one sitting where it should be is left alone, and that coming back
-// to the app re-pins it whether or not the measurement noticed anything. Those
-// are all testable, and the third is the one Ethan's app-switch clue named.
+// jsdom has no compositor, so the fault itself cannot be reproduced here - and it does not need to be. What has to be
+// true is the thing the fix rests on: that a bar whose measured bottom is not the bottom of the viewport gets put back,
+// that one sitting where it should be is left alone, and that coming back to the app re-pins it whether or not the
+// measurement noticed anything. Those are all testable, and the third is the one the team's app-switch clue named.
 //
 // `getBoundingClientRect` is the seam. Overriding it on the node is exactly
 // what iOS does to this element in the wild: report a bottom that is not the
@@ -80,9 +78,8 @@ describe('usePinnedToBottom', () => {
   })
 
   it('re-pins on coming back to the app without waiting to be asked', () => {
-    // The signal Ethan named. The measurement can MISS here - iOS often still
-    // reports the old layout viewport at this instant - so this one is
-    // unconditional, and correct placement must not stop it.
+    // The signal the team named. The measurement can MISS here - iOS often still reports the old layout viewport at this
+    // instant - so this one is unconditional, and correct placement must not stop it.
     let el = null
     render(<Bar onRef={(n) => { el = n }} />)
     detach(el, { bottom: 800 })

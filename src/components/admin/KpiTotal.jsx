@@ -12,13 +12,10 @@ import { cx } from '../../lib/utils'
 import { STATUS_HEX, STATUS_HEX_ON_BRAND, statusGradient } from '../../lib/barGradient'
 import { usePlural, useT } from '../../lib/i18n'
 
-// THE TOTAL (30 Sep 2026).
+// THE TOTAL.
 //
-// Ethan: "the total one shouldn't have targets set and instead should be a combination of everything
-// from all the KPIs that have been set for all the markets ... Really work on that total page, ensuring
-// that you display all the data nicely, have nice graphs, and don't make it too crowded" and "add in
-// some cool charts so we can see how each market is performing against their KPIs, like who's on
-// track, who's off track, and maybe who I can support".
+// and "add in some cool charts so we can see how each market is performing against their KPIs, like who's on track,
+// who's off track, and maybe who I can support".
 //
 // Four answers, top to bottom, each one line of sight:
 //   1. The headline: how many goals, across how many markets, are on track - or when it starts.
@@ -46,8 +43,8 @@ export default function KpiTotal({ scopes, period: wanted, byMonth, currency, on
   useWindowRows({ scopes, period: prevP, byMonth, enabled: !!windowRows.byPeriod })
   useWindowRows({ scopes, period: nextP, byMonth, enabled: !!windowRows.byPeriod })
   const fresh = windowRows.byPeriod?.get(periodKey(wanted))
-  // STEPPING KEEPS THE PAGE (30 Sep 2026): until the new period's numbers are in, the last ones stay
-  // on screen, dimmed, instead of the page collapsing to skeletons and growing back.
+  // STEPPING KEEPS THE PAGE: until the new period's numbers are in, the last ones stay on screen, dimmed, instead of the
+  // page collapsing to skeletons and growing back.
   const [last, setLast] = useState(null)
   if (fresh && (last?.here !== fresh || last?.byPeriod !== windowRows.byPeriod)) {
     setLast({ here: fresh, period: wanted, byPeriod: windowRows.byPeriod, periods: windowRows.periods })
@@ -163,7 +160,7 @@ export default function KpiTotal({ scopes, period: wanted, byMonth, currency, on
         )}
       </section>
 
-      {/* ---------- 2b. the markets side by side (1 Oct 2026) ---------- */}
+      {/* ---------- 2b. the markets side by side ---------- */}
       {started && active.filter((x) => x.verdict !== 'upcoming').length > 1 && (
         <section className="animate-fade-up [animation-delay:90ms]">
           <SectionTitle>{tr('Markets compared')}</SectionTitle>
@@ -382,8 +379,8 @@ function TotalCard({ row, period, currency, delay, onOpen }) {
         </span>
       </span>
       <KpiProgress status={status} pct={pct} progress={progress} startsIn={daysUntil(period)} />
-      {/* WHO IT CAME FROM, BY NAME (1 Oct 2026): a row per market with its own small bar, instead
-          of a multi-coloured strip that needed a dot per market to decode. */}
+      {/* WHO IT CAME FROM, BY NAME: a row per market with its own small bar, instead of a multi-coloured strip that
+          needed a dot per market to decode. */}
       <span className="mt-auto space-y-1.5 border-t border-gray-100 pt-3">
         {row.parts.map((p) => {
           const v = status === 'upcoming' ? p.target : p.actual

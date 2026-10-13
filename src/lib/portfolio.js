@@ -1,8 +1,5 @@
 // A CREATOR'S MEDIA KIT, AS DATA.
 //
-// Ethan: "a full media kit that each creator can customise, like a portfolio
-// for them... research what makes a good creative portfolio."
-//
 // WHAT A GOOD ONE ACTUALLY CONTAINS, because this is a solved problem and there
 // is no reason to invent it. Every media kit a brand takes seriously answers the
 // same five questions in the same order, and the order is the argument:
@@ -25,14 +22,10 @@
 // creator can rewrite every word on it and reorder the videos; they cannot
 // reorder the argument, because the argument is the value we are adding.
 
-// SIXTEEN BY NINE, NOT A4 (20 Sep 2026).
+// SIXTEEN BY NINE, NOT A4.
 //
-// These were 1123x794 - A4 landscape at 96dpi, root-2 - because the original
-// brief said "it will be a4 size landscape". Ethan, looking at the result:
-// "the slide seems to be a weird shape not an actual like um like google slide
-// or powerpoint slide size seems to be more square shaped". He is right, and
-// root-2 IS noticeably squarer than everything else anybody looks at: 1.41
-// against 1.78.
+// These were 1123x794 - A4 landscape at 96dpi, root-2 - because the original brief said "it will be a4 size landscape".
+// they are right, and root-2 IS noticeably squarer than everything else anybody looks at: 1.41 against 1.78.
 //
 // A media kit is not a printed document. It is opened on a laptop, in Gmail, in
 // a PDF viewer that fits the page to a 16:9 screen - so A4 wastes a band down
@@ -55,11 +48,9 @@ export const SLIDES = [
 
 // THE WORDS A PORTFOLIO STARTS WITH.
 //
-// Every one of these is editable - Ethan: "this text and title should be
-// editable by the creators so they can customise it the way they want" - and
-// every one of them has to be good enough to publish UNEDITED, because most
-// people will. A default that reads as a placeholder ("Add your bio here")
-// guarantees a portfolio that says "Add your bio here" on the open web.
+// Every one of these is editable - - and every one of them has to be good enough to publish UNEDITED, because most
+// people will. A default that reads as a placeholder ("Add your bio here") guarantees a portfolio that says "Add your
+// bio here" on the open web.
 export const DEFAULT_COPY = {
   cover_kicker: 'Tryp.com Content Creator Community',
   cover_role: 'Travel Content Creator',
@@ -67,8 +58,7 @@ export const DEFAULT_COPY = {
   about_body: 'I make short travel videos about the places I go and the things worth stopping for. I am part of the Tryp.com Content Creator Community, where creators from around the world make work for monthly challenges.',
   stats_title: 'By the numbers',
   work_title: 'Selected work',
-  // "Improving the copy" (21 Sep 2026): "briefs" is the team's word; every
-  // creator-facing screen says challenge.
+  // "Improving the copy": "briefs" is the team's word; every creator-facing screen says challenge.
   work_body: 'My most-watched videos from Tryp.com challenges. View counts are read live from each platform.',
   awards_title: 'Recognition',
   awards_body: 'Awarded through the Tryp.com Content Creator Community.',
@@ -77,13 +67,10 @@ export const DEFAULT_COPY = {
 }
 
 /**
- * THE KIT'S ACCENTS: FOURTEEN, AND BRIGHT (21 Sep 2026).
+ * THE KIT'S ACCENTS: FOURTEEN, AND BRIGHT.
  *
- * Ethan: "I would add in another few colours here, like yellow. If you add 4
- * more colours, it will fit nicely in the UI... making them bright." The
- * certificate palette is dark on purpose (white type sits on it); a media kit
- * only ever puts white on the accent inside the gradient panel, so it can be
- * brighter. Tryp orange stays first and is the default. Where an accent is too
+ * The certificate palette is dark on purpose (white type sits on it); a media kit only ever puts white on the accent
+ * inside the gradient panel, so it can be brighter. Tryp orange stays first and is the default. Where an accent is too
  * light to read as text on white, `theme()` uses a darker tone of it for text.
  */
 export const PORTFOLIO_ACCENTS = [
@@ -111,12 +98,9 @@ export function copyFor(copy, key) {
 }
 
 /**
- * THE EMAIL ON "WORK WITH ME". Ethan: "creators should be able to add their
- * email here if they want. I think we also already have their email, so we can
- * automatically show that in a nice card." What they typed, else the address
- * on their account; `hide_email` turns it off. The account address is only
- * known on their own page, so it is written into `copy` when they save - which
- * is what lets the public page (whose RPC never returns an email) show it too.
+ * THE EMAIL ON "WORK WITH ME". What they typed, else the address on their account; `hide_email` turns it off. The
+ * account address is only known on their own page, so it is written into `copy` when they save - which is what lets the
+ * public page (whose RPC never returns an email) show it too.
  */
 export function contactEmail(copy, creator) {
   if (copy?.hide_email) return null
@@ -157,12 +141,10 @@ export function slugify(name, suffix = '') {
 /**
  * WHICH OF THE TWO MODES A PORTFOLIO IS IN, STORED RATHER THAN GUESSED.
  *
- * It used to be inferred: `picks.length === 0` meant automatic. That is wrong
- * in one state and Ethan hit it immediately - "when I click the choose my own
- * button, it doesn't highlight orange and nothing happens". A creator with NO
- * entries yet (an admin testing, or anybody before their first challenge) has
- * nothing on screen for "choose my own" to seed the list from, so `picks` stays
- * `[]`, so the inference says automatic, so the button appears not to work. The
+ * It used to be inferred: `picks.length === 0` meant automatic. That is wrong in one state and the team hit it
+ * immediately - "when I click the choose my own button, it doesn't highlight orange and nothing happens". A creator with
+ * NO entries yet (an admin testing, or anybody before their first challenge) has nothing on screen for "choose my own"
+ * to seed the list from, so `picks` stays `[]`, so the inference says automatic, so the button appears not to work. The
  * same bug bites a creator who unticks their last video.
  *
  * The mode now lives in the `copy` jsonb, which needs no migration - `picks` is
@@ -176,10 +158,7 @@ export function workMode(portfolio) {
   return portfolio?.picks?.length ? 'manual' : 'auto'
 }
 
-// TWELVE, NOT TEN (21 Sep 2026). Ethan: "rather than having the 10 best videos
-// by views, it should be the 12 best videos by views because that fits on the
-// slides nicely." Four to a page, so twelve is three full pages - ten left the
-// last one half empty.
+// TWELVE, NOT TEN. Four to a page, so twelve is three full pages - ten left the last one half empty.
 export const WORK_LIMIT = 12
 
 export function orderedVideos(all = [], picks = [], limit = WORK_LIMIT, mode = null) {
@@ -201,11 +180,9 @@ export function orderedVideos(all = [], picks = [], limit = WORK_LIMIT, mode = n
 /**
  * Totals for the proof page, from every entry they have ever made.
  *
- * `best`, `average` and `platforms` were added 20 Sep 2026 - Ethan, on the "by
- * the numbers" panel: "I think you can add more here." Four cells on a page
- * whose whole job is to be evidence was thin, and the two a brand actually asks
- * about were the two missing: how big does one of your videos get, and how
- * consistently.
+ * `best`, `average` and `platforms` were added - the team, on the "by the numbers" panel: "I think you can add more
+ * here." Four cells on a page whose whole job is to be evidence was thin, and the two a brand actually asks about were
+ * the two missing: how big does one of your videos get, and how consistently.
  */
 export function statsFrom(videos = []) {
   const list = videos || []
@@ -235,9 +212,6 @@ export function compactViews(n) {
 /**
  * Which platforms they are on: the ones their entries PROVE, plus the ones they
  * typed in.
- *
- * Ethan: "You can show what platforms they post on based on their entires but
- * also they can add others that maybe they just didn't enter on."
  *
  * A PROVEN PLATFORM WINS OVER A TYPED ONE of the same name, so somebody who
  * adds "TikTok" by hand having already entered from TikTok gets one row, with

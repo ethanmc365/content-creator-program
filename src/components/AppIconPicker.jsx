@@ -35,15 +35,10 @@ export default function AppIconPicker() {
   const installUrl = `${origin}/home?${APP_ICON_PARAM}=${active.key}`
 
   return (
-    // `Panel`, NOT a hard-coded `card`. Ethan: "I said for every one of them
-    // there should be no more card any more. For display this is correct - for
-    // home screen icon they're still showing the card, so that needs to be
-    // fixed." Every other settings section moved to `Panel` (a card on a
-    // desktop, a plain block on a phone) and this one was left behind, so it
-    // was the single bordered box in a page of borderless ones.
-    // The heading went with it: you press "Home screen icon" in the menu and
-    // land on a page whose own title says "Home screen icon", so a third one
-    // inside a card was the same word three times.
+    // `Panel`, NOT a hard-coded `card`. Every other settings section moved to `Panel` (a card on a desktop, a plain
+    // block on a phone) and this one was left behind, so it was the single bordered box in a page of borderless ones.
+    // The heading went with it: you press "Home screen icon" in the menu and land on a page whose own title says "Home
+    // screen icon", so a third one inside a card was the same word three times.
     <Panel>
       <p className="text-sm text-smoke">
         {tr("Choose the icon this device uses when you add Tryp.com to your home screen.")}
@@ -99,13 +94,10 @@ export default function AppIconPicker() {
         </div>
       </div>
 
-      {/* THE HONEST BIT, WITH THE LINK IT WAS MISSING.
-          The steps were right and step two was a dead end: "open Tryp.com in
-          your browser and add it to your home screen again" leaves somebody who
-          has just DELETED their only shortcut with nothing to open. Ethan asked
-          for the address to be handed over instead - "copy this link (here is
-          where you need to provide the correct link for the correct icon they
-          choose, with a button to copy it easily)".
+      {/* THE HONEST BIT, WITH THE LINK IT WAS MISSING. The steps were right and step two was a dead end: "open Tryp.com
+          in your browser and add it to your home screen again" leaves somebody who has just DELETED their only shortcut
+          with nothing to open. The team asked for the address to be handed over instead - "copy this link (here is where
+          you need to provide the correct link for the correct icon they choose, with a button to copy it easily)".
 
           And the link carries the icon (`?icon=world`), so it works even if
           they paste it into a different browser or open it from a message. See

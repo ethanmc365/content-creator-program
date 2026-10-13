@@ -5,12 +5,10 @@ import { cx } from '../../lib/utils'
 
 // THE REAL AEROPLANE.
 //
-// This page shipped with `AircraftArt` - thirty-odd hand-drawn SVG cut-outs -
-// and the file next door still holds the argument for why. It was a good
-// argument and it was overruled by the person who has to look at the page:
-// Ethan, "on the aircraft collection page, I wanted actual real life clean cut
-// out photos of all the planes, not just an icon, please search, find, verify
-// and add a clean ui of the actual real life images of each of the planes."
+// This page shipped with `AircraftArt` - thirty-odd hand-drawn SVG cut-outs - and the file next door still holds the
+// argument for why. It was a good argument and it was overruled by the person who has to look at the page: the team, "on
+// the aircraft collection page, I wanted actual real life clean cut out photos of all the planes, not just an icon,
+// please search, find, verify and add a clean ui of the actual real life images of each of the planes."
 //
 // HOW THE THREE OBJECTIONS IN AircraftArt WERE ACTUALLY ANSWERED, because none
 // of them was wrong, they just had answers:
@@ -47,20 +45,13 @@ export const photoCredits = credits
 
 // THE PHOTOGRAPH IS NEVER DRAINED ANY MORE.
 //
-// An unflown type used to be `opacity-45 grayscale`, recolouring on hover. The
-// argument was that it keeps the shape and takes the colour, so a gap reads as
-// not-yet-yours. Ethan: "I don't like how all the planes are grayed out. I
-// think it looks bad. All the plane photos should be normal. The way to
-// identify them is I think the card should normally be white if it's not
-// collected, and it should be the bright tryp.com orange if you have collected
-// that plane."
+// An unflown type used to be `opacity-45 grayscale`, recolouring on hover. The argument was that it keeps the shape and
+// takes the colour, so a gap reads as not-yet-yours.
 //
-// He is right about where the signal belongs. A washed-out photograph reads as
-// a broken image before it reads as a state, and on a wall that is mostly
-// unflown it made the whole page look faulty. The state moved to the CARD -
-// white for a gap, brand orange for one you have - which is louder, cannot be
-// mistaken for a rendering fault, and leaves every photograph looking like the
-// aeroplane it is.
+// they are right about where the signal belongs. A washed-out photograph reads as a broken image before it reads as a
+// state, and on a wall that is mostly unflown it made the whole page look faulty. The state moved to the CARD - white
+// for a gap, brand orange for one you have - which is louder, cannot be mistaken for a rendering fault, and leaves every
+// photograph looking like the aeroplane it is.
 //
 // `owned` is kept in the signature because `AircraftArt` (the fallback for a
 // type with no photograph) still draws itself differently, and because callers

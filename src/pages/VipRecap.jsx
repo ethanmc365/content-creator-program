@@ -9,12 +9,11 @@ import { Spinner } from '../components/ui'
 import { monthLabel, vipRpc, useKindT } from '../lib/vip'
 import { vipApi } from '../api/vip'
 
-// THE VIP MONTH RECAP PAGE (30 Sep 2026, migration 299 `vip_my_recap`). The same story runner as the Year in Review
-// and the challenge recap, told about a month of views. `?m=2026-08` picks a month; with none, the latest closed
-// month they were paid for, or this one so far.
-// THE RECAP IS A SECTION OF THE VIP PAGE NOW (4 Oct 2026). Ethan: "whenever you click on My Recap, the thing disappears ... the
-// recap card should just be in that big left column, and the right column and the stuff above should still say 'stay' like the
-// other pages." The story lives in VipHub's left column (`tab=recap`); the old address brings you there.
+// THE VIP MONTH RECAP PAGE (migration 299 `vip_my_recap`). The same story runner as the Year in Review and the challenge
+// recap, told about a month of views. `?m=2026-08` picks a month; with none, the latest closed month they were paid for,
+// or this one so far.
+// THE RECAP IS A SECTION OF THE VIP PAGE NOW. The story lives in VipHub's left column (`tab=recap`); the old address
+// brings you there.
 export default function VipRecap() {
   const [params] = useSearchParams()
   const m = params.get('m')
@@ -49,9 +48,9 @@ export function VipRecapPanel({ m, onPick }) {
 
   return (
     <div className="vip-stage space-y-4">
-      {/* A HEADING AND A MONTH STRIP (1 Oct 2026). Ethan: the recap's "current design definitely needs to be improved".
-          It opened on a bare row of grey pills over the story. Now it says what it is, the months are a strip of
-          cards with the open one in the brand gradient, and the story sits centred under them. */}
+      {/* A HEADING AND A MONTH STRIP. The team: the recap's "current design definitely needs to be improved". It opened
+          on a bare row of grey pills over the story. Now it says what it is, the months are a strip of cards with the
+          open one in the brand gradient, and the story sits centred under them. */}
       <header className="flex items-end justify-between gap-4">
         <div>
           <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-brand">{tr('VIP recap')}</p>

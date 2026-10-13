@@ -1,10 +1,6 @@
 // HOLD THE PAGE STILL WHILE SOMETHING IS OPEN ON TOP OF IT.
 //
-// THE BUG. Scrolling inside the streak leaderboard scrolled the games page
-// behind it. Ethan: "I've tried scrolling on it, it's moving the actual games
-// page behind it, which shouldn't happen unless I'm scrolling outside of the
-// card. And I've noticed that happened on a few other places across the
-// platform too."
+// THE BUG. Scrolling inside the streak leaderboard scrolled the games page behind it.
 //
 // It was two separate faults that look identical from the outside.
 //
@@ -37,8 +33,7 @@ let saved = null
 
 // WHO ELSE NEEDS TO KNOW THE PAGE IS HELD.
 //
-// THE BUG THIS EXISTS FOR (18 Sep 2026). Ethan, on a phone: "when the worldwide
-// page loads on mobile there is no animations."
+// THE BUG THIS EXISTS FOR.
 //
 // They were running. They were running underneath a dialog. The notifications
 // ask opens on app open, and `lockScroll` is exactly what it is for - but an
@@ -55,17 +50,19 @@ let saved = null
 const watchers = new Set()
 const announce = () => { watchers.forEach((fn) => { try { fn(depth > 0) } catch { /* a bad listener is not the lock's problem */ } }) }
 
-/** How far down the page was when it was frozen (0 when it is not). A sticky
- *  header is scrolled off with the rest of the body while the body is pinned at
- *  `top: -y`, so the shell pushes it back down by this much (28 Sep 2026:
- *  "whenever I click on it, the bar at the top ... disappears"). */
+/**
+ * How far down the page was when it was frozen (0 when it is not). A sticky header is scrolled off with the rest of the
+ * body while the body is pinned at `top: -y`, so the shell pushes it back down by this much (28 Sep 2026: "whenever I
+ * click on it, the bar at the top... disappears").
+ */
 export function lockedScrollY() { return depth > 0 && saved ? saved.y : 0 }
 
-/** THE HEADER'S PUSH-DOWN COMES OFF IN THE SAME BREATH AS THE LOCK (1 Oct 2026). AppLayout moves the sticky header
- *  down by the frozen distance and marks it `data-lock-pushed`. Taking that back used to wait for a React render
- *  triggered by `announce`; on a phone that render can land a few seconds late (Ethan: "the top bar moves down to
- *  the bottom of the screen and stays there for a few seconds and then corrects itself" after closing Hook me up).
- *  So the release clears it by hand, before anything can be painted. */
+/**
+ * THE HEADER'S PUSH-DOWN COMES OFF IN THE SAME BREATH AS THE LOCK. AppLayout moves the sticky header down by the frozen
+ * distance and marks it `data-lock-pushed`. Taking that back used to wait for a React render triggered by `announce`; on
+ * a phone that render can land a few seconds late ( after closing Hook me up). So the release clears it by hand, before
+ * anything can be painted.
+ */
 function dropHeaderPush() {
   document.querySelectorAll('[data-lock-pushed]').forEach((el) => {
     el.style.transition = 'none'
@@ -74,10 +71,12 @@ function dropHeaderPush() {
   })
 }
 
-/** STICKY RAILS STAY WHERE THEY WERE (11 Oct 2026). Ethan: pressing Connect on the Creator spotlight made the Worldwide
- *  right-hand column disappear. Pinning the body turns the page scroll into 0, so a `position: sticky` rail falls back to its
- *  natural place in the document, hundreds of pixels above the viewport, and is gone behind the dialog. Anything marked
- *  `data-lock-keep` is measured before the freeze and shifted back to the same screen position after it. */
+/**
+ * STICKY RAILS STAY WHERE THEY WERE. The team: pressing Connect on the Creator spotlight made the Worldwide right-hand
+ * column disappear. Pinning the body turns the page scroll into 0, so a `position: sticky` rail falls back to its
+ * natural place in the document, hundreds of pixels above the viewport, and is gone behind the dialog. Anything marked
+ * `data-lock-keep` is measured before the freeze and shifted back to the same screen position after it.
+ */
 function keepSticky(measured) {
   measured.forEach(({ el, top }) => {
     const now = el.getBoundingClientRect().top
@@ -179,14 +178,10 @@ export function lockScroll() {
 /**
  * IF NOBODY IS HOLDING THE PAGE, THE PAGE MUST NOT BE HELD.
  *
- * `lockScroll` takes the body out of flow entirely - `position: fixed`,
- * `overflow: hidden`, `top: -<scroll>px` - because that is the only thing iOS
- * Safari honours. The cost of that technique is that a LEAKED lock is not a
- * subtle bug: the document stops scrolling, the visible region is a slice of a
- * page shifted up by however far it had been scrolled, and everything past the
- * fold is unreachable. Ethan, 8 Sep 2026, on a phone: "it just showed up like a
- * white screen on half of it - I could scroll, but all the stuff below that
- * screen was just covered."
+ * `lockScroll` takes the body out of flow entirely - `position: fixed`, `overflow: hidden`, `top: -<scroll>px` - because
+ * that is the only thing iOS Safari honours. The cost of that technique is that a LEAKED lock is not a subtle bug: the
+ * document stops scrolling, the visible region is a slice of a page shifted up by however far it had been scrolled, and
+ * everything past the fold is unreachable.
  *
  * A lock leaks whenever a release does not run: an overlay whose component
  * throws during render, a cleanup skipped because the tree was torn down by an

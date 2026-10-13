@@ -2,13 +2,7 @@ import { Link } from 'react-router-dom'
 import Icon from '../Icon'
 import { cx } from '../../lib/utils'
 
-// THE TITLE IS THE DOOR (22 Sep 2026).
-//
-// Ethan: "beside latest announcements title, today's puzzle title etc we have
-// something that says all announcements with a little arrow... remove this
-// button and instead make it so that clicking on the title brings you to the
-// page. The title shouldn't change colour or anything but hovering over it
-// should magnify it slightly so people know you can click on it."
+// THE TITLE IS THE DOOR.
 //
 // So a section heading with somewhere to go IS the link: same weight, same ink,
 // a small lift in scale on hover (anchored at its left edge so it grows away

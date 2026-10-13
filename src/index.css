@@ -1,24 +1,20 @@
 /* Poppins - Tryp.com's brand font (free via Google Fonts). */
 @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap');
 
-/* INSTRUMENT SERIF - THE SECOND FACE, AND IT EXISTS FOR ONE OBJECT.
-   Certificates. Ethan, about the first pass: "it's really like AI style, really
-   bad... improve the fonts". A certificate set entirely in the UI's geometric
-   sans reads as a slide, because a geometric sans is what every generated
-   template is set in. A document reads as a document when its display face is a
-   serif, and the rest of the platform is untouched: this is used by
-   `components/certificate` and by the portfolio deck's covers, nowhere else.
-
-   SELF-HOSTED, NOT FROM GOOGLE, and that is not a preference. Certificates are
-   PHOTOGRAPHED by `lib/domSnapshot`, which embeds the font files it is given as
-   data URIs - the CSP allows `font-src 'self'` and does not allow fetching
-   Google's copy. A face loaded over the network for the screen and absent from
-   the photograph would render the download in a system serif with different
-   metrics, which is the preview-and-file-disagree bug that module exists to
-   end. One file, both jobs.
-
-   OFL 1.1 (The Instrument Serif Project Authors), full Latin charset, so an
-   accented creator name sets correctly. */
+/*
+ * INSTRUMENT SERIF - THE SECOND FACE, AND IT EXISTS FOR ONE OBJECT. Certificates. A certificate set entirely in the
+ * UI's geometric sans reads as a slide, because a geometric sans is what every generated template is set in. A
+ * document reads as a document when its display face is a serif, and the rest of the platform is untouched: this is
+ * used by `components/certificate` and by the portfolio deck's covers, nowhere else.
+ *
+ * SELF-HOSTED, NOT FROM GOOGLE, and that is not a preference. Certificates are PHOTOGRAPHED by `lib/domSnapshot`,
+ * which embeds the font files it is given as data URIs - the CSP allows `font-src 'self'` and does not allow fetching
+ * Google's copy. A face loaded over the network for the screen and absent from the photograph would render the
+ * download in a system serif with different metrics, which is the preview-and-file-disagree bug that module exists to
+ * end. One file, both jobs.
+ *
+ * OFL 1.1 (The Instrument Serif Project Authors), full Latin charset, so an accented creator name sets correctly.
+ */
 @font-face {
   font-family: 'Instrument Serif';
   font-style: normal;
@@ -38,38 +34,33 @@
 @tailwind components;
 @tailwind utilities;
 
-/* NOTHING FLASHES GREY WHEN YOU TAP IT.
-   Mobile WebKit and Chrome paint a translucent grey rectangle over any link,
-   button or `role="button"` you touch. It is the operating system's idea of
-   feedback, it is drawn as a square over rounded cards and photographs, and it
-   lingers. Ethan, about tapping a photo in a chat: "I noticed on mobile this
-   highlights it weirdly - it shouldn't be highlighted in grey, it should be a
-   clean design. Same for desktop."
-   Every pressable thing here already has its own feedback (`active:scale-95`,
-   `active:bg-*`, a hover on real pointers), so the OS layer is pure noise on
-   top of a design that has already answered the question. */
+/*
+ * NOTHING FLASHES GREY WHEN YOU TAP IT. Mobile WebKit and Chrome paint a translucent grey rectangle over any link,
+ * button or `role="button"` you touch. It is the operating system's idea of feedback, it is drawn as a square over
+ * rounded cards and photographs, and it lingers. Every pressable thing here already has its own feedback
+ * (`active:scale-95`, `active:bg-*`, a hover on real pointers), so the OS layer is pure noise on top of a design that
+ * has already answered the question.
+ */
 html {
   -webkit-tap-highlight-color: transparent;
 }
 
 
-/* THE PLANE FLIES BETWEEN THE TWO AIRPORT CODES, NOT UNDER THEM.
-   Ethan, with a red line drawn across the screenshot: the route belongs in the
-   GAP between DUB and LIS, level with the codes themselves. It had been a
-   full-width band beneath them with a dot at each end, so the plane crossed the
-   whole card and the two dots read as the airports - which put the flight
-   somewhere off to the side of the journey it was describing.
-
-   It is also the real Tryp.com aircraft now rather than a drawn glyph, which
-   means an <img> rather than an SVG path - so the motion is plain CSS instead
-   of animateMotion. `left` is animated (not `transform`) precisely because a
-   percentage in translateX resolves against the ELEMENT's own width while a
-   percentage in `left` resolves against the PARENT's: the plane has to cross
-   the gap, and the gap is the parent. One small element, so the cost of a
-   non-composited property is not worth the trick it would take to avoid.
-
-   The fade at each end is what turns a loop into a flight: without it the plane
-   vanishes at the right edge and reappears at the left on the same frame. */
+/*
+ * THE PLANE FLIES BETWEEN THE TWO AIRPORT CODES, NOT UNDER THEM. The team, with a red line drawn across the
+ * screenshot: the route belongs in the GAP between DUB and LIS, level with the codes themselves. It had been a
+ * full-width band beneath them with a dot at each end, so the plane crossed the whole card and the two dots read as
+ * the airports - which put the flight somewhere off to the side of the journey it was describing.
+ *
+ * It is also the real Tryp.com aircraft now rather than a drawn glyph, which means an <img> rather than an SVG path -
+ * so the motion is plain CSS instead of animateMotion. `left` is animated (not `transform`) precisely because a
+ * percentage in translateX resolves against the ELEMENT's own width while a percentage in `left` resolves against the
+ * PARENT's: the plane has to cross the gap, and the gap is the parent. One small element, so the cost of a
+ * non-composited property is not worth the trick it would take to avoid.
+ *
+ * The fade at each end is what turns a loop into a flight: without it the plane vanishes at the right edge and
+ * reappears at the left on the same frame.
+ */
 .pass-plane-fly {
   position: absolute;
   top: 50%;
@@ -145,9 +136,11 @@ html {
   [data-zoomable] {
     touch-action: none;
   }
-  /* THE VIP MATERIAL (2 Oct 2026). Ethan wanted the VIP rooms "more different" from the market cards than a pale
-     orange wash. Ink into a warm ember, with the brand's orange glowing in from one corner: the same family as
-     the black VIP application banner, and still only white, ink and the two oranges. */
+  /*
+   * THE VIP MATERIAL. The team wanted the VIP rooms "more different" from the market cards than a pale orange wash.
+   * Ink into a warm ember, with the brand's orange glowing in from one corner: the same family as the black VIP
+   * application banner, and still only white, ink and the two oranges.
+   */
   .vip-surface {
     color: #fff;
     background:
@@ -184,22 +177,18 @@ html {
     padding-bottom: var(--kb-room, 0px);
   }
 
-  /* ---- NO SCROLLBAR, ANYWHERE ----------------------------------------
-     Ethan: "the scrollable bar doesn't need to appear anywhere, it just takes
-     up space and ruins the aesthetic - not even on the chats, we scroll without
-     it fine". Six surfaces had already opted out one at a time (the rail, the
-     room tabs, the market header strip...) which is how you end up with a
-     panel that grew a bar the week after. The default is now off and there is
-     nothing left to remember.
-
-     Scrolling itself is untouched: this hides the bar's paint, not the
-     overflow, and every scroller keeps its wheel, drag, keyboard and
-     `scrollTop`. Nothing here is a hit target, so nothing becomes unreachable
-     - the one thing a hidden scrollbar could cost you is a drag handle, and no
-     surface in this app asks you to drag one.
-
-     `scrollbar-gutter: stable` is deliberately NOT set: reserving the space we
-     just stopped painting is the gap that made it worth removing. */
+  /*
+   * ---- NO SCROLLBAR, ANYWHERE ---------------------------------------- Six surfaces had already opted out one at a
+   * time (the rail, the room tabs, the market header strip...) which is how you end up with a panel that grew a bar
+   * the week after. The default is now off and there is nothing left to remember.
+   *
+   * Scrolling itself is untouched: this hides the bar's paint, not the overflow, and every scroller keeps its wheel,
+   * drag, keyboard and `scrollTop`. Nothing here is a hit target, so nothing becomes unreachable - the one thing a
+   * hidden scrollbar could cost you is a drag handle, and no surface in this app asks you to drag one.
+   *
+   * `scrollbar-gutter: stable` is deliberately NOT set: reserving the space we just stopped painting is the gap that
+   * made it worth removing.
+   */
   * {
     scrollbar-width: none;
     -ms-overflow-style: none;
@@ -215,21 +204,21 @@ html {
     @apply outline-none ring-2 ring-brand ring-offset-2 ring-offset-white;
   }
 
-  /* EXCEPT ON A FIELD, WHICH ALREADY DRAWS ITS OWN.
-     THE BUG THIS FIXES. A TEXT FIELD IS ALWAYS `:focus-visible`, INCLUDING ON A
-     MOUSE CLICK. That is correct per spec - the browser cannot know you are not
-     about to type - but it means the rule above fires on every click into a
-     search box, and it paints a 2px brand ring held 2px OFF the element. On a
-     control that already has `focus:border-brand focus:ring-1` from `.input`,
-     that is a second, detached orange rectangle floating around the first:
-     Ethan's "sometimes when clicking a search box it will show up this orange
-     rectangle around it, this looks bad".
-
-     Fields keep a focus indicator - they get a tight, FLUSH ring instead of an
-     offset one, so it reads as the field lighting up rather than as a box drawn
-     round it. Buttons and links keep the strong offset ring, which is where it
-     was always meant to be: those have no focus styling of their own, and they
-     are the controls a keyboard user is actually tabbing between. */
+  /*
+   * EXCEPT ON A FIELD, WHICH ALREADY DRAWS ITS OWN.
+   *
+   * THE BUG THIS FIXES. A TEXT FIELD IS ALWAYS `:focus-visible`, INCLUDING ON A MOUSE CLICK. That is correct per spec
+   * - the browser cannot know you are not about to type - but it means the rule above fires on every click into a
+   * search box, and it paints a 2px brand ring held 2px OFF the element. On a control that already has
+   * `focus:border-brand focus:ring-1` from `.input`, that is a second, detached orange rectangle floating around the
+   * first: the team's "sometimes when clicking a search box it will show up this orange rectangle around it, this
+   * looks bad".
+   *
+   * Fields keep a focus indicator - they get a tight, FLUSH ring instead of an offset one, so it reads as the field
+   * lighting up rather than as a box drawn round it. Buttons and links keep the strong offset ring, which is where it
+   * was always meant to be: those have no focus styling of their own, and they are the controls a keyboard user is
+   * actually tabbing between.
+   */
   input:focus-visible,
   textarea:focus-visible,
   select:focus-visible,
@@ -237,30 +226,28 @@ html {
     @apply ring-1 ring-brand ring-offset-0;
   }
 
-  /* A TICK BOX IS NOT A FIELD (1 Oct 2026). Ethan: ticking "I agree to the Terms" on the sign-up page drew "a weird
-     orange line under it" - the field's flush ring, drawn round a 16px square that some browsers treat as
-     focus-visible on a click. A tick box shows its own state; it keeps the browser's own keyboard outline only. */
+  /*
+   * A TICK BOX IS NOT A FIELD. The team: ticking "I agree to the Terms" on the sign-up page drew "a weird orange line
+   * under it" - the field's flush ring, drawn round a 16px square that some browsers treat as focus-visible on a
+   * click. A tick box shows its own state; it keeps the browser's own keyboard outline only.
+   */
   input[type='checkbox']:focus-visible,
   input[type='radio']:focus-visible {
     @apply ring-0;
   }
 
-  /* A CARD THAT CONTAINS A BARE INPUT OWNS THE FOCUS STATE (4 Sep 2026).
-     Ethan, twice - on the social links and again on the bucket list: "whenever
-     I click on the actual place to type in the link, it shows up this weird
-     orange outline box around it. Remove that box, it doesn't look good."
-
-     The rule above gives every focused input a 1px brand ring, which is right
-     for a normal `.input` because the ring lands exactly on the field's own
-     border. These rows are different: the visible field is the CARD, and the
-     input inside it is borderless and transparent - so the ring was drawn
-     tightly around the invisible input, floating in the middle of the card as
-     a small orange rectangle around nothing.
-
-     The card takes the focus state instead. `focus-within` is the whole point:
-     it is the card that looks focused, which is also what a reader would say
-     they clicked on. Accessibility is unchanged - there is still a visible
-     focus indicator, it is just on the thing that looks like the field. */
+  /*
+   * A CARD THAT CONTAINS A BARE INPUT OWNS THE FOCUS STATE.
+   *
+   * The rule above gives every focused input a 1px brand ring, which is right for a normal `.input` because the ring
+   * lands exactly on the field's own border. These rows are different: the visible field is the CARD, and the input
+   * inside it is borderless and transparent - so the ring was drawn tightly around the invisible input, floating in
+   * the middle of the card as a small orange rectangle around nothing.
+   *
+   * The card takes the focus state instead. `focus-within` is the whole point: it is the card that looks focused,
+   * which is also what a reader would say they clicked on. Accessibility is unchanged - there is still a visible focus
+   * indicator, it is just on the thing that looks like the field.
+   */
   .field-shell:focus-within { @apply border-brand; }
   .field-shell input:focus-visible,
   .field-shell textarea:focus-visible { @apply ring-0; }
@@ -311,17 +298,15 @@ html {
       placeholder:text-gray-400 focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand sm:text-sm;
   }
 
-  /* iOS SAFARI ZOOMS THE WHOLE PAGE INTO ANY FIELD UNDER 16px, AND IT NEVER
-     ZOOMS BACK OUT. `.input` has always carried the fix; every hand-rolled
-     input on the platform - the room search, the DM search, the command
-     palette, the `Select` type-ahead - did not, because they are 14px fields
-     with their own surface rather than `.input` boxes.
-     Ethan, three times in one report: "whenever I click the search bar it
-     zooms into the screen a bit, and then if I click done it's like I'm still
-     zoomed in. It should never be zooming into the screen at all."
-     It is not a preference and it cannot be turned off with a viewport
-     `maximum-scale` (that also breaks pinch-to-zoom, which is an accessibility
-     control). 16px on a phone is the whole of the fix. */
+  /*
+   * iOS SAFARI ZOOMS THE WHOLE PAGE INTO ANY FIELD UNDER 16px, AND IT NEVER
+   *
+   * ZOOMS BACK OUT. `.input` has always carried the fix; every hand-rolled input on the platform - the room search,
+   * the DM search, the command palette, the `Select` type-ahead - did not, because they are 14px fields with their own
+   * surface rather than `.input` boxes. It is not a preference and it cannot be turned off with a viewport
+   * `maximum-scale` (that also breaks pinch-to-zoom, which is an accessibility control). 16px on a phone is the whole
+   * of the fix.
+   */
   .no-ios-zoom {
     @apply text-base sm:text-sm;
   }
@@ -337,37 +322,27 @@ html {
     @apply mx-auto w-full max-w-6xl px-5 py-8 animate-page-in sm:px-8 sm:py-12;
   }
 
-  /* ---- A ROW OF PICKABLE CHIPS THAT DOES NOT CLIP ITS OWN ANIMATION -------
-     Ethan, on the Creator kit tabs: "with the magnifying of the buttons,
-     whenever I magnify, like go over a button like graphic certificates
-     awarded, it magnifies a bit. And we had that issue with them at the top
-     getting cut off, but it's also getting cut off at the sides... seems to be
-     getting cut off at the bottom too, especially the glow and the one you're
-     actually clicked on."
-
-     All four edges, and one cause. A tab row has to scroll sideways on a phone,
-     so it is `overflow-x: auto` - and CSS does not let you clip one axis and not
-     the other: the moment `overflow-x` is not `visible`, `overflow-y` computes
-     to `auto` as well. So the row was a box that clipped on every side, and the
-     things that stick out of a chip are:
-
-       hover      -translate-y-0.5 and scale(1.03)   ~2px up, ~3px each side
-       picked     .glow-brand, 0 12px 34px -10px     ~12px up, ~36px down, 24px out
-
-     against `pb-1 pt-1` - four pixels. The bottom was worst because the glow is
-     offset downwards, which is exactly what he noticed and exactly what nobody
-     would guess from the markup.
-
-     PADDING, NOT `overflow: visible`, because the row genuinely must scroll.
-     The padding is inside the scroll box, so it is room the shadow can paint
-     into, and `-mt-4` gives the top back so nothing moves. The bottom padding
-     is left standing: it is now the gap under the row, and a tab strip wants
-     air under it anyway.
-
-     HORIZONTAL BLEED IS THE CALLER'S, because it depends on what the row is
-     sitting in - `-mx-5 px-5 sm:-mx-8 sm:px-8` inside a `.page`, something
-     smaller inside a card. Baking `.page`'s padding in here would push the row
-     outside any other container and give the whole screen a scrollbar. */
+  /*
+   * ---- A ROW OF PICKABLE CHIPS THAT DOES NOT CLIP ITS OWN ANIMATION -------
+   *
+   * All four edges, and one cause. A tab row has to scroll sideways on a phone, so it is `overflow-x: auto` - and CSS
+   * does not let you clip one axis and not the other: the moment `overflow-x` is not `visible`, `overflow-y` computes
+   * to `auto` as well. So the row was a box that clipped on every side, and the things that stick out of a chip are:
+   *
+   * hover -translate-y-0.5 and scale(1.03) ~2px up, ~3px each side picked.glow-brand, 0 12px 34px -10px ~12px up,
+   * ~36px down, 24px out
+   *
+   * against `pb-1 pt-1` - four pixels. The bottom was worst because the glow is offset downwards, which is exactly
+   * what he noticed and exactly what nobody would guess from the markup.
+   *
+   * PADDING, NOT `overflow: visible`, because the row genuinely must scroll. The padding is inside the scroll box, so
+   * it is room the shadow can paint into, and `-mt-4` gives the top back so nothing moves. The bottom padding is left
+   * standing: it is now the gap under the row, and a tab strip wants air under it anyway.
+   *
+   * HORIZONTAL BLEED IS THE CALLER'S, because it depends on what the row is sitting in - `-mx-5 px-5 sm:-mx-8 sm:px-8`
+   * inside a `.page`, something smaller inside a card. Baking `.page`'s padding in here would push the row outside any
+   * other container and give the whole screen a scrollbar.
+   */
   .pick-row {
     @apply -mt-4 overflow-x-auto pb-9 pt-4;
     scrollbar-width: none;
@@ -404,18 +379,15 @@ html {
      admin never sees # ** * markers - headings look like headings, etc. */
   .rt-editor { @apply relative text-ink; }
   .rt-editor:focus { @apply outline-none; }
-  /* A COMPOSER THAT HAS GROWN PAST ITS CAP HAS TO SCROLL BY ITSELF.
-     Ethan: "if I type in multiple lines I'm unable to scroll on this box, if I
-     try to scroll it just immediately closes". Every chat on a phone is a fixed
-     overlay inside `html.overlay-lock` (overflow hidden, height 100%), and a
-     drag inside a scrollable child CHAINS to that document the moment the child
-     reaches an edge - which scrolls the page behind the overlay, moves
-     visualViewport.offsetTop under the overlay's translateY, and on iOS
-     dismisses the keyboard. So the box appears to shut the instant you touch it
-     and the lines above the caret are unreachable.
-     `overscroll-behavior: contain` stops the chain at this element; `pan-y`
-     tells the browser the vertical drag is this box's scroll and not a page
-     gesture, so it never has to guess. */
+  /*
+   * A COMPOSER THAT HAS GROWN PAST ITS CAP HAS TO SCROLL BY ITSELF. Every chat on a phone is a fixed overlay inside
+   * `html.overlay-lock` (overflow hidden, height 100%), and a drag inside a scrollable child CHAINS to that document
+   * the moment the child reaches an edge - which scrolls the page behind the overlay, moves visualViewport.offsetTop
+   * under the overlay's translateY, and on iOS dismisses the keyboard. So the box appears to shut the instant you
+   * touch it and the lines above the caret are unreachable. `overscroll-behavior: contain` stops the chain at this
+   * element; `pan-y` tells the browser the vertical drag is this box's scroll and not a page gesture, so it never has
+   * to guess.
+   */
   .rt-editor.rt-scroll {
     overscroll-behavior: contain;
     touch-action: pan-y;
@@ -447,31 +419,28 @@ html {
   .rt-editor.rt-brief h1 { @apply mt-4 text-xl; }
   .rt-editor.rt-brief h2 { @apply text-lg; }
   .rt-editor.rt-brief h3 { @apply text-base; }
-  /* WHAT YOU TYPE IS THE SIZE OF WHAT YOU SEND, and both got bigger.
-     The sizes above belong to a note, which is a page; a chat composer is four
-     lines tall, so it uses the sizes `renderMessageBody` actually draws rather
-     than the note's. `.rt-scroll` is only ever on a chat composer, which is
-     what makes it the right hook.
-     THE LADDER WAS BROKEN. It was 16 / 14 / 14 against a 14px body - an H2 was
-     the same SIZE as a paragraph and differed only in weight, so pressing the
-     heading button appeared to do almost nothing. Ethan: "there's barely a
-     difference in me pressing a heading and just body text." It is 20 / 17 / 15
-     now, matching richText.jsx exactly, with a little space above so a heading
-     reads as a new section rather than as one emphasised line. */
+  /*
+   * WHAT YOU TYPE IS THE SIZE OF WHAT YOU SEND, and both got bigger. The sizes above belong to a note, which is a
+   * page; a chat composer is four lines tall, so it uses the sizes `renderMessageBody` actually draws rather than the
+   * note's. `.rt-scroll` is only ever on a chat composer, which is what makes it the right hook.
+   *
+   * THE LADDER WAS BROKEN. It was 16 / 14 / 14 against a 14px body - an H2 was the same SIZE as a paragraph and
+   * differed only in weight, so pressing the heading button appeared to do almost nothing. It is 20 / 17 / 15 now,
+   * matching richText.jsx exactly, with a little space above so a heading reads as a new section rather than as one
+   * emphasised line.
+   */
   .rt-editor.rt-scroll h1 { @apply mb-0 mt-3 text-xl font-bold leading-tight tracking-[-0.01em]; }
   .rt-editor.rt-scroll h2 { @apply mb-0 mt-2.5 text-[17px] font-bold leading-snug tracking-normal; }
   .rt-editor.rt-scroll h3 { @apply mb-0 mt-2 text-[15px] font-bold leading-snug; }
   .rt-editor.rt-scroll > *:first-child { @apply mt-0; }
   .rt-editor.rt-scroll p { @apply my-0; }
-  /* THE COMMUNITY BOARD HAS NO SURFACE ANY MORE.
-     There was a `.board-surface` here - a brand-tinted panel with a fine
-     diagonal grain and an inset edge, plus a `.board-bleed` that ran it to the
-     edges of a phone - so the question notes had a wall to be pinned to. Ethan:
-     "remove the backing wall and just have the cards pinned on the entire white
-     screen." The notes are the content and they are the only thing on that page
-     that should be carrying a shadow; a second textured surface behind them was
-     competing with them for exactly the attention they need. The dark-mode twin
-     of it went with it - see the end of this file. */
+  /*
+   * THE COMMUNITY BOARD HAS NO SURFACE ANY MORE. There was a `.board-surface` here - a brand-tinted panel with a fine
+   * diagonal grain and an inset edge, plus a `.board-bleed` that ran it to the edges of a phone - so the question
+   * notes had a wall to be pinned to. The notes are the content and they are the only thing on that page that should
+   * be carrying a shadow; a second textured surface behind them was competing with them for exactly the attention they
+   * need. The dark-mode twin of it went with it - see the end of this file.
+   */
 
   /* Checklists: a tappable box drawn before each item; JS toggles data-checked. */
   .rt-editor ul[data-check] { @apply list-none pl-0; }
@@ -563,63 +532,49 @@ html {
      that falls back to repainting every frame is exactly the stutter this is
      supposed to avoid. The z component costs nothing and settles the question.
      `backface-visibility` stops Safari re-rasterising at the halfway point. */
-  /* A ROW'S CARDS ARE ALL THE HEIGHT OF THE TALLEST, AND `height: 100%` IS WHAT
-     STOPPED THAT (9 Sep 2026).
-
-     Ethan, about all three landing rails: "these cards are different sizes. I
-     want all the cards to be the same... even if they have short bios, the card
-     should be the same size."
-
-     `height: 100%` is right in a GRID - the track is already sized, so the
-     percentage resolves against it and the card fills its cell. In a FLEX row
-     it does two wrong things at once: the container's height is `auto`, so the
-     percentage is indefinite and falls back to the item's own content; and
-     giving the item a definite cross-size AT ALL opts it out of
-     `align-items: stretch`, which is the mechanism that would have equalised
-     them. Measured on the creators rail at 375px: 230, 230, 250, 230.
-
-     So a rail says so. `Reveal` adds `reveal-row` when its container is a flex
-     row (see the `row` prop), and there the item goes back to `height: auto`
-     and stretches, which is what a flex row does by default and what the cards
-     inside - every one of them already `h-full` - were written against. */
+  /*
+   * A ROW'S CARDS ARE ALL THE HEIGHT OF THE TALLEST, AND `height: 100%` IS WHAT STOPPED THAT.
+   *
+   * `height: 100%` is right in a GRID - the track is already sized, so the percentage resolves against it and the card
+   * fills its cell. In a FLEX row it does two wrong things at once: the container's height is `auto`, so the
+   * percentage is indefinite and falls back to the item's own content; and giving the item a definite cross-size AT
+   * ALL opts it out of `align-items: stretch`, which is the mechanism that would have equalised them. Measured on the
+   * creators rail at 375px: 230, 230, 250, 230.
+   *
+   * So a rail says so. `Reveal` adds `reveal-row` when its container is a flex row (see the `row` prop), and there the
+   * item goes back to `height: auto` and stretches, which is what a flex row does by default and what the cards inside
+   * - every one of them already `h-full` - were written against.
+   */
   .reveal-row > .reveal-item {
     height: auto;
     align-self: stretch;
   }
-  /* AND `height: 100%` WAS ALSO WRONG IN THE THIRD CASE, WHICH IS THE ONE THAT
-     BROKE THE PROFILE PAGE (14 Sep 2026).
-
-     Ethan: "the profile pages, they are completely broken, the layout is all
-     messed up and there's white spaces between each card... on another tab it
-     is working correctly so I don't know what caused this."
-
-     The rule above reasons about the two containers a Reveal usually is - a
-     grid and a flex row - and misses the third: a Reveal that is a plain BLOCK
-     which is itself a GRID ITEM. Profile's desktop layout is exactly that,
-     `<Reveal className="min-w-0 space-y-8">` dropped straight into
-     `grid lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]`, and so is the rail
-     beside it.
-
-     A grid item is stretched to its track, so its height is DEFINITE - which is
-     precisely the condition that makes a child's `height: 100%` resolve. Every
-     section wrapper therefore became as tall as the whole column. Measured on
-     the live page before this fix: the container was 1398px and all four of its
-     children were 1398px each, stacked at 321 / 1751 / 3182 / 4612 - four
-     column-heights of mostly nothing, which is the "white spaces between each
-     card" exactly.
-
-     AND IT EXPLAINS THE TAB THAT WAS FINE. Whether a percentage height resolves
-     here depends on whether the grid row's size is already known when the
-     percentage is asked for, so it turns on layout timing: a warm tab that
-     painted in one pass and a cold tab that relaid out when a late image or
-     font landed genuinely disagree, and the broken one stays broken through a
-     reload because the reload is just as cold. That is the whole report.
-
-     `align-self: stretch` is what the rule wanted in every case it was right
-     about: it is the DEFAULT in a grid or flex container, so the wrapper still
-     fills its track there and a card inside it still has a definite parent to
-     measure `h-full` against - and it is inert in a block container, so the
-     wrapper goes back to being exactly as tall as the section inside it. */
+  /*
+   * AND `height: 100%` WAS ALSO WRONG IN THE THIRD CASE, WHICH IS THE ONE THAT
+   *
+   * BROKE THE PROFILE PAGE.
+   *
+   * The rule above reasons about the two containers a Reveal usually is - a grid and a flex row - and misses the
+   * third: a Reveal that is a plain BLOCK which is itself a GRID ITEM. Profile's desktop layout is exactly that,
+   * `<Reveal className="min-w-0 space-y-8">` dropped straight into `grid lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]`,
+   * and so is the rail beside it.
+   *
+   * A grid item is stretched to its track, so its height is DEFINITE - which is precisely the condition that makes a
+   * child's `height: 100%` resolve. Every section wrapper therefore became as tall as the whole column. Measured on
+   * the live page before this fix: the container was 1398px and all four of its children were 1398px each, stacked at
+   * 321 / 1751 / 3182 / 4612 - four column-heights of mostly nothing, which is the "white spaces between each card"
+   * exactly.
+   *
+   * AND IT EXPLAINS THE TAB THAT WAS FINE. Whether a percentage height resolves here depends on whether the grid row's
+   * size is already known when the percentage is asked for, so it turns on layout timing: a warm tab that painted in
+   * one pass and a cold tab that relaid out when a late image or font landed genuinely disagree, and the broken one
+   * stays broken through a reload because the reload is just as cold. That is the whole report.
+   *
+   * `align-self: stretch` is what the rule wanted in every case it was right about: it is the DEFAULT in a grid or
+   * flex container, so the wrapper still fills its track there and a card inside it still has a definite parent to
+   * measure `h-full` against - and it is inert in a block container, so the wrapper goes back to being exactly as tall
+   * as the section inside it.
+   */
   .reveal-item {
     align-self: stretch;
     opacity: 0;
@@ -642,24 +597,21 @@ html {
      over 24px is the compromise that still reads as arriving.
      `--reveal-base` is the container's head start, so a page can arrive top to
      bottom instead of all at once. See the `delay` prop in Reveal.jsx. */
-  /* TWO WAYS AN ITEM CAN BE REVEALED, AND THE SECOND ONE IS WHY THE PHONE
-     LOOKED DEAD (9 Sep 2026).
-
-     `.reveal.is-in > .reveal-item` is the container answering for all of its
-     children at once, which is right when the container fits on a screen: a
-     row of three cards arrives as a row of three cards.
-
-     It is wrong the moment the same grid stacks. On a phone the landing page's
-     three-step grid is 1,300px tall inside an 812px viewport, so the container
-     "arrives" while only its first card is on screen - the stagger runs, and
-     cards two and three finish animating two screens before the reader reaches
-     them. Ethan: "on mobile it is terrible, doesn't have any of those clean
-     animations." They were there; they had already happened.
-
-     `.reveal > .reveal-item.is-in` is Reveal observing each item separately,
-     which it switches to whenever the container is taller than the viewport.
-     Same distance, same curve, same everything - the only difference is what
-     decides the moment. See Reveal.jsx. */
+  /*
+   * TWO WAYS AN ITEM CAN BE REVEALED, AND THE SECOND ONE IS WHY THE PHONE LOOKED DEAD.
+   *
+   * `.reveal.is-in >.reveal-item` is the container answering for all of its children at once, which is right when the
+   * container fits on a screen: a row of three cards arrives as a row of three cards.
+   *
+   * It is wrong the moment the same grid stacks. On a phone the landing page's three-step grid is 1,300px tall inside
+   * an 812px viewport, so the container "arrives" while only its first card is on screen - the stagger runs, and cards
+   * two and three finish animating two screens before the reader reaches them. They were there; they had already
+   * happened.
+   *
+   * `.reveal >.reveal-item.is-in` is Reveal observing each item separately, which it switches to whenever the
+   * container is taller than the viewport. Same distance, same curve, same everything - the only difference is what
+   * decides the moment. See Reveal.jsx.
+   */
   /* A card carried over from the previous page (MarketsRailCard) is already on screen: it glides from where it was
      instead of arriving, so the rail's own entrance is switched off for it. */
   .reveal > .reveal-item.reveal-carry {
@@ -676,27 +628,26 @@ html {
       transform 720ms cubic-bezier(0.22, 1, 0.36, 1);
     transition-delay: calc(var(--reveal-base, 0ms) + var(--reveal-i, 0) * var(--reveal-stagger, 45ms));
   }
-  /* ON A PHONE, A LITTLE FURTHER AND A LITTLE SLOWER (24 Sep 2026). Ethan:
-     "on mobile... everything just appears kind of all of a sudden... it
-     happens too fast." A 375px screen shows a card at almost full width, so
-     24px of travel is a smaller share of what the eye sees than on a desktop,
-     and 720ms read as a blink. 32px over 860ms with a softer curve reads as
-     the card gliding into place. Dense lists keep their own rule below. */
+  /*
+   * ON A PHONE, A LITTLE FURTHER AND A LITTLE SLOWER. A 375px screen shows a card at almost full width, so 24px of
+   * travel is a smaller share of what the eye sees than on a desktop, and 720ms read as a blink. 32px over 860ms with
+   * a softer curve reads as the card gliding into place. Dense lists keep their own rule below.
+   */
   @media (max-width: 639px) {
     .reveal:not(.reveal-dense) > .reveal-item { transform: translate3d(0, 32px, 0); }
-    /* NOTHING DROPS IN FROM ABOVE ON A PHONE (24 Sep 2026). Ethan: "where it
-       says 'hey name' it shows that inside the worldwide market switcher at the
-       top." A `from="down"` section starts ABOVE its place, and in one column
-       the thing above it is the section before - so the greeting began its
-       entrance on top of the market switcher. Every phone entrance rises. */
+    /*
+     * NOTHING DROPS IN FROM ABOVE ON A PHONE. A `from="down"` section starts ABOVE its place, and in one column the
+     * thing above it is the section before - so the greeting began its entrance on top of the market switcher. Every
+     * phone entrance rises.
+     */
     .reveal:not(.reveal-dense)[data-from='down'] > .reveal-item { transform: translate3d(0, 24px, 0); }
-    /* THE TRANSFORM IS RESET HERE TOO (26 Sep 2026). The starting offset two
-       rules up is exactly as specific as `.reveal.is-in > .reveal-item` and
-       comes later in the file, so on a phone it WON: every revealed item
-       faded in and then stayed parked 24-32px below its place for good. That
-       was Ethan's "some of them are squished and some of them there's too much
-       space" on the Worldwide page - each section sat on top of the gap below
-       it. These selectors outrank both starting rules. */
+    /*
+     * THE TRANSFORM IS RESET HERE TOO. The starting offset two rules up is exactly as specific as `.reveal.is-in
+     * >.reveal-item` and comes later in the file, so on a phone it WON: every revealed item faded in and then stayed
+     * parked 24-32px below its place for good. That was the team's "some of them are squished and some of them there's
+     * too much space" on the Worldwide page - each section sat on top of the gap below it. These selectors outrank
+     * both starting rules.
+     */
     .reveal:not(.reveal-dense).is-in > .reveal-item,
     .reveal:not(.reveal-dense) > .reveal-item.is-in {
       transform: translate3d(0, 0, 0);
@@ -704,12 +655,12 @@ html {
       transition-timing-function: cubic-bezier(0.16, 1, 0.3, 1), cubic-bezier(0.16, 1, 0.3, 1);
     }
   }
-  /* A DENSE LIST LANDS; IT DOES NOT TRAVEL. See the `dense` prop in Reveal.
-     Twenty conversation rows at 24px over 720ms, each promised its own
-     compositor layer while its avatar is still decoding, is the "laggy and
-     jittery" Ethan reported on the rooms index and the DM inbox. Ten pixels
-     over 320ms, and NO `will-change`: a row is cheap to paint, so promoting
-     it costs more than it saves at this count. */
+  /*
+   * A DENSE LIST LANDS; IT DOES NOT TRAVEL. See the `dense` prop in Reveal. Twenty conversation rows at 24px over
+   * 720ms, each promised its own compositor layer while its avatar is still decoding, is the "laggy and jittery" the
+   * team reported on the rooms index and the DM inbox. Ten pixels over 320ms, and NO `will-change`: a row is cheap to
+   * paint, so promoting it costs more than it saves at this count.
+   */
   .reveal-dense > .reveal-item {
     transform: translate3d(0, 10px, 0);
     will-change: auto;
@@ -733,16 +684,14 @@ html {
   .reveal.is-done > .reveal-item,
   .reveal > .reveal-item.is-done { will-change: auto; }
 
-  /* A WRAPPER ROUND NOTHING TAKES UP NO ROOM (12 Sep 2026).
-     `Reveal` puts every child in its own div, and `Children.toArray` drops a
-     child that is `null` - but NOT one that is a fragment which happens to
-     render nothing, which is how half the conditional sections in this codebase
-     are written (`const about = <>{creator.about && <section/>}</>`). Those
-     arrive as real children and get real wrappers, and an empty wrapper inside a
-     `gap-6` column is 24px of blank page between two sections for a creator who
-     left their bio empty.
-     `:empty` is live, so a wrapper whose contents arrive later starts showing
-     itself the moment they do. */
+  /*
+   * A WRAPPER ROUND NOTHING TAKES UP NO ROOM. `Reveal` puts every child in its own div, and `Children.toArray` drops a
+   * child that is `null` - but NOT one that is a fragment which happens to render nothing, which is how half the
+   * conditional sections in this codebase are written (`const about = <>{creator.about && <section/>}</>`). Those
+   * arrive as real children and get real wrappers, and an empty wrapper inside a `gap-6` column is 24px of blank page
+   * between two sections for a creator who left their bio empty. `:empty` is live, so a wrapper whose contents arrive
+   * later starts showing itself the moment they do.
+   */
   .reveal-item:empty { display: none; }
 
   @media (prefers-reduced-motion: reduce) {
@@ -797,61 +746,43 @@ html {
     .flight-pin { animation: none; }
   }
 
-  /* THE MAP ARRIVING.
-     THE FIRST BUG, AND IT IS STILL FIXED. Every map on this platform painted
-     its OVERLAY first and its GEOGRAPHY second: `<Geographies>` is handed
-     `EMPTY_GEO` until the atlas promise resolves, while the pins and arcs are
-     computed from props that are already in memory. So the sequence a reader
-     actually saw was a blank card, then a constellation of pins and curves
-     floating on nothing, then a world map appearing underneath them. Ethan:
-     "currently it starts by flashing up all the pins and lines and then loads
-     the map." Nothing draws until the atlas is in; then the land arrives, and
-     the pins follow it.
-
-     THE SECOND BUG: THE ARRIVAL ITSELF WAS TOO CLEVER AND FAR TOO LONG.
-     What replaced the flash was a four-step sequence pretending to pull back
-     from a globe - the land scaled in from 1.16, the threads faded up behind
-     it at 300ms, the pins dropped one after another on a 26ms-per-pin ladder
-     from 420ms, and the aircraft appeared at 900ms. With forty-odd pins the
-     last one landed a second and a half in, and the whole thing was still
-     moving nearly two seconds after the card appeared. Ethan: "the animation
-     takes a long time to load, I do not want the globe animation any more, I
-     just want the map to smoothly appear and the pins to all smoothly drop in
-     and appear together."
-
-     He is right about the globe and right about the ladder, and they are the
-     same mistake twice: both spend TIME to say something the reader already
-     knows. A map does not need to explain that it is a map, and forty pins
-     landing in sequence is forty pins the eye cannot follow anyway - it reads
-     as the map still loading, which is the exact opposite of what an entrance
-     is for.
-
-     THE THIRD BUG: HALF THE MAP WAS NOT IN THE ANIMATION AT ALL.
-     The fix above collapsed the sequence to 620ms, which is right, but it did
-     it by starting the threads at 140ms - BEFORE the pins begin to fall, on a
-     260ms fade so short it is over while the land is still arriving. So the
-     one thing on the map that is genuinely worth watching arrive read as
-     furniture that had always been there, and the aircraft did too. Ethan:
-     "although the creator pins animate in smoothly (although the animation
-     should be slightly longer as it currently happens too quick) the lines,
-     dotted lines and airplanes appear to be there straight away, they should
-     also be included in the nice animation so that everything is smooth."
-
-     So the sequence has an ORDER again - land, threads, pins, aircraft - and
-     each step is long enough to be seen. What it does NOT get back is the
-     globe, or a per-pin ladder: the pins still land together, so a map of
-     fifty takes exactly as long as a map of three.
-
-       the land      fades up, no scale, no transform at all (0-420ms)
-       the threads   DRAW THEMSELVES from each pin outwards, in a short
-                     ladder so they read as reaching across the map rather
-                     than switching on (240-940ms)
-       the pins      ALL DROP TOGETHER, a longer fall with a little squash at
-                     the end (360-1060ms)
-       the aircraft  lift in on the routes once the pins are down (960-1260ms)
-
-     Every step still starts before the one above it has finished, so it reads
-     as one continuous arrival - it is simply an arrival you can follow. */
+  /*
+   * THE MAP ARRIVING.
+   *
+   * THE FIRST BUG, AND IT IS STILL FIXED. Every map on this platform painted its OVERLAY first and its GEOGRAPHY
+   * second: `<Geographies>` is handed `EMPTY_GEO` until the atlas promise resolves, while the pins and arcs are
+   * computed from props that are already in memory. So the sequence a reader actually saw was a blank card, then a
+   * constellation of pins and curves floating on nothing, then a world map appearing underneath them. Nothing draws
+   * until the atlas is in; then the land arrives, and the pins follow it.
+   *
+   * THE SECOND BUG: THE ARRIVAL ITSELF WAS TOO CLEVER AND FAR TOO LONG. What replaced the flash was a four-step
+   * sequence pretending to pull back from a globe - the land scaled in from 1.16, the threads faded up behind it at
+   * 300ms, the pins dropped one after another on a 26ms-per-pin ladder from 420ms, and the aircraft appeared at 900ms.
+   * With forty-odd pins the last one landed a second and a half in, and the whole thing was still moving nearly two
+   * seconds after the card appeared.
+   *
+   * They is right about the globe and right about the ladder, and they are the same mistake twice: both spend TIME to
+   * say something the reader already knows. A map does not need to explain that it is a map, and forty pins landing in
+   * sequence is forty pins the eye cannot follow anyway - it reads as the map still loading, which is the exact
+   * opposite of what an entrance is for.
+   *
+   * THE THIRD BUG: HALF THE MAP WAS NOT IN THE ANIMATION AT ALL. The fix above collapsed the sequence to 620ms, which
+   * is right, but it did it by starting the threads at 140ms - BEFORE the pins begin to fall, on a 260ms fade so short
+   * it is over while the land is still arriving. So the one thing on the map that is genuinely worth watching arrive
+   * read as furniture that had always been there, and the aircraft did too.
+   *
+   * So the sequence has an ORDER again - land, threads, pins, aircraft - and each step is long enough to be seen. What
+   * it does NOT get back is the globe, or a per-pin ladder: the pins still land together, so a map of fifty takes
+   * exactly as long as a map of three.
+   *
+   * the land fades up, no scale, no transform at all (0-420ms) the threads DRAW THEMSELVES from each pin outwards, in
+   * a short ladder so they read as reaching across the map rather than switching on (240-940ms) the pins ALL DROP
+   * TOGETHER, a longer fall with a little squash at the end (360-1060ms) the aircraft lift in on the routes once the
+   * pins are down (960-1260ms)
+   *
+   * Every step still starts before the one above it has finished, so it reads as one continuous arrival - it is simply
+   * an arrival you can follow.
+   */
   @keyframes map-land-in {
     from { opacity: 0; }
     to   { opacity: 1; }
@@ -900,20 +831,18 @@ html {
     animation-delay: calc(180ms + var(--thread-i, 0) * 55ms);
   }
 
-  /* THE PINS DROP ONTO THE MAP TOGETHER AND SETTLE.
-     Down from above with a little squash at the end, which is what makes it
-     read as landing rather than as appearing. `transform-box: fill-box` with
-     the origin at the bottom centre puts the pivot on the pin's own point -
-     the coordinate it is marking - so the settle happens around the place
-     rather than around the middle of the world.
-
-     700ms, up from 420ms. Ethan asked for it to be slightly longer, and 420ms
-     with a 200ms head start was over before the threads underneath had
-     finished arriving, which is most of why they read as static.
-
-     NO LADDER. There was a 26ms-per-pin stagger here, capped at 25 pins, and
-     it is gone. One delay for all of them, so a map of three pins and a map of
-     fifty take exactly the same time to arrive. */
+  /*
+   * THE PINS DROP ONTO THE MAP TOGETHER AND SETTLE. Down from above with a little squash at the end, which is what
+   * makes it read as landing rather than as appearing. `transform-box: fill-box` with the origin at the bottom centre
+   * puts the pivot on the pin's own point - the coordinate it is marking - so the settle happens around the place
+   * rather than around the middle of the world.
+   *
+   * 700ms, up from 420ms. The team asked for it to be slightly longer, and 420ms with a 200ms head start was over
+   * before the threads underneath had finished arriving, which is most of why they read as static.
+   *
+   * NO LADDER. There was a 26ms-per-pin stagger here, capped at 25 pins, and it is gone. One delay for all of them, so
+   * a map of three pins and a map of fifty take exactly the same time to arrive.
+   */
   @keyframes map-pin-land {
     0%   { opacity: 0; transform: translateY(-22px) scale(0.72); }
     62%  { opacity: 1; transform: translateY(0) scale(1.08); }
@@ -958,20 +887,16 @@ html {
     from { opacity: 0; transform: scale(0.4); }
     to   { opacity: 1; transform: scale(1); }
   }
-  /* THE AIRCRAFT WERE A SECOND BEHIND THE MAP THEY FLY OVER (10 Sep 2026).
-     Ethan, on the desktop landing page: "the plane animation doesn't start
-     straight away, it's very delayed - first they're frozen, then it suddenly
-     starts."
-
-     They are not frozen; they are INVISIBLE and already flying. `animateMotion`
-     runs on the SVG's own timeline from the moment the element exists, and this
-     rule held the aircraft at `opacity: 0` for the first 960ms of it - so what
-     arrived at 960ms was a plane that had been under way for a second, dropped
-     into the middle of its path with no movement having been seen. The order
-     land -> threads -> pins -> traffic is still the right one and is kept; it
-     just does not need a whole second to say it. 520ms puts the aircraft in
-     while the pins are still settling (they run 300ms + 700ms), which is when
-     a map full of journeys should start to look busy. */
+  /*
+   * THE AIRCRAFT WERE A SECOND BEHIND THE MAP THEY FLY OVER.
+   *
+   * They are not frozen; they are INVISIBLE and already flying. `animateMotion` runs on the SVG's own timeline from
+   * the moment the element exists, and this rule held the aircraft at `opacity: 0` for the first 960ms of it - so what
+   * arrived at 960ms was a plane that had been under way for a second, dropped into the middle of its path with no
+   * movement having been seen. The order land -> threads -> pins -> traffic is still the right one and is kept; it
+   * just does not need a whole second to say it. 520ms puts the aircraft in while the pins are still settling (they
+   * run 300ms + 700ms), which is when a map full of journeys should start to look busy.
+   */
   .map-plane-in {
     transform-box: fill-box;
     transform-origin: 50% 50%;
@@ -1089,15 +1014,14 @@ html {
   transition: none !important;
 }
 
-/* THE STRIP BEHIND THE CLOCK (21 Sep 2026). In dark mode an installed iPhone
-   app runs under a translucent status bar with WHITE glyphs (see index.html),
-   and anything drawn at the very top - a full-screen map, a photo, a light
-   page reached before the reload - would otherwise put those glyphs on
-   whatever it is. This is a solid midnight strip exactly as tall as the
-   status bar, over everything. `env(safe-area-inset-top)` is zero wherever
-   the bar is opaque (light mode, every browser tab, Android), so everywhere
-   else it is a zero-height box. #161618 is `--d-surface`, the header's own
-   colour, so in dark mode it and the header read as one surface. */
+/*
+ * THE STRIP BEHIND THE CLOCK. In dark mode an installed iPhone app runs under a translucent status bar with WHITE
+ * glyphs (see index.html), and anything drawn at the very top - a full-screen map, a photo, a light page reached
+ * before the reload - would otherwise put those glyphs on whatever it is. This is a solid midnight strip exactly as
+ * tall as the status bar, over everything. `env(safe-area-inset-top)` is zero wherever the bar is opaque (light mode,
+ * every browser tab, Android), so everywhere else it is a zero-height box. #161618 is `--d-surface`, the header's own
+ * colour, so in dark mode it and the header read as one surface.
+ */
 body::before {
   content: '';
   position: fixed;
@@ -1135,36 +1059,27 @@ body::before {
   --d-text-soft: #a7a9b0;/* secondary text             */
   --d-text-muted: #767880;/* muted / placeholders      */
 
-  /* THE BRAND ORANGE DOES NOT CHANGE IN DARK MODE. THIS WAS TRIED AND IT WAS
-     WRONG (7 Sep 2026, same day).
-
-     I lifted `#d94407` to `#ff8b4d` on the reasoning that a dark orange on a
-     near-black ground must be a low-contrast smudge. That reasoning was never
-     checked against the numbers, and the numbers say otherwise:
-
-         #d94407 on --d-bg        4.50 : 1
-         #d94407 on --d-surface   4.11 : 1
-         #d94407 on --d-surface-2 3.70 : 1
-
-     which is fine, and comfortably so for the semibold small caps and the icons
-     it is nearly always used on. There was no contrast problem to fix.
-
-     What the lift DID do was break the one recipe the whole app uses for a
-     chosen thing. `border-brand bg-brand` appears in fifteen components - the
-     border exists so a picked chip and an unpicked chip have the same box
-     model, and in light mode it is invisible because it is the same colour as
-     the fill. Lifting the border and not the fill drew a pale halo around every
-     selected chip on the platform. Ethan: "there's this yellowy or light orange
-     outline showing up in all the Tryp.com orange cards... it makes sense on the
-     ones you're selecting, but I don't get why it shows up on the ones that are
-     already selected, it looks bad there." And: "you made a lot of the colours a
-     lighter orange rather than the Tryp.com orange. Everything should be that
-     nice Tryp.com orange."
-
-     THE RULE: brand orange is `#d94407` on both grounds, always. Where dark mode
-     needs the brand to carry further it gets a GLOW - light around the colour,
-     not a different colour. `--d-brand-soft` survives only for the places that
-     genuinely want the lighter warm tone and are not selection states. */
+  /*
+   * THE BRAND ORANGE DOES NOT CHANGE IN DARK MODE. THIS WAS TRIED AND IT WAS WRONG.
+   *
+   * I lifted `#d94407` to `#ff8b4d` on the reasoning that a dark orange on a near-black ground must be a low-contrast
+   * smudge. That reasoning was never checked against the numbers, and the numbers say otherwise:
+   *
+   * #d94407 on --d-bg 4.50: 1 #d94407 on --d-surface 4.11: 1 #d94407 on --d-surface-2 3.70: 1
+   *
+   * which is fine, and comfortably so for the semibold small caps and the icons it is nearly always used on. There was
+   * no contrast problem to fix.
+   *
+   * What the lift DID do was break the one recipe the whole app uses for a chosen thing. `border-brand bg-brand`
+   * appears in fifteen components - the border exists so a picked chip and an unpicked chip have the same box model,
+   * and in light mode it is invisible because it is the same colour as the fill. Lifting the border and not the fill
+   * drew a pale halo around every selected chip on the platform. And: "you made a lot of the colours a lighter orange
+   * rather than the Tryp.com orange. Everything should be that nice Tryp.com orange."
+   *
+   * THE RULE: brand orange is `#d94407` on both grounds, always. Where dark mode needs the brand to carry further it
+   * gets a GLOW - light around the colour, not a different colour. `--d-brand-soft` survives only for the places that
+   * genuinely want the lighter warm tone and are not selection states.
+   */
   --d-brand-soft: #f5853f;
   --d-brand-glow: rgba(217, 68, 7, 0.42);
 }
@@ -1207,29 +1122,23 @@ html[data-theme='dark'] .bg-brand-tint { background-color: rgba(255, 139, 77, 0.
    over near-black - which comes out as the muddy dark-grey card reported on
    "Live now". Whenever a new opacity step is used in a component, add it here;
    `grep -rho "bg-brand-tint/[0-9]*" src | sort -u` lists them all. */
-/* A BIG PANEL FILLED WITH DARK ORANGE IS A BROWN PANEL, AND THAT IS NOT A
-   TASTE PROBLEM (7 Sep 2026). Ethan, on the empty challenges board: "the colour
-   behind that is like a weird dirty colour, it's brown, I don't like it. We do
-   not want that brown colour anywhere - I prefer the more orangey colours."
-
-   Both halves of that are right and they pull in opposite directions until you
-   look at the arithmetic. `bg-brand-tint/25` over `--d-bg` was
-   `0.09 x #f5853f` over `#0a0a0b` = `rgb(31, 21, 16)`: a dark, desaturated
-   orange. A dark desaturated orange IS brown - there is no mixing ratio that
-   makes a low-alpha warm wash over near-black read as "orange", because brown
-   is precisely what orange becomes when you take its lightness away.
-
-   So the orange stops living in the FILL of a big panel and moves into its
-   EDGES and its TEXT, where it keeps its lightness and reads as orange:
-
-     small chips and pills   a real orange glow (they are small; a warm tile at
-                             this size reads as orange, not as a brown box)
-     wide panels             the card surface, with the brand carried by the
-                             border and the words on top of it
-
-   `bg-brand-tint/45` was missing from this list altogether (the unread
-   notification row), so it painted the raw LIGHT peach at 45% over near-black -
-   the brightest version of exactly this bug. */
+/*
+ * A BIG PANEL FILLED WITH DARK ORANGE IS A BROWN PANEL, AND THAT IS NOT A TASTE PROBLEM.
+ *
+ * Both halves of that are right and they pull in opposite directions until you look at the arithmetic.
+ * `bg-brand-tint/25` over `--d-bg` was `0.09 x #f5853f` over `#0a0a0b` = `rgb(31, 21, 16)`: a dark, desaturated
+ * orange. A dark desaturated orange IS brown - there is no mixing ratio that makes a low-alpha warm wash over
+ * near-black read as "orange", because brown is precisely what orange becomes when you take its lightness away.
+ *
+ * So the orange stops living in the FILL of a big panel and moves into its EDGES and its TEXT, where it keeps its
+ * lightness and reads as orange:
+ *
+ * small chips and pills a real orange glow (they are small; a warm tile at this size reads as orange, not as a brown
+ * box) wide panels the card surface, with the brand carried by the border and the words on top of it
+ *
+ * `bg-brand-tint/45` was missing from this list altogether (the unread notification row), so it painted the raw LIGHT
+ * peach at 45% over near-black - the brightest version of exactly this bug.
+ */
 html[data-theme='dark'] .bg-brand-tint\/15,
 html[data-theme='dark'] .bg-brand-tint\/20,
 html[data-theme='dark'] .bg-brand-tint\/25,
@@ -1248,20 +1157,18 @@ html[data-theme='dark'] .bg-brand\/20,
 html[data-theme='dark'] .bg-brand\/25,
 html[data-theme='dark'] .bg-brand\/30 { background-color: rgba(255, 139, 77, 0.16); }
 
-/* ---- A CAPTION LAID OVER A MAP ------------------------------------------
-   THE BUG THIS FIXES. The creator spotlight draws its subject's travel map and
-   floats the caption over the top of it on a white-to-transparent gradient, so
-   the name reads against the land. In dark mode that gradient stayed WHITE:
-   a bright bar across the top third of a dark map, which is Ethan's "on top of
-   their map there is always this weird white box that looks bad and makes it
-   hard to see".
-   It could not be fixed by remapping a utility the way everything else here is,
-   because a Tailwind gradient stop is not a background-color - `from-white/95`
-   sets a custom property that a second utility then composes, and overriding
-   half of that pair from a stylesheet is the kind of fix that breaks the next
-   time Tailwind renames an internal variable. So the scrim is its own class
-   with both halves written out, and the component asks for a scrim rather than
-   for a colour. */
+/*
+ * ---- A CAPTION LAID OVER A MAP ------------------------------------------
+ *
+ * THE BUG THIS FIXES. The creator spotlight draws its subject's travel map and floats the caption over the top of it
+ * on a white-to-transparent gradient, so the name reads against the land. In dark mode that gradient stayed WHITE: a
+ * bright bar across the top third of a dark map, which is the team's "on top of their map there is always this weird
+ * white box that looks bad and makes it hard to see". It could not be fixed by remapping a utility the way everything
+ * else here is, because a Tailwind gradient stop is not a background-color - `from-white/95` sets a custom property
+ * that a second utility then composes, and overriding half of that pair from a stylesheet is the kind of fix that
+ * breaks the next time Tailwind renames an internal variable. So the scrim is its own class with both halves written
+ * out, and the component asks for a scrim rather than for a colour.
+ */
 .map-scrim-top {
   background-image: linear-gradient(
     to bottom,
@@ -1391,22 +1298,20 @@ html[data-theme='dark'] .btn-danger {
 }
 html[data-theme='dark'] .btn-danger:hover { background-color: rgba(220, 38, 38, 0.16); }
 
-/* ---- BRAND ORANGE IS NOT REMAPPED, AND THAT IS DELIBERATE ----------------
-   Everything that used to live here - `.text-brand`, `.border-brand`,
-   `.ring-brand` and their opacity steps, all pushed to a lighter orange - has
-   been deleted. See the note on `--d-brand-soft` above for the measurements and
-   for the halo it drew around every selected chip in the product. The brand is
-   the brand on both grounds.
-
-   `text-brand-light` is `#f5853f` and stays exactly that; it is already the
-   lighter tone and lifting it further took it into peach.
-
-   THE GLOW. Ethan asked for "a really nice glow for some of them", and on a dark
-   ground that is the right instrument: light spilling from a saturated surface
-   reads as energy in a way a border cannot, and it costs the palette nothing
-   because the light IS the brand colour. It is opt-in per component through
-   `.glow-brand` rather than applied to every `bg-brand` in the app - a glow on
-   all four hundred of them would be a lit Christmas tree. */
+/*
+ * ---- BRAND ORANGE IS NOT REMAPPED, AND THAT IS DELIBERATE ---------------- Everything that used to live here -
+ * `.text-brand`, `.border-brand`, `.ring-brand` and their opacity steps, all pushed to a lighter orange - has been
+ * deleted. See the note on `--d-brand-soft` above for the measurements and for the halo it drew around every selected
+ * chip in the product. The brand is the brand on both grounds.
+ *
+ * `text-brand-light` is `#f5853f` and stays exactly that; it is already the lighter tone and lifting it further took
+ * it into peach.
+ *
+ * THE GLOW. The team asked for "a really nice glow for some of them", and on a dark ground that is the right
+ * instrument: light spilling from a saturated surface reads as energy in a way a border cannot, and it costs the
+ * palette nothing because the light IS the brand colour. It is opt-in per component through `.glow-brand` rather than
+ * applied to every `bg-brand` in the app - a glow on all four hundred of them would be a lit Christmas tree.
+ */
 html[data-theme='dark'] .glow-brand {
   box-shadow: 0 0 0 1px rgba(217, 68, 7, 0.55), 0 6px 30px -6px var(--d-brand-glow);
 }
@@ -1418,25 +1323,26 @@ html[data-theme='dark'] .glow-brand:hover {
 .glow-brand { box-shadow: 0 6px 22px -8px rgba(217, 68, 7, 0.45); }
 .glow-brand:hover { box-shadow: 0 12px 34px -10px rgba(217, 68, 7, 0.6); }
 
-/* ---- A NAMED HOVER GROUP IS A DIFFERENT CLASS ----------------------------
-   THE BUG THIS FIXES (7 Sep 2026). Ethan: "an issue I find with the DMs in dark
-   mode - if I'm hovering over someone, it shows up white, and then you can
-   barely see their name because their name is grey."
-
-   Exactly that, and it is the same shape as the `group-hover/msg:` trap already
-   in these notes: `hoverable:hover:bg-cloud` is its OWN generated class, so
-   `html[data-theme='dark'] .hover\:bg-cloud:hover` a few lines up never reached
-   it. The DM row is the one place in the app that uses the variant on a
-   background, which is why it was the one place that stayed white.
-
-   `hoverable:` exists because a row with a `:hover` rule costs the first tap on
-   iOS (see pages/Messages), so it cannot simply be swapped for `hover:`. */
+/*
+ * ---- A NAMED HOVER GROUP IS A DIFFERENT CLASS ----------------------------
+ *
+ * THE BUG THIS FIXES.
+ *
+ * Exactly that, and it is the same shape as the `group-hover/msg:` trap already in these notes:
+ * `hoverable:hover:bg-cloud` is its OWN generated class, so `html[data-theme='dark'].hover\:bg-cloud:hover` a few
+ * lines up never reached it. The DM row is the one place in the app that uses the variant on a background, which is
+ * why it was the one place that stayed white.
+ *
+ * `hoverable:` exists because a row with a `:hover` rule costs the first tap on iOS (see pages/Messages), so it cannot
+ * simply be swapped for `hover:`.
+ */
 html[data-theme='dark'] .hoverable\:hover\:bg-cloud:hover,
 html[data-theme='dark'] .hoverable\:hover\:bg-white:hover { background-color: var(--d-surface-3); }
-/* `group-hover:` is a third namespace with the same hole. The calendar's day
-   cell carries `group-hover:bg-white`, so hovering a date in dark mode painted
-   that one square bright white - the same bug as the DM row, in the page Ethan
-   also said "the calendar could be improved for dark mode" about. */
+/*
+ * `group-hover:` is a third namespace with the same hole. The calendar's day cell carries `group-hover:bg-white`, so
+ * hovering a date in dark mode painted that one square bright white - the same bug as the DM row, in the page the team
+ * also said "the calendar could be improved for dark mode" about.
+ */
 html[data-theme='dark'] .group:hover .group-hover\:bg-white { background-color: var(--d-surface-3); }
 /* `bg-ink/N` is BLACK at low opacity: a visible wash on a white card and
    nothing at all on a dark one. Inverted, it does the same job. */
@@ -1497,29 +1403,26 @@ html[data-theme='dark'] .border-ink,
 html[data-theme='dark'] .hover\:border-ink:hover { border-color: var(--d-text); }
 html[data-theme='dark'] .ring-ink { --tw-ring-color: var(--d-text); }
 
-/* ---- A VARIANT IS A DIFFERENT CLASS, AND THAT IS THE WHOLE OF THIS BLOCK ---
-   THE BUG THIS FIXES (7 Sep 2026). Ethan: "on the very card that you activate
-   dark mode on, it looks really bad - the card still looks white."
-
-   It was white, and only from `sm` up, which is why it survived: `Panel` (the
-   box every Settings section is drawn in) is
-   `sm:rounded-card sm:border sm:border-gray-100 sm:bg-white sm:p-6`, and
-   `.sm\:bg-white` is its OWN generated class inside a media query. The remap of
-   `.bg-white` at the top of this sheet has never had anything to do with it. On
-   a phone the Panel draws no background at all, so the fault only existed on the
-   device Ethan reads Settings on.
-
-   `hover:text-ink` is the same shape and the widest instance of it - 97 uses.
-   `text-ink` is remapped to the light foreground; `hover:text-ink` was not, so
-   hovering almost any secondary control in the app painted the label
-   NEAR-BLACK ON NEAR-BLACK. Found the same way as the DM row: by listing every
-   variant-prefixed colour class in `src` and subtracting the ones this sheet
-   names.
-
-   THE RULE, for whoever adds the next one: if you write a colour utility behind
-   ANY prefix - a breakpoint, `hover:`, `group-hover:`, `hoverable:`, `active:`,
-   `focus:`, `disabled:` - the unprefixed remap above does not reach it. Re-run
-   the audit rather than trusting that it does. */
+/*
+ * ---- A VARIANT IS A DIFFERENT CLASS, AND THAT IS THE WHOLE OF THIS BLOCK ---
+ *
+ * THE BUG THIS FIXES.
+ *
+ * It was white, and only from `sm` up, which is why it survived: `Panel` (the box every Settings section is drawn in)
+ * is `sm:rounded-card sm:border sm:border-gray-100 sm:bg-white sm:p-6`, and `.sm\:bg-white` is its OWN generated class
+ * inside a media query. The remap of `.bg-white` at the top of this sheet has never had anything to do with it. On a
+ * phone the Panel draws no background at all, so the fault only existed on the device the team reads Settings on.
+ *
+ * `hover:text-ink` is the same shape and the widest instance of it - 97 uses. `text-ink` is remapped to the light
+ * foreground; `hover:text-ink` was not, so hovering almost any secondary control in the app painted the label
+ *
+ * NEAR-BLACK ON NEAR-BLACK. Found the same way as the DM row: by listing every variant-prefixed colour class in `src`
+ * and subtracting the ones this sheet names.
+ *
+ * THE RULE, for whoever adds the next one: if you write a colour utility behind ANY prefix - a breakpoint, `hover:`,
+ * `group-hover:`, `hoverable:`, `active:`, `focus:`, `disabled:` - the unprefixed remap above does not reach it.
+ * Re-run the audit rather than trusting that it does.
+ */
 html[data-theme='dark'] .sm\:bg-white { background-color: var(--d-surface); }
 html[data-theme='dark'] .sm\:border-gray-100,
 html[data-theme='dark'] .lg\:border-gray-100 { border-color: var(--d-border); }
@@ -1599,8 +1502,10 @@ html[data-reduce-motion] *::after {
   100% { transform: scale(1.6); opacity: 0; }
 }
 .profile-here-pulse {
-  /* fill-box: scale about the circle itself. With the default view-box the "center" is the middle of the whole map, so
-     the pulse flew across it on every beat (12 Oct 2026, "this weird animated dot that just goes flying across the map"). */
+  /*
+   * fill-box: scale about the circle itself. With the default view-box the "center" is the middle of the whole map, so
+   * the pulse flew across it on every beat ("this weird animated dot that just goes flying across the map").
+   */
   transform-box: fill-box;
   transform-origin: center;
   animation: profile-here-pulse 2.4s ease-out infinite;
@@ -1632,20 +1537,18 @@ html[data-reduce-motion] *::after {
   to   { opacity: 1; transform: none; }
 }
 
-/* THE CARD'S OWN HEIGHT, ANIMATED (4 Sep 2026).
-
-   The screens slid; the box around them snapped. Welcome is ~300px and the
-   photos step is ~900px, so moving between them jumped the card and every
-   control under it by half a screen on the frame the slide began, which is the
-   "everything seems very juttery" report. The height is written by
-   `StepFrame` (pages/Onboarding) off a ResizeObserver and eased here, on the
-   same curve and roughly the same duration as the slide, so the two read as one
-   movement.
-
-   THE CLIP IS ONLY ON WHILE IT MOVES. A permanently clipping frame would cut
-   off the country picker's dropdown - exactly the fault the chat action bar had
-   with its reaction picker. Nothing is open on the frame a step changes, so
-   clipping for the length of the transition costs nothing. */
+/*
+ * THE CARD'S OWN HEIGHT, ANIMATED.
+ *
+ * The screens slid; the box around them snapped. Welcome is ~300px and the photos step is ~900px, so moving between
+ * them jumped the card and every control under it by half a screen on the frame the slide began, which is the
+ * "everything seems very juttery" report. The height is written by `StepFrame` (pages/Onboarding) off a ResizeObserver
+ * and eased here, on the same curve and roughly the same duration as the slide, so the two read as one movement.
+ *
+ * THE CLIP IS ONLY ON WHILE IT MOVES. A permanently clipping frame would cut off the country picker's dropdown -
+ * exactly the fault the chat action bar had with its reaction picker. Nothing is open on the frame a step changes, so
+ * clipping for the length of the transition costs nothing.
+ */
 .onb-frame {
   transition: height 0.36s cubic-bezier(0.22, 1, 0.36, 1);
 }
@@ -1773,40 +1676,28 @@ html[data-reduce-motion] *::after {
 
 /* --- the frame round the whole screen ----------------------------------- */
 
-/* A GLOW, NOT A BORDER (3 Sep 2026).
-
-   Ethan: "I don't need the hardcore orange border - I want just a real big
-   orange glow, like it actually takes up a few centimetres of the screen on
-   desktop, and a bit relatively smaller on mobile."
-
-   The old frame led with two hard inset rings, 5px and 9px, and they read as
-   exactly what he called them: a border drawn on the app. A border says
-   "something is wrong with this window". A deep, soft bloom bleeding inwards
-   from every edge says "this screen is being walked through" without drawing a
-   line anywhere.
-
-   So the rings are gone and what is left is depth: ~90px of falloff on a phone
-   and ~150px (about four centimetres) on a desktop, in two layers so the
-   near edge is warm and the reach is faint. `clamp` on the viewport width is
-   what makes it scale between the two rather than being two rules that drift. */
-/* A DIALOG ARRIVES IN TWO PARTS AND BOTH OF THEM SHOULD MOVE (9 Sep 2026).
+/*
+ * A GLOW, NOT A BORDER.
  *
- * Ethan: "whenever a creator's little profile pop up shows up, it's a bit
- * glitchy. Better animations on some of the new things you built, just to
- * ensure that they have animations and look clean."
+ * The old frame led with two hard inset rings, 5px and 9px, and they read as exactly what he called them: a border
+ * drawn on the app. A border says "something is wrong with this window". A deep, soft bloom bleeding inwards from
+ * every edge says "this screen is being walked through" without drawing a line anywhere.
  *
- * The card was animating and the SCRIM was not. `bg-ink/40` painted at full
- * strength on the frame the dialog mounted, so the sequence a reader actually
- * saw was: the page goes dark instantly, and THEN a white card slides up into
- * it. That hard cut is the glitch - the card's own 400ms entrance was never the
- * problem, it was the 0ms one underneath it.
+ * So the rings are gone and what is left is depth: ~90px of falloff on a phone and ~150px (about four centimetres) on
+ * a desktop, in two layers so the near edge is warm and the reach is faint. `clamp` on the viewport width is what
+ * makes it scale between the two rather than being two rules that drift.
+ */
+/*
+ * A DIALOG ARRIVES IN TWO PARTS AND BOTH OF THEM SHOULD MOVE.
  *
- * Slightly shorter than the card (240ms against 400ms) so the ground is settled
- * by the time the thing standing on it arrives, which is the order these two
- * read best in.
+ * The card was animating and the SCRIM was not. `bg-ink/40` painted at full strength on the frame the dialog mounted,
+ * so the sequence a reader actually saw was: the page goes dark instantly, and THEN a white card slides up into it.
+ * That hard cut is the glitch - the card's own 400ms entrance was never the problem, it was the 0ms one underneath it.
  *
- * This is on `Modal` and therefore on every dialog in the product, which is the
- * point: one entrance, learned once.
+ * Slightly shorter than the card (240ms against 400ms) so the ground is settled by the time the thing standing on it
+ * arrives, which is the order these two read best in.
+ *
+ * This is on `Modal` and therefore on every dialog in the product, which is the point: one entrance, learned once.
  */
 @keyframes scrim-in {
   from { opacity: 0; }
@@ -1845,8 +1736,10 @@ html[data-reduce-motion] *::after {
   .sheet-in { animation: sheet-in-wide 340ms ease-out both; }
 }
 
-/* THE WAY OUT (2 Oct 2026). The scrim lets go first-ish, the sheet drops its own height on a phone and
-   sinks a little on a desktop. `both` so the last frame holds until the Modal unmounts. */
+/*
+ * THE WAY OUT. The scrim lets go first-ish, the sheet drops its own height on a phone and sinks a little on a desktop.
+ * `both` so the last frame holds until the Modal unmounts.
+ */
 @keyframes scrim-out {
   from { opacity: 1; }
   to   { opacity: 0; }
@@ -1884,19 +1777,17 @@ html[data-reduce-motion] *::after {
     inset 0 0 var(--tour-reach) calc(var(--tour-reach) * 0.12) rgba(217, 68, 7, 0.30),
     inset 0 0 calc(var(--tour-reach) * 2) calc(var(--tour-reach) * 0.2) rgba(245, 133, 63, 0.14);
   animation: tour-glow-breathe 3.6s ease-in-out infinite;
-  /* PROMOTE IT, AND THE WHOLE WALKTHROUGH GETS ITS FRAMES BACK (9 Sep 2026).
-     Ethan: "even the screen seemed to be lagging."
-
-     This element is the full viewport carrying three inset box-shadows, one of
-     which has a 300px blur, and it breathes its opacity for the entire length
-     of the walk. An opacity animation is only cheap when the element is on its
-     own compositor layer; without one the browser has no cached texture to fade
-     and re-rasterises a viewport-sized triple-shadow on every frame - for two
-     minutes, underneath every other animation in this component.
-
-     `will-change: opacity` is the promotion, and it is the one case where a
-     permanent `will-change` is right rather than wasteful: the animation it is
-     for is infinite, and the element only exists while the walk is running. */
+  /*
+   * PROMOTE IT, AND THE WHOLE WALKTHROUGH GETS ITS FRAMES BACK.
+   *
+   * This element is the full viewport carrying three inset box-shadows, one of which has a 300px blur, and it breathes
+   * its opacity for the entire length of the walk. An opacity animation is only cheap when the element is on its own
+   * compositor layer; without one the browser has no cached texture to fade and re-rasterises a viewport-sized
+   * triple-shadow on every frame - for two minutes, underneath every other animation in this component.
+   *
+   * `will-change: opacity` is the promotion, and it is the one case where a permanent `will-change` is right rather
+   * than wasteful: the animation it is for is infinite, and the element only exists while the walk is running.
+   */
   will-change: opacity;
 }
 
@@ -1906,21 +1797,17 @@ html[data-reduce-motion] *::after {
    outside this rectangle, so the "hole" is simply the element's own box. Four
    divs forming a frame is the usual approach and it cannot travel between steps
    as a single shape. */
-/* THE SCRIM IS ALMOST GONE (3 Sep 2026).
-
-   Ethan: "the screen behind is still too dim. The pop-up is bright, but the
-   screen behind is still super dim - I think it might not need to dim the
-   screen at all."
-
-   62% black over the app was not a spotlight, it was a blackout with a hole in
-   it, and it made the thing the card was TALKING about the only readable thing
-   on screen - which is wrong for a walkthrough of a page somebody is supposed
-   to be learning the shape of. He is nearly right that it needs none: what the
-   dim is actually for is separating the highlighted control from its
-   neighbours, and 22% does that while leaving the page legible.
-
-   The ring around the hole does the rest of the work now, and it is a bloom
-   rather than a 2px outline for the same reason the frame is. */
+/*
+ * THE SCRIM IS ALMOST GONE.
+ *
+ * 62% black over the app was not a spotlight, it was a blackout with a hole in it, and it made the thing the card was
+ * TALKING about the only readable thing on screen - which is wrong for a walkthrough of a page somebody is supposed to
+ * be learning the shape of. They is nearly right that it needs none: what the dim is actually for is separating the
+ * highlighted control from its neighbours, and 22% does that while leaving the page legible.
+ *
+ * The ring around the hole does the rest of the work now, and it is a bloom rather than a 2px outline for the same
+ * reason the frame is.
+ */
 .tour-spot {
   position: fixed;
   pointer-events: none;
@@ -1943,10 +1830,12 @@ html[data-reduce-motion] *::after {
 
 .tour-spot--ready { opacity: 1; }
 
-/* A step pointing at nothing, or at something scrolled off screen: no hole and
-   NO DIM EITHER. There is nothing being singled out, so darkening the page
-   would be dimming it for its own sake - and this is the case Ethan hit on the
-   hub, where the card asks you to scroll a page it had greyed out. */
+/*
+ * A step pointing at nothing, or at something scrolled off screen: no hole and
+ *
+ * NO DIM EITHER. There is nothing being singled out, so darkening the page would be dimming it for its own sake - and
+ * this is the case the team hit on the hub, where the card asks you to scroll a page it had greyed out.
+ */
 .tour-spot[data-on='no'] {
   box-shadow: none;
   border-radius: 9999px;
@@ -1957,27 +1846,21 @@ html[data-reduce-motion] *::after {
    behind the page, which is what "the highlighted box is not smooth" was. The
    rAF loop flips this attribute off ~560ms after a step change, and from then
    on the position is written with no transition at all. */
-/* IT GLIDES. THE CURVE MATTERS AS MUCH AS THE DURATION (7 Sep 2026).
-   Ethan: "you seem to have improved some of the animations whenever it's moving
-   places, but I want you to properly build this. It should glide smoothly, and
-   it's currently going way too fast - it should be slower so that you can
-   visibly see it climbing, but obviously not too slow. So just work on that
-   really clean animation, so it's gliding about the screen rather than
-   jumping."
-
-   Two changes and the second is the one that does the work.
-
-   460ms -> 820ms. At 460ms a box crossing 700px of screen is moving at about
-   1.5 pixels a millisecond, which the eye reads as a cut rather than a move.
-
-   AND THE EASING IS NOW SYMMETRIC. It was `cubic-bezier(0.22, 1, 0.36, 1)` -
-   ease-out-quint, which spends 80% of its distance in the first third of its
-   time. That is the right curve for something ARRIVING (a menu, a toast) and
-   the wrong one for something TRAVELLING: it leaps away from the old anchor and
-   then creeps, so lengthening it made the creep longer rather than the movement
-   more visible. An ease-in-out accelerates away, holds a readable speed across
-   the middle, and settles - which is what "you can see it climbing" describes,
-   and, not coincidentally, how an aeroplane moves. */
+/*
+ * IT GLIDES. THE CURVE MATTERS AS MUCH AS THE DURATION.
+ *
+ * Two changes and the second is the one that does the work.
+ *
+ * 460ms -> 820ms. At 460ms a box crossing 700px of screen is moving at about 1.5 pixels a millisecond, which the eye
+ * reads as a cut rather than a move.
+ *
+ * AND THE EASING IS NOW SYMMETRIC. It was `cubic-bezier(0.22, 1, 0.36, 1)` - ease-out-quint, which spends 80% of its
+ * distance in the first third of its time. That is the right curve for something ARRIVING (a menu, a toast) and the
+ * wrong one for something TRAVELLING: it leaps away from the old anchor and then creeps, so lengthening it made the
+ * creep longer rather than the movement more visible. An ease-in-out accelerates away, holds a readable speed across
+ * the middle, and settles - which is what "you can see it climbing" describes, and, not coincidentally, how an
+ * aeroplane moves.
+ */
 .tour-spot[data-travel='yes'] {
   transition:
     top 0.82s cubic-bezier(0.42, 0, 0.18, 1),
@@ -2047,44 +1930,35 @@ html[data-reduce-motion] *::after {
   animation: tour-card-in 0.34s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
-/* IT TRAVELS BETWEEN STEPS INSTEAD OF TELEPORTING (4 Sep 2026).
-   Same mechanism, same curve and the same 560ms window as the spotlight, so
-   the lit rectangle and the card that points at it move as one thing. And, for
-   the same reason as the spotlight, the transition exists ONLY while moving
-   between steps: applied during a scroll it would leave the card swimming a
-   few frames behind the page it is anchored to. TourHost's loop flips the
-   attribute. */
+/*
+ * IT TRAVELS BETWEEN STEPS INSTEAD OF TELEPORTING. Same mechanism, same curve and the same 560ms window as the
+ * spotlight, so the lit rectangle and the card that points at it move as one thing. And, for the same reason as the
+ * spotlight, the transition exists ONLY while moving between steps: applied during a scroll it would leave the card
+ * swimming a few frames behind the page it is anchored to. TourHost's loop flips the attribute.
+ */
 .tour-card--float[data-travel='yes'] {
   transition:
     top 0.82s cubic-bezier(0.42, 0, 0.18, 1),
     left 0.82s cubic-bezier(0.42, 0, 0.18, 1);
 }
 
-/* A RESTING CARD FOLLOWS ITS OWN HEIGHT, AND IT GLIDES WHILE IT DOES
-   (9 Sep 2026).
-
-   Ethan, on the last step: "the card goes to the home screen, which is good,
-   but then it jumps down a bit - like it was in the middle, and it jumps down."
-
-   An anchorless card is bottom-anchored arithmetic: `restingPlace` computes
-   `top = vh - height - 32`. So whenever the card's measured height changes -
-   which it does after every step change, once the "Nice one" tick and the
-   goal row have settled - its TOP has to change with it, or the gap under it
-   is wrong. The height already eased over 500ms; the top did not ease at all,
-   because the position transition is only switched on during the travel window
-   and that window has closed by then. Half of one movement animated and the
-   other half was applied on the spot.
-
-   Matching the curve and the duration to the height's is what makes it
-   disappear: top and height then change by the same amount over the same time,
-   so `top + height` is constant and the card's BOTTOM EDGE does not move at
-   all. It grows and shrinks upwards from where it sits, which is what a card
-   resting against the foot of the screen should do.
-
-   `[data-travel='no']` is load-bearing rather than tidy. This selector and the
-   travel one above it have the same specificity, and this rule is later, so
-   without it a resting card mid-glide would be given the 500ms curve instead
-   of the 820ms travel one and would arrive out of step with the spotlight. */
+/*
+ * A RESTING CARD FOLLOWS ITS OWN HEIGHT, AND IT GLIDES WHILE IT DOES.
+ *
+ * An anchorless card is bottom-anchored arithmetic: `restingPlace` computes `top = vh - height - 32`. So whenever the
+ * card's measured height changes - which it does after every step change, once the "Nice one" tick and the goal row
+ * have settled - its TOP has to change with it, or the gap under it is wrong. The height already eased over 500ms; the
+ * top did not ease at all, because the position transition is only switched on during the travel window and that
+ * window has closed by then. Half of one movement animated and the other half was applied on the spot.
+ *
+ * Matching the curve and the duration to the height's is what makes it disappear: top and height then change by the
+ * same amount over the same time, so `top + height` is constant and the card's BOTTOM EDGE does not move at all. It
+ * grows and shrinks upwards from where it sits, which is what a card resting against the foot of the screen should do.
+ *
+ * `[data-travel='no']` is load-bearing rather than tidy. This selector and the travel one above it have the same
+ * specificity, and this rule is later, so without it a resting card mid-glide would be given the 500ms curve instead
+ * of the 820ms travel one and would arrive out of step with the spotlight.
+ */
 .tour-card--float[data-centre='yes'][data-travel='no'] {
   transition:
     top 0.5s cubic-bezier(0.42, 0, 0.18, 1),
@@ -2092,16 +1966,15 @@ html[data-reduce-motion] *::after {
     height 0.5s cubic-bezier(0.42, 0, 0.18, 1);
 }
 
-/* THE BOX CHANGES SIZE BETWEEN STEPS AND THAT SHOULD BE A MOVEMENT TOO.
-   Ethan: "the card shrinks a bit - smooth animation." Steps carry different
-   amounts of text, so the card is 210px on one and 330px on the next, and the
-   height was snapping on the frame the words changed while the card was still
-   gliding. Same curve, slightly quicker, so the box has settled by the time the
-   card arrives. This is the same treatment `.onb-frame` gives the onboarding
-   card, and for the same reason.
-
-   IT IS ALWAYS ON, not only while travelling: unlike position, a height is
-   never chased by a scroll, so there is nothing for it to swim behind. */
+/*
+ * THE BOX CHANGES SIZE BETWEEN STEPS AND THAT SHOULD BE A MOVEMENT TOO. Steps carry different amounts of text, so the
+ * card is 210px on one and 330px on the next, and the height was snapping on the frame the words changed while the
+ * card was still gliding. Same curve, slightly quicker, so the box has settled by the time the card arrives. This is
+ * the same treatment `.onb-frame` gives the onboarding card, and for the same reason.
+ *
+ * IT IS ALWAYS ON, not only while travelling: unlike position, a height is never chased by a scroll, so there is
+ * nothing for it to swim behind.
+ */
 .tour-card--float { transition: height 0.5s cubic-bezier(0.42, 0, 0.18, 1); }
 
 /* THE CARD'S OWN RELAYOUT STAYS INSIDE THE CARD. Its height eases over 500ms
@@ -2111,10 +1984,10 @@ html[data-reduce-motion] *::after {
    outside its own box on purpose. */
 .tour-card { contain: layout style; }
 
-/* AND IT LEAVES THE WAY IT ARRIVED. Ethan, on the last step: "they click finish
-   and it just appears away." A card that has spent two minutes gliding around
-   the screen should not blink out of existence at the end of it. TourHost holds
-   the unmount for the length of this. */
+/*
+ * AND IT LEAVES THE WAY IT ARRIVED. A card that has spent two minutes gliding around the screen should not blink out
+ * of existence at the end of it. TourHost holds the unmount for the length of this.
+ */
 .tour-root[data-closing='yes'] .tour-card,
 .tour-root[data-closing='yes'] .tour-spot,
 .tour-root[data-closing='yes'] .tour-glow {
@@ -2128,27 +2001,25 @@ html[data-reduce-motion] *::after {
 /* An anchorless step - or one whose anchor is off screen - sits in the middle,
    because there is nothing on the page for it to be beside. Driven by a data
    attribute so the rAF loop can flip it without a React render. */
-/* A STEP WITH NOTHING TO POINT AT SITS AT THE FOOT OF THE SCREEN, NOT ACROSS
-   THE MIDDLE OF IT (3 Sep 2026).
-
-   Ethan, on the hub step: "this is the hub, scroll down and have a look - yet
-   the card is covering most of the hub." And on the brief: "it says read
-   through the brief, but everything's covering it."
-
-   Both steps ask the creator to READ THE PAGE, and both put a 372px card dead
-   centre over the thing they were told to read. Centring is right for a card
-   that IS the content - the welcome, the sign-off - and wrong for every card
-   that is talking about something behind it. Since the only steps with no
-   anchor are the reading ones, the honest default is out of the way: bottom
-   centre, above the mobile tab bar, with the whole page visible above it. */
-/* CSS NO LONGER POSITIONS THIS CARD, AND THAT IS THE FIX (7 Sep 2026).
-   This rule used to set `top: auto; bottom: 2rem; left: 50%` for an anchorless
-   step, and the rAF loop cleared the inline `top`/`left` to let it win. A
-   transition has nothing to interpolate from `auto`, so every move into or out
-   of the resting place teleported - the payment step and the notifications step
-   being exactly the two Ethan describes. `restingPlace` in lib/tourPlacement
-   computes those pixels now, so the attribute is left carrying ONLY the
-   entrance animation, which is what it was always good for. */
+/*
+ * A STEP WITH NOTHING TO POINT AT SITS AT THE FOOT OF THE SCREEN, NOT ACROSS
+ *
+ * THE MIDDLE OF IT.
+ *
+ * And on the brief: "it says read through the brief, but everything's covering it."
+ *
+ * Both steps ask the creator to READ THE PAGE, and both put a 372px card dead centre over the thing they were told to
+ * read. Centring is right for a card that IS the content - the welcome, the sign-off - and wrong for every card that
+ * is talking about something behind it. Since the only steps with no anchor are the reading ones, the honest default
+ * is out of the way: bottom centre, above the mobile tab bar, with the whole page visible above it.
+ */
+/*
+ * CSS NO LONGER POSITIONS THIS CARD, AND THAT IS THE FIX. This rule used to set `top: auto; bottom: 2rem; left: 50%`
+ * for an anchorless step, and the rAF loop cleared the inline `top`/`left` to let it win. A transition has nothing to
+ * interpolate from `auto`, so every move into or out of the resting place teleported - the payment step and the
+ * notifications step being exactly the two the team describes. `restingPlace` in lib/tourPlacement computes those
+ * pixels now, so the attribute is left carrying ONLY the entrance animation, which is what it was always good for.
+ */
 .tour-card--float[data-centre='yes'] {
   animation: tour-card-centre-in 0.36s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
@@ -2161,13 +2032,13 @@ html[data-reduce-motion] *::after {
   to   { opacity: 1; transform: none; }
 }
 
-/* A STEP THAT ASKS YOU TO TYPE MOVES OUT OF THE COLUMN (4 Sep 2026).
-
-   Bottom-centre is right for a card that says "read this page" and wrong for
-   the one card that says "fill this in": every form in this app is a centred
-   column, so bottom-centre is precisely on top of it. `keepClear` (lib/tour)
-   puts it in the bottom right instead, which on a 1024px+ window is beside the
-   form rather than over it. */
+/*
+ * A STEP THAT ASKS YOU TO TYPE MOVES OUT OF THE COLUMN.
+ *
+ * Bottom-centre is right for a card that says "read this page" and wrong for the one card that says "fill this in":
+ * every form in this app is a centred column, so bottom-centre is precisely on top of it. `keepClear` (lib/tour) puts
+ * it in the bottom right instead, which on a 1024px+ window is beside the form rather than over it.
+ */
 /* `keepClear` is now a decision `restingPlace` makes, not a position CSS
    applies. All that is left here is the entrance. */
 .tour-card--float[data-centre='yes'][data-clear='yes'] {
@@ -2179,15 +2050,15 @@ html[data-reduce-motion] *::after {
   to   { opacity: 1; transform: none; }
 }
 
-/* AND IT GETS OUT OF THE WAY WHILE YOU TYPE, AT EVERY WIDTH.
-
-   Bottom-right is not enough on its own and the measurements say so: at 1280px
-   the settings column runs to x=967 and a 361px card pinned 2rem from the right
-   starts at x=882, so eighty pixels of the form are still behind it - and on a
-   1024px laptop there is no gutter at all. There is no placement that clears a
-   centred form on every window, so the card stops competing for the space
-   instead: focus a field and it leaves, blur and it comes back. Ethan's own
-   suggestion, and the honest one. */
+/*
+ * AND IT GETS OUT OF THE WAY WHILE YOU TYPE, AT EVERY WIDTH.
+ *
+ * Bottom-right is not enough on its own and the measurements say so: at 1280px the settings column runs to x=967 and a
+ * 361px card pinned 2rem from the right starts at x=882, so eighty pixels of the form are still behind it - and on a
+ * 1024px laptop there is no gutter at all. There is no placement that clears a centred form on every window, so the
+ * card stops competing for the space instead: focus a field and it leaves, blur and it comes back. The team's own
+ * suggestion, and the honest one.
+ */
 /* THE SELECTOR CARRIES `[data-clear]` FOR SPECIFICITY, NOT FOR MEANING.
    `.tour-card--float[data-centre='yes'][data-clear='yes']` above is 0-3-0 and
    sets `transform: none` and an `animation-name`; a plain
@@ -2204,15 +2075,13 @@ html[data-reduce-motion] *::after {
   transition: opacity 0.2s ease, transform 0.24s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-/* ON A PHONE IT SIMPLY GETS OUT OF THE WAY WHILE YOU TYPE.
-
-   Ethan: "the card is covering some of it and I can't type in all my info...
-   maybe it can be temporarily hidden if you're typing." A phone has no
-   "beside", the sheet lives at the bottom, and the bottom is where an open
-   keyboard puts the field you are filling in. So for as long as something is
-   focused the sheet slides off and it slides back the moment it is not. The
-   step still completes on its own - the payee goal polls the saved row, it does
-   not need the card to be looked at. */
+/*
+ * ON A PHONE IT SIMPLY GETS OUT OF THE WAY WHILE YOU TYPE.
+ *
+ * A phone has no "beside", the sheet lives at the bottom, and the bottom is where an open keyboard puts the field you
+ * are filling in. So for as long as something is focused the sheet slides off and it slides back the moment it is not.
+ * The step still completes on its own - the payee goal polls the saved row, it does not need the card to be looked at.
+ */
 .tour-card--sheet[data-typing='yes'] {
   /* `animation: none` FIRST, and it is not tidiness. The entrance animation is
      `both`-filled, so its final `transform: none` persists and BEATS a plain
@@ -2235,28 +2104,26 @@ html[data-reduce-motion] *::after {
    exceeds half the screen, and it scrolls inside itself rather than growing -
    the connect step carries a body, an instruction and a callout, and on a small
    phone in landscape that is taller than the viewport. */
-/* MUCH MORE COMPACT ON A PHONE (3 Sep 2026). Ethan: "the mobile card should be
-   much more compact."
-
-   It could take 58% of the screen, which on a walkthrough whose whole job is to
-   point AT the app meant the app was the minority of what you could see - and
-   every step that said "tap Challenges" was covering a third of the page the
-   tab bar sits on. A third of the height is plenty for a title, two lines and
-   an instruction, and anything longer than that is a copy problem rather than a
-   layout one. */
+/*
+ * MUCH MORE COMPACT ON A PHONE.
+ *
+ * It could take 58% of the screen, which on a walkthrough whose whole job is to point AT the app meant the app was the
+ * minority of what you could see - and every step that said "tap Challenges" was covering a third of the page the tab
+ * bar sits on. A third of the height is plenty for a title, two lines and an instruction, and anything longer than
+ * that is a copy problem rather than a layout one.
+ */
 .tour-card--sheet {
   left: 0.6rem;
   right: 0.6rem;
   bottom: calc(5.25rem + env(safe-area-inset-bottom));
-  /* THE SHEET IS A COLUMN, NOT A SCROLLER (4 Sep 2026).
-     It was one `overflow-y: auto` box capped at 17rem, so a step with a long
-     explanation pushed its own buttons below the fold inside a small scroller
-     with no visible affordance. A card with no visible way forward is a card
-     somebody concludes is broken. Progress pinned on top, actions pinned on the
-     bottom, and only `.tour-scroll` between them moves - so the way forward is
-     ALWAYS on screen however much there is to read.
-     The cap is generous now (it can afford to be, since the actions no longer
-     scroll off) but still leaves the page behind it readable. */
+  /*
+   * THE SHEET IS A COLUMN, NOT A SCROLLER. It was one `overflow-y: auto` box capped at 17rem, so a step with a long
+   * explanation pushed its own buttons below the fold inside a small scroller with no visible affordance. A card with
+   * no visible way forward is a card somebody concludes is broken. Progress pinned on top, actions pinned on the
+   * bottom, and only `.tour-scroll` between them moves - so the way forward is ALWAYS on screen however much there is
+   * to read. The cap is generous now (it can afford to be, since the actions no longer scroll off) but still leaves
+   * the page behind it readable.
+   */
   display: flex;
   flex-direction: column;
   max-height: min(58vh, 26rem);
@@ -2481,22 +2348,19 @@ html[data-theme='dark'] .tour-card--sheet::before { background: #3a3a3e; }
   .msg-flash { animation: none; box-shadow: 0 0 0 6px rgba(217, 68, 7, 0.16); }
 }
 
-/* ---------------------------------------------------------------------------
-   THE PUBLIC LANDING PAGE'S MOTION (4 Sep 2026).
-
-   Ethan: "I want super clean animations for these - not just fading, but
-   something more complex and cool that really stands out. Also, hovering over
-   everything I want it to magnify a bit, even 'Create. Earn. Travel.' Maybe
-   show the dots popping in nicely, or the words popping in."
-
-   Everything here is CSS. The landing page is the FIRST BYTES a stranger
-   downloads and it is eagerly routed, so pulling the Motion runtime in for a
-   headline would put a JavaScript animation library in front of the one page
-   whose job is to load instantly. It is also why none of this is scroll-driven
-   JS: `Reveal` (also CSS) already handles arrive-on-scroll.
-
-   Everything is behind prefers-reduced-motion at the foot of the block.
-   --------------------------------------------------------------------------- */
+/*
+ * ---------------------------------------------------------------------------
+ *
+ * THE PUBLIC LANDING PAGE'S MOTION.
+ *
+ * Everything here is CSS. The landing page is the FIRST BYTES a stranger downloads and it is eagerly routed, so
+ * pulling the Motion runtime in for a headline would put a JavaScript animation library in front of the one page whose
+ * job is to load instantly. It is also why none of this is scroll-driven JS: `Reveal` (also CSS) already handles
+ * arrive-on-scroll.
+ *
+ * Everything is behind prefers-reduced-motion at the foot of the block.
+ * ---------------------------------------------------------------------------
+ */
 
 /* THE HEADLINE ARRIVES A WORD AT A TIME.
    Each word rises, overshoots very slightly and settles. The overshoot is what
@@ -2505,21 +2369,19 @@ html[data-theme='dark'] .tour-card--sheet::before { background: #3a3a3e; }
    comes back looks like an object landing. The blur is the other half - two
    pixels of it on the way in reads as focus pulling, and it costs nothing
    because it is on three spans, not on a scrolling surface. */
-/* NO BLUR. It was `filter: blur(6px)` animating to 0 across three spans of
-   72px type, and that is the whole of Ethan's "the very initial animation
-   where Create Earn Travel pops up seems a bit laggy".
-   
-   An animated `filter` cannot be handled by the compositor: the browser has to
-   re-rasterise the text at a new blur radius on EVERY FRAME, and it is doing
-   that on the largest glyphs on the page at the exact moment the rest of the
-   hero, the bloom and the stats are also arriving. Transform and opacity are
-   the only two properties that animate for free, so those are the only two
-   this uses now.
-   
-   The overshoot is what makes it read as landing rather than sliding, and it
-   survives - it is a transform. The entrance is slightly shorter and the steps
-   slightly tighter, because without the blur to resolve there is nothing left
-   to wait for. */
+/*
+ * NO BLUR. It was `filter: blur(6px)` animating to 0 across three spans of 72px type, and that is the whole of the
+ * team's "the very initial animation where Create Earn Travel pops up seems a bit laggy".
+ *
+ * An animated `filter` cannot be handled by the compositor: the browser has to re-rasterise the text at a new blur
+ * radius on EVERY FRAME, and it is doing that on the largest glyphs on the page at the exact moment the rest of the
+ * hero, the bloom and the stats are also arriving. Transform and opacity are the only two properties that animate for
+ * free, so those are the only two this uses now.
+ *
+ * The overshoot is what makes it read as landing rather than sliding, and it survives - it is a transform. The
+ * entrance is slightly shorter and the steps slightly tighter, because without the blur to resolve there is nothing
+ * left to wait for.
+ */
 @keyframes hero-word-in {
   0%   { opacity: 0; transform: translate3d(0, 26px, 0) scale(0.94); }
   55%  { opacity: 1; transform: translate3d(0, -4px, 0) scale(1.015); }
@@ -2539,17 +2401,14 @@ html[data-theme='dark'] .tour-card--sheet::before { background: #3a3a3e; }
      hover transition is the only thing left). */
   will-change: transform, opacity;
   animation: hero-word-in 520ms cubic-bezier(0.22, 1.15, 0.36, 1) both;
-  /* TIGHTER, AND STARTING SOONER (9 Sep 2026). Ethan, on the whole page:
-     "the animation for the numbers comes in kind of too slow - it's delayed
-     between everything else. Maybe just speed it up a bit so it actually
-     starts a bit sooner."
-
-     The numbers are at the END of a chain that begins here, so every
-     millisecond taken out of the headline is a millisecond off the stats
-     band too. 90ms of dead air before the first word and 90ms between each
-     was tuned when this ran the instant React committed; it now runs after a
-     boot layer the reader has already been watching, and a stagger that
-     reads as considered on first paint reads as hesitant after a wait. */
+  /*
+   * TIGHTER, AND STARTING SOONER.
+   *
+   * The numbers are at the END of a chain that begins here, so every millisecond taken out of the headline is a
+   * millisecond off the stats band too. 90ms of dead air before the first word and 90ms between each was tuned when
+   * this ran the instant React committed; it now runs after a boot layer the reader has already been watching, and a
+   * stagger that reads as considered on first paint reads as hesitant after a wait.
+   */
   animation-delay: calc(var(--word-i, 0) * 75ms + 30ms);
   /* The hover transition is a SEPARATE property list from the entrance, and it
      has to be: a `transition: transform` while an `animation` on transform is
@@ -2582,12 +2441,11 @@ html[data-theme='dark'] .tour-card--sheet::before { background: #3a3a3e; }
 }
 .landing-lift-icon { transition: transform 320ms cubic-bezier(0.22, 1.18, 0.36, 1); }
 
-/* THE BADGE OVER THE HEADLINE.
-   Ethan: "the little bar that shows above Create Earn Travel doesn't look
-   good." It was a flat brand-tint lozenge - the same shape and weight as an
-   ordinary chip inside the app, doing the job of the first thing anybody reads.
-   It is a white pill on a hairline ring now, with a live dot and one pass of
-   light across it, and it arrives before the headline rather than with it. */
+/*
+ * THE BADGE OVER THE HEADLINE. It was a flat brand-tint lozenge - the same shape and weight as an ordinary chip inside
+ * the app, doing the job of the first thing anybody reads. It is a white pill on a hairline ring now, with a live dot
+ * and one pass of light across it, and it arrives before the headline rather than with it.
+ */
 @keyframes hero-pill-in {
   from { opacity: 0; transform: translateY(-10px) scale(0.96); }
   to   { opacity: 1; transform: translateY(0) scale(1); }
@@ -2638,33 +2496,26 @@ html[data-theme='dark'] .tour-card--sheet::before { background: #3a3a3e; }
   animation: landing-sheen 2.6s cubic-bezier(0.4, 0, 0.2, 1) 0.6s both;
 }
 
-/* NOTHING ON THE FRONT PAGE MOVES UNTIL THE BOOT LAYER HAS GONE.
+/*
+ * NOTHING ON THE FRONT PAGE MOVES UNTIL THE BOOT LAYER HAS GONE.
  *
- * Ethan (9 Sep 2026): "the Create. Travel. Earn. - there's still no animation
- * there, it just loads in."
+ * There was one, and this is where it went. `index.html` paints an opaque `#boot` layer on the first frame and
+ * main.jsx removes it once React has something real to hand over to. The hero entrance starts when React COMMITS,
+ * which is earlier - so on a phone the whole 900ms of it played underneath a white sheet, and on a faster desktop most
+ * of it did not, which is exactly the difference between the two reports.
  *
- * There was one, and this is where it went. `index.html` paints an opaque
- * `#boot` layer on the first frame and main.jsx removes it once React has
- * something real to hand over to. The hero entrance starts when React COMMITS,
- * which is earlier - so on a phone the whole 900ms of it played underneath a
- * white sheet, and on a faster desktop most of it did not, which is exactly the
- * difference between the two reports.
+ * Every entrance on this page is therefore held at frame zero and released together. `animation-play-state: paused`
+ * with `both` fill parks each element on its own `from` keyframe - invisible, in the right place, no reflow - and
+ * removing the pause resumes from there rather than restarting, so the stagger between the three words survives
+ * intact.
  *
- * Every entrance on this page is therefore held at frame zero and released
- * together. `animation-play-state: paused` with `both` fill parks each element
- * on its own `from` keyframe - invisible, in the right place, no reflow - and
- * removing the pause resumes from there rather than restarting, so the stagger
- * between the three words survives intact.
+ * `is-ready` is added by pages/Landing.jsx from `useBootCleared()` - the END of the boot layer's fade, not the start
+ * of it - with a 2.5s timer behind it. THAT TIMER IS NOT OPTIONAL: this rule can hide the entire page, and the
+ * standing rule in this codebase is that content is never gated on a single mechanism.
  *
- * `is-ready` is added by pages/Landing.jsx from `useBootCleared()` - the END
- * of the boot layer's fade, not the start of it - with a 2.5s
- * timer behind it. THAT TIMER IS NOT OPTIONAL: this rule can hide the entire
- * page, and the standing rule in this codebase is that content is never gated
- * on a single mechanism.
- *
- * Infinite decoration (the bloom, the live dot) is held too. Starting a
- * twenty-second drift under a sheet only means the reader joins it part way
- * through, and there is nothing to gain from that. */
+ * Infinite decoration (the bloom, the live dot) is held too. Starting a twenty-second drift under a sheet only means
+ * the reader joins it part way through, and there is nothing to gain from that.
+ */
 .landing-page:not(.is-ready) .hero-word,
 .landing-page:not(.is-ready) .hero-pill,
 .landing-page:not(.is-ready) .hero-bloom,
@@ -2702,45 +2553,35 @@ html[data-theme='dark'] .tour-card--sheet::before { background: #3a3a3e; }
   }
 }
 
-/* THE EMPTY DM PANE'S FLOATING ENVELOPE IS GONE (4 Sep 2026).
-   It was a mark that drifted over the words "Open a conversation", and Ethan
-   asked for both to go: "you can remove the icon, there's no need for the icon
-   to show up there - just show some suggested people to message." The pane
-   offers people now (see pages/Messages), so there is nothing left for a
-   decorative animation to reassure anybody about. Rules deleted rather than
-   left behind: an unused keyframe is a thing the next person has to check. */
+/*
+ * THE EMPTY DM PANE'S FLOATING ENVELOPE IS GONE. It was a mark that drifted over the words "Open a conversation", and
+ * The pane offers people now (see pages/Messages), so there is nothing left for a decorative animation to reassure
+ * anybody about. Rules deleted rather than left behind: an unused keyframe is a thing the next person has to check.
+ */
 
-/* ============================================================================
-   THE CALENDAR MOVES (12 Sep 2026)
-
-   Ethan: "on desktop I noticed the calendar page doesn't have any nice clean
-   animations like the others, please build this in, also animations for when
-   pressing between months and clicking on events etc."
-
-   He is right and the page was the odd one out: every other signed-in page
-   assembles through `Reveal`, and this one drew itself in one frame. Two things
-   are added, and both are CSS for the reason everything on this page is CSS -
-   the calendar is one of the heavier routes already and has no business pulling
-   the Motion runtime for an entrance.
-
-   1. THE MONTH GRID CHANGES DIRECTIONALLY. Pressing "next" and pressing
-      "previous" used to look identical: the numbers in the cells simply became
-      different numbers. A month is a place you move ALONG, so the new grid
-      comes in from the side you were heading, which is the one piece of
-      information the old swap threw away. The cells are laid out by a grid that
-      does not move, so this is a transform and an opacity on one wrapper -
-      never a per-cell animation, which on a 42-cell grid is 42 layers.
-
-      SHORT, AND SHORTER THAN THE HOUSE 720ms. A month change is a control
-      responding to a press, not a section arriving; anything above about a
-      fifth of a second between pressing the chevron and being able to read the
-      dates reads as the page lagging behind the button.
-
-   2. A DAY'S EVENTS ARRIVE. The panel already grows from 0fr to 1fr, which
-      handles the box; its contents used to be inside it at full opacity from
-      the first frame, so the card was readable before the box was tall enough
-      to hold it. They now ride in on the same beat.
-   ============================================================================ */
+/*
+ * ============================================================================
+ *
+ * THE CALENDAR MOVES
+ *
+ * They is right and the page was the odd one out: every other signed-in page assembles through `Reveal`, and this one
+ * drew itself in one frame. Two things are added, and both are CSS for the reason everything on this page is CSS - the
+ * calendar is one of the heavier routes already and has no business pulling the Motion runtime for an entrance.
+ *
+ * 1. THE MONTH GRID CHANGES DIRECTIONALLY. Pressing "next" and pressing "previous" used to look identical: the numbers
+ * in the cells simply became different numbers. A month is a place you move ALONG, so the new grid comes in from the
+ * side you were heading, which is the one piece of information the old swap threw away. The cells are laid out by a
+ * grid that does not move, so this is a transform and an opacity on one wrapper - never a per-cell animation, which on
+ * a 42-cell grid is 42 layers.
+ *
+ * SHORT, AND SHORTER THAN THE HOUSE 720ms. A month change is a control responding to a press, not a section arriving;
+ * anything above about a fifth of a second between pressing the chevron and being able to read the dates reads as the
+ * page lagging behind the button.
+ *
+ * 2. A DAY'S EVENTS ARRIVE. The panel already grows from 0fr to 1fr, which handles the box; its contents used to be
+ * inside it at full opacity from the first frame, so the card was readable before the box was tall enough to hold it.
+ * They now ride in on the same beat. ============================================================================
+ */
 @keyframes cal-month-next {
   from { opacity: 0; transform: translate3d(14px, 0, 0); }
   to   { opacity: 1; transform: none; }
@@ -2773,18 +2614,18 @@ html[data-theme='dark'] .tour-card--sheet::before { background: #3a3a3e; }
   100% { opacity: 0;    transform: scale(1.75); }
 }
 
-/* ---------------------------------------------------------------------------
-   THE CARD ARRIVES, IT DOES NOT WIPE (22 Sep 2026, SIMPLIFIED 23 Sep 2026).
-
-   Ethan first asked for the community card to animate in at all, and it grew
-   a left-to-right `clip-path` reveal to match the Challenges page. Then, on a
-   phone: "whenever I click on the card, it responds to the right - I don't
-   need this expansion, I just need it to flow in nicely or appear
-   gradually." A `clip-path` sweep reads as a panel sliding open, which is a
-   heavier statement than "this appeared" - and animating `clip-path` is real
-   paint work every frame, on cards that already carry blooms and a glow.
-   A plain fade-and-rise says the same thing ("this is new") for a fraction
-   of the cost and cannot be mistaken for a slide. */
+/*
+ * ---------------------------------------------------------------------------
+ *
+ * THE CARD ARRIVES, IT DOES NOT WIPE (SIMPLIFIED).
+ *
+ * The team first asked for the community card to animate in at all, and it grew a left-to-right `clip-path` reveal to
+ * match the Challenges page. Then, on a phone: "whenever I click on the card, it responds to the right - I don't need
+ * this expansion, I just need it to flow in nicely or appear gradually." A `clip-path` sweep reads as a panel sliding
+ * open, which is a heavier statement than "this appeared" - and animating `clip-path` is real paint work every frame,
+ * on cards that already carry blooms and a glow. A plain fade-and-rise says the same thing ("this is new") for a
+ * fraction of the cost and cannot be mistaken for a slide.
+ */
 @keyframes card-wipe {
   0%   { transform: translateY(14px); opacity: 0.15; }
   100% { transform: none; opacity: 1; }
@@ -2806,9 +2647,10 @@ html[data-theme='dark'] .tour-card--sheet::before { background: #3a3a3e; }
   .animate-card-wipe, .wipe-item { animation: none; clip-path: none; }
 }
 
-/* THE LIVE LEADERBOARD CARD IN A ROOM (22 Sep 2026). A slow band of light
-   crosses its orange head every few seconds, so a live board reads as live
-   from across a thread. Transform only; paused for reduced motion. */
+/*
+ * THE LIVE LEADERBOARD CARD IN A ROOM. A slow band of light crosses its orange head every few seconds, so a live board
+ * reads as live from across a thread. Transform only; paused for reduced motion.
+ */
 .live-board-sheen {
   background: linear-gradient(105deg, transparent 35%, rgba(255, 255, 255, 0.28) 50%, transparent 65%);
   transform: translateX(-120%);
@@ -2823,8 +2665,7 @@ html[data-theme='dark'] .tour-card--sheet::before { background: #3a3a3e; }
   .live-board-sheen { animation: none; opacity: 0; }
 }
 
-/* The leaderboard's status badge beside the challenge tabs slides in from the
-   right when the Leaderboard tab opens (22 Sep 2026). */
+/* The leaderboard's status badge beside the challenge tabs slides in from the right when the Leaderboard tab opens. */
 .board-status {
   animation: board-status-in 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
@@ -2836,28 +2677,27 @@ html[data-theme='dark'] .tour-card--sheet::before { background: #3a3a3e; }
   .board-status { animation: none; }
 }
 
-/* ---------------------------------------------------------------------------
-   ENTRANCES INSIDE A REVEAL WAIT FOR THE REVEAL (22 Sep 2026).
-
-   Ethan, on the Worldwide page: "the numbers animate up nicely, but the rest of
-   the cards and stuff should also float in smoothly." They were written to:
-   the community card wipes in and its pieces (`.wipe-item`) follow it across -
-   but those are CSS animations that start when the element MOUNTS, and the
-   section around them is a `Reveal` still at opacity 0 at that moment. So the
-   wipe, the stagger and the leaderboard rows all played out behind an
-   invisible wrapper and the reader was handed a finished card. Held here at
-   their first frame until the Reveal says the section is on screen. (The
-   counters already follow the card through lib/revealContext.)
-   ------------------------------------------------------------------------- */
+/*
+ * ---------------------------------------------------------------------------
+ *
+ * ENTRANCES INSIDE A REVEAL WAIT FOR THE REVEAL.
+ *
+ * They were written to: the community card wipes in and its pieces (`.wipe-item`) follow it across - but those are CSS
+ * animations that start when the element MOUNTS, and the section around them is a `Reveal` still at opacity 0 at that
+ * moment. So the wipe, the stagger and the leaderboard rows all played out behind an invisible wrapper and the reader
+ * was handed a finished card. Held here at their first frame until the Reveal says the section is on screen. (The
+ * counters already follow the card through lib/revealContext.)
+ * -------------------------------------------------------------------------
+ */
 .reveal:not(.is-in) > .reveal-item:not(.is-in) :is(.animate-card-wipe, .wipe-item, .challenge-sheen, .animate-fade-up, .strip-board, .glow-ring),
 .reveal:not(.is-in) > .reveal-item:not(.is-in) .glow-ring::before {
   animation-play-state: paused;
 }
 
-/* THE LEADERBOARD PANEL GROWS WITH ITS ROWS (22 Sep 2026). Ethan: "it starts
-   by showing the white background card, maybe that background card could grow
-   with it as it appears." It opens from the top edge down, and the rows fade
-   up inside it as it opens, rather than an empty white box arriving first. */
+/*
+ * THE LEADERBOARD PANEL GROWS WITH ITS ROWS. It opens from the top edge down, and the rows fade up inside it as it
+ * opens, rather than an empty white box arriving first.
+ */
 @keyframes strip-board-grow {
   from { clip-path: inset(0 0 100% 0 round 0.75rem); transform: translateY(8px) scale(0.97); opacity: 0.4; }
   to   { clip-path: inset(0 0 0 0 round 0.75rem); transform: none; opacity: 1; }
@@ -2867,23 +2707,18 @@ html[data-theme='dark'] .tour-card--sheet::before { background: #3a3a3e; }
   transform-origin: top center;
 }
 
-/* THE GLOBAL CHALLENGE STANDS OUT: A LIGHT THAT RUNS ROUND ITS BORDER.
-   Fifth pass (24 Sep 2026). Ethan: "We lost the animated glow that was going
-   around the card. Can you add that back in?" The fourth pass had made it a
-   flat breathing ring because the page felt laggy - but the lag was a leaking
-   counter animation (fixed in the same commit), not this. So the light runs
-   round again, built the one way that is cheap enough to run forever:
-
-   - ONE layer, a STATIC conic gradient painted once, turned by `transform`
-     only. The compositor rotates a finished bitmap; nothing is repainted per
-     frame. (Animating the gradient's ANGLE repaints every frame - that was
-     pass one.)
-   - NO blur halo and NO mask. The blurred halo in its own stacking context is
-     what drew the "weird orange square" on some phones; the ring is simply what
-     peeks out from behind the card's own opaque background.
-   - The spinning square is centred and 150% of the card's WIDTH on each side,
-     so no corner of it ever swings into the visible 3px band on a wide card.
-   `.global-glow` / `.global-glow-mobile` are positioning contexts only. */
+/*
+ * THE GLOBAL CHALLENGE STANDS OUT: A LIGHT THAT RUNS ROUND ITS BORDER. Fifth pass. The fourth pass had made it a flat
+ * breathing ring because the page felt laggy - but the lag was a leaking counter animation (fixed in the same commit),
+ * not this. So the light runs round again, built the one way that is cheap enough to run forever:
+ *
+ * - ONE layer, a STATIC conic gradient painted once, turned by `transform` only. The compositor rotates a finished
+ * bitmap; nothing is repainted per frame. (Animating the gradient's ANGLE repaints every frame - that was pass one.) -
+ * NO blur halo and NO mask. The blurred halo in its own stacking context is what drew the "weird orange square" on
+ * some phones; the ring is simply what peeks out from behind the card's own opaque background. - The spinning square
+ * is centred and 150% of the card's WIDTH on each side, so no corner of it ever swings into the visible 3px band on a
+ * wide card. `.global-glow` / `.global-glow-mobile` are positioning contexts only.
+ */
 .global-glow,
 .global-glow-mobile {
   position: relative;
@@ -2945,10 +2780,12 @@ html[data-theme='dark'] .tour-card--sheet::before { background: #3a3a3e; }
 
 
 
-/* ---------------------------------------------------------------------------
-   HOOK ME UP SPARKLES (26 Sep 2026). Ethan: "the stars beside 'Hook Me Up'
-   could be animating." A slow twinkle - scale and a little turn - with a pause
-   between, so it catches the eye without buzzing. */
+/*
+ * ---------------------------------------------------------------------------
+ *
+ * HOOK ME UP SPARKLES. A slow twinkle - scale and a little turn - with a pause between, so it catches the eye without
+ * buzzing.
+ */
 .hook-sparkles { animation: hook-twinkle 2.8s ease-in-out infinite; transform-origin: 50% 50%; }
 @keyframes hook-twinkle {
   0%, 60%, 100% { transform: scale(1) rotate(0deg); opacity: 1; }
@@ -2969,17 +2806,17 @@ html[data-theme='dark'] .tour-card--sheet::before { background: #3a3a3e; }
   .board-status-out > * { animation: none; }
 }
 
-/* KPI BARS GROW IN (28 Sep 2026) rather than appearing full. */
+/* KPI BARS GROW IN rather than appearing full. */
 @keyframes kpi-fill-grow {
   from { transform: scaleX(0); }
   to { transform: scaleX(1); }
 }
 .kpi-fill { transform-origin: left center; animation: kpi-fill-grow 0.8s cubic-bezier(0.22, 1, 0.36, 1) both; }
 
-/* AND A TARGET THAT IS MET SAYS SO (28 Sep 2026). A bar that arrives full looks
-   the same as a bar that was always full, so reaching the target sweeps a shine
-   across it once, after the grow has finished. Ethan: "maybe improve the design
-   of it or have a nice animation showing everything being complete." */
+/*
+ * AND A TARGET THAT IS MET SAYS SO. A bar that arrives full looks the same as a bar that was always full, so reaching
+ * the target sweeps a shine across it once, after the grow has finished.
+ */
 @keyframes kpi-complete-sweep {
   from { transform: translateX(-100%); }
   to   { transform: translateX(220%); }
@@ -2992,10 +2829,11 @@ html[data-theme='dark'] .tour-card--sheet::before { background: #3a3a3e; }
   background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.7), transparent);
   animation: kpi-complete-sweep 1.1s cubic-bezier(0.22, 1, 0.36, 1) 0.75s 1 both;
 }
-/* KPI CHARTS ARRIVE TOGETHER (1 Oct 2026). Ethan: "whenever I click on something ... it takes the
-   graph a bit to load. There's no clean animation." Columns grow up from their base, and a chart that
-   is swapped (another metric picked, a popup opened) rises in as one piece. Never from opacity zero:
-   a hidden tab freezes the first keyframe, and a frozen 0 is an invisible chart. */
+/*
+ * KPI CHARTS ARRIVE TOGETHER. Columns grow up from their base, and a chart that is swapped (another metric picked, a
+ * popup opened) rises in as one piece. Never from opacity zero: a hidden tab freezes the first keyframe, and a frozen
+ * 0 is an invisible chart.
+ */
 @keyframes kpi-grow-up {
   from { transform: scaleY(0.08); }
   to { transform: scaleY(1); }
@@ -3011,9 +2849,7 @@ html[data-theme='dark'] .tour-card--sheet::before { background: #3a3a3e; }
   .kpi-complete::after { animation: none; content: none; }
 }
 
-/* THE INTRO BUTTON'S DRIFTING GRADIENT (28 Sep 2026). Orange and light orange
-   only - Ethan, the same evening: "I don't like the pink in the animated
-   gradient. I would just keep it the Tryp.com orange and light orange." */
+/* THE INTRO BUTTON'S DRIFTING GRADIENT. Orange and light orange only - */
 @keyframes intro-cta-drift {
   0% { background-position: 0% 50%; }
   50% { background-position: 100% 50%; }
@@ -3028,10 +2864,11 @@ html[data-theme='dark'] .tour-card--sheet::before { background: #3a3a3e; }
   .intro-cta { animation: none; }
 }
 
-/* ---------------------------------------------------------------------------
-   A PINNED ENTRY SAYS WHERE IT LANDED (28 Sep 2026). The results list no longer
-   re-mounts two hundred cards when an entry is pinned (that was the scroll
-   lag); the pinned card glows once instead. */
+/*
+ * --------------------------------------------------------------------------- A PINNED ENTRY SAYS WHERE IT LANDED. The
+ * results list no longer re-mounts two hundred cards when an entry is pinned (that was the scroll lag); the pinned
+ * card glows once instead.
+ */
 .pin-flash { animation: pin-flash 1.4s ease-out 0.25s both; }
 @keyframes pin-flash {
   0% { box-shadow: 0 0 0 0 rgba(217, 68, 7, 0.45); }
@@ -3042,11 +2879,10 @@ html[data-theme='dark'] .tour-card--sheet::before { background: #3a3a3e; }
   .pin-flash { animation: none; }
 }
 
-/* ---------------------------------------------------------------------------
-   BRAND DRIFT (28 Sep 2026). A slow drift through Tryp.com orange and light
-   orange - nothing else. Ethan, on the animated buttons: "I don't like the pink
-   in the animated gradient. I would just keep it the Tryp.com orange and light
-   orange." Find a deal's hero uses it too, in place of the sweeping sheen. */
+/*
+ * --------------------------------------------------------------------------- BRAND DRIFT. A slow drift through
+ * Tryp.com orange and light orange - nothing else. Find a deal's hero uses it too, in place of the sweeping sheen.
+ */
 .brand-drift {
   background-image: linear-gradient(115deg, #d94407 0%, #f5853f 30%, #e8601c 55%, #f5853f 78%, #d94407 100%);
   background-size: 260% 260%;
@@ -3060,16 +2896,15 @@ html[data-theme='dark'] .tour-card--sheet::before { background: #3a3a3e; }
   .brand-drift { animation: none; background-position: 30% 50%; }
 }
 
-/* THE MARKET ROW SCROLLS SIDEWAYS, AND LOOKS LIKE IT DOES (28 Sep 2026).
-   Ethan asked for the markets on "one line and scrollable" so the row's height
-   never changes when something else appears beside it. Scrollbars are hidden
-   everywhere in this app, so without a hint the last pill just looks cut off -
-   which is the complaint that made them wrap in the first place. A mask fades
-   the last few pixels instead, so the row reads as continuing.
-
-   `[data-overflow="true"]` is set by the component when the content is actually
-   wider than the box: fading the edge of a row that fits would dim a pill for
-   no reason at all. */
+/*
+ * THE MARKET ROW SCROLLS SIDEWAYS, AND LOOKS LIKE IT DOES. The team asked for the markets on "one line and scrollable"
+ * so the row's height never changes when something else appears beside it. Scrollbars are hidden everywhere in this
+ * app, so without a hint the last pill just looks cut off - which is the complaint that made them wrap in the first
+ * place. A mask fades the last few pixels instead, so the row reads as continuing.
+ *
+ * `[data-overflow="true"]` is set by the component when the content is actually wider than the box: fading the edge of
+ * a row that fits would dim a pill for no reason at all.
+ */
 .kpi-markets {
   scroll-snap-type: x proximity;
 }
@@ -3081,16 +2916,16 @@ html[data-theme='dark'] .tour-card--sheet::before { background: #3a3a3e; }
 }
 
 
-/* ---------------------------------------------------------------------------
-   THE SAME CARDS IN EVERY LANGUAGE (29 Sep 2026).
-   Ethan: cards changed size between languages and the layout looked worse; "keep them the
-   same size, maybe adjust the size of the text slightly instead".
-   German runs ~30% longer than English, Portuguese and Spanish ~20%, Romanian ~15%. Rather
-   than let a longer word push a box open, the SMALL, tightly-boxed text (uppercase labels,
-   chips, tab-bar names, buttons) tightens a touch in every language but English, and long
-   words may hyphenate instead of wrapping late. Body copy and headings keep their size:
-   nothing here goes below the platform's 13px floor for reading text.
-   `data-lng` is set with `lang` in lib/i18n. */
+/*
+ * ---------------------------------------------------------------------------
+ *
+ * THE SAME CARDS IN EVERY LANGUAGE. The team: cards changed size between languages and the layout looked worse; "keep
+ * them the same size, maybe adjust the size of the text slightly instead". German runs ~30% longer than English,
+ * Portuguese and Spanish ~20%, Romanian ~15%. Rather than let a longer word push a box open, the SMALL, tightly-boxed
+ * text (uppercase labels, chips, tab-bar names, buttons) tightens a touch in every language but English, and long
+ * words may hyphenate instead of wrapping late. Body copy and headings keep their size: nothing here goes below the
+ * platform's 13px floor for reading text. `data-lng` is set with `lang` in lib/i18n.
+ */
 html[data-lng]:not([data-lng="en"]) {
   hyphens: auto;
   -webkit-hyphens: auto;
@@ -3119,10 +2954,11 @@ html[data-lng]:not([data-lng="en"]) [class*="stat"] > :is(p, span):not([class*="
   text-wrap: balance;
 }
 
-/* THE RECAP TEASER (1 Oct 2026): the brand gradient, always drifting, breathing a soft orange
-   glow, with a light sheen passing over it every few seconds. Nothing here starts at opacity
-   zero (see the Year in Review note: a hidden tab holds the first keyframe), and all of it
-   stops for somebody who asked for less motion. */
+/*
+ * THE RECAP TEASER: the brand gradient, always drifting, breathing a soft orange glow, with a light sheen passing over
+ * it every few seconds. Nothing here starts at opacity zero (see the Year in Review note: a hidden tab holds the first
+ * keyframe), and all of it stops for somebody who asked for less motion.
+ */
 .recap-teaser {
   background-image: linear-gradient(115deg, #c93c05 0%, #f5853f 28%, #d94407 52%, #ff9a52 76%, #d94407 100%);
   background-size: 300% 300%;
@@ -3157,11 +2993,13 @@ html[data-lng]:not([data-lng="en"]) [class*="stat"] > :is(p, span):not([class*="
   .recap-teaser, .recap-sheen, .recap-lock, .recap-bar { animation: none; }
 }
 
-/* ---------------------------------------------------------------------------
-   THE SURVEY CARD (1 Oct 2026). Ethan wanted it "more like the recap card with that cool, engaging
-   design and clean animations". The card rises in, each screen slides in from the side it came from,
-   a picked answer pops, and the thank-you check lands with a ring. As everywhere: no entrance starts
-   at opacity zero (a hidden tab would freeze it invisible). */
+/*
+ * ---------------------------------------------------------------------------
+ *
+ * THE SURVEY CARD. The team wanted it "more like the recap card with that cool, engaging design and clean animations".
+ * The card rises in, each screen slides in from the side it came from, a picked answer pops, and the thank-you check
+ * lands with a ring. As everywhere: no entrance starts at opacity zero (a hidden tab would freeze it invisible).
+ */
 .animate-fade-in { animation: survey-fade 0.25s ease-out both; }
 @keyframes survey-fade { from { opacity: 0.3; } to { opacity: 1; } }
 .animate-survey-rise { animation: survey-rise 0.5s cubic-bezier(0.22, 1, 0.36, 1) both; }
@@ -3195,11 +3033,12 @@ html[data-lng]:not([data-lng="en"]) [class*="stat"] > :is(p, span):not([class*="
 }
 
 
-/* THE KPI DETAIL ARRIVES IN PIECES (2 Oct 2026). Ethan: the card "just pops up, which looks good, but
-   there should be more animations there." Each block rises on its own clock (`--d`), so the header,
-   the four numbers, the charts and the lists land one after another instead of all at once. The
-   floor is 0.55 rather than 0: an entrance that starts invisible freezes invisible in a background
-   tab. `both` holds the first frame through the delay. */
+/*
+ * THE KPI DETAIL ARRIVES IN PIECES. The team: the card "just pops up, which looks good, but there should be more
+ * animations there." Each block rises on its own clock (`--d`), so the header, the four numbers, the charts and the
+ * lists land one after another instead of all at once. The floor is 0.55 rather than 0: an entrance that starts
+ * invisible freezes invisible in a background tab. `both` holds the first frame through the delay.
+ */
 @keyframes kpi-rise {
   from { opacity: 0.55; transform: translateY(14px); }
   to   { opacity: 1; transform: translateY(0); }
@@ -3215,7 +3054,7 @@ html[data-lng]:not([data-lng="en"]) [class*="stat"] > :is(p, span):not([class*="
   .kpi-rise, .kpi-pop { animation: none; }
 }
 
-/* One cell of the period grid pops in on its own beat (2 Oct 2026). */
+/* One cell of the period grid pops in on its own beat. */
 @keyframes kpi-cell-in {
   from { opacity: 0.5; transform: scale(0.85); }
   to   { opacity: 1; transform: scale(1); }
@@ -3223,10 +3062,12 @@ html[data-lng]:not([data-lng="en"]) [class*="stat"] > :is(p, span):not([class*="
 .kpi-cell { animation: kpi-cell-in 380ms cubic-bezier(0.22, 1.2, 0.36, 1) both; }
 @media (prefers-reduced-motion: reduce) { .kpi-cell { animation: none; } }
 
-/* ---------------------------------------------------------------------------
-   THE SURVEY CARD, SECOND PASS (2 Oct 2026). Ethan: "more animations ... improve the progress bar ...
-   for the stars, much better animations, different gradients and constant cool animations." Every
-   piece below is decoration on top of state that already works, and each respects reduced motion. */
+/*
+ * ---------------------------------------------------------------------------
+ *
+ * THE SURVEY CARD, SECOND PASS. Every piece below is decoration on top of state that already works, and each respects
+ * reduced motion.
+ */
 @keyframes survey-word {
   from { transform: translateY(16px) scale(0.96); opacity: 0.35; filter: blur(3px); }
   to   { transform: none; opacity: 1; filter: none; }
@@ -3291,11 +3132,13 @@ html[data-lng]:not([data-lng="en"]) [class*="stat"] > :is(p, span):not([class*="
 @keyframes bar-grow { from { transform: scaleX(0.15); } to { transform: scaleX(1); } }
 @media (prefers-reduced-motion: reduce) { .animate-bar-grow { animation: none; } }
 
-/* ON A SLOW CONNECTION THE DECORATION STANDS STILL (2 Oct 2026).
-   lib/netQuality sets `data-slow-net` on <html> once reads are measured as slow. A phone on a weak signal is
-   usually also a phone working hard to keep up, so the purely decorative motion - the rotating glow round the
-   challenge cards, the sweep of light, the drifting orbs and gradients - pauses, and the expensive backdrop
-   blurs flatten. Nothing that tells you something (a live dot, a countdown, a loading spinner) is touched. */
+/*
+ * ON A SLOW CONNECTION THE DECORATION STANDS STILL. lib/netQuality sets `data-slow-net` on <html> once reads are
+ * measured as slow. A phone on a weak signal is usually also a phone working hard to keep up, so the purely decorative
+ * motion - the rotating glow round the challenge cards, the sweep of light, the drifting orbs and gradients - pauses,
+ * and the expensive backdrop blurs flatten. Nothing that tells you something (a live dot, a countdown, a loading
+ * spinner) is touched.
+ */
 html[data-slow-net] .glow-ring,
 html[data-slow-net] .glow-ring::before,
 html[data-slow-net] .challenge-sheen,
@@ -3312,15 +3155,15 @@ html[data-slow-net] [class*="backdrop-blur-["] {
   backdrop-filter: none !important;
 }
 
-/* ONE ENTRANCE FOR A PAGE OF CARDS (4 Oct 2026).
-   Ethan, on the VIP page and the VIP tools: "some things animate nicely, others don't ... ensure everything animates in
-   smoothly, like when clicking from My Videos back to This Month." Every card used to carry its own `animate-rise` with its own
-   delay (or none), inside a wrapper that also faded in, so a page arrived as three or four different movements.
-   Put `vip-stage` on the element that holds a page's cards and its direct children arrive together: the same lift on the
-   same curve, 55ms apart, top to bottom. Anything deeper that asks for `animate-rise` is told to stand still - the
-   card is already arriving, and its contents moving a second time is exactly the "others don't" that read as lag.
-   `backwards` (not `both`) so that once a card has arrived it goes back to being an ordinary box: a held `transform: none`
-   would beat the hover lift on every card. */
+/*
+ * ONE ENTRANCE FOR A PAGE OF CARDS. Every card used to carry its own `animate-rise` with its own delay (or none),
+ * inside a wrapper that also faded in, so a page arrived as three or four different movements. Put `vip-stage` on the
+ * element that holds a page's cards and its direct children arrive together: the same lift on the same curve, 55ms
+ * apart, top to bottom. Anything deeper that asks for `animate-rise` is told to stand still - the card is already
+ * arriving, and its contents moving a second time is exactly the "others don't" that read as lag. `backwards` (not
+ * `both`) so that once a card has arrived it goes back to being an ordinary box: a held `transform: none` would beat
+ * the hover lift on every card.
+ */
 @keyframes stage-in {
   from { opacity: 0; transform: translateY(10px); }
   to { opacity: 1; transform: translateY(0); }
@@ -3347,9 +3190,11 @@ html[data-slow-net] [class*="backdrop-blur-["] {
 }
 html[data-slow-net] .vip-stage > * { animation: none; }
 
-/* THE SAME ENTRANCE FOR THE VIP TOOLS (4 Oct 2026). A tool's root element holds its cards, so it is the root's CHILDREN that
-   arrive together (`.vip-panel > * > *`). `!important` because deeper `animate-rise` cards are told to stand still just below,
-   and this has to win against that rule for the cards that are meant to move. */
+/*
+ * THE SAME ENTRANCE FOR THE VIP TOOLS. A tool's root element holds its cards, so it is the root's CHILDREN that arrive
+ * together (`.vip-panel > * > *`). `!important` because deeper `animate-rise` cards are told to stand still just
+ * below, and this has to win against that rule for the cards that are meant to move.
+ */
 .vip-panel > * > * {
   animation: stage-in 460ms cubic-bezier(0.22, 1, 0.36, 1) backwards !important;
   animation-delay: calc(var(--stage-i, 0) * 55ms) !important;
@@ -3374,7 +3219,7 @@ html[data-slow-net] .vip-panel > * > * { animation: none !important; }
 /* A leaderboard card that is sliding to its new place rides above the cards it passes (CountryBoard's FLIP). */
 [data-moving] { position: relative; z-index: 2; }
 
-/* THE BOOST DISC (7 Oct 2026): a light sweeping across the x2 while a boost is on, every few seconds. */
+/* THE BOOST DISC: a light sweeping across the x2 while a boost is on, every few seconds. */
 @keyframes boost-disc-sweep {
   0%, 55% { transform: translateX(-120%) skewX(-20deg); }
   85%, 100% { transform: translateX(120%) skewX(-20deg); }
@@ -3402,10 +3247,14 @@ html[data-slow-net] .vip-panel > * > * { animation: none !important; }
 .rt-editor figure { margin: 0.75rem 0; border-radius: 1rem; overflow: hidden; border: 1px solid #f0f0f0; background: #f7f7f8; user-select: none; }
 .rt-editor figure img { display: block; width: 100%; height: auto; }
 
-/* Drifting orange orbs (VipLocked, agreements), and the Video Ideas cards rising in one after another. The Ideas
-   header itself is a white card now (8 Oct 2026); its big faint bulb bobs instead. */
-/* THE IDEAS HEADER (9 Oct 2026): the Get Help orange, with a constellation of bulbs that bob on their own beats and a glow
-   that breathes behind them. They sit at the right and the corners, under the text layer, never behind a line of it. */
+/*
+ * Drifting orange orbs (VipLocked, agreements), and the Video Ideas cards rising in one after another. The Ideas
+ * header itself is a white card now; its big faint bulb bobs instead.
+ */
+/*
+ * THE IDEAS HEADER: the Get Help orange, with a constellation of bulbs that bob on their own beats and a glow that
+ * breathes behind them. They sit at the right and the corners, under the text layer, never behind a line of it.
+ */
 .ideas-hero { background: linear-gradient(135deg, #d94407 0%, #f5853f 100%); isolation: isolate; }
 .ideas-hero::before { content: ''; position: absolute; right: -4rem; top: -5rem; width: 22rem; height: 22rem; border-radius: 9999px; z-index: -1; pointer-events: none;
   background: radial-gradient(circle, rgba(255, 236, 170, 0.55) 0%, rgba(255, 236, 170, 0) 65%); animation: ideas-glow 4.5s ease-in-out infinite; }
@@ -3430,10 +3279,12 @@ html[data-slow-net] .vip-panel > * > * { animation: none !important; }
 .vip-locked-hero { background-color: #111; background-image: radial-gradient(110% 130% at 50% 0%, #4a1f07 0%, #141414 60%); }
 .vip-lock-halo { background: radial-gradient(circle, rgba(245, 133, 63, 0.45) 0%, rgba(245, 133, 63, 0) 68%); animation: vip-lock-halo 3.6s ease-in-out infinite; }
 @keyframes vip-lock-halo { 0%, 100% { transform: scale(0.92); opacity: 0.7; } 50% { transform: scale(1.12); opacity: 1; } }
-/* A REAL PADLOCK OPENING (11 Oct 2026, simplified 12 Oct). The long left leg stays seated in the body; the shackle
-   lifts so the short leg comes clear, STAYS OPEN for about three seconds, then drops back and the body gives a small
-   click. No sideways turn: Ethan, "it doesn't need to visibly turn. It should just be open, unlock for a few seconds,
-   and then back down to locked." */
+/*
+ * A REAL PADLOCK OPENING (simplified 12 Oct). The long left leg stays seated in the body; the shackle lifts so the
+ * short leg comes clear, STAYS OPEN for about three seconds, then drops back and the body gives a small click. No
+ * sideways turn: the team, "it doesn't need to visibly turn. It should just be open, unlock for a few seconds, and
+ * then back down to locked."
+ */
 .vip-lock-shackle { transform-origin: 42px 60px; transform-box: view-box; animation: vip-lock-shackle 6.4s cubic-bezier(0.45, 0, 0.2, 1) infinite; }
 @keyframes vip-lock-shackle {
   0%, 22% { transform: translateY(0); }
@@ -3481,9 +3332,11 @@ html[data-slow-net] .vip-panel > * > * { animation: none !important; }
 @keyframes vip-mode-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
 @media (prefers-reduced-motion: reduce) { .vip-mode-in { animation: none; } }
 
-/* THE AGREEMENT SHEET (components/agreements, rebuilt 7 Oct 2026). It rises in (from the bottom on a phone, a soft
-   scale on a laptop), its sections arrive one after another, and once accepted it sinks away with the scrim fading
-   rather than vanishing. The section strip is a frosted bar that stays at the top of the reading pane. */
+/*
+ * THE AGREEMENT SHEET (components/agreements, rebuilt). It rises in (from the bottom on a phone, a soft scale on a
+ * laptop), its sections arrive one after another, and once accepted it sinks away with the scrim fading rather than
+ * vanishing. The section strip is a frosted bar that stays at the top of the reading pane.
+ */
 .agreement-scrim { animation: agreement-fade 0.35s ease both; }
 .agreement-sheet { animation: agreement-rise 0.5s cubic-bezier(0.22, 1, 0.36, 1) both; }
 @media (min-width: 640px) { .agreement-sheet { animation-name: agreement-pop; } }
@@ -3496,8 +3349,10 @@ html[data-slow-net] .vip-panel > * > * { animation: none !important; }
 @keyframes agreement-sink { from { transform: none; opacity: 1; } to { transform: translateY(36px) scale(0.98); opacity: 0; } }
 .agreement-chip { animation: rise 0.5s cubic-bezier(0.22, 1, 0.36, 1) both; }
 .agreement-section { margin-top: 1.6rem; animation: rise 0.55s cubic-bezier(0.22, 1, 0.36, 1) both; }
-/* The reading line in the sheet's header (12 Oct 2026): a soft track, a white fill that eases rather than jumps, and a
-   glow at its leading edge so it reads as moving. */
+/*
+ * The reading line in the sheet's header: a soft track, a white fill that eases rather than jumps, and a glow at its
+ * leading edge so it reads as moving.
+ */
 .agreement-progress { position: relative; height: 6px; border-radius: 999px; background: rgba(255, 255, 255, 0.22); overflow: hidden; }
 .agreement-progress > span { position: absolute; inset: 0; border-radius: inherit; transform-origin: left center;
   background: linear-gradient(90deg, rgba(255, 255, 255, 0.75), #fff); box-shadow: 0 0 12px rgba(255, 255, 255, 0.8);
@@ -3520,8 +3375,10 @@ html[data-slow-net] .vip-panel > * > * { animation: none !important; }
   #agreement-print, #agreement-print * { visibility: visible !important; }
   #agreement-print { position: absolute; inset: 0 auto auto 0; width: 100%; padding: 24px; }
 }
-/* "A little bit too strong" (8 Oct 2026): narrower and never fully opaque, so the next card still shows through and
-   the shelf reads as "more this way" rather than cut off. */
+/*
+ * "A little bit too strong": narrower and never fully opaque, so the next card still shows through and the shelf reads
+ * as "more this way" rather than cut off.
+ */
 .ideas-fade { background: linear-gradient(to left, rgba(255, 255, 255, 0.7), rgba(255, 255, 255, 0)); }
 html[data-theme='dark'] .ideas-fade { background: linear-gradient(to left, color-mix(in srgb, var(--d-bg) 70%, transparent), transparent); }
 
@@ -3539,8 +3396,10 @@ html[data-theme='dark'] .ideas-fade { background: linear-gradient(to left, color
 }
 .quick-link svg { transition: transform 0.2s ease; }
 
-/* GET HELP "Ask a question" card (9 Oct 2026): Trip.com orange, the same gradient as the hero, so the one place you ACT on this
-   page is the one orange thing in the right column. The glow drifts on hover; nothing moves otherwise. */
+/*
+ * GET HELP "Ask a question" card: Trip.com orange, the same gradient as the hero, so the one place you ACT on this
+ * page is the one orange thing in the right column. The glow drifts on hover; nothing moves otherwise.
+ */
 .ask-card { background: linear-gradient(145deg, #d94407 0%, #f5853f 100%); isolation: isolate; transition: transform 0.3s ease, box-shadow 0.3s ease; }
 .ask-card::before, .ask-card::after { content: ''; position: absolute; border-radius: 9999px; background: rgb(255 255 255 / 0.14); z-index: -1; transition: transform 0.6s ease; }
 .ask-card::before { width: 11rem; height: 11rem; right: -3.5rem; top: -4rem; }
@@ -3566,9 +3425,10 @@ html[data-theme='dark'] .ideas-fade { background: linear-gradient(to left, color
 @keyframes push-bell { 0%, 84%, 100% { transform: rotate(0); } 87% { transform: rotate(14deg); } 90% { transform: rotate(-12deg); } 93% { transform: rotate(8deg); } 96% { transform: rotate(-4deg); } }
 @media (prefers-reduced-motion: reduce) { .push-banner, .push-banner-bell { animation: none; } }
 
-/* THE TOP BAR'S MATERIAL (12 Oct 2026) - see the header in AppLayout. A blur
-   with saturation over translucent white is what reads as iOS glass; without
-   backdrop-filter support it falls back to near-opaque white. */
+/*
+ * THE TOP BAR'S MATERIAL - see the header in AppLayout. A blur with saturation over translucent white is what reads as
+ * iOS glass; without backdrop-filter support it falls back to near-opaque white.
+ */
 .glass-bar { background-color: rgba(255, 255, 255, 0.97); }
 html[data-theme='dark'] .glass-bar { background-color: rgba(22, 22, 24, 0.97); }
 @supports ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
@@ -3586,9 +3446,10 @@ html[data-theme='dark'] .glass-bar { background-color: rgba(22, 22, 24, 0.97); }
 
 /* "Show me" on the leaderboard: the reader's row glows brand twice. Box-shadow
    only, so it never starts at opacity zero (see the hidden-pane rule). */
-/* ROUNDED AND GLOWING (13 Oct 2026). Ethan: "whenever it highlights, it highlights it as a square. I would have it with
-   rounded corners and more like a glowy effect with a nice animation." The row lifts a touch on rounded corners, a soft
-   brand halo breathes out twice and settles away. */
+/*
+ * ROUNDED AND GLOWING. The row lifts a touch on rounded corners, a soft brand halo breathes out twice and settles
+ * away.
+ */
 @keyframes flash-me {
   0% { box-shadow: 0 0 0 0 rgba(217, 68, 7, 0), 0 0 0 0 rgba(245, 133, 63, 0); background-color: rgba(255, 244, 236, 0); transform: scale(1); }
   20% { box-shadow: 0 0 0 2px rgba(217, 68, 7, 0.85), 0 0 28px 6px rgba(245, 133, 63, 0.45); background-color: rgba(255, 244, 236, 1); transform: scale(1.015); }
@@ -3606,9 +3467,10 @@ html[data-theme='dark'] .glass-bar { background-color: rgba(22, 22, 24, 0.97); }
   .flash-me { animation: none; box-shadow: 0 0 0 2px rgba(217, 68, 7, 0.6); }
 }
 
-/* A SHEET THAT ARRIVES IN ORDER (13 Oct 2026). Ethan, on the admin creator sheet: "Ensure everything appears with a nice
-   animation." Each direct child rises on the platform curve, 45ms after the one above it, so blocks that load late
-   (VIP, markets, challenges) slot into a sequence instead of popping in on their own. */
+/*
+ * A SHEET THAT ARRIVES IN ORDER. Each direct child rises on the platform curve, 45ms after the one above it, so blocks
+ * that load late (VIP, markets, challenges) slot into a sequence instead of popping in on their own.
+ */
 .rise-stagger > * {
   animation: rise 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
@@ -3621,14 +3483,16 @@ html[data-theme='dark'] .glass-bar { background-color: rgba(22, 22, 24, 0.97); }
 .rise-stagger > *:nth-child(n+8) { animation-delay: 315ms; }
 @media (prefers-reduced-motion: reduce) { .rise-stagger > * { animation: none; } }
 
-/* The phone's chat search taking the composer's place (12 Oct 2026): it rises into the slot rather than popping. */
+/* The phone's chat search taking the composer's place: it rises into the slot rather than popping. */
 .composer-search { animation: composer-search-in 0.26s cubic-bezier(0.22, 1, 0.36, 1) both; }
 @keyframes composer-search-in { from { opacity: 0; transform: translateY(6px) scale(0.98); } to { opacity: 1; transform: none; } }
 @media (prefers-reduced-motion: reduce) { .composer-search { animation: none; } }
 
-/* GOING BACK IS NOT ARRIVING (13 Oct 2026). For a moment after a back/forward navigation the page you return to is shown
-   as it was, not re-entered: see lib/navReturn. Duration and delay only (never `animation: none`), so lifting the
-   attribute cannot restart an animation that has already run. Looping motion (pings, flames, spinners) is untouched. */
+/*
+ * GOING BACK IS NOT ARRIVING. For a moment after a back/forward navigation the page you return to is shown as it was,
+ * not re-entered: see lib/navReturn. Duration and delay only (never `animation: none`), so lifting the attribute
+ * cannot restart an animation that has already run. Looping motion (pings, flames, spinners) is untouched.
+ */
 html[data-nav-return] .animate-page-in,
 html[data-nav-return] .animate-rise,
 html[data-nav-return] .animate-fade-up,

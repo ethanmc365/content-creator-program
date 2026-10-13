@@ -7,13 +7,12 @@ import { isIOS, isStandalone } from '../lib/install'
 import { enablePush, pushPermission, pushSupported } from '../lib/push'
 import { useT } from '../lib/i18n'
 
-// NOTIFICATIONS, ASKED FOR WITH A BANNER, NOT A POP-UP (11 Oct 2026).
+// NOTIFICATIONS, ASKED FOR WITH A BANNER, NOT A POP-UP.
 //
-// Ethan: "I really need to get more people with push notifications enabled, so whenever they enter the app, ensure
-// there's [a banner], not a pop-up, to encourage them to take part." The ask used to be a modal in AddToHomePrompt,
-// once per app open: one tap on "Not now" and it was gone until the next open, and it stood between the creator and
-// whatever they opened the app to do. A banner sits at the top of every page instead, costs them nothing to ignore,
-// and is one tap to act on. The cross hides it for this app open only; it is back next time until notifications are on.
+// The ask used to be a modal in AddToHomePrompt, once per app open: one tap on "Not now" and it was gone until the next
+// open, and it stood between the creator and whatever they opened the app to do. A banner sits at the top of every page
+// instead, costs them nothing to ignore, and is one tap to act on. The cross hides it for this app open only; it is back
+// next time until notifications are on.
 //
 // Same rules as the old ask (lib/install.installPromptFor): approved creators, not the team, and only when the browser
 // can actually ask - a phone that has blocked it is told how in Settings, and an iPhone tab cannot have push at all

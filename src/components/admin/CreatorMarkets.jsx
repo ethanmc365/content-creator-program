@@ -10,14 +10,13 @@ import { cx } from '../../lib/utils'
 import { profilesApi } from '../../api/profiles'
 import { marketsApi } from '../../api/markets'
 
-// PLACING A CREATOR IN MARKETS (10 Oct 2026, migration 378).
+// PLACING A CREATOR IN MARKETS (migration 378).
 //
-// Ethan: "the ability for admins to manually add creators, we have the ability for them to move but this seems to remove
-// them from the community they were in, we would need this function too but also the function to add them to multiple."
-// So one dialog answers both: every open market as a tile, the ones they are in already ticked. Tick another and they are
-// ADDED to it (they keep the rest); untick one and they leave it; do both and that is a move. Underneath, in words, what
-// will happen before anything does. One call (`admin_set_creator_markets`) writes the lot, keeps one home market, notifies
-// the creator about markets they were added to, and writes the audit log. A market they MANAGE is never touched.
+// So one dialog answers both: every open market as a tile, the ones they are in already ticked. Tick another and they
+// are ADDED to it (they keep the rest); untick one and they leave it; do both and that is a move. Underneath, in words,
+// what will happen before anything does. One call (`admin_set_creator_markets`) writes the lot, keeps one home market,
+// notifies the creator about markets they were added to, and writes the audit log. A market they MANAGE is never
+// touched.
 export function CreatorMarketsModal({ person, onClose, onDone }) {
   const { chapters } = useCommunity()
   const [current, setCurrent] = useState(null)

@@ -41,10 +41,10 @@ export async function fetchAll(build, { orderBy = 'id', pageSize = PAGE, cap = 2
     for (const c of cols) q = q.order(c, { ascending: true })
     return q.range(from, from + pageSize - 1)
   }
-  // THE FIRST PAGE ALONE, THEN THE REST SEVERAL AT A TIME (3 Oct 2026). Ethan: analytics "takes a while" to show up.
-  // It read seven tables a thousand rows at a time, ONE PAGE AFTER ANOTHER, so a 5,000-row table was five round trips
-  // in a row. Most tables fit in one page, so that page goes first on its own; a table that does not is then read in
-  // batches of `parallel` pages at once until a short page says it has ended.
+  // THE FIRST PAGE ALONE, THEN THE REST SEVERAL AT A TIME. The team: analytics "takes a while" to show up. It read seven
+  // tables a thousand rows at a time, ONE PAGE AFTER ANOTHER, so a 5,000-row table was five round trips in a row. Most
+  // tables fit in one page, so that page goes first on its own; a table that does not is then read in batches of
+  // `parallel` pages at once until a short page says it has ended.
   const first = await page(0)
   if (first.error) return { data: [], error: first.error, truncated: true }
   const out = [...(first.data ?? [])]

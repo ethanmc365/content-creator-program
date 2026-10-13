@@ -30,15 +30,11 @@ function isHeic(file) {
 
 // AND WHEN THE NAME AND THE TYPE BOTH LIE, ASK THE BYTES.
 //
-// `isHeic` reads the two things the file says about itself, and there is a
-// third case where it says nothing true at all: a photo that has been through
-// AirDrop, a messaging app, or a re-save arrives as `IMG_4821` with an empty
-// `type` and no extension whatsoever. Ethan: "can you properly build a way for
-// it to quickly convert or just accept any format" - accepting any format
-// starts with correctly RECOGNISING any format, and a file we do not recognise
-// as HEIC goes straight to `createImageBitmap`, fails there, and is refused as
-// "that image format isn't supported" when it is in fact the one format we know
-// how to handle.
+// `isHeic` reads the two things the file says about itself, and there is a third case where it says nothing true at all:
+// a photo that has been through AirDrop, a messaging app, or a re-save arrives as `IMG_4821` with an empty `type` and no
+// extension whatsoever. - accepting any format starts with correctly RECOGNISING any format, and a file we do not
+// recognise as HEIC goes straight to `createImageBitmap`, fails there, and is refused as "that image format isn't
+// supported" when it is in fact the one format we know how to handle.
 //
 // ISO-BMFF puts a box length in bytes 0-4 and the tag `ftyp` in bytes 4-8, with
 // the brand in 8-12. The brand list below is the HEIF still-image set; `avif`
@@ -46,14 +42,11 @@ function isHeic(file) {
 // it to the converter would be paying three megabytes to do worse than the
 // canvas.
 //
-// `tmap` IS ON IT (9 Sep 2026). It is Apple's tone-mapped HDR still - what
-// every iPhone has produced since iOS 18 - and it is the brand that broke the
-// old converter. Both test files off this machine carry `heic` as their MAJOR
-// brand and `tmap` only in the compatible list, so this line was not the fault;
-// it is here because a file whose major brand is `tmap` is a HEIF still, and
-// this list is the one place that decides whether we even try. The AVIF worry
-// does not apply: this sniff is only consulted for files the browser has
-// already failed to decode on its own.
+// `tmap` IS ON IT. It is Apple's tone-mapped HDR still - what every iPhone has produced since iOS 18 - and it is the
+// brand that broke the old converter. Both test files off this machine carry `heic` as their MAJOR brand and `tmap` only
+// in the compatible list, so this line was not the fault; it is here because a file whose major brand is `tmap` is a
+// HEIF still, and this list is the one place that decides whether we even try. The AVIF worry does not apply: this sniff
+// is only consulted for files the browser has already failed to decode on its own.
 const HEIF_BRANDS = ['heic', 'heix', 'hevc', 'hevx', 'heim', 'heis', 'hevm', 'hevs', 'mif1', 'msf1', 'tmap']
 
 export async function sniffHeic(file) {
@@ -69,9 +62,7 @@ export async function sniffHeic(file) {
 
 // CAN THIS PAGE RUN A BLOB WORKER AT ALL?
 //
-// THE BUG THIS FIXES, AND IT IS THE WHOLE OF "IT LOADS FOREVER" (8 Sep 2026).
-// Ethan: "with the onboarding, uploading the profile photo, if I try to upload
-// a HEIC photo it's still not working. It just loads forever and doesn't stop."
+// THE BUG THIS FIXES, AND IT IS THE WHOLE OF "IT LOADS FOREVER".
 //
 // `heic2any` does its libheif decode in a Web Worker that it builds AT IMPORT
 // TIME from an object URL - literally
@@ -128,12 +119,10 @@ function canRunBlobWorker() {
 
 // EVERY DECODE HAS A CLOCK, AND THERE IS MORE THAN ONE WAY TO DECODE.
 //
-// THE BUG THIS FIXES (8 Sep 2026, second attempt). The Content-Security-Policy
-// header was one cause of "it loads forever" and it is fixed and verified in
-// production - `worker-src 'self' blob:` is on the live response right now. It
-// was not the only cause, because Ethan hit the same forever-spinner again on
-// an iPhone, where the CSP path is never even reached: Safari decodes HEIC
-// natively, so `heic2any` is never imported and no worker is ever built.
+// THE BUG THIS FIXES (second attempt). The Content-Security-Policy header was one cause of "it loads forever" and it is
+// fixed and verified in production - `worker-src 'self' blob:` is on the live response right now. It was not the only
+// cause, because the team hit the same forever-spinner again on an iPhone, where the CSP path is never even reached:
+// Safari decodes HEIC natively, so `heic2any` is never imported and no worker is ever built.
 //
 // WHAT IS LEFT IS THAT A DECODE CAN SIMPLY NOT COME BACK. `createImageBitmap`
 // and `canvas.toBlob` are both callback/promise APIs with no specified failure
@@ -220,9 +209,7 @@ async function canDecodeNatively(file) {
 
 // A DECODE THAT NEVER FINISHES IS THE WORST OUTCOME, SO IT IS GIVEN A CLOCK.
 //
-// THE BUG THIS FIXES (7 Sep 2026). Ethan: "for the onboarding, the profile
-// photo seems to struggle or not accept HEIC formats, some with travel photos,
-// it causes forever loading."
+// THE BUG THIS FIXES.
 //
 // Forever is the exact word. `heic2any` decodes on the main thread, and a
 // 12-megapixel HEIC off a recent iPhone takes anywhere from four seconds on a
@@ -260,12 +247,10 @@ function canEncodeWebp() {
   return webpOk
 }
 
-// WEBP IS THE DEFAULT, not an opt-in. It was opt-in, and the result was measured
-// on 24 Aug 2026: 270 of 274 gallery files were JPEG averaging 409 kB, against
-// 4 WebP averaging 136 kB. Eleven of the JPEGs had been uploaded that month, so
-// this was not legacy - it was live. The cause was that only the travel gallery
-// asked for WebP; flight photos went into the SAME bucket through a call that
-// did not, and every other surface encoded JPEG too.
+// WEBP IS THE DEFAULT, not an opt-in. It was opt-in, and the result was measured: 270 of 274 gallery files were JPEG
+// averaging 409 kB, against 4 WebP averaging 136 kB. Eleven of the JPEGs had been uploaded that month, so this was not
+// legacy - it was live. The cause was that only the travel gallery asked for WebP; flight photos went into the SAME
+// bucket through a call that did not, and every other surface encoded JPEG too.
 //
 // Making it the default is a three-times size reduction with no visible quality
 // change - WebP at 0.82 is cleaner than JPEG at 0.82, not worse - which is worth
@@ -328,18 +313,11 @@ async function compressImageInner(file, { maxDim = 1280, quality = 0.82, format 
     }
     try {
       // ---------------------------------------------------------------
-      // THE CONVERTER IS `heic-to`, NOT `heic2any`, AND THAT IS THE WHOLE BUG
-      // (9 Sep 2026).
+      // THE CONVERTER IS `heic-to`, NOT `heic2any`, AND THAT IS THE WHOLE BUG.
       //
-      // Ethan: "you assured me that we were able to accept HEIC format photos,
-      // but this is not the case. It's still not working. It just shows the
-      // uploading circle forever and doesn't actually upload. Same for the
-      // travel photos. I want you to actually fix it this time."
-      //
-      // Two previous attempts fixed two real faults - a CSP that refused the
-      // decoder's worker, and decodes with no deadline - and neither of them
-      // was why the photograph in his camera roll would not convert. Measured
-      // here, against two actual iPhone files off this machine:
+      // Two previous attempts fixed two real faults - a CSP that refused the decoder's worker, and decodes with no
+      // deadline - and neither of them was why the photograph in their camera roll would not convert. Measured here,
+      // against two actual iPhone files off this machine:
       //
       //   heic2any -> ERR_LIBHEIF format not supported     (9ms and 176ms)
       //
@@ -386,14 +364,10 @@ async function compressImageInner(file, { maxDim = 1280, quality = 0.82, format 
     } catch (err) {
       // NO MORE CAMERA-SETTINGS LECTURE.
       //
-      // Ethan: "rather than this, can you properly build a way for it to
-      // quickly convert or just accept any format." The old copy walked the
-      // reader through Settings > Camera > Formats > Most Compatible and told
-      // them to re-take the photograph - advice that could not possibly have
-      // helped, because the conversion was being blocked by our own response
-      // header, and which is useless anyway for the photo they already have and
-      // want to use. Converting is our job. If we could not do it, that is our
-      // failure and the sentence says so.
+      // The old copy walked the reader through Settings > Camera > Formats > Most Compatible and told them to re-take
+      // the photograph - advice that could not possibly have helped, because the conversion was being blocked by our own
+      // response header, and which is useless anyway for the photo they already have and want to use. Converting is our
+      // job. If we could not do it, that is our failure and the sentence says so.
       throw new Error(
         err?.message === 'slow-decode'
           ? 'That photo took too long for us to convert here. Try a smaller one, or send it to yourself as a JPEG and upload that.'
@@ -416,12 +390,11 @@ async function compressImageInner(file, { maxDim = 1280, quality = 0.82, format 
     // rather than returning one or the other and making this branch.
     canvas.getContext('2d').drawImage(decoded.source, 0, 0, canvas.width, canvas.height)
 
-    // THE JPEG FALLBACK GETS ITS OWN QUALITY (1 Oct 2026). A caller's `quality` is tuned for
-    // WebP, and iPhones cannot encode WebP, so most gallery photos were JPEG at 0.8: measured,
-    // ~180 a week at 340 kB, 248 MB of a 1 GB bucket and about eleven weeks from full. JPEG at
-    // 0.74 and the same pixel size is roughly a third smaller and not visibly different at the
-    // sizes the app shows; the resolution is untouched, which is what made the old avatars bad.
-    // A caller asking for 0.9+ (the profile photo's master copy) is left exactly as it asked.
+    // THE JPEG FALLBACK GETS ITS OWN QUALITY. A caller's `quality` is tuned for WebP, and iPhones cannot encode WebP, so
+    // most gallery photos were JPEG at 0.8: measured, ~180 a week at 340 kB, 248 MB of a 1 GB bucket and about eleven
+    // weeks from full. JPEG at 0.74 and the same pixel size is roughly a third smaller and not visibly different at the
+    // sizes the app shows; the resolution is untouched, which is what made the old avatars bad. A caller asking for 0.9+
+    // (the profile photo's master copy) is left exactly as it asked.
     const q = useWebp || format !== 'webp' || quality >= 0.9 ? quality : Math.min(quality, JPEG_FALLBACK_QUALITY)
     const blob = await encodeCanvas(canvas, outType, q)
     if (!blob) throw new Error('encode-failed')

@@ -14,8 +14,8 @@ import { BRIEF_METRICS, PERK_KINDS, PERK_METRICS, curSym, money, monthLabel, nf,
 import { safeUrl } from '../../lib/safeUrl'
 import { vipApi } from '../../api/vip'
 
-// THE TEAM'S SIDE OF THE VIP PROGRAMME, PART FOUR (30 Sep 2026, migration 299): every market side by side, the one
-// sign-up link and what happens to the people who use it, monthly challenges, perks and trips, and the guides.
+// THE TEAM'S SIDE OF THE VIP PROGRAMME, PART FOUR (migration 299): every market side by side, the one sign-up link and
+// what happens to the people who use it, monthly challenges, perks and trips, and the guides.
 //
 // Who may change what is the database's call (`vip_scope_ok`): a market lead changes their own market's content, only
 // the owner changes what goes to every market. These screens hide the buttons a person could not use rather than
@@ -37,8 +37,8 @@ export function VipLinkCard() {
     <section className="space-y-4">
       <div className="brand-drift relative overflow-hidden rounded-card p-5 text-white shadow-card sm:p-6">
         <span aria-hidden className="survey-orb pointer-events-none absolute -right-10 -top-14 h-44 w-44 rounded-full bg-white/15 blur-2xl" />
-        {/* No paragraph about the link (1 Oct 2026): "remove the copy that says 'One link for every VIP in every
-            market, and it never expires.' No need to see all that." */}
+        {/* No paragraph about the link: "remove the copy that says 'One link for every VIP in every market, and it never
+            expires.' No need to see all that." */}
         <h2 className="relative mb-4 text-[17px] font-bold">{tr('The VIP sign-up link')}</h2>
         {link === undefined ? <Skeleton className="h-11 w-full rounded-xl" /> : link === null ? (
           <p className="relative text-sm text-white/90">{tr('The link could not be made.')}</p>
@@ -114,8 +114,10 @@ export function VipMarketsTab({ programme, isOwner, onChanged }) {
 // ------------------------------------------------------------------------------------ content
 const PARTS = ['briefs', 'perks', 'guides']
 
-/** Monthly challenges, milestones/perks/trips, or guides. Each is a tab of its own under Content (4 Oct 2026): Ethan found "milestones"
- *  and "guides" hard to find folded under one "Briefs, perks, guides" tab. */
+/**
+ * Monthly challenges, milestones/perks/trips, or guides. Each is a tab of its own under Content: the team found
+ * "milestones" and "guides" hard to find folded under one "Briefs, perks, guides" tab.
+ */
 export function VipContentTab({ programme, isOwner, part }) {
   const p = PARTS.includes(part) ? part : 'briefs'
   const canManage = !!programme.can_manage
@@ -168,16 +170,14 @@ function useScoped(table, programme, order) {
   return [rows, load]
 }
 
-// WHICH MARKET IT IS FOR (4 Oct 2026). Ethan: "I don't have the option to select a specific market. It just shows [one market]." The owner
-// can now pick any VIP market, or every market, when making content AND when editing it later (the content is moved by
-// `vip_move_content`, migration 323); a market lead sees their own market.
+// WHICH MARKET IT IS FOR. The owner can now pick any VIP market, or every market, when making content AND when editing
+// it later (the content is moved by `vip_move_content`, migration 323); a market lead sees their own market.
 function ScopeField({ value, onChange, programme, isOwner, disabled }) {
   const tr = useKindT()
   const [all, setAll] = useState([])
-  // WHO LEADS VIP WORLDWIDE MAY ALSO POST TO EVERY VIP CREATOR (6 Oct 2026, migration 341). Ethan: "when setting rewards, prizes and
-  // challenges for the VIP Worldwide there should always be the option on everything to decide if this is for every VIP creator or only
-  // the Worldwide creators that are not in another VIP market." Worldwide's own VIPs are, by construction, the ones in no other market,
-  // so "Worldwide only" and "every VIP creator" are the two answers, and the second is what reaches Spain, Romania and the rest too.
+  // WHO LEADS VIP WORLDWIDE MAY ALSO POST TO EVERY VIP CREATOR (migration 341). Worldwide's own VIPs are, by
+  // construction, the ones in no other market, so "Worldwide only" and "every VIP creator" are the two answers, and the
+  // second is what reaches Spain, Romania and the rest too.
   const canEvery = isOwner || !!programme.is_default
   useEffect(() => {
     if (!isOwner) return undefined
@@ -186,8 +186,8 @@ function ScopeField({ value, onChange, programme, isOwner, disabled }) {
     return () => { alive = false }
   }, [isOwner])
   const markets = isOwner && all.length ? all : [{ id: programme.id, name: programme.name, is_default: programme.is_default, community: programme.community }]
-  // A flag for a market, the GLOBE for the Worldwide VIP market and a STAR for every VIP creator: those are different things (one
-  // market, or all of them), and the list says so before the words do (4 Oct 2026).
+  // A flag for a market, the GLOBE for the Worldwide VIP market and a STAR for every VIP creator: those are different
+  // things (one market, or all of them), and the list says so before the words do.
   const iconOf = (p) => (p.community?.country_codes?.length ? p.community.country_codes.slice(0, 2).map(flagFromIso).join('') : '🌍')
   return (
     <label className="block">
@@ -270,16 +270,16 @@ function BriefForm({ programme, isOwner, brief, onClose, onSaved }) {
   const [target, setTarget] = useState(brief.target ? String(brief.target) : '')
   const [prize, setPrize] = useState(brief.prize || '')
   const [busy, setBusy] = useState(false)
-  // THE PRIZES ARE SET HERE (3 Oct 2026). Ethan: "I seem to be unable to actually create the prizes. Have to change them
-  // in bonuses and it seems quite complicated. I want it to be really straightforward." The places and amounts are typed
-  // on the challenge itself and saved as that month's "most views" bonus (migration 318 plans it by calendar month), so
-  // the close pays them and every VIP sees them, with nothing to set up anywhere else.
+  // THE PRIZES ARE SET HERE. The places and amounts are typed on the challenge itself and saved as that month's "most
+  // views" bonus (migration 318 plans it by calendar month), so the close pays them and every VIP sees them, with
+  // nothing to set up anywhere else.
   const [prizeRule, setPrizeRule] = useState(undefined)
   const [places, setPlaces] = useState(['', '', ''])
   const [prizeKind, setPrizeKind] = useState('cash')
   const [yy, mm] = ym.split('-').map(Number)
-  // THE PRIZES LIVE WHERE THE CHALLENGE REACHES (6 Oct 2026). A challenge for every VIP creator keeps its prizes on VIP Worldwide, marked
-  // for everyone (so a VIP in Spain is ranked and paid with the rest); a challenge for one market keeps them on that market.
+  // THE PRIZES LIVE WHERE THE CHALLENGE REACHES. A challenge for every VIP creator keeps its prizes on VIP Worldwide,
+  // marked for everyone (so a VIP in Spain is ranked and paid with the rest); a challenge for one market keeps them on
+  // that market.
   const [defaultId, setDefaultId] = useState(programme.is_default ? programme.id : null)
   useEffect(() => {
     if (defaultId) return undefined
@@ -465,9 +465,7 @@ function PerkForm({ programme, isOwner, perk, onClose, onSaved }) {
   const [amount, setAmount] = useState(perk.reward_amount != null ? String(perk.reward_amount) : '')
   const [active, setActive] = useState(perk.id ? perk.active : true)
   const [busy, setBusy] = useState(false)
-  // A PERK THAT PAYS ITSELF (3 Oct 2026, migration 318). Ethan: "we want everything to be automated ... we can offer
-  // prizes that will then be automatically given out, like cash prizes or kind of like the milestone setups." No
-  // picture link ("we don't have picture links"): the reward is the picture.
+  // A PERK THAT PAYS ITSELF (migration 318). No picture link ("we don't have picture links"): the reward is the picture.
   async function save() {
     if (reward !== 'none' && !(Number(amount) > 0)) { notice(tr('Say how much the reward is worth.')); return }
     setBusy(true)
@@ -526,9 +524,9 @@ function PerkForm({ programme, isOwner, perk, onClose, onSaved }) {
 }
 
 // ---- guides
-// DRAG TO ORDER, SWITCH ON AND OFF (4 Oct 2026). Ethan: "Show it to the VIPs" is obvious - a guide you write is for the VIPs - so the tick is
-// gone; what he wants is one switch beside Edit to turn a guide off and on. And "Order: lowest first" was a number to type; the guides are
-// now dragged into the order he wants by the grip, saved as he lets go.
+// DRAG TO ORDER, SWITCH ON AND OFF. is obvious - a guide you write is for the VIPs - so the tick is gone; what they want
+// is one switch beside Edit to turn a guide off and on. And "Order: lowest first" was a number to type; the guides are
+// now dragged into the order they want by the grip, saved as he lets go.
 function GuidesEditor({ programme, isOwner, canManage }) {
   const tr = useKindT()
   const [rows, load] = useScoped('vip_guides', programme, [['sort', true], ['category', true]])

@@ -37,12 +37,9 @@ export default function Milestones() {
   const tr = useT()
   // `?as=<id>` opens one creator's own route. See components/ViewingAs.
   //
-  // AND IT IS NOW LINKED TO FROM SOMEWHERE (8 Sep 2026). Ethan: "I want to also
-  // be able to view any creator's milestone route, just the route, so I can see
-  // where they actually are on it." The page has read this parameter since it
-  // was written; nothing in the product ever produced the link, so the feature
-  // existed and was unreachable. CreatorPeek's "Their pages" row now carries
-  // it, beside their dashboard and their rewards.
+  // AND IT IS NOW LINKED TO FROM SOMEWHERE. The page has read this parameter since it was written; nothing in the
+  // product ever produced the link, so the feature existed and was unreachable. CreatorPeek's "Their pages" row now
+  // carries it, beside their dashboard and their rewards.
   //
   // SAFE BY THE SERVER, not by this hook. `useViewAs` returns null for a
   // non-admin, but that is a convenience: `milestone_progress` and
@@ -100,13 +97,9 @@ export default function Milestones() {
         <div className="flex flex-col lg:block">
         {/* The numbers the whole ladder is computed from. Showing them makes the
             thresholds checkable rather than magic. */}
-        {/* THE MARGIN FOLLOWS THE ORDER, and it did not.
-            `mb-8` alone is right from `lg` up, where this strip is FIRST and
-            the space belongs under it. On a phone `order-2` moves it to the
-            BOTTOM, so the only margin it had was on the far side from the card
-            it now sits beneath - Ethan: "the views and video posted card is
-            really squashed up to the card above it". The space has to move with
-            the strip. */}
+        {/* THE MARGIN FOLLOWS THE ORDER, and it did not. `mb-8` alone is right from `lg` up, where this strip is FIRST
+            and the space belongs under it. On a phone `order-2` moves it to the BOTTOM, so the only margin it had was on
+            the far side from the card it now sits beneath - The space has to move with the strip. */}
         {metrics && (
           <div className="order-2 mt-8 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:order-none lg:mb-8 lg:mt-0 lg:grid-cols-6">
             {SUMMARY.map((key) => {
@@ -138,13 +131,10 @@ export default function Milestones() {
                 its card, because that one IS a distinct object. */}
             <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start">
               <div className="px-1 py-2">
-                {/* NO "PREVIEW" MODE.
-                    An admin used to see the whole route drawn as flown, so they
-                    could check the animation end to end - and the effect was
-                    that Ethan opened his own milestones and was congratulated
-                    for finishing a ladder he has not started. A page that
-                    reports something untrue about you to check a drawing is a
-                    bad trade; the admin editor has a preview panel for that. */}
+                {/* NO "PREVIEW" MODE. An admin used to see the whole route drawn as flown, so they could check the
+                    animation end to end - and the effect was that the team opened their own milestones and was
+                    congratulated for finishing a ladder they have not started. A page that reports something untrue
+                    about you to check a drawing is a bad trade; the admin editor has a preview panel for that. */}
                 {/* WHOSE FACE FLIES THE ROUTE. `person` when an admin is
                     looking at somebody else's, the viewer's own otherwise -
                     which is the same rule the banner above uses, so the picture
@@ -158,13 +148,10 @@ export default function Milestones() {
               </div>
 
               <aside className="space-y-4 lg:sticky lg:top-24">
-                {/* WHERE YOU ARE.
-                    Rebuilt because the reward line was a chip and rewards are
-                    sentences: "You are officially a Tryp.com Creator, welcome to
-                    the team!" inside a pill three words wide is the squashed
-                    text Ethan reported. A reward gets its own block with room to
-                    wrap; the progress bar and the count sit above it; the
-                    requirement list is the only thing that is a list. */}
+                {/* WHERE YOU ARE. Rebuilt because the reward line was a chip and rewards are sentences: "You are
+                    officially a Tryp.com Creator, welcome to the team!" inside a pill three words wide is the squashed
+                    text the team reported. A reward gets its own block with room to wrap; the progress bar and the count
+                    sit above it; the requirement list is the only thing that is a list. */}
                 <div className="overflow-hidden rounded-card border border-gray-100 bg-white shadow-card">
                   <div className="border-b border-gray-100 bg-cloud/40 px-5 py-4">
                     <p className="text-[11px] font-semibold uppercase tracking-widest text-smoke">{tr("Where you are")}</p>
@@ -218,9 +205,8 @@ export default function Milestones() {
                       </ul>
 
                       {next.reward && (
-                        // THE REWARD READS AS A PRIZE, NOT AS ORANGE TEXT (12 Oct
-                        // 2026, Ethan: "a bit weird with weird colours"). Ink text,
-                        // a grey label, one bare brand glyph.
+                        // THE REWARD READS AS A PRIZE, NOT AS ORANGE TEXT (). Ink text, a grey label, one bare brand
+                        // glyph.
                         <div className="mt-4 flex items-start gap-3 rounded-xl border border-gray-100 bg-white px-3.5 py-3">
                           <Icon name="trophy" className="mt-0.5 h-5 w-5 shrink-0 text-brand" />
                           <div className="min-w-0">
@@ -264,7 +250,7 @@ export default function Milestones() {
         )}
         </div>
 
-        {/* Below the route: the next thing past it (7 Oct 2026). Not for VIPs, who are already there. */}
+        {/* Below the route: the next thing past it. Not for VIPs, who are already there. */}
         {!profile?.is_vip && <VipTeaserCard className="mt-8" />}
       </motion.div>
     </div>

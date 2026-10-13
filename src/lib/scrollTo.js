@@ -1,7 +1,7 @@
-// AN EASED SCROLL WE CONTROL (28 Sep 2026).
+// AN EASED SCROLL WE CONTROL.
 //
-// Ethan, on the results page: clicking a creator in the sync panel "shows it at
-// the top, but it's a little bit laggy in the way it scrolls down."
+// The team, on the results page: clicking a creator in the sync panel "shows it at the top, but it's a little bit laggy
+// in the way it scrolls down."
 //
 // `scrollIntoView({ behavior: 'smooth' })` hands the whole thing to the
 // browser, which picks its own duration from the distance (on Chrome, long

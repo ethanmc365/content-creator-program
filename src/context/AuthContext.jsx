@@ -83,13 +83,10 @@ async function callAuthGate(body) {
   }
 }
 
-// THE PROFILE FROM LAST TIME, SO THE APP DRAWS BEFORE THE NETWORK ANSWERS
-// (24 Sep 2026). Ethan: "currently the loading time is like a second, which is
-// too long." Every app open waited on a profile round trip before the route
-// guard would draw a single page. The last profile this device saw is used the
-// moment the stored session says it is the same person; the real one is
-// fetched straight after and replaces it. Nothing is trusted from it that the
-// server does not re-check: every read and write still goes through RLS.
+// THE PROFILE FROM LAST TIME, SO THE APP DRAWS BEFORE THE NETWORK ANSWERS. Every app open waited on a profile round trip
+// before the route guard would draw a single page. The last profile this device saw is used the moment the stored
+// session says it is the same person; the real one is fetched straight after and replaces it. Nothing is trusted from it
+// that the server does not re-check: every read and write still goes through RLS.
 const PROFILE_CACHE = 'tryp_profile_cache_v1'
 function readCachedProfile(userId) {
   try {
@@ -203,9 +200,7 @@ export function AuthProvider({ children }) {
     } catch {
       return { error: 'Network error. Please try again.' }
     }
-    // WHERE TO COME BACK TO (3 Oct 2026). Ethan: "whenever I exit the creator view, it seems to take me to the admin
-    // panel. Should take me back to that VIP page I was on whenever I entered." The page is remembered here and the
-    // Exit pill returns to it.
+    // WHERE TO COME BACK TO. The page is remembered here and the Exit pill returns to it.
     try { localStorage.setItem('tryp_preview_return', window.location.pathname + window.location.search) } catch { /* ignore */ }
     // Stash the signed exit ticket (NOT the admin's tokens) BEFORE swapping, so
     // exit can always mint a fresh admin session even if the original one dies.
@@ -225,9 +220,8 @@ export function AuthProvider({ children }) {
     // lib/pageCache - the caches are keyed by page, not by account.
     clearPageCache()
     clearScopeCache()
-    // THE VIP ANSWERS ARE ACCOUNTS' TOO (4 Oct 2026). Ethan: "whenever I click See it as a VIP ... I have to always refresh" and, on
-    // the way out, the VIP tools door stayed missing. The VIP overview and the "has VIP tools" answer are module caches kept
-    // for the session; the previous account's survived the swap.
+    // THE VIP ANSWERS ARE ACCOUNTS' TOO. and, on the way out, the VIP tools door stayed missing. The VIP overview and
+    // the "has VIP tools" answer are module caches kept for the session; the previous account's survived the swap.
     clearVipCache()
     clearVipAccess()
     setImpersonating(true)
@@ -342,9 +336,8 @@ export function AuthProvider({ children }) {
 
     // THE WATCHDOG THAT LOGGED PEOPLE OUT.
     //
-    // Ethan, handing the platform to the Tryp.com team: "the worldwide page
-    // sometimes loads fine, but sometimes it takes ages to load and doesn't
-    // load at all, it will then just go back to the login page."
+    // The team, handing the platform to the Tryp.com team: "the worldwide page sometimes loads fine, but sometimes it
+    // takes ages to load and doesn't load at all, it will then just go back to the login page."
     //
     // This timer is why. It exists so the app can never hang for ever on the
     // full-screen session spinner, and it did that by flipping `loading` to
@@ -413,11 +406,7 @@ export function AuthProvider({ children }) {
         // can look like. This branch used to fire on the FIRST such read and
         // call a bare `supabase.auth.signOut()`.
         //
-        // TWO THINGS WERE WRONG WITH THAT, and together they cost the Tryp.com
-        // team demo account a whole afternoon (2 Sep 2026). Ethan: "it appeared
-        // like it worked first, but it opened the worldwide page and then
-        // nothing loaded at all and I couldn't click anything. Then I refreshed
-        // and it was back to the login page."
+        // TWO THINGS WERE WRONG WITH THAT, and together they cost the Tryp.com team demo account a whole afternoon.
         //
         //   1. `signOut()` in supabase-js DEFAULTS TO `scope: 'global'`. It does
         //      not sign this browser out - it revokes EVERY refresh token on the
@@ -543,10 +532,6 @@ export function AuthProvider({ children }) {
     isAdmin: realIsAdmin,
     // AN ADMIN IS NEVER "VIEWING AS A CREATOR", BY DEFINITION.
     //
-    // Ethan: "I noticed one sign saying you're viewing as a creator, but it
-    // shouldn't show that on the admin account, because you're not viewing as
-    // a creator."
-    //
     // `impersonating` was derived from a localStorage stash matching the logged
     // in user id, and a stash left behind by an exit that did not finish can
     // outlive the preview it described. Rather than chase every way that stash
@@ -578,10 +563,6 @@ export function AuthProvider({ children }) {
       const out = await callAuthGate({ action: 'signup', email, password, name, ref, captchaToken })
 
       // SIGNING UP GETS THE SAME FALLBACK LOGIN HAS. THIS IS THE BUG.
-      //
-      // Ethan, 4 Sep 2026: "I tried to create another test signup account, and
-      // whenever I try to do this it says network error and wouldn't let me
-      // proceed from entering my name, email and password."
       //
       // That message has exactly one source in this file: the `catch` in
       // `callAuthGate`, which fires when the fetch to the `auth-gate` edge
@@ -634,11 +615,9 @@ export function AuthProvider({ children }) {
       // get is "Network error. Please check your connection", which sends them
       // to look at their wifi.
       //
-      // That happened, on 2 Sep 2026, to Ethan on two different browsers while
-      // the function's own logs showed it answering every request it received
-      // cleanly - 200s and 400s, no timeouts, no errors. Whatever stopped the
-      // request, it stopped it before it arrived, and nothing on the server
-      // could have fixed it.
+      // That happened,, to the team on two different browsers while the function's own logs showed it answering every
+      // request it received cleanly - 200s and 400s, no timeouts, no errors. Whatever stopped the request, it stopped it
+      // before it arrived, and nothing on the server could have fixed it.
       //
       // So when the gate cannot be REACHED, sign in against GoTrue directly.
       // The endpoint is Supabase's own, on a different path with its own CORS
@@ -668,11 +647,7 @@ export function AuthProvider({ children }) {
     // EVERY SESSION ON THE ACCOUNT, everywhere, including sessions that are
     // being used right now on other devices and in other windows.
     //
-    // THIS IS THE "IT LOADS, THEN CRASHES BACK TO THE LOGIN PAGE" BUG, and the
-    // auth logs name it exactly. Ethan, 3 Sep 2026, on his own account and on
-    // the demo one: "I'd put in my login details correct. It loads through the
-    // login page and tries to load the worldwide page, but nothing loads, and
-    // then it crashes and goes back to the login."
+    // THIS IS THE "IT LOADS, THEN CRASHES BACK TO THE LOGIN PAGE" BUG, and the auth logs name it exactly.
     //
     //     06:53:23  POST /token   200  login   qa-admin   referer trypcreators.vercel.app
     //     06:53:24  POST /logout?scope=global  204        referer content-creator-program.vercel.app

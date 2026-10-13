@@ -1,12 +1,8 @@
-// "GIVE ME A HOOK": WHICH ONE COMES NEXT (24 Sep 2026).
+// "GIVE ME A HOOK": WHICH ONE COMES NEXT.
 //
-// Ethan: "It should randomly show one, but filtered by the best-performing ones
-// first. Don't actually give me any information on how many times it's been
-// used." So the order is a ladder of TIERS, best first, and random INSIDE a
-// tier: the first presses deal the proven openers in a different order for
-// every creator, and only once somebody has seen every proven one does the
-// button move down to the validated ones, and so on. Nothing about the tier is
-// ever shown; it only decides the order.
+// So the order is a ladder of TIERS, best first, and random INSIDE a tier: the first presses deal the proven openers in
+// a different order for every creator, and only once somebody has seen every proven one does the button move down to the
+// validated ones, and so on. Nothing about the tier is ever shown; it only decides the order.
 //
 // `seen` is the ids this person has already been shown (kept in localStorage by
 // the button). When every hook has been seen the ladder starts again.

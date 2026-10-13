@@ -141,10 +141,9 @@ export function payeeStarted(p = {}) {
 
 // MORE THAN ONE PERSON USUALLY NEEDS THE INVOICE.
 //
-// Ethan asked to send to Andre AND Francesco. Both fields took exactly one
-// address, so the second person had to be forwarded it by hand, which is how a
-// paper trail stops being a trail. Commas, semicolons and newlines all mean
-// "and", because those are the three separators a person actually pastes.
+// The team asked to send to Andre AND Francesco. Both fields took exactly one address, so the second person had to be
+// forwarded it by hand, which is how a paper trail stops being a trail. Commas, semicolons and newlines all mean "and",
+// because those are the three separators a person actually pastes.
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 export function parseEmails(raw) {

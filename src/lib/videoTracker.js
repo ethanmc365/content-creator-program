@@ -1,11 +1,5 @@
 // THE VIDEO TRACKER'S ARITHMETIC, AWAY FROM ITS PAINT.
 //
-// Ethan, 9 Sep 2026: "I want you to build into the admin tool another page
-// called Video Tracker. This is going to track all the best videos from the
-// entire community, filtered by market and by challenge... This is what we're
-// going to share with the whole Tryp.com team so they can take inspiration from
-// the viral videos and the ones that performed well."
-//
 // The page is a grid of cards over a filter bar, which is to say it is almost
 // entirely one question - "which of these rows am I looking at, in what order" -
 // and that question is a pure function of the rows and the filter. It lives
@@ -104,14 +98,10 @@ const ts = (d) => (d ? new Date(d).getTime() || 0 : 0)
  * applies, so pinning three videos gives you those three in order rather than
  * in the order they happened to be pinned.
  *
- * A RETIRED ROW NEVER DRAWS, AND THERE IS NO WAY BACK TO IT FROM THIS PAGE.
- * See migration 211: a video that drops out of a challenge's top three (or,
- * since migration 252, drops below the view threshold, or is disqualified)
- * stops QUALIFYING, it does not stop EXISTING - the row and the team's notes
- * on it survive in the database. Ethan, 23 Sep 2026: "there's no need to show
- * the retired button and retired videos, they should just be gone from this
- * tracker" - so unlike an earlier version of this function, `qualifies: false`
- * is not a state this page ever surfaces, not even behind a toggle.
+ * A RETIRED ROW NEVER DRAWS, AND THERE IS NO WAY BACK TO IT FROM THIS PAGE. See migration 211: a video that drops out of
+ * a challenge's top three (or, since migration 252, drops below the view threshold, or is disqualified) stops
+ * QUALIFYING, it does not stop EXISTING - the row and the team's notes on it survive in the database. - so unlike an
+ * earlier version of this function, `qualifies: false` is not a state this page ever surfaces, not even behind a toggle.
  */
 export function visibleVideos(rows, filter = {}) {
   const {
@@ -126,11 +116,9 @@ export function visibleVideos(rows, filter = {}) {
     if (challenge && challengeKey(v) !== challenge) return false
     if (source && (v.source || 'community') !== source) return false
     if (platform && v.platform !== platform) return false
-    // (There is no `reason` clause. There was, and Ethan cut the control on
-    // 9 Sep 2026 - "for the any reason, I would delete that filter, we don't
-    // need that filter" - so the clause went with it rather than lingering as
-    // an option nothing can set. `reason` is still on every row and still
-    // drives the badge; see `reasonLabel`.)
+    // (There is no `reason` clause. There was, and the team cut the control - "for the any reason, I would delete that
+    // filter, we don't need that filter" - so the clause went with it rather than lingering as an option nothing can
+    // set. `reason` is still on every row and still drives the badge; see `reasonLabel`.)
     // THE MONTH RAIL IS A FILTER LIKE ANY OTHER, which is the whole reason the
     // "monthly report" needed almost no new machinery: a report IS the grid
     // with one more clause on it.
@@ -200,10 +188,8 @@ export function summarise(rows) {
 /**
  * THE WHOLE POINT OF THE TOOL, AS A FILE SOMEBODY CAN SEND.
  *
- * Ethan: "we can also use them to share with the other markets." The page is
- * behind an admin login and half the Tryp.com team does not have one, so the
- * tracker has to be able to leave the platform. The column order is reading
- * order rather than schema order: what it was, who made it, how it did, and
+ * The page is behind an admin login and half the Tryp.com team does not have one, so the tracker has to be able to leave
+ * the platform. The column order is reading order rather than schema order: what it was, who made it, how it did, and
  * then the link.
  */
 export const CSV_COLUMNS = [
@@ -284,7 +270,7 @@ export function monthKey(v) {
 const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June',
   'July', 'August', 'September', 'October', 'November', 'December']
 
-/** "July 2026" out of "2026-07". */
+/* "July 2026" out of "2026-07". */
 export function monthLabel(key) {
   const [y, m] = String(key || '').split('-')
   const i = Number(m) - 1

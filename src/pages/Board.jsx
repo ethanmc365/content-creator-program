@@ -89,11 +89,9 @@ function AskModal({ open, onClose, onAsked, existing = null }) {
   return (
     <Modal open={open} onClose={onClose} title={editing ? 'Edit your question' : 'Ask the community'} wide>
       <form onSubmit={submit} className="space-y-5">
-        {/* THE TAG FIRST, because it changes what the rest of the form asks.
-            One line each, not a label over a line of examples. See BOARD_TAGS
-            for why the examples went; what it buys here is four short chips
-            instead of four paragraphs, which is most of the white space Ethan
-            was looking at. */}
+        {/* THE TAG FIRST, because it changes what the rest of the form asks. One line each, not a label over a line of
+            examples. See BOARD_TAGS for why the examples went; what it buys here is four short chips instead of four
+            paragraphs, which is most of the white space the team was looking at. */}
         <div>
           <p className="mb-2 text-sm font-semibold">{tr("What is it about?")}</p>
           <div className="grid grid-cols-2 gap-2">
@@ -126,15 +124,12 @@ function AskModal({ open, onClose, onAsked, existing = null }) {
         {/* THE COUNTRY FIELD GROWS AND SHRINKS. IT DOES NOT APPEAR AND
             DISAPPEAR, AND IT NO LONGER RESERVES A HOLE.
 
-            "Which country?" only makes sense for one of the four tags, so there
-            have now been three versions of this slot and the first two were both
-            wrong in the obvious ways. Mounting and unmounting the field made the
-            whole dialog jump a row taller and shorter as you moved between tags,
-            which also moves the button you were about to press. Reserving a
-            fixed 4.5rem slot and filling it with the tag's hint text fixed the
-            jump by making the dialog permanently taller and putting filler in
-            the gap - which is exactly the white space Ethan is now looking at,
-            and the filler was the hint copy he has asked to be rid of.
+            "Which country?" only makes sense for one of the four tags, so there have now been three versions of this
+            slot and the first two were both wrong in the obvious ways. Mounting and unmounting the field made the whole
+            dialog jump a row taller and shorter as you moved between tags, which also moves the button you were about to
+            press. Reserving a fixed 4.5rem slot and filling it with the tag's hint text fixed the jump by making the
+            dialog permanently taller and putting filler in the gap - which is exactly the white space the team is now
+            looking at, and the filler was the hint copy they have asked to be rid of.
 
             So the slot is a real height transition. `grid-template-rows: 0fr ->
             1fr` animates to the content's OWN height without anybody measuring
@@ -167,12 +162,10 @@ function AskModal({ open, onClose, onAsked, existing = null }) {
           <label htmlFor="board-title" className="mb-1.5 block text-sm font-semibold">
             {tr("Your question")}
           </label>
-          {/* NO PLACEHOLDER. It used to read "Is the JR Pass still worth it for
-              two weeks?", which is a good example question and a bad thing to
-              put in the box: a fully-formed sentence sitting in the field is
-              read as content by half the people who see it, it anchors what
-              everybody asks about, and the line under the box already says what
-              makes a good question. Ethan: "remove these." */}
+          {/* NO PLACEHOLDER. It used to read "Is the JR Pass still worth it for two weeks?", which is a good example
+              question and a bad thing to put in the box: a fully-formed sentence sitting in the field is read as content
+              by half the people who see it, it anchors what everybody asks about, and the line under the box already
+              says what makes a good question. */}
           <input
             id="board-title" className="input" value={title} maxLength={160}
             onChange={(e) => setTitle(e.target.value)}
@@ -212,12 +205,8 @@ function AskModal({ open, onClose, onAsked, existing = null }) {
 //
 // A STICKY NOTE ON A BOARD, NOT A ROW IN A LIST.
 //
-// Ethan: "I don't like the current design, I want it to visually look much
-// different, like an actual board where the cards are square little sticky
-// notes across a wide page with a little pin icon looking like it's pinned on."
-// He is describing the thing the feature already IS - a place where questions
-// are pinned up and left - and the old card, a wide white rectangle in a
-// two-column list, was the shape of every other feed in the app.
+// they are describing the thing the feature already IS - a place where questions are pinned up and left - and the old
+// card, a wide white rectangle in a two-column list, was the shape of every other feed in the app.
 //
 // The design does three things a list cannot:
 //
@@ -232,10 +221,6 @@ function AskModal({ open, onClose, onAsked, existing = null }) {
 // paper, the nine minimum heights that faked a hand-made wall, the CSS columns
 // that let the heights stay ragged, amber for waiting and green for answered -
 // all of it was real work and all of it has been removed.
-//
-// Ethan: "move away from the current pin section and the slanted post-it notes
-// style cards completely, because I feel like it doesn't match the modern
-// platform."
 //
 // The argument, and why it is worth keeping the epitaph: the corkboard was not
 // badly made, it was made to a brief that stopped being true as the rest of the
@@ -257,21 +242,13 @@ function AskModal({ open, onClose, onAsked, existing = null }) {
 // rather than a decal, and the note heights were floored by a hash so the wall
 // looked hand-made.
 //
-// Ethan: "move away from the current pin section and the slanted post-it notes
-// style cards completely, because I feel like it doesn't match the modern
-// platform."
-//
-// He is right, and the reason is worth writing down because the old version was
-// not badly built, it was built to the wrong brief. Every other surface in this
-// product is the same object: a white card, square to the page, soft even
-// shadow, rounded corners, lifting straight up on hover. The board was the one
-// page pretending to be a physical thing, and a skeuomorph in the middle of a
-// flat system does not read as charming, it reads as a page from a different
-// app. The tilt also cost real things: it fought the reveal animation (an
-// inline transform beats a stylesheet rule, so the stagger had to move to a
-// wrapper), it needed `break-inside-avoid` and CSS columns, and it meant nine
-// different minimum heights existed to fake variety that the content should
-// have been producing on its own.
+// they are right, and the reason is worth writing down because the old version was not badly built, it was built to the
+// wrong brief. Every other surface in this product is the same object: a white card, square to the page, soft even
+// shadow, rounded corners, lifting straight up on hover. The board was the one page pretending to be a physical thing,
+// and a skeuomorph in the middle of a flat system does not read as charming, it reads as a page from a different app.
+// The tilt also cost real things: it fought the reveal animation (an inline transform beats a stylesheet rule, so the
+// stagger had to move to a wrapper), it needed `break-inside-avoid` and CSS columns, and it meant nine different minimum
+// heights existed to fake variety that the content should have been producing on its own.
 //
 // WHAT REPLACES IT IS A LIST, NOT A GRID, and that is the substantive design
 // call rather than just "remove the tilt". A question is a variable-length
@@ -289,12 +266,10 @@ function AskModal({ open, onClose, onAsked, existing = null }) {
 
 // ONE QUESTION.
 //
-// THE "OPEN" TILE IS GONE, AND IT DESERVED TO. A 56px square holding a pulsing
-// dot over the word "Open" was the first thing on every card and the least
-// legible - Ethan: "I don't get the 'open' thing". It was carrying two ideas at
-// once (how many answers, and whether anybody has replied) in a shape that
-// could only really say one, and when the answer was zero it fell back on a
-// word that means nothing here: open as opposed to what? Closed? Locked?
+// THE "OPEN" TILE IS GONE, AND IT DESERVED TO. A 56px square holding a pulsing dot over the word "Open" was the first
+// thing on every card and the least legible - It was carrying two ideas at once (how many answers, and whether anybody
+// has replied) in a shape that could only really say one, and when the answer was zero it fell back on a word that means
+// nothing here: open as opposed to what? Closed? Locked?
 //
 // The state is a SENTENCE now, in the meta row, in the reader's own language:
 // "3 answers", or "Waiting for an answer". Same information, no decoding, and
@@ -429,11 +404,9 @@ export default function Board() {
 
   return (
     <NetworkMotion>
-      {/* NOT FULL BLEED ANY MORE. `full` was right when this was a WALL of
-          pinned notes and the wall was the idea; it is a card grid now, and a
-          grid stretched edge to edge on a 1440px screen puts the first and last
-          question a foot apart with nothing between them. Ethan: "maybe the
-          board doesn't have to be so wide, slightly more narrow." */}
+      {/* NOT FULL BLEED ANY MORE. `full` was right when this was a WALL of pinned notes and the wall was the idea; it is
+          a card grid now, and a grid stretched edge to edge on a 1440px screen puts the first and last question a foot
+          apart with nothing between them. */}
       <NetworkLayout width="default" switcher={false}>
         <div className="space-y-6">
           <header className="flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-end sm:justify-between">
@@ -442,20 +415,12 @@ export default function Board() {
                 <Icon name="chat" className="h-8 w-8 shrink-0 text-brand" />
                 {tr("Community board")}
               </h1>
-              {/* NO STRAPLINE. It read "Ask the whole network something. Anyone
-                  can answer, and the answers stay here for whoever asks next",
-                  which is a good description of the feature and a thing you need
-                  told once. The wall of pinned notes under it says all of it
-                  without a sentence, and the space is better spent on the notes.
-                  Ethan: "remove this description below the title." */}
+              {/* NO STRAPLINE. It read "Ask the whole network something. Anyone can answer, and the answers stay here
+                  for whoever asks next", which is a good description of the feature and a thing you need told once. The
+                  wall of pinned notes under it says all of it without a sentence, and the space is better spent on the
+                  notes. */}
             </div>
             {/* FULL WIDTH ON A PHONE, THE SAME RULE AS EVERY OTHER PAGE.
-                (1 Sep 2026.)
-
-                Ethan: "an example is the community board page on mobile, the
-                ask a question button is at the top in the left hand side; it
-                should either span across the entire top or be centred in the
-                top. Please improve this design across the layouts."
 
                 It was a shrink-to-fit button in a `flex-wrap justify-between`
                 header, so on a phone it wrapped onto its own line and sat
@@ -532,35 +497,21 @@ export default function Board() {
             ))}
           </div>
 
-          {/* THERE IS NO BOARD BEHIND THE NOTES ANY MORE.
-              It was a tinted, faintly grained panel with an inset edge - a
-              drawn cork wall for the notes to be pinned to. Ethan: "remove the
-              backing wall and just have the cards pinned on the entire white
-              screen."
-              He is right, and the reason is the same one that took the amber
-              and green paper away before it: this product is white with one
-              orange in it, and a full-width textured panel is a second surface
-              competing with the notes for the reader's attention on a page
-              whose entire content is the notes. Pinned straight onto the page,
-              the paper is the only thing with a shadow, so the paper is the only
-              thing that looks raised - which is what "pinned up" actually looks
-              like.
-              The minimum height went with it. It existed to stop a half-empty
-              WALL looking like a strip of cork; with no wall there is nothing to
-              look empty, and a screen and a half of enforced whitespace under
-              four notes would be the new version of the same problem. */}
-          {/* HALF A SCREEN OF ROOM UNDER THE LAST NOTE, ALWAYS.
-              A board with six notes on it stops dead a third of the way down
-              the window, and on a phone the last note ends up jammed against
-              the tab bar with nowhere to go - the page simply refuses to
-              scroll, which reads as the app having locked up rather than as
-              there being nothing more. Ethan: "I want to be able to always
-              scroll at least half a page down below nothing." So the wall
-              carries half a viewport of empty board under it, plus the phone's
-              tab bar and safe area, and a short board scrolls exactly like a
-              long one. `50vh` and not `50dvh`: on iOS a dvh unit changes as the
-              address bar collapses, so the page would grow while you scrolled
-              it. */}
+          {/* THERE IS NO BOARD BEHIND THE NOTES ANY MORE. It was a tinted, faintly grained panel with an inset edge - a
+              drawn cork wall for the notes to be pinned to. they are right, and the reason is the same one that took the
+              amber and green paper away before it: this product is white with one orange in it, and a full-width
+              textured panel is a second surface competing with the notes for the reader's attention on a page whose
+              entire content is the notes. Pinned straight onto the page, the paper is the only thing with a shadow, so
+              the paper is the only thing that looks raised - which is what "pinned up" actually looks like. The minimum
+              height went with it. It existed to stop a half-empty WALL looking like a strip of cork; with no wall there
+              is nothing to look empty, and a screen and a half of enforced whitespace under four notes would be the new
+              version of the same problem. */}
+          {/* HALF A SCREEN OF ROOM UNDER THE LAST NOTE, ALWAYS. A board with six notes on it stops dead a third of the
+              way down the window, and on a phone the last note ends up jammed against the tab bar with nowhere to go -
+              the page simply refuses to scroll, which reads as the app having locked up rather than as there being
+              nothing more. So the wall carries half a viewport of empty board under it, plus the phone's tab bar and
+              safe area, and a short board scrolls exactly like a long one. `50vh` and not `50dvh`: on iOS a dvh unit
+              changes as the address bar collapses, so the page would grow while you scrolled it. */}
           <div className="pt-3 pb-[calc(50vh+6rem+env(safe-area-inset-bottom))] sm:pb-[50vh]">
             {rows === null ? (
               // The skeleton mirrors NOTE_SHAPES rather than a ladder of
@@ -754,15 +705,10 @@ export function BoardThread() {
   return (
     <NetworkMotion>
       <NetworkLayout width="narrow" switcher={false}>
-        {/* OPENING A NOTE KEEPS THE BOARD.
-            Ethan: "when clicking, I think it should open big but still keep the
-            same look and aesthetic, not just back to a random card."
-            It used to be a plain white card on the plain page background, which
-            is the shape of every other detail page in the app - so tapping a
-            pinned note took you somewhere that had nothing to do with a board.
-            The thread now sits ON the same surface, and the question is the
-            same note it was on the wall: the pin, the state band, the paper.
-            Just much bigger, which is what "open big" means.
+        {/* OPENING A NOTE KEEPS THE BOARD. It used to be a plain white card on the plain page background, which is the
+            shape of every other detail page in the app - so tapping a pinned note took you somewhere that had nothing to
+            do with a board. The thread now sits ON the same surface, and the question is the same note it was on the
+            wall: the pin, the state band, the paper. Just much bigger, which is what "open big" means.
 
             The tilt is deliberately NOT carried over. A tilted note is a note
             on a wall among others; a tilted page of body text you are trying to

@@ -26,10 +26,9 @@ const PUSH_EVER_KEY = 'tryp-push-granted-once'
 // What creators can switch on and off. Keys match the notification `type`
 // column and the profiles.notif_prefs JSON.
 //
-// `emailable` used to mark the categories that also went out by email. Email
-// notifications are OFF across the board as of Jul 27 2026 (see EMAIL_ENABLED
-// below), so the flag currently does nothing but is left in place: it records
-// which categories are worth an email if and when they come back.
+// `emailable` used to mark the categories that also went out by email. Email notifications are OFF across the board (see
+// EMAIL_ENABLED below), so the flag currently does nothing but is left in place: it records which categories are worth
+// an email if and when they come back.
 export const CATEGORIES = [
   { key: 'challenge', label: 'New challenges', hint: 'When a fresh challenge goes live.', emailable: true },
   { key: 'event', label: 'Events', hint: 'Q&As, content days and milestones on the calendar.', emailable: true },
@@ -48,10 +47,6 @@ export const CATEGORIES = [
 
 // WHAT CANNOT BE SWITCHED OFF, AND WHY IT IS A LIST RATHER THAN AN ABSENCE.
 //
-// Ethan: "creators should have ability to choose custom settings like turn off
-// notifications for certain chats, but never for announcements or anything from
-// the Tryp.com."
-//
 // `announcement` used to be the first row of CATEGORIES with a toggle on it, so
 // the one channel the programme uses to reach everybody - a challenge closing,
 // a payout, a change of rules - was the easiest one to turn off. It is shown
@@ -67,13 +62,9 @@ export const LOCKED_CATEGORIES = [
 
 // Admin-only alerts (hidden from regular creators).
 //
-// A SWITCHED-OFF ALERT IS NEVER WRITTEN (22 Sep 2026, migration 245): no bell
-// row and no push, via `admin_alert_filter` on notifications. These used to
-// gate only the push, so the bell filled with every entry anyway - Ethan: "I'm
-// getting tonnes of notifications whenever people submit an entry... we could
-// get hundreds of entries a day." `defaultOn` MUST match
-// `admin_alert_default()` in that migration: it is what an admin who has never
-// touched a switch actually gets.
+// A SWITCHED-OFF ALERT IS NEVER WRITTEN (migration 245): no bell row and no push, via `admin_alert_filter` on
+// notifications. These used to gate only the push, so the bell filled with every entry anyway - `defaultOn` MUST match
+// `admin_alert_default()` in that migration: it is what an admin who has never touched a switch actually gets.
 export const ADMIN_CATEGORIES = [
   { key: 'application', label: 'New creator applications', hint: 'When a creator submits their profile for review.', emailable: true, defaultOn: true },
   { key: 'submission', label: 'New challenge entries', hint: 'Every video entered into any challenge. Off by default: busy challenges get hundreds a day.', emailable: true, defaultOn: false },
@@ -90,7 +81,7 @@ const DEFAULT_PREFS = Object.fromEntries(
 // Only the emailable categories default to on; everything else is push-only.
 const DEFAULT_EMAIL = { announcement: true, challenge: true, event: true, dm: false, chat: false, connection: false, results: false, reward: false }
 
-// Email notifications are OFF (Jul 27 2026).
+// Email notifications are OFF.
 //
 // Mailing the whole community from a shared mailbox got the platform flagged as
 // a bulk sender, and Gmail started blocking the messages. Rather than ship
@@ -123,13 +114,11 @@ export function useNotificationPrefs() {
 
   // ONE ROOM OFF, RATHER THAN ALL OF THEM.
   //
-  // Ethan: "be able to turn off 'meetups' chat." The list lives in the SAME
-  // `notif_prefs` blob as the category switches - `muted_rooms`, an array of
-  // namespaced channel keys - rather than in a table of its own, because it is
-  // a preference of exactly the same kind and a second store would be a second
-  // thing to keep in step. Every write carries the whole object, which is why
-  // this state is owned once by the parent (see the note above the hook): two
-  // components each holding their own copy would overwrite each other's keys.
+  // The list lives in the SAME `notif_prefs` blob as the category switches - `muted_rooms`, an array of namespaced
+  // channel keys - rather than in a table of its own, because it is a preference of exactly the same kind and a second
+  // store would be a second thing to keep in step. Every write carries the whole object, which is why this state is
+  // owned once by the parent (see the note above the hook): two components each holding their own copy would overwrite
+  // each other's keys.
   //
   // An ANNOUNCEMENTS room can never enter the array. The UI does not offer it,
   // and the database ignores it if it somehow arrives - see `room_muted`.
@@ -168,19 +157,13 @@ export function useNotificationPrefs() {
     else if (result === 'unsupported') setPushMsg('This browser does not support push notifications.')
     else setPushMsg('Something went wrong turning on notifications. Please try again.')
   }
-  // THERE IS NO "TURN OFF" BUTTON, AND THAT IS DELIBERATE (1 Sep 2026).
+  // THERE IS NO "TURN OFF" BUTTON, AND THAT IS DELIBERATE.
   //
-  // Ethan: "remove the turn off push notifications button, we shouldn't have
-  // this button, once they enabled they enabled but creators can obviously turn
-  // them off on the actual settings on their phone."
-  //
-  // He is right, and the reason is that this button never did what it looked
-  // like it did. It dropped the SUBSCRIPTION but it cannot touch the browser
-  // PERMISSION, so pressing it left the device permanently permitted and
-  // silently unsubscribed - a state no operating system setting explains and
-  // which reads as "notifications are broken". The switch that genuinely turns
-  // them off lives in iOS and Android settings, is one somebody already knows
-  // how to find, and is honest about what it does.
+  // they are right, and the reason is that this button never did what it looked like it did. It dropped the SUBSCRIPTION
+  // but it cannot touch the browser PERMISSION, so pressing it left the device permanently permitted and silently
+  // unsubscribed - a state no operating system setting explains and which reads as "notifications are broken". The
+  // switch that genuinely turns them off lives in iOS and Android settings, is one somebody already knows how to find,
+  // and is honest about what it does.
   //
   // What is left in here is per-TYPE control, which is the thing a creator
   // actually wants ("stop telling me about new members, keep telling me about
@@ -188,11 +171,9 @@ export function useNotificationPrefs() {
 
   // AND THE APP NOTICES WHEN THEY DO TURN THEM OFF THERE.
   //
-  // Ethan: "ensure the app notices if they do this and prompts them to
-  // re-enable them again." The permission is only read on mount, so a creator
-  // who switched it off in iOS settings and came back saw "On for this device"
-  // for ever. It is re-read whenever the tab is shown again, which is exactly
-  // when they get back from the settings app.
+  // The permission is only read on mount, so a creator who switched it off in iOS settings and came back saw "On for
+  // this device" for ever. It is re-read whenever the tab is shown again, which is exactly when they get back from the
+  // settings app.
   useEffect(() => {
     const recheck = () => setPermission(pushPermission())
     document.addEventListener('visibilitychange', recheck)
@@ -267,10 +248,6 @@ function LockedRow({ label, hint }) {
 
 // ROOM BY ROOM.
 //
-// Ethan: "creators should have ability to choose custom settings like turn off
-// notifications for certain chats, but never for announcements or anything from
-// the Tryp.com, but for example be able to turn off 'meetups' chat."
-//
 // THE SHAPE IS THE ROOMS PAGE'S SHAPE, ON PURPOSE. A flat list of rooms in a
 // six-market community is four Generals, four Announcements and four Meetups
 // with nothing to say which is which - the exact problem /rooms exists to
@@ -300,9 +277,6 @@ function RoomNotifications({ state }) {
   const mutedCount = state.mutedRooms.size
 
   // WHICH MARKETS ARE OPEN, AND WHY THE ANSWER DEPENDS ON HOW MANY THERE ARE.
-  //
-  // Ethan: "there's way too much scrolling involved, it needs a much better more
-  // functional design."
   //
   // The rooms were the bulk of it. Every market drew a heading and then all four
   // of its switches, always - on the test account that is seven markets, twenty
@@ -426,14 +400,10 @@ function PlaceRooms({ place, rooms, state, open, onToggle }) {
 function BlockTitle({ title, hint }) {
   return (
     <div className="mb-1">
-      {/* HEAVIER THAN THE ROWS UNDER IT. Ethan: "notification settings,
-          everything seems a bit clustered there." On a desktop each block is a
-          card and the card's edge does the separating; on a PHONE a Panel draws
-          nothing at all, so a `text-sm font-semibold` block title sat at exactly
-          the same weight as the `text-sm font-semibold` name of every setting
-          below it - four headings and eighteen rows, all the same size, with no
-          edges. It read as one undifferentiated wall of switches, which is the
-          clustering. */}
+      {/* HEAVIER THAN THE ROWS UNDER IT. On a desktop each block is a card and the card's edge does the separating; on a
+          PHONE a Panel draws nothing at all, so a `text-sm font-semibold` block title sat at exactly the same weight as
+          the `text-sm font-semibold` name of every setting below it - four headings and eighteen rows, all the same
+          size, with no edges. It read as one undifferentiated wall of switches, which is the clustering. */}
       <h3 className="text-base font-bold text-ink">{title}</h3>
       {hint && <p className="mt-0.5 text-xs leading-relaxed text-smoke">{hint}</p>}
     </div>
@@ -441,9 +411,6 @@ function BlockTitle({ title, hint }) {
 }
 
 // FOUR BLOCKS, NOT ONE WALL.
-//
-// Ethan: "for the notification settings, I feel like it's hard to read, and it
-// doesn't really make sense. I would change the UI and improve it."
 //
 // It was one `card` about nine hundred pixels tall holding four unrelated
 // decisions - whether this browser may buzz you, which of eight categories you
@@ -560,16 +527,12 @@ export function CreatorNotifications({ state }) {
             <span className="w-11 text-center">{tr("Email")}</span>
           </div>
         )}
-        {/* TWO COLUMNS FROM `sm`, BECAUSE NINE SWITCHES IS A LIST AND NOT A
-            NARRATIVE (14 Sep 2026).
+        {/* TWO COLUMNS FROM `sm`, BECAUSE NINE SWITCHES IS A LIST AND NOT A NARRATIVE.
 
-            Ethan: "there's way too much scrolling involved." These rows are a
-            fixed, complete set that a reader SCANS for the one they want, and a
-            single 700px column of them on a 1,400px window wastes the half of
-            the page that would have let them see the whole set at once.
-            `sm:grid-cols-2` halves the height of the block for nothing - the
-            rows were already `min-w-0` and truncation-safe, because the same
-            component draws inside the 20rem admin panel.
+            These rows are a fixed, complete set that a reader SCANS for the one they want, and a single 700px column of
+            them on a 1,400px window wastes the half of the page that would have let them see the whole set at once.
+            `sm:grid-cols-2` halves the height of the block for nothing - the rows were already `min-w-0` and
+            truncation-safe, because the same component draws inside the 20rem admin panel.
 
             `[&>*]:border-b-0 sm:[&>*:nth-last-child(-n+2)]:border-b-0` is not
             worth the cleverness: each row keeps its own rule and the last row of

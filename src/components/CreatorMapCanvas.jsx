@@ -77,22 +77,17 @@ export default function CreatorMapCanvas({
           to be inside the svg rather than behind it, because the svg's own
           background does not receive pointer events where nothing is drawn. */}
       <rect x={0} y={0} width={WIDTH} height={HEIGHT} fill="transparent" onClick={closePanels} />
-      {/* ...EXCEPT THAT RECT NEVER GOT A CLICK (2 Oct 2026). Ethan: clicking the sea did not close a country's
-          card, only the X did. react-simple-maps' ZoomableGroup draws ITS OWN transparent full-size rect (the
-          surface d3-zoom drags on) above ours, so every press on the water landed on that one. The map draws no
-          other rect, so a click whose target is a rect is a click on the water, whichever layer took it. A drag
-          does not count: d3-zoom swallows the click that ends a pan. */}
+      {/* ...EXCEPT THAT RECT NEVER GOT A CLICK. The team: clicking the sea did not close a country's card, only the X
+          did. react-simple-maps' ZoomableGroup draws ITS OWN transparent full-size rect (the surface d3-zoom drags on)
+          above ours, so every press on the water landed on that one. The map draws no other rect, so a click whose
+          target is a rect is a click on the water, whichever layer took it. A drag does not count: d3-zoom swallows the
+          click that ends a pan. */}
       <ZoomableGroup
         zoom={position.zoom}
         center={position.coordinates}
         minZoom={1}
         maxZoom={40}
-        // THE MAP DOES NOT TAKE THE PAGE'S SCROLL ANY MORE (9 Sep 2026).
-        //
-        // Ethan: "whenever you're scrolling down through the website and you
-        // reach the map, it starts scrolling the map, and then there's
-        // literally no way past it unless you go up and scroll down again...
-        // scrolling up is where it just starts zooming into the map."
+        // THE MAP DOES NOT TAKE THE PAGE'S SCROLL ANY MORE.
         //
         // A full-width map across the middle of a marketing page is a
         // scroll trap: d3-zoom claims the wheel over its whole area, the page
@@ -101,34 +96,24 @@ export default function CreatorMapCanvas({
         // modifier, require a second of hovering, only zoom over land - and
         // every one of them is a rule the reader has to learn.
         //
-        // Ethan reached the simpler answer himself: "we're not going to be
-        // able to zoom in on the map at all while normally scrolling. It'll
-        // just be the full map stretching from side to side. To zoom in there
-        // will be the full screen button." So gestures are refused entirely
-        // outside full screen, and inside it - where the map IS the page and
-        // there is nothing behind it to steal from - everything works.
+        // So gestures are refused entirely outside full screen, and inside it - where the map IS the page and there is
+        // nothing behind it to steal from - everything works.
         //
         // `filterZoomEvent` is d3-zoom's own filter, so this rejects the
         // gesture at source rather than fighting it afterwards. Clicking a
         // country or a creator is untouched: a click is not a zoom event.
         //
-        // EXCEPT A PINCH, WHICH IS NEVER AMBIGUOUS (9 Sep 2026). The rule
-        // above was written about the WHEEL, where the ambiguity is real: one
-        // wheel gesture has to mean either "read on" or "zoom", and on a page
-        // it has to mean "read on". Two fingers deliberately placed on a map
-        // have never meant anything but zoom, on any phone, ever - so there
-        // is nothing to steal and no rule to learn.
+        // EXCEPT A PINCH, WHICH IS NEVER AMBIGUOUS. The rule above was written about the WHEEL, where the ambiguity is
+        // real: one wheel gesture has to mean either "read on" or "zoom", and on a page it has to mean "read on". Two
+        // fingers deliberately placed on a map have never meant anything but zoom, on any phone, ever - so there is
+        // nothing to steal and no rule to learn.
         //
         // d3-zoom only consults this filter on `touchstart` (and on wheel,
         // mousedown, dblclick), so counting the touches here is the whole
         // gate: one finger never starts a gesture, which is what leaves the
         // scroll to the browser, and the `touch-action: pan-y` above is what
         // lets the browser take it. See the note on the container.
-        // AND A `navigable` MAP CAN BE DRAGGED WITHOUT BEING FULL SCREEN
-        // (12 Sep 2026).
-        //
-        // Ethan, of the market maps: "seems to be no ability to move about or
-        // zoom in or out on the map, this functionality should be there too."
+        // AND A `navigable` MAP CAN BE DRAGGED WITHOUT BEING FULL SCREEN.
         //
         // The rule above stands and is not being reversed: a WHEEL over a map
         // in the middle of a page has to mean "read on", or the page becomes

@@ -3,10 +3,6 @@ import { useT, usePlural } from '../lib/i18n'
 
 // THE ONE MARK THAT SAYS "SOMETHING WAS SAID HERE AND YOU HAVE NOT READ IT".
 //
-// Ethan: "there should be an orange dot pulsing to show that there is new
-// messages that I have not seen yet... when the messages are read the pulsing
-// orange dot should go away, this is for mobile and desktop."
-//
 // TWO LAYERS, NOT ONE ANIMATED DOT. The solid centre never moves and never
 // fades: it is the thing you count, and a dot that spends half its cycle at 30%
 // opacity is a dot you cannot count in a list of eight rooms. The HALO behind

@@ -6,9 +6,6 @@ import { useT } from '../lib/i18n'
 /**
  * ANYWHERE ELSE YOUR WORK LIVES.
  *
- * Ethan: "improve the UI of the other links. Maybe have an actual place they
- * can add a link for our website, rather than just add another button."
- *
  * It opened as a heading, a sentence and a button reading "Add a link" - so the
  * screen offered no place to put a link, only a control that would eventually
  * produce one. That is one press of pure ceremony in front of the actual field,
@@ -39,9 +36,7 @@ export function OtherLinks({ links = [], onChange }) {
 
   return (
     <div>
-      {/* "Other Links", plainly. Ethan: "rather than saying 'Anywhere else your
-          work lives' just say 'Other Links'." A label is a name for a box, not
-          a sentence about it. */}
+      {/* "Other Links", plainly. A label is a name for a box, not a sentence about it. */}
       <p className="label">{tr("Other links")}</p>
       <p className="mb-3 text-xs text-smoke">
         {tr("Optional. A website, a portfolio, a newsletter, another account.")}

@@ -53,10 +53,6 @@ const isoToDdmm = (iso) => {
 
 // PICKED IS BRAND ORANGE. NOT A TINT OF IT.
 //
-// Ethan: "whenever you click something, rather than it showing in the light
-// orange, I want it to be the Tryp.com orange that shows up. It's more clear,
-// easier to see, better design."
-//
 // Every chooser on this form was `border-brand bg-brand-tint/40` - a 40%
 // wash of a pale tint, which on a white card is a card that looks slightly
 // warm rather than a card that is chosen. On a form where four separate
@@ -74,13 +70,9 @@ const subText = (on) => (on ? 'text-white/80' : 'text-smoke')
 
 const CURRENCY_SYMBOL = { GBP: '£', EUR: '€', USD: '$', RON: 'lei ', SEK: 'kr ', NOK: 'kr ', DKK: 'kr ' }
 
-// NO "ALL VALID ENTRIES" ROW. Ethan: "I don't get the all valid entries that
-// shows up. I think that should be removed and not suggested, because we can't
-// really automate that, and we don't want to be giving that away."
-// He is right on both counts: a prize to everyone who enters is a real cost
-// that nobody decided, pre-filled into the form as though it were the house
-// style. The participation reward below is the deliberate version of the same
-// idea, and it is empty until somebody sets it.
+// NO "ALL VALID ENTRIES" ROW. they are right on both counts: a prize to everyone who enters is a real cost that nobody
+// decided, pre-filled into the form as though it were the house style. The participation reward below is the deliberate
+// version of the same idea, and it is empty until somebody sets it.
 const DEFAULT_PRIZES = [
   { place: '1st', prize: '£150 cash' },
   { place: '2nd', prize: '£100 cash' },
@@ -227,10 +219,6 @@ export default function AdminChallengeForm() {
 
   // SWITCHING THE CURRENCY REWRITES THE PRIZES THAT WERE WRITTEN IN THE OLD ONE.
   //
-  // Ethan: "whenever I click from pound to euro it shows up a hundred and fifty
-  // pound cash still in the box - it should change to euro as well as the
-  // symbol."
-  //
   // A prize is a STRING ("£150 cash"), because prizes are not always money, and
   // the currency picker only ever changed a field beside it - so the picker
   // said EUR and every line on the form said pounds. The number is deliberately
@@ -241,14 +229,11 @@ export default function AdminChallengeForm() {
   // THE REWRITE IS A PURE FUNCTION OF A FORM (`inCurrency`, below this
   // component), AND THAT IS NOT TIDINESS.
   //
-  // It was a closure over `form` until 16 Sep 2026, which is correct for the
-  // picker - an event handler reading the state that was on screen when it was
-  // pressed - and silently wrong for the template rail, which needs to swap the
-  // currency of prizes that the SAME event has only just installed. Reading
-  // `form` there reads the state from BEFORE the template was applied, so the
-  // swap ran over the old prize ladder and wrote it back on top of the new one.
-  // The symptom was a template's prizes appearing for a moment and then turning
-  // back into the defaults.
+  // It was a closure over `form`, which is correct for the picker - an event handler reading the state that was on
+  // screen when it was pressed - and silently wrong for the template rail, which needs to swap the currency of prizes
+  // that the SAME event has only just installed. Reading `form` there reads the state from BEFORE the template was
+  // applied, so the swap ran over the old prize ladder and wrote it back on top of the new one. The symptom was a
+  // template's prizes appearing for a moment and then turning back into the defaults.
   //
   // A function that takes the form it is rewriting cannot have that bug, and it
   // lets the rail do the whole thing in ONE functional update with no timing in
@@ -358,8 +343,8 @@ export default function AdminChallengeForm() {
       .eq('community_id', form.community_id)
       .eq('status', 'active')
       .eq('profiles.is_admin', false)
-      // VIPS ARE NOT IN CHALLENGES (7 Oct 2026). Marta could not save RETO OCTUBRE ESPAÑA: "15 creators are not in a
-      // group" - the Spanish VIPs, who are on the market's roster but are never dealt onto a board (migration 344).
+      // VIPS ARE NOT IN CHALLENGES. Marta could not save RETO OCTUBRE ESPAÑA: "15 creators are not in a group" - the
+      // Spanish VIPs, who are on the market's roster but are never dealt onto a board (migration 344).
       .eq('profiles.is_vip', false)
       .in('profiles.is_test', testFlags())
       .eq('profiles.status', 'active')
@@ -613,13 +598,9 @@ export default function AdminChallengeForm() {
     if (form.scoring === 'points' && rules.length === 0) {
       return setError('A points challenge needs at least one scoring rule, or nobody can score.')
     }
-    // EVERYBODY OR NOBODY. Once a challenge is split into groups, a creator who
-    // was never dealt into one is a creator racing on a board with no prize -
-    // which used to be allowed and explained in a footnote under the editor.
-    // Ethan: "if someone's not added to a group it just doesn't work. Someone
-    // always has to be in a group. It doesn't have to be even, but they have to
-    // be in a group." The editor names who is missing and offers to deal them
-    // out; this is what stops the save. `groups.length === 0` is the
+    // EVERYBODY OR NOBODY. Once a challenge is split into groups, a creator who was never dealt into one is a creator
+    // racing on a board with no prize - which used to be allowed and explained in a footnote under the editor. The
+    // editor names who is missing and offers to deal them out; this is what stops the save. `groups.length === 0` is the
     // one-leaderboard case and is untouched: there is nothing to be left out of.
     if (groups.length === 1) {
       return setError('Two groups is the smallest split. Add another, or go back to one leaderboard.')
@@ -651,17 +632,12 @@ export default function AdminChallengeForm() {
       // Optional auto-publish time: a cron flips the draft live at this moment.
       // SCHEDULE PUBLISH IS GONE, and the start date does its job.
       //
-      // Ethan: "if I enter a date that is 10 days ahead, it should
-      // automatically start then - there's no need to schedule it as well." He
-      // is right, and the two fields could disagree: a challenge could be set
-      // to publish on the 5th and start on the 1st, and nothing said which won.
-      // A draft with a future start date now publishes itself at that date.
+      // they are right, and the two fields could disagree: a challenge could be set to publish on the 5th and start on
+      // the 1st, and nothing said which won. A draft with a future start date now publishes itself at that date.
       //
-      // ONLY A START DATE STILL TO COME SCHEDULES ANYTHING (21 Sep 2026). With
-      // the start already passed, "the start date publishes it" meant the next
-      // cron tick (every five minutes) published a draft somebody had only
-      // pressed "Save changes" on - so a challenge starting today could not be
-      // saved and kept as a draft. Publishing a draft whose start has passed is
+      // ONLY A START DATE STILL TO COME SCHEDULES ANYTHING. With the start already passed, "the start date publishes it"
+      // meant the next cron tick (every five minutes) published a draft somebody had only pressed "Save changes" on - so
+      // a challenge starting today could not be saved and kept as a draft. Publishing a draft whose start has passed is
       // "Save & publish", a deliberate press.
       publish_at: (() => {
         const iso = parseDateTime(form.startDateStr, form.startTimeStr)
@@ -834,16 +810,10 @@ export default function AdminChallengeForm() {
   }))
   const potIsLegacy = !rowPot && derivedPot > 0
 
-  // CLOSING ENTRIES LIVES HERE NOW, NOT ON THE CHALLENGE PAGE (23 Sep 2026).
-  // Ethan: "we have the three dots that say 'Close all entries'. I don't
-  // think we should have these here. Maybe on the actual edit page, there's
-  // going to be somewhere to close all entries if you're editing it and the
-  // challenge is live, like at the bottom." It used to be a "..." menu on
-  // ChallengeDetail's own toolbar, sitting next to Edit and Results at the
-  // same weight as opening a page - for an action that ends the challenge for
-  // every creator in the market and cannot be undone from there. The edit
-  // screen is where a manager already is when they decide entries are over,
-  // same reasoning as Delete below it.
+  // CLOSING ENTRIES LIVES HERE NOW, NOT ON THE CHALLENGE PAGE. It used to be a "..." menu on ChallengeDetail's own
+  // toolbar, sitting next to Edit and Results at the same weight as opening a page - for an action that ends the
+  // challenge for every creator in the market and cannot be undone from there. The edit screen is where a manager
+  // already is when they decide entries are over, same reasoning as Delete below it.
   async function setLifecycle(status) {
     const verb = { ended: 'close entries on', archived: 'archive' }[status]
     if (!await confirm(`Really ${verb} "${form.title || 'this challenge'}"?`)) return
@@ -871,9 +841,8 @@ export default function AdminChallengeForm() {
   return (
     <div className="page max-w-5xl">
       <PageHeader
-        // BACK TO THE CHALLENGE YOU WERE EDITING (28 Sep 2026). Cancel used
-        // `editing` (a boolean) as the id and landed on /challenges/true,
-        // "Challenge not found".
+        // BACK TO THE CHALLENGE YOU WERE EDITING. Cancel used `editing` (a boolean) as the id and landed on
+        // /challenges/true, "Challenge not found".
         back={editing ? { to: `/challenges/${id}`, label: 'Challenge' } : { to: '/challenges', label: 'Challenges' }}
         title={editing ? 'Edit challenge' : 'New challenge'}
       />
@@ -928,10 +897,9 @@ export default function AdminChallengeForm() {
             and a challenge saved without one is readable by every creator on
             the platform. */}
         <section className="card space-y-5 max-sm:!rounded-none max-sm:!border-x-0 max-sm:!border-b-0 max-sm:!bg-transparent max-sm:!p-0 max-sm:!pt-6 max-sm:!shadow-none">
-          {/* NO STANDING EXPLANATION. It read "a market challenge reaches that
-              market only, a global challenge reaches everybody", which is the
-              two cards underneath saying themselves. Removed at Ethan's
-              request, with the other three like it on this page. */}
+          {/* NO STANDING EXPLANATION. It read "a market challenge reaches that market only, a global challenge reaches
+              everybody", which is the two cards underneath saying themselves. Removed at the team's request, with the
+              other three like it on this page. */}
           <h2 className="text-lg font-semibold">Who it is for</h2>
 
           {/* Worldwide first and on its own, because it is a different KIND of
@@ -1052,14 +1020,9 @@ export default function AdminChallengeForm() {
                   also the thing that makes a prize legible to a creator in
                   Bucharest reading a brief written in London.
 
-                  IT IS WIDE ENOUGH TO READ NOW. At `w-28` the button showed
-                  "Pound (£)" as "Poun…" - Ethan: "the pound is like pound dot
-                  dot dot. There's loads of room on desktop anyway, so you
-                  should fit in the actual button to show it. And on mobile you
-                  can just show the currency symbol." So it is auto-width from
-                  `sm` (there are two options and the longer is nine
-                  characters, so it cannot run away) and a short label on a
-                  phone, where the header row is already carrying a heading. */}
+                  IT IS WIDE ENOUGH TO READ NOW. At `w-28` the button showed "Pound (£)" as "Poun…" - So it is auto-width
+                  from `sm` (there are two options and the longer is nine characters, so it cannot run away) and a short
+                  label on a phone, where the header row is already carrying a heading. */}
               <Select
                 className="hidden w-auto min-w-[8.5rem] sm:block" ariaLabel="Prize currency"
                 value={form.prize_currency}
@@ -1117,9 +1080,7 @@ export default function AdminChallengeForm() {
               prizes: form.prize_structure,
               awards: form.extra_awards,
               participation: challengeParticipation,
-              // With no cap the ceiling is everybody who could earn it: the
-              // market's active creators (Ethan: "the limit is obviously the
-              // number of creators, so put that in").
+              // With no cap the ceiling is everybody who could earn it: the market's active creators ( ).
               creators: audience.length || null,
             })}
           />
@@ -1129,17 +1090,16 @@ export default function AdminChallengeForm() {
               badge appears on the leaderboard. */}
         </section>
 
-        {/* THE REPORTING SECTION IS GONE, and almost all of it was already
-            known. Ethan: "you obviously have all this info already and this
-            should be automated." He is right about five of the six fields:
+        {/* THE REPORTING SECTION IS GONE, and almost all of it was already known. they are right about five of the six
+            fields:
 
-              market       the challenge belongs to a community; that IS its market
-              format       a 30-day brief is monthly and a 7-day one is express
-              prize_type   readable from the prize breakdown - is there cash in it,
-                           vouchers, or both
-              objective    said the same thing as "how it is won", one section up
-              prize pot    already the sum of the prizes
-              winners      already the number of places
+            market       the challenge belongs to a community; that IS its market
+            format       a 30-day brief is monthly and a 7-day one is express
+            prize_type   readable from the prize breakdown - is there cash in it,
+            vouchers, or both
+            objective    said the same thing as "how it is won", one section up
+            prize pot    already the sum of the prizes
+            winners      already the number of places
 
             All six are derived on save (see `derivedReporting`), so they are
             right by construction rather than right if somebody remembered. The
@@ -1149,14 +1109,10 @@ export default function AdminChallengeForm() {
 
         {error && <p role="alert" className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">{error}</p>}
 
-        {/* SAVE IS THE ORANGE ONE. Ethan asked for it: "perhaps highlight the
-            save button in Tryp.com orange, make it more clear". On an edit
-            screen saving IS the action, and it was the palest of three. */}
-        {/* SAVE AS TEMPLATE SITS WITH SAVE, NOT IN A MENU. It is the other
-            thing you can do with a finished brief, and Ethan asked for it "at
-            the bottom". It is deliberately on the LEFT of the row and
-            `btn-secondary`: saving the challenge is still the action, and a
-            template is a side-effect of having written a good one.
+        {/* SAVE IS THE ORANGE ONE. On an edit screen saving IS the action, and it was the palest of three. */}
+        {/* SAVE AS TEMPLATE SITS WITH SAVE, NOT IN A MENU. It is the other thing you can do with a finished brief, and
+            the team asked for it "at the bottom". It is deliberately on the LEFT of the row and `btn-secondary`: saving
+            the challenge is still the action, and a template is a side-effect of having written a good one.
 
             It is offered when EDITING too, which the rail is not - templating
             an existing challenge reads nothing and writes a new row, so it is

@@ -14,7 +14,7 @@ import { cx } from '../../lib/utils'
 //   * the sidebar drew all four Nordic flags in a 28px square and they pushed
 //     the market's own name out of the card;
 //   * the Rooms page put `FlagStack` - two flags AND a "+N" chip - inside a
-//     34px square, which is what Ethan reported on 15 Sep 2026: "it shows a
+//     34px square, which is what the team reported: "it shows a
 //     little circle around the flags and works good for the markets with one
 //     flag but for UK & Ireland and the Nordics it looks weird."
 //
@@ -74,10 +74,7 @@ export default function FlagTile({
         'inline-flex shrink-0 items-center justify-center gap-[3px] rounded-xl leading-none',
         size,
         many && 'w-auto',
-        // NO BOX BEHIND A FLAG (12 Oct 2026). Ethan: "we have that weird
-        // orange background around the globe icon... around the flags, we
-        // seem to have a grey box which isn't necessary." The flag or the
-        // globe is the mark on its own, like every other icon (icon rule).
+        // NO BOX BEHIND A FLAG. The flag or the globe is the mark on its own, like every other icon (icon rule).
         className,
       )}
       title={title || list.join(', ')}

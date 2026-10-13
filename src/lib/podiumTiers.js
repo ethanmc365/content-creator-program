@@ -1,11 +1,6 @@
 import { getLocale } from './i18n'
 // THE PODIUM IS ORANGE, EVERYWHERE, TO ANY DEPTH.
 //
-// Ethan: "for the archived uk challenge it shows the podium colours gold,
-// silver and bronze but I want this changed to match the design of the podium
-// colours on the all time leaderboard, those orange colours, it matches the
-// platform better."
-//
 // The all-time leaderboard has been on the brand ladder for months
 // (brand -> brand-light -> brand-tint, see Leaderboard.jsx) while
 // the challenge podium drew real metal. Two podiums in one product, one of them
@@ -40,8 +35,8 @@ const HEIGHTS = ['h-14', 'h-10', 'h-7', 'h-5']
 export function ordinalFor(place) {
   const n = Number(place)
   if (!Number.isFinite(n)) return String(place ?? '')
-  // IN THE READER'S LANGUAGE (1 Oct 2026): "1st" is English. Spanish and Portuguese write 1.º,
-  // German 1., and Romanian says the place in words it does not abbreviate, so the bare number.
+  // IN THE READER'S LANGUAGE: "1st" is English. Spanish and Portuguese write 1.º, German 1., and Romanian says the place
+  // in words it does not abbreviate, so the bare number.
   const lang = getLocale()
   if (lang === 'es' || lang === 'pt') return `${n}.º`
   if (lang === 'de') return `${n}.`

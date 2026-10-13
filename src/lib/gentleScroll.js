@@ -1,9 +1,8 @@
-// A SCROLL THAT ARRIVES, NOT ONE THAT YANKS (9 Oct 2026).
+// A SCROLL THAT ARRIVES, NOT ONE THAT YANKS.
 //
-// Ethan, on the VIP page: "if I'm on the leaderboard and I click on my videos, then I scroll down a bit and click on another
-// pop-up (Earn more), the animation pulls you up really quickly. It should be smoother." The page called
-// `window.scrollTo({ top: 0, behavior: 'smooth' })` the moment a section was chosen; with `scroll-behavior: smooth` already on the
-// page and the content underneath changing height in the same instant, the browser covered the whole distance in a few frames.
+// The page called `window.scrollTo({ top: 0, behavior: 'smooth' })` the moment a section was chosen; with
+// `scroll-behavior: smooth` already on the page and the content underneath changing height in the same instant, the
+// browser covered the whole distance in a few frames.
 //
 // This takes a target (a pixel, or an element's top minus a margin), moves there with an ease-in-out over a time that grows with the
 // distance (about half a second for a normal hop, never more than 0.75s), starts only AFTER the new section has been drawn, and

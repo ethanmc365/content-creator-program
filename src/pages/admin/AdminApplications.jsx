@@ -33,8 +33,9 @@ export default function AdminApplications() {
   // means the worldwide community only, which is a real answer rather than a
   // missing one. See migration 190 for why this is a list.
   const [placeIn, setPlaceIn] = useState({})
-  // A VIP APPLICANT IS APPROVED INTO A VIP MARKET (4 Oct 2026): VIP Spain, VIP Romania, VIP Worldwide ... not into a community market, which
-  // is what "Approved in Germany" was. `vipOptions` is the list (migration 329) and `vipPick` is each applicant's choice, seeded from their country.
+  // A VIP APPLICANT IS APPROVED INTO A VIP MARKET: VIP Spain, VIP Romania, VIP Worldwide... not into a community market,
+  // which is what "Approved in Germany" was. `vipOptions` is the list (migration 329) and `vipPick` is each applicant's
+  // choice, seeded from their country.
   const [vipOptions, setVipOptions] = useState(null)
   const [vipPick, setVipPick] = useState({})
   // 'applied' - finished the form, waiting on a decision.
@@ -63,7 +64,7 @@ export default function AdminApplications() {
     // `onboarded` is what splits it into "waiting on you" and "never finished".
     // Two queries would be two round trips for one list.
     const [{ data: profiles }, { data: emailRows }] = await Promise.all([
-      profilesApi.profiles().select('*').eq('status', 'pending').is('deletion_requested_at', null)// NEWEST FIRST. Ethan: "it should be filtered by the most recent ones at the
+      profilesApi.profiles().select('*').eq('status', 'pending').is('deletion_requested_at', null)// NEWEST FIRST. The team: "it should be filtered by the most recent ones at the
       // top and the older ones at the bottom - that makes sense, not the other
       // way." It does: the queue is a to-do list, and somebody who applied this
       // morning is the one whose decision is still worth making quickly.
@@ -114,21 +115,14 @@ export default function AdminApplications() {
     return error ? error.message : true
   }
 
-  // ONE TOAST HOST FOR THE WHOLE APP, AND THIS PAGE HAD ITS OWN (4 Sep 2026).
+  // ONE TOAST HOST FOR THE WHOLE APP, AND THIS PAGE HAD ITS OWN.
   //
-  // Ethan, on a phone: "in the applications admin page, go to never finished
-  // and click follow-up email - it shows a little pop up saying marked as
-  // followed up, but this pop up is hidden behind the bar at the bottom where
-  // the challenges and rooms show."
-  //
-  // He is describing a hand-rolled `fixed bottom-24` pill that predated
-  // `ToastHost` and never learned two things that host already knows: the tab
-  // bar is ~56px PLUS `env(safe-area-inset-bottom)`, which on an iPhone puts
-  // its top edge at about 90px and leaves a 96px offset overlapping it; and a
-  // `fixed` element inside a transformed ancestor is positioned against that
-  // ancestor rather than the viewport, so the z-index was never the fix.
-  // Deleted rather than nudged - the shared toast is above the bar, above the
-  // safe area, dismissible, and identical to every other confirmation.
+  // they are describing a hand-rolled `fixed bottom-24` pill that predated `ToastHost` and never learned two things that
+  // host already knows: the tab bar is ~56px PLUS `env(safe-area-inset-bottom)`, which on an iPhone puts its top edge at
+  // about 90px and leaves a 96px offset overlapping it; and a `fixed` element inside a transformed ancestor is
+  // positioned against that ancestor rather than the viewport, so the z-index was never the fix. Deleted rather than
+  // nudged - the shared toast is above the bar, above the safe area, dismissible, and identical to every other
+  // confirmation.
   const flash = (msg) => toastSuccess(msg)
 
   // NOBODY APPLIES TO A MARKET, SO THE PAGE HAS TO WORK IT OUT.
@@ -138,24 +132,13 @@ export default function AdminApplications() {
   // not a fact, which is the change: an admin can disagree with it, and the
   // most common reason to is the language they speak.
   //
-  // AND WHEN THE COUNTRY POINTS AT NOTHING, THE LANGUAGE DOES (8 Sep 2026).
+  // AND WHEN THE COUNTRY POINTS AT NOTHING, THE LANGUAGE DOES.
   //
-  // Ethan: "currently you have one line that shows this - 'big German'. If
-  // someone is just put into the worldwide community only, and let's say
-  // they're from Austria but they speak German, whenever it shows up in the
-  // admin panel the suggestion should be the German community, and then a
-  // little line below saying 'because they speak German'. Obviously an admin
-  // can then change this, but it's just making it more clear, because it's easy
-  // to miss."
-  //
-  // He is describing exactly the case the country test cannot see. Austria is
-  // not in the German market's country codes and probably should not be, so
-  // `resolveMarketForCountryName` correctly returns nothing and the picker
-  // seeded EMPTY - which means the default action for an Austrian applicant was
-  // "worldwide only", and the German market they would obviously belong in was
-  // one unhighlighted chip among six. The information was on the page; it was in
-  // the last clause of a grey paragraph under the chips, which is where a busy
-  // reviewer's eye does not go.
+  // they are describing exactly the case the country test cannot see. Austria is not in the German market's country
+  // codes and probably should not be, so `resolveMarketForCountryName` correctly returns nothing and the picker seeded
+  // EMPTY - which means the default action for an Austrian applicant was "worldwide only", and the German market they
+  // would obviously belong in was one unhighlighted chip among six. The information was on the page; it was in the last
+  // clause of a grey paragraph under the chips, which is where a busy reviewer's eye does not go.
   //
   // So the language is now a real fallback rather than a footnote: country
   // first, because a market is defined by its countries and that is the
@@ -204,11 +187,10 @@ export default function AdminApplications() {
     })
   }, [apps, markets, suggestion])
 
-  // MARKETS THIS PERSON'S LANGUAGES POINT AT. The reason the languages screen
-  // exists, made visible on the screen the decision is made on: somebody who
-  // speaks the language a market is lived in is worth a second look even when
-  // their country says otherwise. A Portuguese speaker in London is the case
-  // Ethan is describing, and it is the case the country alone cannot see.
+  // MARKETS THIS PERSON'S LANGUAGES POINT AT. The reason the languages screen exists, made visible on the screen the
+  // decision is made on: somebody who speaks the language a market is lived in is worth a second look even when their
+  // country says otherwise. A Portuguese speaker in London is the case the team is describing, and it is the case the
+  // country alone cannot see.
   const languageMatches = (a) => {
     const spoken = new Set((a.languages ?? []).map((l) => String(l).toLowerCase()))
     return (markets ?? [])
@@ -256,7 +238,7 @@ export default function AdminApplications() {
     setApps((prev) => prev.filter((a) => a.id !== app.id))
   }
 
-  // APPROVING SOMEBODY ONTO THE TEAM IS A DIFFERENT DECISION (29 Sep 2026).
+  // APPROVING SOMEBODY ONTO THE TEAM IS A DIFFERENT DECISION.
   //
   // A team application arrived through an invite link, which grants nothing -
   // see migration 280. This is the one door in, and it is `approve_team_member`
@@ -304,11 +286,6 @@ export default function AdminApplications() {
 
   // MARKING A FOLLOW-UP, WHICH IS ALL WE CAN HONESTLY OFFER.
   //
-  // Ethan: "we don't have email automation, so don't have a Send email button.
-  // Just say follow-up email - whenever you click it, that means you've sent
-  // it. Clicking it again means you haven't. It's just a mark so we know which
-  // ones have got the follow-up email."
-  //
   // It writes `profiles.followed_up_at` (migration 191), which is admin-only.
   // The row is updated in place rather than reloaded so the toggle is instant;
   // a rejected write puts it straight back, because a mark that silently did
@@ -328,11 +305,6 @@ export default function AdminApplications() {
   }
 
   // ---------------------------------------------------------------- in bulk
-  //
-  // Ethan, 16 Sep 2026: "I want to be able to copy the email from each one
-  // easier, not having to click to see more, and I want actions at the very top
-  // where I can do everything like copy all emails of the current applicants,
-  // or accept all at once, just to speed things up."
   //
   // WHAT THE BAR ACTS ON. Nothing ticked means the bar acts on everything
   // CURRENTLY SHOWN - which is the list after the market chips and the search
@@ -464,8 +436,8 @@ export default function AdminApplications() {
     ...(Array.isArray(a.other_links) ? a.other_links.map((l) => ({ ...l, url: linkHref(l?.url) })) : []),
   ].filter((s) => s.url)
 
-  // THREE LISTS (10 Oct 2026): a market request is a member asking for another market, not an application - its own tab,
-  // with a live count in brand orange so it is never missed.
+  // THREE LISTS: a market request is a member asking for another market, not an application - its own tab, with a live
+  // count in brand orange so it is never missed.
   const bucketSwitch = (apps !== null || marketAsks) ? (
     <div className="mb-6 flex gap-1.5 overflow-x-auto rounded-full bg-cloud p-1 scrollbar-none">
       {[
@@ -511,12 +483,7 @@ export default function AdminApplications() {
         subtitle={counts.applied ? `${counts.applied} ${counts.applied === 1 ? 'person is' : 'people are'} waiting on a decision.` : undefined}
       />
 
-      {/* TWO LISTS, NOT ONE LIST WITH A FILTER (4 Sep 2026).
-          Ethan: "the creators that partly signed up should not be showing in
-          Creators. The only ones there should be creators actually accepted
-          into the community. For the ones that partly signed up, I want them on
-          the applications thing - a separate section where market managers can
-          review it and maybe reach out to them."
+      {/* TWO LISTS, NOT ONE LIST WITH A FILTER.
 
           They are two different jobs and they take two different actions.
           Somebody who finished the form is waiting on a DECISION; somebody who
@@ -528,10 +495,8 @@ export default function AdminApplications() {
 
       {apps !== null && (shown.length > 0 || search || onlyUnfollowed) && (
         <div className="mb-6 space-y-3">
-          {/* ON A PHONE, ONE LINE THAT SCROLLS SIDEWAYS (21 Sep 2026). Seven
-              market chips wrapped into three ragged rows above everything
-              else; Ethan: "all those different functions and filters look okay
-              on desktop, but they're all crammed in on mobile." */}
+          {/* ON A PHONE, ONE LINE THAT SCROLLS SIDEWAYS. Seven market chips wrapped into three ragged rows above
+              everything else; */}
           {bucket === 'applied' && tabs.length > 0 && (
             <div className="-mx-5 flex gap-2 overflow-x-auto px-5 pb-0.5 sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0">
               {[['', 'All', inThisBucket.length], ...tabs.map(([m, n]) => [m, m, n])].map(([key, label, count]) => {
@@ -747,19 +712,13 @@ export default function AdminApplications() {
         </Reveal>
       )}
 
-      {/* THE FACE OPENS FULL SIZE. Ethan: "clicking on the profile picture
-          should zoom it up, but it doesn't." A profile photo is one of the two
-          things an admin is actually judging on this page, and it was drawn at
-          56px with no way to see it bigger. PhotoLightbox is the app's own
-          viewer - pinch, wheel, double-tap, drag - and it is already what a
-          photograph opens into everywhere else. */}
+      {/* THE FACE OPENS FULL SIZE. A profile photo is one of the two things an admin is actually judging on this page,
+          and it was drawn at 56px with no way to see it bigger. PhotoLightbox is the app's own viewer - pinch, wheel,
+          double-tap, drag - and it is already what a photograph opens into everywhere else. */}
       {zoom && !zoom.list && (
         <PhotoLightbox src={zoom.src} alt={zoom.alt} shape="circle" origin={zoomFrom} onClose={() => setZoom(null)} />
       )}
-      {/* THE TRAVEL PHOTOS OPEN TOO (24 Sep 2026). Ethan: "whenever I click on
-          the travel photos it doesn't actually do anything, but it should make
-          them show up big like it does when I click on the profile picture."
-          Same viewer, stepping through the set. */}
+      {/* THE TRAVEL PHOTOS OPEN TOO. Same viewer, stepping through the set. */}
       {zoom?.list && (
         <PhotoLightbox
           src={zoom.list[zoom.index]}

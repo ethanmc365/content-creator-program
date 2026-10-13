@@ -1,7 +1,7 @@
-// READING A HOOK OFF THE PICTURE (13 Oct 2026).
+// READING A HOOK OFF THE PICTURE.
 //
-// Ethan: the 100k page missed the hook on Jacob's Paris Christmas markets post, and Noa's showed nothing ("End goal." is
-// on it). Both are TikTok PHOTO posts: the words are drawn into the slide image, so there is no text sticker for the
+// The team: the 100k page missed the hook on Jacob's Paris Christmas markets post, and Noa's showed nothing ("End goal."
+// is on it). Both are TikTok PHOTO posts: the words are drawn into the slide image, so there is no text sticker for the
 // scraper to read (view-sync's tiktokScreenText) and nothing in the page either. The only place the words exist is the
 // picture. So this reads them off it, the way a person would: optical character recognition on the stored cover.
 //
@@ -10,7 +10,7 @@
 // which connect-src allows) load the first time somebody presses "Read it off the picture", and not before. The answer
 // is shown to the person, who can correct it, and only then saved through set_video_hook like a typed hook.
 //
-// A RAW READ OF A TRAVEL PHOTO IS NOISE (measured: "BREN hi == o AN > a ..." for the Paris cover). Hook text on TikTok is
+// A RAW READ OF A TRAVEL PHOTO IS NOISE (measured: "BREN hi == o AN > a..." for the Paris cover). Hook text on TikTok is
 // a light word (white, or yellow) on a busy picture, or white on a coloured box. So the picture is read three ways - a
 // mask of near-white pixels, a mask of bright warm (yellow) pixels, and plain grey - each scaled up, and only lines the
 // engine is confident about and that look like words are kept. The read with the most confident text wins.

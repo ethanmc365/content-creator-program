@@ -9,12 +9,6 @@ import { cx } from '../../lib/utils'
 //
 // WHAT CHANGED AND WHY
 //
-// Ethan: "redesign the admin applications tab better. And remember, it wants
-// admins to be able to decide which market to go in before it's approved, and
-// then it will automatically go in that market. And just really improve the UI
-// of that and give the admins more functions and see more things on a quick
-// application view."
-//
 //  1  THE MARKET IS A DECISION ON THE CARD, NOT A LABEL ON IT. It used to be a
 //     grey badge reading whatever the country resolved to, with no way to
 //     disagree - and there are two ordinary cases where the country is the
@@ -22,7 +16,7 @@ import { cx } from '../../lib/utils'
 //     Portugal than to UK & Ireland; somebody in France, which no market
 //     covers, might belong in Spain rather than in the worldwide pool by
 //     default. Both of those turn on the LANGUAGES they speak, which is why
-//     Ethan wants that section to count for something here. The card now
+//     The team wants that section to count for something here. The card now
 //     suggests, says why it is suggesting, flags any market whose own language
 //     this applicant speaks, and lets the admin pick a different one before
 //     approving. Approval places them in whatever is picked - see the
@@ -61,13 +55,10 @@ import { cx } from '../../lib/utils'
 //
 // ENGLISH IS DELIBERATELY NOT A SIGNAL. It is the programme's working language
 // and the assumed baseline; "speaks English" is not a reason to move anybody.
-// THE LANGUAGE COLOURS ARE GONE (4 Sep 2026). Ethan: "I don't like how you
-// added the colours to the languages - just put them back to the grey, I think
-// they stand out enough now."
+// THE LANGUAGE COLOURS ARE GONE.
 //
-// He is right, and the reason is worth keeping: the ONE colour that carries
-// meaning on that row is the brand highlight on a language pointing at another
-// market. Six tinted chips compete with the single signal the section exists
+// they are right, and the reason is worth keeping: the ONE colour that carries meaning on that row is the brand
+// highlight on a language pointing at another market. Six tinted chips compete with the single signal the section exists
 // for, which is the opposite of standing out.
 
 // THE LANGUAGE A MARKET IS ACTUALLY SPOKEN IN.
@@ -88,9 +79,6 @@ import { cx } from '../../lib/utils'
 // and the assumed baseline; "speaks English" is not a reason to move anybody.
 // A COLOUR PER LANGUAGE, SO A ROW OF THEM IS SCANNABLE.
 //
-// Ethan: "for the languages, it says speaks English and Hindi and Urdu - you
-// could actually colour them in different colours so they stand out a bit more."
-//
 // Six identical grey chips is a list you have to READ; six coloured ones is a
 // list you can compare across a page of applications, which is the actual job
 // here now that languages help decide the market. The colour is derived from
@@ -109,11 +97,6 @@ export const LOCAL_LANGUAGE = {
 }
 
 // WHEN AN APPLICATION ARRIVED, WHICH IS NOT WHEN ITS ACCOUNT WAS MADE.
-//
-// Ethan: "when someone partly applied and then later completes it, after a few
-// days their application should show as new, not signed up 5 days ago. It would
-// make more sense this way because it's when they officially submitted their
-// application."
 //
 // `created_at` is the moment somebody pressed Sign up; `submitted_at`
 // (migration 218) is the moment they finished the form. For anybody who started
@@ -137,9 +120,7 @@ export function marketLanguages(m) {
 
 // THE TICK, AND THE ADDRESS, ON THE FACE OF EVERY CARD.
 //
-// Two of Ethan's asks land on the same strip of card and they belong together:
-// "I want to be able to copy the email from each one easier, not having to
-// click to see more", and the bulk bar above needs somewhere to be ticked from.
+// Two of, and the bulk bar above needs somewhere to be ticked from.
 //
 // The address used to live only behind "Read the whole application", which is
 // an expand, a scroll and a hunt for a row labelled Email - for the single most

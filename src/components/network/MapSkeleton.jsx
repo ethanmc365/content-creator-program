@@ -2,16 +2,11 @@ import { cx } from '../../lib/utils'
 
 // THE PLACEHOLDER FOR A MAP, AND IT IS THE SIZE OF THE MAP.
 //
-// THE BUG THIS FIXES. Every page that defers a map behind `WhenVisible` was
-// passing its own guess at how big the map would be, and each guess was
-// different and all of them were wrong: `h-72` on the worldwide hub, `h-64` in a
-// market, `h-[340px] sm:h-[420px]` in the directory, `aspect-[2/1]` on the
-// collab board. The maps themselves are a fixed 880x480 viewBox drawn at
-// `width: 100%; height: auto`, so a map in a 700px column is 382px tall - and a
-// 288px placeholder means the page visibly grows by a hundred pixels at the
-// moment the map arrives, with everything below it jumping down. Ethan: "when
-// loading, the card appearing to load and the actual card is different in size,
-// please fix this."
+// THE BUG THIS FIXES. Every page that defers a map behind `WhenVisible` was passing its own guess at how big the map
+// would be, and each guess was different and all of them were wrong: `h-72` on the worldwide hub, `h-64` in a market,
+// `h-[340px] sm:h-[420px]` in the directory, `aspect-[2/1]` on the collab board. The maps themselves are a fixed 880x480
+// viewBox drawn at `width: 100%; height: auto`, so a map in a 700px column is 382px tall - and a 288px placeholder means
+// the page visibly grows by a hundred pixels at the moment the map arrives, with everything below it jumping down.
 //
 // A placeholder is a PROMISE ABOUT A SIZE. There is only one honest way to keep
 // it, which is to derive it from the same number the map uses, so this holds the

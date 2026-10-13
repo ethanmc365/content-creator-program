@@ -11,21 +11,13 @@ import { teamApi } from '../../api/team'
 
 // ONE LINK, ONE CARD, FOR PEOPLE WHO SHOULD JOIN THE TRYP.COM TEAM.
 //
-// Ethan (30 Sep 2026): "we don't need expiring or multiple links, it's safe anyways as we have
-// the approval function. I also don't want 2 cards for it, just use the card at the top with the
-// orange gradient, fit everything into that, the link to copy etc, also it says 1 person has
-// applied but it was the test account I made so it shouldn't show, also any declined application
-// shouldn't show, not even approved because they'll obviously show on the team ... Also it
-// shouldn't just say market manager as it's not just market managers signing up."
-//
 // So there is exactly one live link and it never expires. The count is people WAITING for a
 // decision - not test accounts, not declined, not approved (an approved person is on the team
 // below).
 //
-// ONE LINK FOR GOOD (1 Oct 2026). Ethan: "remove the 'Make a fresh link' button because the link
-// should always be the same", the copy buttons on the right of the link, no description, and the
-// link icon only once (beside the link, not beside the title). If a link ever has to be killed,
-// set `revoked_at` on its row and this card makes a new one on its next load.
+// ONE LINK FOR GOOD., the copy buttons on the right of the link, no description, and the link icon only once (beside the
+// link, not beside the title). If a link ever has to be killed, set `revoked_at` on its row and this card makes a new
+// one on its next load.
 //
 // THE LINK GRANTS NOTHING. It opens a shorter sign-up that arrives in the applications queue
 // marked as a team applicant. `is_admin` is set by one function, `approve_team_member`, which

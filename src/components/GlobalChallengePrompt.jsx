@@ -12,10 +12,9 @@ import { challengesApi } from '../api/challenges'
 import { submissionsApi } from '../api/submissions'
 import { marketsApi } from '../api/markets'
 
-// "THE GLOBAL CHALLENGE IS ON", WHEN YOU OPEN THE APP (4 Oct 2026).
+// "THE GLOBAL CHALLENGE IS ON", WHEN YOU OPEN THE APP.
 //
-// Ethan, on getting the global challenge past 50 creators: "Maybe we should have a pop-up that shows up whenever they first open the app,
-// prompting them to participate in the global challenge." 82 creators had been on the platform since it started and had not posted.
+// 82 creators had been on the platform since it started and had not posted.
 //
 // It shows for a creator who has NOT entered the live worldwide challenge, at most once a day and no more than six times in all, and it
 // stops for good the moment they enter. It joins the same one-ask-per-open queue as the home-screen, notifications, bank-details and
@@ -23,8 +22,8 @@ import { marketsApi } from '../api/markets'
 // The card says what is in it for them: where their country stands, what ends when, and the joining bonus when it is on.
 const KEY = (id) => `tryp_gc_prompt_${id}`
 const MAX_SHOWS = 6
-// A ONE-TIME LOOK FOR THE TEAM (4 Oct 2026). Ethan: "push that to me one time whenever I next open the app, so I can see it and how it looks."
-// The prompt is for creators who have not entered, so an admin never saw it. Once per browser, an admin sees it too (and nothing is recorded).
+// A ONE-TIME LOOK FOR THE TEAM. The prompt is for creators who have not entered, so an admin never saw it. Once per
+// browser, an admin sees it too (and nothing is recorded).
 const ADMIN_PREVIEW = 'tryp_gc_prompt_admin_preview_v1'
 const adminPreviewDone = () => { try { return !!localStorage.getItem(ADMIN_PREVIEW) } catch { return true } }
 const GAP_MS = 20 * 3600 * 1000
@@ -94,7 +93,7 @@ function PromptCard({ card, name, onClose }) {
   const mine = ranked.findIndex((m) => m.mine)
   const mineRow = mine >= 0 ? ranked[mine] : null
   const total = (board?.markets || []).reduce((n, m) => n + (Number(m.creators) || 0), 0)
-  // The joining bonus (migration 383) replaced the old welcome voucher, which is gone (12 Oct 2026, migration 384).
+  // The joining bonus (migration 383) replaced the old welcome voucher, which is gone (migration 384).
   const join = ch.scoring === 'points' ? Number(ch.join_bonus_points) || 0 : 0
 
   return createPortal(

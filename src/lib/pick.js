@@ -12,10 +12,10 @@
 // THE THREE PARTS ARE SEPARATE ON PURPOSE:
 //
 //   PICK_BASE   the movement, which every option gets whether or not it is
-//               chosen. Ethan: "ensure there are clean animations like the
+//               chosen. The team: "ensure there are clean animations like the
 //               cards zooming a bit when hovering over to select them."
 //   PICKED      chosen. Solid brand, white on it, and a glow in dark mode -
-//               never a tint, which Ethan has now asked for three times.
+//               never a tint, which the team has now asked for three times.
 //   UNPICKED    not chosen. Neutral, with the brand only arriving on hover, so
 //               the eye can find the chosen one instantly across a row.
 //

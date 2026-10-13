@@ -1,4 +1,4 @@
-// ONE REQUEST FOR ONE QUESTION ASKED TWICE AT ONCE (13 Oct 2026).
+// ONE REQUEST FOR ONE QUESTION ASKED TWICE AT ONCE.
 //
 // Opening the app fired ~70 requests, and a dozen of them were the SAME read
 // asked twice by two components that mounted together (the header and the page

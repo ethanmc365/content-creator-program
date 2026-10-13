@@ -6,12 +6,11 @@ import { cx } from '../../lib/utils'
 import { windowPhrase } from '../../lib/boostWindow'
 import { challengesApi } from '../../api/challenges'
 
-// A POINT BOOST, IN THE SAME PLACE AS A LIVE BONUS (4 Oct 2026, migration 334).
+// A POINT BOOST, IN THE SAME PLACE AS A LIVE BONUS (migration 334).
 //
-// Ethan: "the points boost ... should obviously show up at the top where you have the bonus points thing ... That pop-up card should show up
-// with double points, etc., here if I actually have it running." So a boost is not its own banner any more: it takes the slot beside the tabs
-// that a live bonus uses (and wins it while it is on), in the same dark card, with the multiplier as the disc, what is on, and a countdown.
-// One that has not started yet shows when it opens, so creators can plan the video; one that has ended is gone.
+// So a boost is not its own banner any more: it takes the slot beside the tabs that a live bonus uses (and wins it while
+// it is on), in the same dark card, with the multiplier as the disc, what is on, and a countdown. One that has not
+// started yet shows when it opens, so creators can plan the video; one that has ended is gone.
 const fmtLeft = (ms) => {
   const m = Math.max(0, Math.ceil(ms / 60000))
   if (m >= 1440) return `${Math.floor(m / 1440)}d ${Math.floor((m % 1440) / 60)}h`
@@ -41,10 +40,9 @@ export function useBoost(challengeId, enabled = true) {
   return b ? { ...b, live: !!live, left: Date.parse(b.ends_at) - now } : null
 }
 
-// THE MULTIPLIER IS THE LOUDEST THING ON THE CARD (7 Oct 2026). Ethan: "The 2x or 3x ... should be highlighted more and
-// more vibrantly. Currently it's just a 2x in a grey circle." A boost that had not started yet drew its disc in white/20
-// on the dark card, i.e. grey. Now it is always a brand gradient with a glow, live or coming up, and while it is live a
-// light sweeps across it. The window is said in days ("Videos posted on Thursday") instead of "Thu 00:01 to Fri 00:01".
+// THE MULTIPLIER IS THE LOUDEST THING ON THE CARD. A boost that had not started yet drew its disc in white/20 on the
+// dark card, i.e. grey. Now it is always a brand gradient with a glow, live or coming up, and while it is live a light
+// sweeps across it. The window is said in days ("Videos posted on Thursday") instead of "Thu 00:01 to Fri 00:01".
 export function BoostDisc({ multiplier, live, className }) {
   return (
     <span className={cx('boost-disc relative flex shrink-0 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-[#ffb36b] via-brand-light to-brand font-black tabular-nums text-white shadow-[0_0_0_3px_rgba(245,133,63,0.35),0_6px_18px_-4px_rgba(217,68,7,0.9)]', className)}>
@@ -57,7 +55,7 @@ export function BoostDisc({ multiplier, live, className }) {
 export default function BoostCallout({ boost, onOpen }) {
   const tr = useT()
   const days = windowPhrase(boost.starts_at, boost.ends_at, tr)
-  // A BUTTON NOW (13 Oct 2026): pressing it opens the boost's own card (OfferDetail), like every other offer.
+  // A BUTTON NOW: pressing it opens the boost's own card (OfferDetail), like every other offer.
   const Tag = onOpen ? 'button' : 'div'
   return (
     <Tag

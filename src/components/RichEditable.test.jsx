@@ -5,9 +5,8 @@ import RichEditable from './RichEditable'
 
 // THE HEADING FOLLOWS THE SELECTION.
 //
-// Ethan's report: bold and italic only changed the highlighted words, but
-// pressing H turned the whole line into a heading. These cover the shape of the
-// fix - the selection is cut into a block of its own before it is re-tagged, so
+// The team's report: bold and italic only changed the highlighted words, but pressing H turned the whole line into a
+// heading. These cover the shape of the fix - the selection is cut into a block of its own before it is re-tagged, so
 // the words either side keep the format they had.
 
 const mount = (md = '') => {

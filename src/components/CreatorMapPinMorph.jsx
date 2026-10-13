@@ -35,11 +35,9 @@ export function PinMorph({ x, y, dx = 0, dy = 0, pop = false, arriving = false, 
           { transform: `translate(${dx}px, ${dy}px) scale(0.8)`, opacity: 0.4 },
           { transform: 'translate(0px, 0px) scale(1)', opacity: 1 },
         ]
-    // QUICKER (28 Sep 2026, later). 420/380ms was a deliberate, readable move
-    // when a regroup was a rare event; with the regroup now following the
-    // gesture it is the thing the reader is waiting on, so it is roughly halved.
-    // Still long enough to read as a move rather than a cut, which was the whole
-    // point of animating it ("rather than just flashing, appearing, and
+    // QUICKER. 420/380ms was a deliberate, readable move when a regroup was a rare event; with the regroup now following
+    // the gesture it is the thing the reader is waiting on, so it is roughly halved. Still long enough to read as a move
+    // rather than a cut, which was the whole point of animating it ("rather than just flashing, appearing, and
     // disappearing").
     const a = el.animate(frames, { duration: leaving ? 200 : 240, easing: MORPH_EASE, fill: leaving ? 'forwards' : 'none' })
     return () => a.cancel()

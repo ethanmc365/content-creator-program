@@ -24,12 +24,9 @@ import { useT } from '../lib/i18n'
 // in the meantime.
 // WHAT IS BEING REPORTED HAS TO BE LEGIBLE.
 //
-// The snapshot used to be `line-clamp-3` on 12px grey text with no attribution:
-// a three-line grey stub of the thing you are about to accuse somebody of.
-// Ethan: "when it shows the snapshot of the message it doesn't show it all
-// clearly and it's kind of cut off." Two things were wrong with it and both
-// matter for the same reason - a report is only useful if the reporter is sure
-// they picked the right message.
+// The snapshot used to be `line-clamp-3` on 12px grey text with no attribution: a three-line grey stub of the thing you
+// are about to accuse somebody of. Two things were wrong with it and both matter for the same reason - a report is only
+// useful if the reporter is sure they picked the right message.
 //
 //   * IT WAS CUT OFF WITH NO WAY TO SEE THE REST. A clamp hides text and says
 //     nothing about hiding it. It is a SCROLLING box now, capped at a sensible

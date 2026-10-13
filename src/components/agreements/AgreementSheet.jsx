@@ -16,10 +16,8 @@ export { headingsOf } from './AgreementDoc'
 
 // THE TERMS, ASKED FOR ONCE (7 Oct 2026; rebuilt the same evening).
 //
-// Ethan: "it should then show up to every creator when they log in ... They don't have to scroll through everything
-// but they can if they want or they can just click 'Accept these terms.' Whenever we update the terms they'll be
-// notified and have to reaccept them." And then, on the first version: "Should it always show up as full text rather
-// than those buttons ... Maybe just improve the UI of it."
+// And then, on the first version: "Should it always show up as full text rather than those buttons... Maybe just improve
+// the UI of it."
 //
 // So the sheet is a document: the header says what it is and who it is for, the whole text sits in a reading pane
 // with its sections on a strip that follows you (AgreementDoc), and the footer holds the one act - a tick for the
@@ -102,8 +100,7 @@ export default function AgreementSheet({ doc, updated = false, onAccepted, onClo
     setBusy(false)
     if (error) { setErr(error.message); return }
     setDone(true)
-    // UNDER 18: stay a moment and say what happens next. The team emails the parent the link (12 Oct 2026, Ethan: "rather
-    // than them having to copy the link and send it to their parents ... I will send the email to their parents").
+    // UNDER 18: stay a moment and say what happens next. The team emails the parent the link ().
     if (needsGuardian) { setGuardianRow({ guardian_name: guardian.name.trim(), guardian_email: guardian.email.trim() }); return }
     setTimeout(leave, 750)
   }
@@ -141,7 +138,7 @@ export default function AgreementSheet({ doc, updated = false, onAccepted, onClo
               <p className="mt-2 text-sm leading-relaxed text-white/90">{updated && doc.change_note ? doc.change_note : doc.summary}</p>
             </div>
           </div>
-          {/* HOW FAR THROUGH (12 Oct 2026): a proper reading line with the percentage, not a hairline on the edge. */}
+          {/* HOW FAR THROUGH: a proper reading line with the percentage, not a hairline on the edge. */}
           <div className="relative mt-3 flex items-center gap-3" aria-hidden>
             <div className="agreement-progress flex-1"><span style={{ transform: `scaleX(${Math.max(0.02, progress)})` }} /></div>
             <span className="agreement-progress-pct flex items-center justify-end gap-1 text-right text-[11px] font-bold tabular-nums text-white/90">

@@ -4,11 +4,10 @@ import { SPRING } from '../../lib/motion'
 import { flagFromIso } from '../../lib/flags'
 import { cx } from '../../lib/utils'
 
-// WHICH VIP MARKET THE NUMBERS ARE FOR (4 Oct 2026).
+// WHICH VIP MARKET THE NUMBERS ARE FOR.
 //
-// Ethan, on VIP Analytics and KPIs: "There should be a page first for the overall ... for the VIP market, and then also for the specific
-// markets, like toggling through." So the first answer is EVERY VIP MARKET added together, and one press moves to a single market. The
-// list is a row of chips - a star for every market together, a globe for the Worldwide VIP market, a flag for a country's - the same
+// So the first answer is EVERY VIP MARKET added together, and one press moves to a single market. The list is a row of
+// chips - a star for every market together, a globe for the Worldwide VIP market, a flag for a country's - the same
 // three symbols the announcement and content dropdowns use, so a symbol always means the same thing.
 export const programmeIcon = (p) => (p?.community?.country_codes?.length ? p.community.country_codes.slice(0, 2).map(flagFromIso).join('') : '🌍')
 const isOfficialList = (list) => list.length > 0 && list.every((p) => p.kind === 'official')

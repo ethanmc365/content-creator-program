@@ -230,15 +230,10 @@ export default function ScanBoardingPass({ open, onClose, onFilled, now }) {
           </>
         )}
 
-        {/* A FAILED READ NOW NAMES THE THING THAT USUALLY WORKS.
-            It used to end at "type the flight in - it is only five fields",
-            which is the last resort offered as the first one. The step that
-            actually rescues most failures is going one rung UP in quality: a
-            photograph of a paper pass, or of a phone screen, loses contrast and
-            sharpness that the original digital pass still has. Ethan: "if a scan
-            boarding pass is an error, like you can't really read it properly,
-            just show up a message to try upload the digital boarding pass, and
-            that might work, or just fill it in manually." Both, in that order. */}
+        {/* A FAILED READ NOW NAMES THE THING THAT USUALLY WORKS. It used to end at "type the flight in - it is only five
+            fields", which is the last resort offered as the first one. The step that actually rescues most failures is
+            going one rung UP in quality: a photograph of a paper pass, or of a phone screen, loses contrast and
+            sharpness that the original digital pass still has. Both, in that order. */}
         {mode === 'failed' && (
           <div className="py-4 text-center">
             <p className="text-sm font-semibold text-ink">{tr("No boarding pass found")}</p>
@@ -262,23 +257,15 @@ export default function ScanBoardingPass({ open, onClose, onFilled, now }) {
 
             TWO THINGS WERE WRONG WITH IT AND BOTH ARE FIXED HERE.
 
-            THE COPY LED WITH THE DIAGNOSIS. "There is no camera here that can
-            read a barcode" is a sentence about the hardware, offered to somebody
-            who asked to do a task, and it reads as the app apologising for
-            itself. Ethan: "it shouldn't need to say that. Instead it should just
-            say something simple like: open the app on your phone, open flight
-            log, tap scan your boarding pass, the camera will then show up."
-            So it is three steps in order, and the reason is dropped entirely -
-            nobody needs to be told why their laptop is not a scanner.
+            THE COPY LED WITH THE DIAGNOSIS. "There is no camera here that can read a barcode" is a sentence about the
+            hardware, offered to somebody who asked to do a task, and it reads as the app apologising for itself. So it
+            is three steps in order, and the reason is dropped entirely - nobody needs to be told why their laptop is not
+            a scanner.
 
-            AND "CHOOSE A PHOTO" OPENED TWO THINGS AT ONCE. It called
-            `setMode('idle')` AND `fileRef.click()`, so the file dialog came up
-            over a screen that had just flipped back to the two option cards.
-            Ethan: "whenever I click choose a photo, it actually shows up that
-            choose a photo or use camera option again, but then also loads the
-            choose a photo." It only opens the picker now; `pickFile` moves the
-            mode on when a file actually arrives, and cancelling leaves this
-            screen up with its own Back button, which is what should happen. */}
+            AND "CHOOSE A PHOTO" OPENED TWO THINGS AT ONCE. It called `setMode('idle')` AND `fileRef.click()`, so the
+            file dialog came up over a screen that had just flipped back to the two option cards. It only opens the
+            picker now; `pickFile` moves the mode on when a file actually arrives, and cancelling leaves this screen up
+            with its own Back button, which is what should happen. */}
         {mode === 'nocamera' && (
           <div className="py-4 text-center">
             <p className="text-sm font-semibold text-ink">{tr("Use your phone for this one")}</p>
@@ -324,14 +311,10 @@ export default function ScanBoardingPass({ open, onClose, onFilled, now }) {
                 </div>
               </div>
               <dl className="mt-4 grid grid-cols-2 gap-3 border-t border-brand/20 pt-3 text-center sm:grid-cols-4">
-                {/* THE DATE WAS PRINTED AS ITS STORAGE FORMAT. `flown_on` is
-                    an ISO string because that is what the column takes, and it
-                    was going straight onto the card - so the one field this
-                    screen exists to have CHECKED was displayed as "2026-08-18".
-                    Ethan: "whenever I'm showing the date there, I'm showing it
-                    back to front, like 2026 to the 18. Ensure it shows the date
-                    normally, like it always does." `formatDate` is what the
-                    rest of the app uses, and it gives "18 Aug 2026". */}
+                {/* THE DATE WAS PRINTED AS ITS STORAGE FORMAT. `flown_on` is an ISO string because that is what the
+                    column takes, and it was going straight onto the card - so the one field this screen exists to have
+                    CHECKED was displayed as "2026-08-18". `formatDate` is what the rest of the app uses, and it gives
+                    "18 Aug 2026". */}
                 {[
                   ['Airline', result.form.airline || '—'],
                   ['Flight', result.form.flight_number || '—'],

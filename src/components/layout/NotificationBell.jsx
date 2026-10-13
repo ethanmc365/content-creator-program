@@ -186,8 +186,8 @@ export default function NotificationBell() {
   }, [open])
 
   function openNotification(n) {
-    // OPENING ONE TAKES IT OFF THE LIST (1 Oct 2026). Ethan: "clicking on something doesn't make it disappear. It just
-    // still shows up there." You have dealt with it by opening it, so it goes; there is nothing left to mark as read.
+    // OPENING ONE TAKES IT OFF THE LIST. You have dealt with it by opening it, so it goes; there is nothing left to mark
+    // as read.
     setOpen(false)
     dismiss(n.id)
     if (n.link) navigate(n.link)
@@ -233,23 +233,17 @@ export default function NotificationBell() {
           bell is. It used to be `animate-fade-up`, which rises from BELOW - so
           a panel hanging off a bell in the top bar arrived by travelling
           upwards, away from the button that opened it. */}
-      {/* FULL WIDTH ON A PHONE. A 21rem card hanging off the right of a 375px
-          screen is a column with a margin on one side and nothing on the other,
-          and the notification text - a sentence with a name and a room in it -
-          wrapped to four lines inside it. Ethan: "the panel should be a
-          full-width card rather than a narrow one on the right." It keeps its
-          anchored width from `sm` up, where it is a dropdown under a bell
-          rather than the whole screen. */}
+      {/* FULL WIDTH ON A PHONE. A 21rem card hanging off the right of a 375px screen is a column with a margin on one
+          side and nothing on the other, and the notification text - a sentence with a name and a room in it - wrapped to
+          four lines inside it. It keeps its anchored width from `sm` up, where it is a dropdown under a bell rather than
+          the whole screen. */}
       {open && (
         // ON A PHONE IT IS PINNED TO THE VIEWPORT, NOT HUNG OFF THE BELL.
         //
-        // THE BUG THIS FIXES. It was made full-width (`w-[calc(100vw-1.5rem)]`)
-        // but left anchored to the bell with `right-0` - and the bell is not at
-        // the right edge of the header, the avatar is. So a 351px panel hanging
-        // off a button 64px in from the edge started at x = -5 and ran off the
-        // LEFT of the screen, with a band of empty space on the right. Ethan:
-        // "it's cut off on the left side. I mentioned I wanted it moved
-        // centered, but you didn't actually center it."
+        // THE BUG THIS FIXES. It was made full-width (`w-[calc(100vw-1.5rem)]`) but left anchored to the bell with
+        // `right-0` - and the bell is not at the right edge of the header, the avatar is. So a 351px panel hanging off a
+        // button 64px in from the edge started at x = -5 and ran off the LEFT of the screen, with a band of empty space
+        // on the right.
         //
         // A full-width card cannot be positioned relative to a button that is
         // not centred; it has to be positioned relative to the thing it is

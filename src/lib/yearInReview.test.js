@@ -228,11 +228,9 @@ describe('the year in review', () => {
 
     // THE BUG THIS EXISTS FOR, AND IT WAS OFF BY SIX TIMES IN PRODUCTION.
     //
-    // `results.final_views` is what the leaderboard RANKS on - the creator's
-    // BEST video in that challenge, so somebody entering nine videos cannot
-    // out-rank somebody entering one. Measured across every result row in
-    // production on 20 Sep 2026, it equals `max(logged_views)` in every single
-    // one. Letting it REPLACE the sum threw away every video but the biggest:
+    // `results.final_views` is what the leaderboard RANKS on - the creator's BEST video in that challenge, so somebody
+    // entering nine videos cannot out-rank somebody entering one. Measured across every result row in production, it
+    // equals `max(logged_views)` in every single one. Letting it REPLACE the sum threw away every video but the biggest:
     // Jacob Pulley's fourteen videos and 23,568 views were reported as 3,646.
     it('sums every entry in a challenge rather than keeping only the judged one', () => {
       const twoEntries = {
@@ -281,10 +279,9 @@ describe('the year in review', () => {
 })
 
 describe('the community total counts the whole programme, not just this app', () => {
-  // MEASURED against production on 20 Sep 2026: submissions carried 43,412
-  // views for 2026 and `challenge_history` carried 19,654,970 across 47
-  // off-platform contests. The card showed the first number and called it
-  // "together", which is what Ethan caught.
+  // MEASURED against production: submissions carried 43,412 views for 2026 and `challenge_history` carried 19,654,970
+  // across 47 off-platform contests. The card showed the first number and called it "together", which is what the team
+  // caught.
   const history = [
     { challenge_id: null, starts_at: '2026-03-01', total_views: 1_000_000, posts: 120, creators: 40 },
     { challenge_id: null, starts_at: '2026-06-01', total_views: 500_000, posts: 80, creators: 30 },
@@ -315,8 +312,8 @@ describe('the community total counts the whole programme, not just this app', ()
 })
 
 describe('a DM is a message', () => {
-  // MEASURED 20 Sep 2026: 94 room messages against 216 DMs in the year, so the
-  // card was showing under a third of what people actually said.
+  // MEASURED: 94 room messages against 216 DMs in the year, so the card was showing under a third of what people
+  // actually said.
   const directMessages = [
     { sender_id: ME, created_at: '2026-04-01' },
     { sender_id: ME, created_at: '2026-04-02' },

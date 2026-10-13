@@ -20,25 +20,17 @@ import { SPRING } from '../../lib/motion'
 //
 // THE FALLBACK KEY MUST BE PER-INSTANCE, NOT PER-OPTION-LIST.
 //
-// It was `options.map(o => o.value).join('-')`, which is IDENTICAL for any two
-// controls offering the same choices - and the flight community page has
-// exactly that: a year/all-time toggle over the map and another over the
-// leaderboards. A `layoutId` is a shared-element IDENTITY, so Motion read the
-// two pills as one pill in two places and did the thing it is designed to do:
-// animated it from one to the other. Ethan: "both for map and the leaderboard,
-// for some reason these buttons seem to be using the same orange card when
-// clicked and it's moving up and down the screen and one of them is always
-// without it."
+// It was `options.map(o => o.value).join('-')`, which is IDENTICAL for any two controls offering the same choices - and
+// the flight community page has exactly that: a year/all-time toggle over the map and another over the leaderboards. A
+// `layoutId` is a shared-element IDENTITY, so Motion read the two pills as one pill in two places and did the thing it
+// is designed to do: animated it from one to the other.
 //
-// `useId` is stable across renders and unique per mounted component, which is
-// exactly the scope a highlight belongs to. An explicit `id` still wins, for
-// the case where two controls SHOULD share one highlight.
-// `shape="tabs"` (1 Oct 2026) is the strip for pages with many views (the VIP tools). Ethan: "I like that you can scroll,
-// but it's a bit cut off ... the sides are always squared but a bit rounded at the corners." The strip IS the scroller,
-// full width, with softly rounded corners and no hidden overflow outside it, so nothing is clipped by a parent; each tab
-// is a rounded square and the one that is on is scrolled into view. AS WIDE AS ITS TABS (1 Oct 2026): "the grey bar
-// shouldn't be fully expanded unless there are actually more markets" - it ends after the last tab, and scrolls only
-// once the tabs are wider than the page.
+// `useId` is stable across renders and unique per mounted component, which is exactly the scope a highlight belongs to.
+// An explicit `id` still wins, for the case where two controls SHOULD share one highlight. `shape="tabs"` is the strip
+// for pages with many views (the VIP tools). The strip IS the scroller, full width, with softly rounded corners and no
+// hidden overflow outside it, so nothing is clipped by a parent; each tab is a rounded square and the one that is on is
+// scrolled into view. AS WIDE AS ITS TABS: "the grey bar shouldn't be fully expanded unless there are actually more
+// markets" - it ends after the last tab, and scrolls only once the tabs are wider than the page.
 export default function Segmented({ value, onChange, options, size = 'md', id, label, className, shape = 'pill' }) {
   const tabs = shape === 'tabs'
   const autoId = useId()

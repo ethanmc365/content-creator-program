@@ -16,11 +16,7 @@ import { PERIODS, periodRange } from '../../lib/analyticsPeriod'
 import { money, monthLabel, nf, perK, shortDay, vipRpc, useKindT } from '../../lib/vip'
 import { safeUrl } from '../../lib/safeUrl'
 
-// VIP ANALYTICS, OVER ANY DATES (6 Oct 2026).
-//
-// Ethan: "the ability to view analytics for everything, like each community by week, custom date ranged and last 3 days etc ... take
-// inspiration and design from the regular community analytics ... community health, see who has notifications enabled, per creator,
-// growth ... custom ranges to view data ... everything has clean design, animations and looks good on desktop and mobile."
+// VIP ANALYTICS, OVER ANY DATES.
 //
 // ONE PAGE, ONE CLOCK. A scope (every VIP market, or one) and a period (the same presets and custom dates as the main analytics, plus
 // the last 3 days) drive Overview, Growth, Creators and Health; Months and Month vs Month are about whole months, so the clock is
@@ -601,8 +597,8 @@ function TopPaid({ rows, cur }) {
   )
 }
 
-// ANY TWO MONTHS, SIDE BY SIDE (redrawn 4 Oct 2026). Two month cards on top (what each cost and brought in, and who led), then every
-// figure as a pair of bars you can compare by eye, with how it moved.
+// ANY TWO MONTHS, SIDE BY SIDE (redrawn). Two month cards on top (what each cost and brought in, and who led), then
+// every figure as a pair of bars you can compare by eye, with how it moved.
 function MonthCompare({ series, cur }) {
   const tr = useKindT()
   const opts = series.map((m) => ({ value: m.key, label: monthLabel(m.year, m.month) })).reverse()

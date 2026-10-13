@@ -1,13 +1,5 @@
 // THE FIELD YOU ARE TYPING IN IS NEVER UNDER THE KEYBOARD.
 //
-// Ethan, on a phone: "if I click to schedule a message and click to type in the
-// search bar it works for general and shows the keyboard nicely with the
-// message just above. But if I try typing the day or the time, it's covered by
-// the keyboard, so that needs to be fixed - it should automatically appear just
-// above the keyboard. This is the same when typing into other things like
-// posting a game challenge, where the challenge title is slightly covered, and
-// the same with creating a poll and typing in the options."
-//
 // THREE REPORTS, ONE FAULT, SO IT IS FIXED ONCE HERE. The chat composer already
 // handles this - it is pinned to the visual viewport by `useKeyboardInset` -
 // which is why the one field he named as working is the one field that had been
@@ -78,29 +70,20 @@ function visibleBottom() {
 // floor is there because a mobile browser's own collapsing address bar moves
 // the two apart by forty or fifty pixels all by itself.
 //
-// A KEYBOARD ONLY EXISTS WHERE SOMETHING IS BEING TYPED INTO (8 Sep 2026).
+// A KEYBOARD ONLY EXISTS WHERE SOMETHING IS BEING TYPED INTO.
 //
 // THE SAME BUG, IN THE SECOND FILE. On 4 Sep the identical `raw > 120`
 // heuristic in `lib/useKeyboardInset` was found to be reading iOS Safari's
-// COLLAPSING ADDRESS BAR as a keyboard - Ethan: "the bar at the bottom just
-// completely disappeared - the worldwide, challenges, rooms, DMs bar completely
-// disappeared". `window.innerHeight` is the LAYOUT viewport and includes the
-// strips behind both toolbars; `visualViewport.height` does not; so a page with
-// nothing focused anywhere reports a 90-130px shrink purely from which toolbars
-// happen to be showing, which depends on which way you last scrolled. That file
-// was fixed by requiring a focused field. THIS ONE WAS NOT, and it is the same
-// measurement doing more damage.
+// COLLAPSING ADDRESS BAR as a keyboard - `window.innerHeight` is the LAYOUT viewport and includes the strips behind both
+// toolbars; `visualViewport.height` does not; so a page with nothing focused anywhere reports a 90-130px shrink purely
+// from which toolbars happen to be showing, which depends on which way you last scrolled. That file was fixed by
+// requiring a focused field. THIS ONE WAS NOT, and it is the same measurement doing more damage.
 //
-// What it did here: `applyScrollRoom` is wired to `visualViewport`'s `resize`
-// AND `scroll` events, both of which iOS fires continuously while the address
-// bar animates. So SCROLLING A PAGE - no keyboard, no caret, nothing focused -
-// pushed up to 130px of `padding-bottom` onto the body (`--kb-room`, see
-// index.css) and pulled it off again, over and over, in step with the toolbar.
-// The document's height changes under a scroll that is already in flight, which
-// is how a page ends up with a band of empty white at the bottom and content
-// that will not settle. Ethan, 8 Sep: "it just showed up like a white screen on
-// half of it - I could scroll, but all the stuff below that screen was just
-// covered."
+// What it did here: `applyScrollRoom` is wired to `visualViewport`'s `resize` AND `scroll` events, both of which iOS
+// fires continuously while the address bar animates. So SCROLLING A PAGE - no keyboard, no caret, nothing focused -
+// pushed up to 130px of `padding-bottom` onto the body (`--kb-room`, see index.css) and pulled it off again, over and
+// over, in step with the toolbar. The document's height changes under a scroll that is already in flight, which is how a
+// page ends up with a band of empty white at the bottom and content that will not settle.
 //
 // `--kb-room` is meant to exist for exactly as long as a keyboard does. Now it
 // does: no caret, no keyboard, no padding. Note this also makes `keyboardUp`
@@ -119,16 +102,12 @@ export function keyboardInset() {
   return raw > 120 ? raw : 0
 }
 
-// NOTHING IN THIS FILE RUNS WHEN THERE IS NO KEYBOARD (2 Sep 2026).
+// NOTHING IN THIS FILE RUNS WHEN THERE IS NO KEYBOARD.
 //
-// THE BUG THIS FIXES. `revealFocusedField` asked "is the bottom of this field
-// below the bottom of the visible area", which on a DESKTOP is a perfectly
-// ordinary thing for a field to be - it just means the page is long. So
-// focusing the guess box on Guess the Country scrolled a desktop page down to
-// bring the box up, on every focus, and the field is re-focused after every
-// guess. Ethan: "on desktop it should always be scrolled up to the very top,
-// and it should never change that unless a person changes it. I don't know why
-// after I type a word and press guess, it's moving down a bit."
+// THE BUG THIS FIXES. `revealFocusedField` asked "is the bottom of this field below the bottom of the visible area",
+// which on a DESKTOP is a perfectly ordinary thing for a field to be - it just means the page is long. So focusing the
+// guess box on Guess the Country scrolled a desktop page down to bring the box up, on every focus, and the field is
+// re-focused after every guess.
 //
 // A desktop browser has no keyboard to hide behind, handles focus scrolling
 // itself, and was never the reason this file exists. Measuring the inset is
@@ -139,10 +118,6 @@ function keyboardUp() {
 }
 
 // WHAT HAS TO BE VISIBLE IS THE FIELD *AND ITS BUTTON*.
-//
-// Ethan, on Guess the Country on a phone: "if I'm scrolled up to the very top
-// and then I click to type the country, the type bar and the guess button are
-// hidden behind the keyboard."
 //
 // The old measurement was the input's own rect, so the input could be lifted
 // to a pixel above the keys and the submit button directly underneath it stayed
@@ -163,18 +138,16 @@ function revealTarget(el, visibleHeight) {
  * Safe to call at any time; does nothing when nothing is covered, and nothing
  * at all when there is no software keyboard on the screen.
  */
-// A FINGER ON THE PAGE WINS (9 Oct 2026). Ethan: "the favourite quote section still has that issue where scrolling just causes a lot of
-// lag." The About box is exempt from the correction below because it is taller than the strip above the keyboard; the quote, the
-// town, the country and every other small field are NOT, and iOS fires visual-viewport resizes all through a scroll as its toolbars
-// collapse. Each one re-ran this and pulled the page back to the field under the reader's thumb. Nothing here may move the page
-// while a finger has been dragging it in the last moment.
+// A FINGER ON THE PAGE WINS. The About box is exempt from the correction below because it is taller than the strip above
+// the keyboard; the quote, the town, the country and every other small field are NOT, and iOS fires visual-viewport
+// resizes all through a scroll as its toolbars collapse. Each one re-ran this and pulled the page back to the field
+// under the reader's thumb. Nothing here may move the page while a finger has been dragging it in the last moment.
 let lastTouchAt = 0
 const TOUCH_QUIET = 700
 
-// A SCREEN THAT FOLLOWS THE KEYBOARD ITSELF IS LEFT ALONE (12 Oct 2026). The chat overlays (rooms, DMs) pin themselves
-// to the visual viewport frame by frame (useViewportPin). This helper ALSO scrolled the page to reveal their composer,
-// so pressing the message bar moved the screen twice - Ethan: "the profile pictures at the top and that header
-// reanimates and appears a second time". Anything inside `[data-kb-self]` is skipped here.
+// A SCREEN THAT FOLLOWS THE KEYBOARD ITSELF IS LEFT ALONE. The chat overlays (rooms, DMs) pin themselves to the visual
+// viewport frame by frame (useViewportPin). This helper ALSO scrolled the page to reveal their composer, so pressing the
+// message bar moved the screen twice - Anything inside `[data-kb-self]` is skipped here.
 function selfManaged(el) {
   return !!el?.closest?.('[data-kb-self]')
 }
@@ -190,9 +163,10 @@ export function revealFocusedField() {
   const top = vv ? vv.offsetTop : 0
   const bottom = visibleBottom()
   const rect = revealTarget(el, bottom - top).getBoundingClientRect()
-  // A FIELD TALLER THAN WHAT IS LEFT OF THE SCREEN IS NOT MOVED (9 Oct 2026). "About you" grows with what is typed, so on a
-  // phone it is soon taller than the strip above the keyboard; "its bottom is under the keys" is then ALWAYS true, and every
-  // scroll the reader made was undone by a jump back down to the bottom of it. The browser already keeps the caret in view.
+  // A FIELD TALLER THAN WHAT IS LEFT OF THE SCREEN IS NOT MOVED. "About you" grows with what is typed, so on a phone it
+  // is soon taller than the strip above the keyboard; "its bottom is under the keys" is then ALWAYS true, and every
+  // scroll the reader made was undone by a jump back down to the bottom of it. The browser already keeps the caret in
+  // view.
   if (rect.height > bottom - top - MARGIN * 2) return
 
   // How far it has to move. Positive means it is under the keyboard; negative
@@ -208,13 +182,10 @@ export function revealFocusedField() {
 
   // EVERY MOVE IS INSTANT, and this is not a preference.
   //
-  // `html { scroll-behavior: smooth }` is set platform-wide, so a bare
-  // `scrollBy` animates for a few hundred milliseconds - which is the same
-  // window the keyboard is animating in. The corrections then queue up and
-  // cancel each other, and what a reader sees is the page sliding about under
-  // their thumb while they type. Ethan, on Guess the Country: "it kind of
-  // glitchy scrolls down a bit as I'm typing, which is weird - just fix it so
-  // it properly snaps into place immediately." A correction is not a journey.
+  // `html { scroll-behavior: smooth }` is set platform-wide, so a bare `scrollBy` animates for a few hundred
+  // milliseconds - which is the same window the keyboard is animating in. The corrections then queue up and cancel each
+  // other, and what a reader sees is the page sliding about under their thumb while they type. A correction is not a
+  // journey.
   const scroller = scrollableAncestor(el)
   if (scroller) {
     const before = scroller.scrollTop
@@ -261,7 +232,7 @@ export function installKeyboardFollow() {
   if (typeof window === 'undefined') return () => {}
   let timers = []
   // The moment the keyboard last arrived. A viewport SCROLL is only the keyboard settling for a second or so after this;
-  // later than that it is the reader scrolling, and chasing it fights their thumb (9 Oct 2026, see below).
+  // later than that it is the reader scrolling, and chasing it fights their thumb (see below).
   let settledAt = 0
 
   const clear = () => { timers.forEach(clearTimeout); timers = [] }

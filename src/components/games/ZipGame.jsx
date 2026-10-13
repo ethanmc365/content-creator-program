@@ -41,10 +41,6 @@ const HARD_DIFFS = ['hard', 'expert', 'extreme', 'ultra', 'legend']
 
 // TEN SECONDS BETWEEN HINTS, AND THE WAIT IS DRAWN.
 //
-// Ethan: "to stop people spamming this button, it should have a 10 second cool
-// down. And a visual animation that it's cooling down and show when it's
-// clickable again."
-//
 // A disabled button that says nothing is indistinguishable from a broken one,
 // so the wait is a ring that empties around the button and the label counts
 // down in whole seconds. When it comes back it flashes once - the moment it
@@ -137,10 +133,9 @@ function litAreaPath(cells, size) {
 // enough to smooth cell-to-cell motion without the plane visibly lagging behind
 // the finger.
 //
-// SOLID BRAND ORANGE AGAIN (21 Sep 2026). A lit version (halo, fuselage
-// gradient, cockpit glint) was tried on 16 Sep and Ethan asked for it back to
-// one solid Tryp.com orange. The white outline and drop shadow carry the
-// separation from the trail on their own.
+// SOLID BRAND ORANGE AGAIN. A lit version (halo, fuselage gradient, cockpit glint) was tried on 16 Sep and the team
+// asked for it back to one solid Tryp.com orange. The white outline and drop shadow carry the separation from the trail
+// on their own.
 const PLANE_D = 'M0 -11 C1.1 -11 1.8 -9 1.8 -6.2 L1.8 -4.4 L10 1 L10 3.1 L1.8 -0.2 L1.8 5 L4.4 7.6 L4.4 9.2 L0 7.7 L-4.4 9.2 L-4.4 7.6 L-1.8 5 L-1.8 -0.2 L-10 3.1 L-10 1 L-1.8 -4.4 L-1.8 -6.2 C-1.8 -9 -1.1 -11 0 -11 Z'
 
 function PlaneIcon({ x, y, angle, scale = 3.4 }) {
@@ -157,12 +152,9 @@ function PlaneIcon({ x, y, angle, scale = 3.4 }) {
           same element (this silently rendered the plane at scale 1). */}
       <g className="fp-plane-bob">
         <g transform={`scale(${scale})`}>
-          {/* SOLID TRYP.COM ORANGE (21 Sep 2026). Ethan: "currently it's
-              like a gradient or something. There's a bit of white in it. It
-              should be just a solid Trip.com orange." The fuselage gradient,
-              the white halo, the cockpit glint and the wing highlight are gone;
-              the thin white outline and the shadow stay, because they are what
-              separate the aircraft from the orange trail it sits on. */}
+          {/* SOLID TRYP.COM ORANGE. The fuselage gradient, the white halo, the cockpit glint and the wing highlight are
+              gone; the thin white outline and the shadow stay, because they are what separate the aircraft from the
+              orange trail it sits on. */}
           <path
             d={PLANE_D}
             fill={BRAND} stroke="#ffffff" strokeWidth={1.1} strokeLinejoin="round"
@@ -174,9 +166,7 @@ function PlaneIcon({ x, y, angle, scale = 3.4 }) {
   )
 }
 
-// THE HINT BUTTON OWNS ITS OWN CLOCK (21 Sep 2026). Ethan: "When pressing the
-// hint button, there seems to be a bit of lag on the actual button animation."
-// Two causes, both fixed here:
+// THE HINT BUTTON OWNS ITS OWN CLOCK. Two causes, both fixed here:
 //
 //   1. The button was KEYED on the cooldown so its "it's back" animation would
 //      replay - which meant the press itself unmounted the button you were
@@ -232,9 +222,7 @@ function HintButton({ hintAt, cooling, onPress }) {
         'relative flex h-11 items-center gap-2 overflow-hidden rounded-full border px-4 text-sm font-semibold transition-[transform,box-shadow,border-color] duration-150 ease-out active:scale-95',
         cooling
           ? 'cursor-not-allowed border-gray-200 bg-cloud text-gray-400'
-          // WHITE, LIKE UNDO AND RESTART (21 Sep 2026). Ethan: "it
-          // looks like it's already clicked in that orange." A tinted
-          // button reads as pressed; it keeps its place first.
+          // WHITE, LIKE UNDO AND RESTART. A tinted button reads as pressed; it keeps its place first.
           : 'border-gray-200 bg-white text-smoke hoverable:hover:-translate-y-0.5 hoverable:hover:border-brand hoverable:hover:text-brand',
       )}
     >
@@ -321,12 +309,10 @@ export default function ZipGame({ onExit }) {
   const [hintsUsed, setHintsUsed] = useState(storedHint.used)
   const [hintAt, setHintAt] = useState(storedHint.at)   // when the last hint was taken
   const rewindRef = useRef(null)            // the reel-in timer, if one is running
-  // WHETHER A COOLDOWN IS RUNNING, AND NOTHING FINER. The seconds and the ring
-  // belong to <HintButton>, which ticks on its own: this component draws the
-  // whole board, and it used to re-render every 80ms for ten seconds after each
-  // hint just so a 20px ring could move - which is the lag Ethan felt on the
-  // button. The board now hears about the cooldown twice: when it starts and
-  // when it ends.
+  // WHETHER A COOLDOWN IS RUNNING, AND NOTHING FINER. The seconds and the ring belong to <HintButton>, which ticks on
+  // its own: this component draws the whole board, and it used to re-render every 80ms for ten seconds after each hint
+  // just so a 20px ring could move - which is the lag the team felt on the button. The board now hears about the
+  // cooldown twice: when it starts and when it ends.
   const [cooling, setCooling] = useState(() => !!storedHint.at && Date.now() - storedHint.at < HINT_COOLDOWN_MS)
 
   // Server check: already flown today on another device?
@@ -370,12 +356,10 @@ export default function ZipGame({ onExit }) {
   // The reel-in is a chain of timeouts, and it must not outlive the board.
   useEffect(() => () => clearTimeout(rewindRef.current), [])
 
-  // FLIGHT PATH IS SILENT (19 Sep 2026). Ethan, plainly: he did not like the
-  // sound and wanted it gone, not defaulted off. So the coin, the engine loop,
-  // the gear thud, the fanfare, the wall bump and the two hint sounds are all
-  // removed from this game. Every one of them doubled something visual, and the
-  // visual half was always the load-bearing one: the wall FLASHES, the stop
-  // POPS, the win animates. The other puzzles keep their sound.
+  // FLIGHT PATH IS SILENT. The team, plainly: he did not like the sound and wanted it gone, not defaulted off. So the
+  // coin, the engine loop, the gear thud, the fanfare, the wall bump and the two hint sounds are all removed from this
+  // game. Every one of them doubled something visual, and the visual half was always the load-bearing one: the wall
+  // FLASHES, the stop POPS, the win animates. The other puzzles keep their sound.
 
   // My daily streak for this game (consecutive UK days played).
   useEffect(() => {
@@ -395,12 +379,10 @@ export default function ZipGame({ onExit }) {
 
   // A REFUSED MOVE IS A NUDGE, NOT AN EARTHQUAKE.
   //
-  // Ethan: "when you crash into a wall it shakes a lot, it shouldn't shake so
-  // much." It used `animate-shake`, the same ±6px over 400ms that a wrong quiz
-  // answer gets - but that is a whole board, you are mid-drag on it, and a
-  // wrong quiz answer happens once every ten seconds while a wall happens
-  // several times a second while you feel your way round one. `fp-nudge` is
-  // ±2px over 220ms: enough to feel the refusal, not enough to lose your place.
+  // It used `animate-shake`, the same ±6px over 400ms that a wrong quiz answer gets - but that is a whole board, you are
+  // mid-drag on it, and a wrong quiz answer happens once every ten seconds while a wall happens several times a second
+  // while you feel your way round one. `fp-nudge` is ±2px over 220ms: enough to feel the refusal, not enough to lose
+  // your place.
   //
   // The wall you hit lights up as well, which is the more useful half of the
   // feedback - the shake says "no", the flash says which no.
@@ -565,9 +547,7 @@ export default function ZipGame({ onExit }) {
   // thousands of valid routes, and a player flying a good one must not be told
   // they went wrong on move two. See lib/zipHint.
   //
-  // It can only ever take moves away. Ethan: "the hint should never fill in more
-  // than they've got already, just go back to correct what's wrong, and if they
-  // were right then it should stay the same."
+  // It can only ever take moves away.
   //
   // AND THE WRONG PART REELS IN RATHER THAN VANISHING. Twelve cells disappearing
   // between two frames is a board you have to re-read; the contrail retracting
@@ -615,9 +595,8 @@ export default function ZipGame({ onExit }) {
     const [px, py] = centre(path[path.length - 2])
     angle = (Math.atan2(hy - py, hx - px) * 180) / Math.PI
   }
-  // A HINT TURNS THE AIRCRAFT, IT DOES NOT FLY IT. Ethan asked for the plane to
-  // "have the plane facing in the right direction to go next" - so the heading
-  // is the one thing a hint adds, and the move is still the player's to make.
+  // A HINT TURNS THE AIRCRAFT, IT DOES NOT FLY IT. The team asked for the plane to "have the plane facing in the right
+  // direction to go next" - so the heading is the one thing a hint adds, and the move is still the player's to make.
   if (hintNext != null) {
     const [nx, ny] = centre(hintNext)
     if (nx !== hx || ny !== hy) angle = (Math.atan2(ny - hy, nx - hx) * 180) / Math.PI
@@ -639,15 +618,12 @@ export default function ZipGame({ onExit }) {
   // buttery whether the trail is 3 cells or 120 - the old one-colour-per-cell
   // approach banded visibly on short trails ("choppy at the start").
   //
-  // SMOOTHER AS IT CHANGES, NOT JUST AS IT STANDS (21 Sep 2026). Every move
-  // re-spreads the ramp over a longer route, so every piece of it changes
-  // colour at once; drawn instantly, that is a flicker along the whole trail
-  // on each step. Each piece now EASES to its new colour (a CSS transition on
-  // `stroke`), which only works if a piece keeps its place between renders -
-  // so the subdivision per cell is a step function of the route's length
-  // rather than a division that moves on every move, and the key carries it.
-  // Short routes get more pieces (a 3-cell ramp needs them to look like a
-  // gradient); long ones one per cell, where neighbours are near-identical.
+  // SMOOTHER AS IT CHANGES, NOT JUST AS IT STANDS. Every move re-spreads the ramp over a longer route, so every piece of
+  // it changes colour at once; drawn instantly, that is a flicker along the whole trail on each step. Each piece now
+  // EASES to its new colour (a CSS transition on `stroke`), which only works if a piece keeps its place between renders
+  // - so the subdivision per cell is a step function of the route's length rather than a division that moves on every
+  // move, and the key carries it. Short routes get more pieces (a 3-cell ramp needs them to look like a gradient); long
+  // ones one per cell, where neighbours are near-identical.
   const bodySegs = []
   if (trailPts.length > 1) {
     const segCount = trailPts.length - 1
@@ -792,18 +768,15 @@ export default function ZipGame({ onExit }) {
         }
       `}</style>
 
-      {/* THE HEADER IS ONE PANEL, AND THE PROGRESS IS A BAR.
-          What was here was a `flex-wrap` row of three badges on the left and
-          three things on the right, which is six items competing for 375px: on
-          a phone it wrapped into two or three ragged lines and "Back to games"
-          ended up wherever there was room. And "Sky filled 42%" was a NUMBER for
-          a quantity that is a proportion - the one thing every other mode on
-          this page draws as the gradient bar Ethan picked out.
+      {/* THE HEADER IS ONE PANEL, AND THE PROGRESS IS A BAR. What was here was a `flex-wrap` row of three badges on the
+          left and three things on the right, which is six items competing for 375px: on a phone it wrapped into two or
+          three ragged lines and "Back to games" ended up wherever there was room. And "Sky filled 42%" was a NUMBER for
+          a quantity that is a proportion - the one thing every other mode on this page draws as the gradient bar the
+          team picked out.
 
-          IT IS `PuzzleChrome` NOW (2 Sep 2026), because Guess the Country had a
-          different one and Ethan asked for them to be the same. This is the
-          design he named; the component is where it lives so the third daily
-          puzzle cannot invent a fourth. */}
+          IT IS `PuzzleChrome` NOW, because Guess the Country had a different one and the team asked for them to be the
+          same. This is the design he named; the component is where it lives so the third daily puzzle cannot invent a
+          fourth. */}
       <PuzzleChrome
         onExit={onExit}
         progress={progress}
@@ -874,9 +847,7 @@ export default function ZipGame({ onExit }) {
             onPointerCancel={onPointerUp}
             aria-label={tr("Flight path puzzle board")}
           >
-            {/* THE SKY IS A SKY AGAIN (16 Sep 2026).
-                Ethan: "the background is pure white which I think would be
-                better a nice blue/white gradient, represents the sky."
+            {/* THE SKY IS A SKY AGAIN.
 
                 It has been both. The original was a saturated three-stop blue,
                 which he rejected in September for the right reason - it was the
@@ -959,26 +930,14 @@ export default function ZipGame({ onExit }) {
             })}
             {/* over the panes, under everything that matters */}
             <rect x="0" y="0" width={W} height={W} fill="url(#fp-vignette)" style={{ pointerEvents: 'none' }} />
-            {/* A FLOWN CELL IS A LIT CELL, EDGE TO EDGE (21 Sep 2026).
-                Ethan: "whenever it's in a square, that whole square should be
-                highlighted in a light orange that's lighter than the actual
-                solid orange... rather than having the blue square whenever
-                you're actually over one. This is how the zip puzzle works on
-                LinkedIn." So every covered cell is filled, full bleed, in a
-                pale orange, and the route runs over it. Full bleed rather than
-                the pane's inset so a run of flown cells reads as one lit
-                corridor; a hairline keeps the grid legible inside it. This
-                reverses the July "no per-cell fills" rule at his request. */}
-            {/* ONE SHAPE, ROUNDED WHERE IT MEETS THE SKY (21 Sep 2026, later).
-                The cells were separate square rects: sharp corners against the
-                rounded blue panes, and a hairline of blue between neighbours
-                where two antialiased edges met. Ethan: "the corners of this are
-                really sharp. They should be rounded like the blue ones... any
-                squares that are completely filled in should obviously be
-                completely orange... We don't want blue gaps between them." So
-                the lit area is ONE path (one rasterisation, so no seams), and a
-                cell corner is rounded only where it is an outside corner of the
-                lit area - neither neighbour on that corner is flown. */}
+            {/* A FLOWN CELL IS A LIT CELL, EDGE TO EDGE. So every covered cell is filled, full bleed, in a pale orange,
+                and the route runs over it. Full bleed rather than the pane's inset so a run of flown cells reads as one
+                lit corridor; a hairline keeps the grid legible inside it. This reverses the July "no per-cell fills"
+                rule at their request. */}
+            {/* ONE SHAPE, ROUNDED WHERE IT MEETS THE SKY. The cells were separate square rects: sharp corners against
+                the rounded blue panes, and a hairline of blue between neighbours where two antialiased edges met. So the
+                lit area is ONE path (one rasterisation, so no seams), and a cell corner is rounded only where it is an
+                outside corner of the lit area - neither neighbour on that corner is flown. */}
             {path.length > 0 && (
               <path d={litD} fill="#fddcc4" style={{ pointerEvents: 'none' }} />
             )}
@@ -987,14 +946,9 @@ export default function ZipGame({ onExit }) {
                 on the route - ONE solid gradient body (round caps = rounded
                 head/tail) with two dashed white contrails on it.
 
-                21 Sep 2026, Ethan: "we have this one that's nice and rounded,
-                but then there's a secondary, more transparent one, and even a
-                third, more transparent one that's bigger than it. This looks
-                weird." The two wake glows (66 @ .38 and 84 @ .22) and the
-                start badge's halo are gone, and so are the white puffs ("we
-                can get rid of those circles. Just keep those dotted lines").
-                What the glow was doing - saying which cells are flown - is the
-                cell tint underneath now. */}
+                21 Sep 2026, The two wake glows (66 @.38 and 84 @.22) and the start badge's halo are gone, and so are the
+                white puffs ("we can get rid of those circles. Just keep those dotted lines"). What the glow was doing -
+                saying which cells are flown - is the cell tint underneath now. */}
             {path.length > 1 ? (
               <>
                 {/* solid body: a fine colour ramp (lightest at the tail, full
@@ -1009,12 +963,10 @@ export default function ZipGame({ onExit }) {
                     style={{ pointerEvents: 'none', stroke: seg.c, transition: 'stroke 320ms cubic-bezier(0.22, 1, 0.36, 1)' }}
                   />
                 ))}
-                {/* The contrail dashes stay WHITE: they are drawn ON the orange
-                    body, not on the board, so the board's colour is irrelevant
-                    to them - and white on orange is the contrast this platform
-                    uses everywhere. ONE LINE (21 Sep 2026): a second, fainter
-                    layer ran under it at half the speed, and Ethan wanted "the
-                    one nice, bright, solid one" and not the lighter echo. */}
+                {/* The contrail dashes stay WHITE: they are drawn ON the orange body, not on the board, so the board's
+                    colour is irrelevant to them - and white on orange is the contrast this platform uses everywhere. ONE
+                    LINE: a second, fainter layer ran under it at half the speed, and the team wanted "the one nice,
+                    bright, solid one" and not the lighter echo. */}
                 <path className="fp-trail-dash" d={trailD} fill="none" stroke="#ffffff" strokeWidth={5} strokeDasharray="3 16" strokeLinecap="round" strokeLinejoin="round" style={{ pointerEvents: 'none' }} />
                 {/* THE LANDING RUNS THE LENGTH OF THE ROUTE. Finishing used to
                     be a white wash dropped over the board, which hides the one
@@ -1203,11 +1155,9 @@ export default function ZipGame({ onExit }) {
             in a brand chip on the right and the buttons are 44px tall, which is
             the minimum a finger can be asked to hit.
 
-            HINT LEADS THE ROW (16 Sep 2026). It is the only button here that
-            does something you cannot do yourself, and on a legend board it is
-            the difference between finishing and giving up - so it is the one
-            wearing the brand colour and it goes first. Undo and Restart are
-            still exactly where they were. */}
+            HINT LEADS THE ROW. It is the only button here that does something you cannot do yourself, and on a legend
+            board it is the difference between finishing and giving up - so it is the one wearing the brand colour and it
+            goes first. Undo and Restart are still exactly where they were. */}
         {!solved && !checking && (
           <div className="mt-4 flex flex-col items-center gap-2">
             <div className="flex flex-wrap items-center justify-center gap-2.5 sm:gap-3">

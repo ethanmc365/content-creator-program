@@ -42,10 +42,11 @@ function hrefFrom(target) {
   return href.split('?')[0].split('#')[0]
 }
 
-// THE PROFILE ITSELF, TOO (5 Oct 2026). Ethan: opening a profile on a phone "takes a little while for the animation to kick in". The chunk was
-// already warm; what was left was the data - the person's row and your connection to them. The same 80-300ms of warning that fetches the code
-// fetches those, into the page cache the profile reads from on its first frame (pages/Profile). Only ever fills an EMPTY cache entry and never
-// throws: a miss just means the profile fetches for itself as before.
+// THE PROFILE ITSELF, TOO. The team: opening a profile on a phone "takes a little while for the animation to kick in".
+// The chunk was already warm; what was left was the data - the person's row and your connection to them. The same
+// 80-300ms of warning that fetches the code fetches those, into the page cache the profile reads from on its first frame
+// (pages/Profile). Only ever fills an EMPTY cache entry and never throws: a miss just means the profile fetches for
+// itself as before.
 const warming = new Set()
 const PROFILE_PATH = /^\/profile\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i
 function warmProfile(id) {

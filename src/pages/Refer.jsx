@@ -98,9 +98,8 @@ export default function Refer() {
       {/* The page assembles top to bottom rather than appearing whole. */}
       <Reveal stagger={0.06}>
       {/* Reward incentive + progress.
-          EVERY THREE, NOT THE FIRST THREE (22 Sep 2026). The bar is progress
-          towards the NEXT voucher and fills again after each one; the vouchers
-          already earned sit beside it as their own count. */}
+          EVERY THREE, NOT THE FIRST THREE. The bar is progress towards the NEXT voucher and fills again after each one;
+          the vouchers already earned sit beside it as their own count. */}
       <section className="mb-8 overflow-hidden rounded-card bg-gradient-to-br from-brand to-brand-light p-7 text-white shadow-lift sm:p-8">
         <p className="text-xl font-bold sm:text-2xl">
           {tr('Refer {n} creators, earn a {amount} {label}', { n: terms.per, amount: prize, label: terms.label })}
@@ -188,10 +187,9 @@ export default function Refer() {
         )}
       </section>
 
-      {/* ALL-TIME, AND IT COUNTS WHAT THE VOUCHER COUNTS (28 Sep 2026).
-          Outstanding from the brief. This page told a creator how they were
-          doing and nothing about anybody else, which is the one thing a
-          referral scheme can usually make interesting.
+      {/* ALL-TIME, AND IT COUNTS WHAT THE VOUCHER COUNTS. Outstanding from the brief. This page told a creator how they
+          were doing and nothing about anybody else, which is the one thing a referral scheme can usually make
+          interesting.
 
           It ranks on COUNTED referrals - somebody who signed up AND posted -
           because that is the rule the voucher has been paid on since July, and

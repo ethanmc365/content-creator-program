@@ -12,10 +12,6 @@ import { submissionsApi } from '../api/submissions'
 
 // A LINE FROM THE TEAM ON EVERY ENTRY.
 //
-// Ethan: "I want admins to be able to give feedback on every entry, positive or
-// constructive. It shows up when they view their own entry, but other creators
-// won't see it."
-//
 // WHY THIS IS WORTH THE TABLE IT COSTS. A challenge with forty entries gives
 // thirty-nine people nothing back: they post, the leaderboard moves, somebody
 // else wins. One sentence that proves a human watched the video is the whole
@@ -134,11 +130,9 @@ export function EntryFeedbackEditor({ submissionId, creatorName, feedback, onSav
 
 // THE ENTRY, INSIDE THE DM.
 //
-// Ethan asked for the feedback to arrive "as a DM with a specific card showing
-// their entry, like the entry card with the feedback attached". The feedback
-// itself is the message body; this is the entry it is about, so the creator does
-// not have to go and work out which video the team means. A thumbnail, the
-// challenge it was for, and a way to open it.
+// The team asked for the feedback to arrive "as a DM with a specific card showing their entry, like the entry card with
+// the feedback attached". The feedback itself is the message body; this is the entry it is about, so the creator does
+// not have to go and work out which video the team means. A thumbnail, the challenge it was for, and a way to open it.
 //
 // Deliberately NOT the full entry card from the challenge page: that one carries
 // a play button, a view count and a remove button, none of which belong in a

@@ -6,29 +6,20 @@ import { toastSuccess } from '../lib/toast'
 import { useT } from '../lib/i18n'
 import { cx, formatDate, formatMoney } from '../lib/utils'
 
-// A VOUCHER, DRAWN AS ONE (24 Sep 2026).
-//
-// Ethan: "enter the voucher code, which would then appear on a nice graphic like
-// a ticket or voucher, just simple, matching the Tryp.com platform and style...
-// whenever they've used it they can mark it as used with a button, like a tick."
+// A VOUCHER, DRAWN AS ONE.
 //
 // Two parts: the brand panel carries WHAT it is (the amount, where it came
 // from), the white half carries the CODE, which is the only thing on it anybody
 // will copy. A used voucher greys out and is stamped rather than removed - it
 // is still a record of something earned.
 //
-// ONE PIECE (26 Sep 2026). Ethan: "I still want that orange card to be like
-// joined onto the white card, but there to be no border around the orange
-// part ... so it does look like an actual ticket rather than just the orange
-// part inside." The stub now runs to the card's own edge on three sides, and
-// the hairline border belongs to the white half alone.
+// ONE PIECE. The stub now runs to the card's own edge on three sides, and the hairline border belongs to the white half
+// alone.
 //
-// NO PERFORATION (24 Sep 2026). Ethan: "The way it's cut the little circles on
-// two of the corners, I don't like that. Maybe just make it rounded, and remove
-// the dotted line." The orange panel is now its own fully rounded tile, inset
-// in a white card - clean, and it still reads as a voucher.
+// NO PERFORATION. The orange panel is now its own fully rounded tile, inset in a white card - clean, and it still reads
+// as a voucher.
 //
-// A VOUCHER WITH NO CODE ON IT YET IS STILL A VOUCHER (29 Sep 2026).
+// A VOUCHER WITH NO CODE ON IT YET IS STILL A VOUCHER.
 //
 // The ticket used to require a code to exist, and the wallet filtered on the
 // same thing, so an awarded voucher whose code the team had not typed in yet
@@ -49,9 +40,8 @@ export default function VoucherTicket({ reward, onToggleUsed, busy = false }) {
   const [copied, setCopied] = useState(false)
   const code = reward.voucher_code?.trim()
   const used = !!reward.used_at
-  // ISSUED BY CHAT (29 Sep 2026). Vouchers handed over before codes lived on the
-  // platform have none here, and "being prepared" told a creator who already HAD
-  // theirs that they were still waiting. It says what actually happened.
+  // ISSUED BY CHAT. Vouchers handed over before codes lived on the platform have none here, and "being prepared" told a
+  // creator who already HAD theirs that they were still waiting. It says what actually happened.
   const byChat = !code
   const from = reward.challenges?.title
     || (reward.milestones?.title && `${tr('Milestone')}: ${reward.milestones.title}`)

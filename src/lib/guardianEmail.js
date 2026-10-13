@@ -1,7 +1,7 @@
-// THE EMAIL THE TEAM SENDS A PARENT OR GUARDIAN (12 Oct 2026).
+// THE EMAIL THE TEAM SENDS A PARENT OR GUARDIAN.
 //
-// Ethan sends it himself from ethan@tryp.com: the platform cannot mail outside addresses until mail.tryp.com is
-// verified, and he asked to do it. Admin > Agreements > Register copies it with the creator's own link filled in, in
+// The team sends it himself from ethan@tryp.com: the platform cannot mail outside addresses until mail.tryp.com is
+// verified, and they asked to do it. Admin > Agreements > Register copies it with the creator's own link filled in, in
 // the parent's likely language (the creator's app language, else their country), English otherwise.
 
 const T = {

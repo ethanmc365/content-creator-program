@@ -5,17 +5,15 @@ import { noteExcerpt } from '../lib/noteMarkdown'
 import { useT } from '../lib/i18n'
 import { contentApi } from '../api/content'
 
-// An inline guide card inside a chat message. The resource library itself was retired on 12 Oct 2026 (Video ideas took
-// its place), so cards already posted still show what they shared, with no link to a page that is gone.
+// An inline guide card inside a chat message. The resource library itself was retired (Video ideas took its place), so
+// cards already posted still show what they shared, with no link to a page that is gone.
 //
 // WHAT CHANGED, 26 Aug 2026
 //
 // The snippet was `resource.body.slice(0, 140)` printed with `whitespace-pre-line`
-// - the RAW markdown. So the one place a resource is advertised showed the
-// reader "## Do's and don'ts \n\n* Shoot vertical", hashes and asterisks
-// included. That is the "stray * or #" Ethan asked to stop seeing, surviving in
-// the surface that reaches the most people. `noteExcerpt` is the same stripper
-// the note cards use.
+// - the RAW markdown. So the one place a resource is advertised showed the reader "## Do's and don'ts \n\n* Shoot
+//   vertical", hashes and asterisks included. That is the "stray * or #" the team asked to stop seeing, surviving in the
+//   surface that reaches the most people. `noteExcerpt` is the same stripper the note cards use.
 //
 // And the card is left-aligned now. It was centred, which is right for a poll
 // (a title and a row of options) and wrong for a paragraph of prose: centred

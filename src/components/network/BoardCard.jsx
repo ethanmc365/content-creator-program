@@ -15,14 +15,10 @@ import Reveal from './Reveal'
 // failure mode is specific: it only works if somebody answers, so a question has
 // to be seen by people who are not looking for it. This card is that.
 //
-// WHAT CHANGED. It was three list rows - an icon square, a title, a subtitle, a
-// chevron - which is the shape of every other list on the hub and told a reader
-// nothing about what they were about to open. Ethan: "maybe 3 little post-it
-// notes showing only the question, and they look cool and move like the others
-// when you hover over them and they are clickable to open up better on the
-// board." So they are the same object as the notes on the wall: pinned paper,
-// tilted a degree, straightening as you reach for them. Seeing them here means
-// the board is already familiar the first time you open it.
+// WHAT CHANGED. It was three list rows - an icon square, a title, a subtitle, a chevron - which is the shape of every
+// other list on the hub and told a reader nothing about what they were about to open. So they are the same object as the
+// notes on the wall: pinned paper, tilted a degree, straightening as you reach for them. Seeing them here means the
+// board is already familiar the first time you open it.
 //
 // THE THREE MOST RECENT, ALWAYS. It used to lead with UNANSWERED questions and
 // fall back to recent ones, which was a defensible idea and had one bad
@@ -120,7 +116,7 @@ export default function BoardCard({ className }) {
           travelling and the note does the tilting. CSS and not Motion because
           the hub is eagerly routed.
 
-          AND IT IS `Reveal`, NOT A HAND-WRITTEN `reveal is-in` (18 Sep 2026).
+          AND IT IS `Reveal`, NOT A HAND-WRITTEN `reveal is-in`.
           THE BUG THIS FIXES: the container was born carrying `is-in`, so the
           three notes were at their finished opacity and offset on the very
           first frame. A CSS transition needs the FROM state painted before the
@@ -149,13 +145,10 @@ export default function BoardCard({ className }) {
                   <Icon name={t.icon} className="h-3 w-3 shrink-0" />
                   <span className="truncate">{q.tag === 'country' && q.country ? q.country : t.short}</span>
                 </span>
-                {/* The state, as the one coloured thing on the card, and it
-                    says what it means. It used to read "Open" for a question
-                    nobody had answered and a bare number otherwise - so the
-                    two states were a word and a digit in the same chip, and
-                    neither said what it was counting. "Open" is also
-                    genuinely ambiguous: open as opposed to closed? Locked?
-                    Ethan: "I don't get the 'open' thing." */}
+                {/* The state, as the one coloured thing on the card, and it says what it means. It used to read "Open"
+                    for a question nobody had answered and a bare number otherwise - so the two states were a word and a
+                    digit in the same chip, and neither said what it was counting. "Open" is also genuinely ambiguous:
+                    open as opposed to closed? Locked? */}
                 <span className={cx(
                   'ml-auto shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold',
                   open ? 'bg-brand-tint text-brand' : 'bg-green-50 text-green-700',

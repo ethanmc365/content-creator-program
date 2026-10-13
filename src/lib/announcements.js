@@ -16,10 +16,7 @@ export const ANNOUNCEMENT_MAX_AGE_DAYS = 15
 // TWO, AT MOST, ON THE HUB.
 //
 // One per room is the right RULE - it stops a chatty market burying a quiet one
-// - but it is not a limit, and an admin in seven markets would get seven cards
-// where a creator gets one. Ethan: "if they're in two markets it should show
-// the two last announcements from the market, and if they're in two plus
-// markets they still only show the two most recent ones."
+// - but it is not a limit, and an admin in seven markets would get seven cards where a creator gets one.
 export const ANNOUNCEMENT_LIMIT = 2
 
 /**

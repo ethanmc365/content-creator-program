@@ -75,16 +75,12 @@ export default function GoogleButton({ referral, label }) {
   }
 
   return (
-    // THE DIVIDER IS ABOVE THE BUTTON, BECAUSE THE BUTTON IS BELOW THE FORM
-    // (7 Sep 2026). Ethan: "I was thinking you could improve the UI and button
-    // placement of that sign up screen - it is currently at the top but I think
-    // usually it's at the bottom somewhere and would make more sense there."
+    // THE DIVIDER IS ABOVE THE BUTTON, BECAUSE THE BUTTON IS BELOW THE FORM.
     //
-    // He is right and it is the convention for a reason. The email form is the
-    // primary path and the one the page's own heading is about; a third-party
-    // button above it makes the form look like the fallback, and it pushes the
-    // first field below the fold on a phone. Underneath, the reading order is
-    // the honest one: here is the form, or, if you would rather, one tap.
+    // they are right and it is the convention for a reason. The email form is the primary path and the one the page's
+    // own heading is about; a third-party button above it makes the form look like the fallback, and it pushes the first
+    // field below the fold on a phone. Underneath, the reading order is the honest one: here is the form, or, if you
+    // would rather, one tap.
     <div className="space-y-5">
       <div className="flex items-center gap-3" aria-hidden>
         <span className="h-px flex-1 bg-gray-100" />
