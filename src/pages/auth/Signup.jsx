@@ -13,6 +13,7 @@ import GoogleButton from '../../components/GoogleButton'
 import { vipApi } from '../../api/vip'
 import { teamApi } from '../../api/team'
 import { moneyApi } from '../../api/money'
+import { authMessage } from '../../lib/authMessages'
 
 // Public creator signup. New accounts are creators by default - // admins are promoted later (see README → "Making an account an admin").
 // `?demo=1`, for an admin only, renders this page inertly inside the Testing
@@ -184,7 +185,7 @@ export default function Signup() {
       // guessing learns only what GoTrue already told them.
       setError(/already registered|already exists/i.test(error.message)
         ? tr('That email already has an account. Log in with your password, or use Continue with Google if that is how you joined. Forgotten your password? Reset it from the log in page.')
-        : error.message)
+        : authMessage(error.message))
       setCaptchaToken(''); setCaptchaKey((k) => k + 1) // tokens are single-use; reset for retry
       return
     }

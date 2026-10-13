@@ -7,6 +7,7 @@ import AuthShell, { DemoCaptcha } from './AuthShell'
 import { useDemoMode } from '../../lib/demoMode'
 import { useT } from '../../lib/i18n'
 import GoogleButton from '../../components/GoogleButton'
+import { authMessage } from '../../lib/authMessages'
 
 // `?demo=1`, admins only, renders this page inertly for the Testing Centre.
 export default function Login() {
@@ -63,7 +64,7 @@ export default function Login() {
       // recognises their own situation in it.
       setError(error.message === 'Invalid login credentials'
         ? tr('Email or password is incorrect. If you joined with Google, use Continue with Google below, or reset your password to set one.')
-        : error.message)
+        : authMessage(error.message))
       setCaptchaToken(''); setCaptchaKey((k) => k + 1) // tokens are single-use; reset for retry
       return
     }

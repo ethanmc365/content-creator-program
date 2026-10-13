@@ -6,6 +6,7 @@ import Turnstile from '../../components/Turnstile'
 import AuthShell, { DemoCaptcha } from './AuthShell'
 import { useDemoMode } from '../../lib/demoMode'
 import { useT } from '../../lib/i18n'
+import { authMessage } from '../../lib/authMessages'
 
 // Step 1 of the reset flow: enter your email → Supabase sends a reset link
 // that lands on /reset-password.
@@ -29,7 +30,7 @@ export default function ForgotPassword() {
     const { error } = await sendPasswordReset(emailVal, captchaToken)
     setBusy(false)
     if (error) {
-      setError(error.message)
+      setError(authMessage(error.message))
       setCaptchaToken(''); setCaptchaKey((k) => k + 1)
     } else setSent(true)
   }
