@@ -34,7 +34,7 @@ import { useT } from '../../lib/i18n'
 // says so, because a sync feature that silently lags is worse than one that
 // told you it might.
 
-const FEED_BASE = 'https://heuhqqoxyggawuckxocp.supabase.co/functions/v1/calendar-feed'
+const FEED_BASE = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/calendar-feed`
 
 export default function SubscribeCalendar({ open, onClose }) {
   const tr = useT()

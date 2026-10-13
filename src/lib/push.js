@@ -140,7 +140,7 @@ export async function showLocalNotification({ title, body, link, tag }) {
 
 // Delivery receipts parked by public/sw.js (the worker does no network work on a push, so the phone is not kept awake).
 // Sent from the page the next time it is on screen.
-const TRACK_URL = 'https://heuhqqoxyggawuckxocp.supabase.co/functions/v1/push-track'
+const TRACK_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/push-track`
 export async function flushReceipts() {
   if (typeof caches === 'undefined') return
   try {

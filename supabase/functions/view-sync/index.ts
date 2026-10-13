@@ -1201,6 +1201,7 @@ type Row = {
   // 'manual' = the team typed the number because the platform will not state one (9 Oct 2026).
   views_source?: string | null
   screen_text?: string | null
+  views_synced_at?: string | null
 }
 
 async function publishRun(value: Record<string, unknown>) {
@@ -1277,8 +1278,14 @@ async function syncChunk(rows: Row[], progress: Progress): Promise<Progress> {
       p.failed += 1
     } else {
       const source = r.platform ? SOURCE[r.platform] : 'manual'
+      // One unchanged reading a day is all the history needs: the readers of
+      // view_snapshots (daily gains, sparklines) work per day. An hourly sync
+      // used to add a row per entry per hour even when nothing had moved.
+      // VIP readings are kept in full - they decide what VIPs are paid.
+      const readToday = !!row.views_synced_at && row.views_synced_at.slice(0, 10) === now.slice(0, 10)
+      const unchangedToday = readToday && row.logged_views === r.views
       if (row.vip) await supabase.from('vip_view_readings').insert({ video_id: row.id, views: r.views, source })
-      else await supabase.from('view_snapshots').insert({ submission_id: row.id, views: r.views, source })
+      else if (!unchangedToday) await supabase.from('view_snapshots').insert({ submission_id: row.id, views: r.views, source })
 
       // The platform is the source of truth, full stop. An earlier version
       // refused to write a reading that was LOWER than the saved number, on the
@@ -1368,7 +1375,7 @@ async function eligibleChallengeIds(): Promise<string[]> {
   return (data ?? []).map((c: { id: string }) => c.id)
 }
 
-const ROW_COLS = 'id, video_url, platform, logged_views, platform_video_id, creator_id, posted_at, screen_text'
+const ROW_COLS = 'id, video_url, platform, logged_views, platform_video_id, creator_id, posted_at, screen_text, views_synced_at'
 
 // STALENESS BELONGS TO THE ENTRY, not to the run. Oldest reading first, so a
 // programme too big to read in one go drains evenly instead of the same first

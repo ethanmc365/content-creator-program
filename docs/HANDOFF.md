@@ -1,5 +1,10 @@
 # Tryp.com creator platform: handoff
 
+> **Historical (8 Aug 2026).** Much of this is out of date. Current docs:
+> [README](../README.md), [ARCHITECTURE](ARCHITECTURE.md),
+> [MOVING_TO_TRYP_INFRASTRUCTURE](MOVING_TO_TRYP_INFRASTRUCTURE.md), and the
+> live schema snapshot in `supabase/schema/`.
+
 Paste this whole file to start a session. **Current as of 8 August 2026.**
 Keep it lean: it is read every time, so stale detail costs tokens on every turn.
 

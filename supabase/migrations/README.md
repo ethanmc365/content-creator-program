@@ -1,5 +1,10 @@
 # Migrations
 
+> **What is live right now is in `supabase/schema/`**, a generated snapshot of
+> every table, function, trigger, policy and cron job (refresh with
+> `node scripts/schema-snapshot.mjs`, needs only an account token). This folder
+> is the history of how it got there and cannot rebuild the database on its own.
+
 ## THE RULE, and the bug that bought it
 
 **Never retype the body of a live function. Read it first.**

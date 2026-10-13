@@ -63,13 +63,33 @@ export default function Leaderboard() {
   // Views arrive on their own (the hourly sync writes straight to
   // submissions.logged_views), so the board re-ranks in place rather than
   // making people refresh to watch it move.
+  //
+  // ONE RELOAD PER BURST, NOT PER ROW (13 Oct 2026). The sync writes every
+  // entry it reads, hundreds in a row, and each write used to re-run the whole
+  // leaderboard query for every open board. Changes now settle for a moment
+  // and reload once; a hidden tab waits until it is looked at again.
   useEffect(() => {
+    let timer = null
+    let missed = false
+    const soon = () => {
+      if (document.visibilityState === 'hidden') { missed = true; return }
+      clearTimeout(timer)
+      timer = setTimeout(load, 1500)
+    }
+    const onVisible = () => {
+      if (document.visibilityState === 'visible' && missed) { missed = false; soon() }
+    }
     const channel = supabase
       .channel('leaderboard-submissions')
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'submissions' }, () => load())
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'submissions' }, () => load())
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'submissions' }, soon)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'submissions' }, soon)
       .subscribe()
-    return () => { supabase.removeChannel(channel) }
+    document.addEventListener('visibilitychange', onVisible)
+    return () => {
+      clearTimeout(timer)
+      document.removeEventListener('visibilitychange', onVisible)
+      supabase.removeChannel(channel)
+    }
   }, [load])
 
   const [expanded, setExpanded] = useState(false)
