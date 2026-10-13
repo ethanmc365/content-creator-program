@@ -524,7 +524,7 @@ export default function TourHost({ onFinish, network = false, layout = 'desktop'
   //
   // IT LISTENED TO THE WINDOW AND ONLY THE WINDOW.
   //
-  // they were scrolling, and the step could not tell.
+  // They were scrolling, and the step could not tell.
   //
   // `window.scrollY` is right for a page that scrolls the document, and this
   // app has several surfaces that do not: a chat thread, the market rail, any

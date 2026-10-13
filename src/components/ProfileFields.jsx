@@ -206,7 +206,7 @@ export function AvatarUpload({ photoUrl, name, onUploaded, onUploadStart, maxDim
   const shown = preview || photoUrl
   // ONE WORD FOR THE WHOLE WAIT.
   //
-  // they are right, and the reason is that "reading" was describing OUR internals, not their experience. From the moment
+  // They are right, and the reason is that "reading" was describing OUR internals, not their experience. From the moment
   // a photo is chosen to the moment it is on the profile there is exactly one thing happening as far as the person
   // holding the phone is concerned, and they called it uploading. Splitting it into a convert phase and an upload phase
   // made the label CHANGE halfway through a wait, which reads as a restart - the opposite of the reassurance a progress

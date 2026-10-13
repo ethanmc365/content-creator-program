@@ -557,7 +557,7 @@ export default function Onboarding() {
   // ---------------------------------------------------------------- views ---
   // ONE SCREEN AFTER SUBMIT, NOT TWO.
   //
-  // they were watching a handover nobody had looked at end to end. This page drew a flying-plane scene while the save
+  // They were watching a handover nobody had looked at end to end. This page drew a flying-plane scene while the save
   // was in flight; the save finished, `refreshProfile` ran, the router sent them to /home, and ProtectedRoute drew ITS
   // pending screen - which was a second flying-plane scene with almost the same sentence on it. Two full-screen
   // animations for one action, with a navigation between them.

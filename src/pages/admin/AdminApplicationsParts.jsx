@@ -57,7 +57,7 @@ import { cx } from '../../lib/utils'
 // and the assumed baseline; "speaks English" is not a reason to move anybody.
 // THE LANGUAGE COLOURS ARE GONE.
 //
-// they are right, and the reason is worth keeping: the ONE colour that carries meaning on that row is the brand
+// They are right, and the reason is worth keeping: the ONE colour that carries meaning on that row is the brand
 // highlight on a language pointing at another market. Six tinted chips compete with the single signal the section exists
 // for, which is the opposite of standing out.
 

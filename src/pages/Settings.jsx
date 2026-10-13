@@ -674,7 +674,7 @@ export default function Settings() {
   // - messages, captions and names - are never translated.' It's not needed, we
   // just need the simple ui to choose the language."
   //
-  // they are right and the reason is worth keeping: both lines explained a rule nobody is going to be surprised by. Two
+  // They are right and the reason is worth keeping: both lines explained a rule nobody is going to be surprised by. Two
   // sentences of caveat around two buttons is a page that reads as an apology for a feature. The rule itself has not
   // changed - `t()` is only ever called on literals in this repository, and never on anything a person wrote - it just
   // does not need announcing.
@@ -732,7 +732,7 @@ export default function Settings() {
   // This used to be two: a menu of section cards that opened one section at a time on a phone, and a three-column wall
   // of every card at once on a desktop.
   //
-  // they are right, and the reason is not screen size. A settings page is not read, it is VISITED - you arrive knowing
+  // They are right, and the reason is not screen size. A settings page is not read, it is VISITED - you arrive knowing
   // the one thing you came to change. Six cards side by side makes you scan all six to find it; a menu names all six in
   // one glance and then gets out of the way. The width a desktop has spare is better spent on breathing room around the
   // thing you actually opened than on showing you five things you did not.

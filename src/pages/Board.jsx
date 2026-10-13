@@ -205,7 +205,7 @@ function AskModal({ open, onClose, onAsked, existing = null }) {
 //
 // A STICKY NOTE ON A BOARD, NOT A ROW IN A LIST.
 //
-// they are describing the thing the feature already IS - a place where questions are pinned up and left - and the old
+// They are describing the thing the feature already IS - a place where questions are pinned up and left - and the old
 // card, a wide white rectangle in a two-column list, was the shape of every other feed in the app.
 //
 // The design does three things a list cannot:
@@ -242,7 +242,7 @@ function AskModal({ open, onClose, onAsked, existing = null }) {
 // rather than a decal, and the note heights were floored by a hash so the wall
 // looked hand-made.
 //
-// they are right, and the reason is worth writing down because the old version was not badly built, it was built to the
+// They are right, and the reason is worth writing down because the old version was not badly built, it was built to the
 // wrong brief. Every other surface in this product is the same object: a white card, square to the page, soft even
 // shadow, rounded corners, lifting straight up on hover. The board was the one page pretending to be a physical thing,
 // and a skeuomorph in the middle of a flat system does not read as charming, it reads as a page from a different app.

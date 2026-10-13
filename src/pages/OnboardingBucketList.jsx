@@ -7,7 +7,7 @@ import { useT } from '../lib/i18n'
 /**
  * THE BUCKET LIST, CALLED THE BUCKET LIST.
  *
- * they wrote the brief and he could not tell what the field was for, which is about as clear a verdict as a label can
+ * They wrote the brief and he could not tell what the field was for, which is about as clear a verdict as a label can
  * get. "Where you are headed next" describes a TRIP - something with dates, something the calendar and the collab board
  * deal in - and this is neither: it writes `profiles.bucket_list`, it has no dates, and the profile has always drawn it
  * under the heading "Bucket list". Three surfaces, one column, two names.

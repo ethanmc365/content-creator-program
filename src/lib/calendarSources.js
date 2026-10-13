@@ -12,7 +12,7 @@ import { flightsApi } from '../api/flights'
 // that belong to one specific creator and were only ever visible on the page
 // that owned them:
 //
-//   their flights          - `/flights` knew you were flying to Paris on the 1st
+//   Their flights          - `/flights` knew you were flying to Paris on the 1st
 //   their collab trips     - `/collab` knew you were in Paris until the 6th
 //   their invoices         - `/admin/rewards` knew you were being paid on the 12th
 //   their own content days - nowhere, because they did not exist

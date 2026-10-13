@@ -343,7 +343,7 @@ export function MapShape() {
 
 // THE CALENDAR, MEASURED AGAINST THE REAL PAGE RATHER THAN IMAGINED.
 //
-// they are right, and the old one was wrong in four ways at once. Measured on production at 375px, the page below the
+// They are right, and the old one was wrong in four ways at once. Measured on production at 375px, the page below the
 // header is:
 //
 //   77px  the "Next up" strip - a card, not a bare 80px block

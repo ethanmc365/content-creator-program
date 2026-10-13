@@ -689,7 +689,7 @@ export default function MilestonePath({ milestones = [], standings = [], who = n
             /*
              * THE MARKER IS THE FACE, AND ONLY THE FACE.
              *
-             * they are right, and the reason is worth writing down so nobody puts it back. The aeroplane was doing two
+             * They are right, and the reason is worth writing down so nobody puts it back. The aeroplane was doing two
              * jobs badly. It was a SECOND object travelling the same path 30px ahead of the face, so the eye had to
              * decide which of the two was "you" - and on a curve the two separated visibly, because one rotated to the
              * tangent and the other deliberately did not. And it was a duplicate metaphor: the route is already drawn as

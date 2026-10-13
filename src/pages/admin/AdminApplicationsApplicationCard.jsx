@@ -15,7 +15,7 @@ function gapDays(app) {
 
 // THE "WHAT IS MISSING" CHIPS ARE GONE.
 //
-// they are right, and `gapsIn` was solving a problem the card no longer has: the bio, the links, the photo and the
+// They are right, and `gapsIn` was solving a problem the card no longer has: the bio, the links, the photo and the
 // languages are all ON the card, so a second row of chips saying "no links" under a row that visibly has no links is the
 // page explaining itself to somebody who can already see.
 

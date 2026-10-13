@@ -159,7 +159,7 @@ export function useNotificationPrefs() {
   }
   // THERE IS NO "TURN OFF" BUTTON, AND THAT IS DELIBERATE.
   //
-  // they are right, and the reason is that this button never did what it looked like it did. It dropped the SUBSCRIPTION
+  // They are right, and the reason is that this button never did what it looked like it did. It dropped the SUBSCRIPTION
   // but it cannot touch the browser PERMISSION, so pressing it left the device permanently permitted and silently
   // unsubscribed - a state no operating system setting explains and which reads as "notifications are broken". The
   // switch that genuinely turns them off lives in iOS and Android settings, is one somebody already knows how to find,

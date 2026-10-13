@@ -12,7 +12,7 @@ export const TRYP_URL = 'https://www.tryp.com'
 // The team, about "Real cash prizes" and "Travel vouchers" and then again about "How it works": "rather than having the
 // orange background square, it should just be a full Tryp.com orange icon. No need for the background."
 //
-// they are right, and the reason is worth keeping so nobody puts the tile back. A `bg-brand-tint` rounded square is a
+// They are right, and the reason is worth keeping so nobody puts the tile back. A `bg-brand-tint` rounded square is a
 // BUTTON shape - it is the same 44px affordance the app uses for something you press - so four of them down a marketing
 // page read as four controls that do nothing. It also spent the brand's one colour on a wash: the tint is 8% orange
 // behind a 20px glyph, so the loudest thing in the card was a pale rectangle rather than the mark inside it.

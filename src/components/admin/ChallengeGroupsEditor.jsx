@@ -99,7 +99,7 @@ export default function ChallengeGroupsEditor({ groups, onChange, audience = [],
 
   // SPLITTING MAKES TWO, NOT ONE.
   //
-  // they are right that one group is not a split - it is the same single leaderboard with a name on it, and every admin
+  // They are right that one group is not a split - it is the same single leaderboard with a name on it, and every admin
   // who pressed the button then had to press a second one to get to the state they had asked for.
   function startGroups() {
     onChange([makeGroup(0), makeGroup(1)])

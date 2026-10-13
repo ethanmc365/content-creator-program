@@ -256,7 +256,7 @@ export function buildChallengeCards(data, tr = (s, v) => String(s).replace(/\{(\
 
   // "YOUR CHALLENGE IN NUMBERS" IS GONE.
   //
-  // they are right: every fact on it had already been said. The entries count and the view total are the "What you made"
+  // They are right: every fact on it had already been said. The entries count and the view total are the "What you made"
   // card, the placing is "Where you finished", and the strongest platform is implied by the posters. A recap that
   // repeats itself in a different layout is longer without being fuller. The card and the figures it alone computed have
   // gone with it.

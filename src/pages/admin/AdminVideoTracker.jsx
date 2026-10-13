@@ -480,7 +480,7 @@ function VideoCard({ v, onOpen, eager = false, hook = null, translated = false }
   //
   // EVERY PLATFORM GETS A FRAME NOW, INCLUDING INSTAGRAM.
   //
-  // they are describing a real asymmetry with a boring cause: TikTok and YouTube publish tokenless oEmbed endpoints and
+  // They are describing a real asymmetry with a boring cause: TikTok and YouTube publish tokenless oEmbed endpoints and
   // Instagram does not, so the browser-side lookup could only ever answer for two of the three. The third answer has
   // existed since this morning and nothing was asking for it - the `view-sync` probe reads Instagram server-side for the
   // view count and brings a `thumbnail` back with it. `resolveThumbnail` is the one place that knows all three routes

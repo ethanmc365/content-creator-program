@@ -93,7 +93,7 @@ const WORD_FIELDS = [
   { key: 'about_title', label: 'About: heading', lines: 1, max: 34 },
   // THE CAP IS THE ROOM ON THE PAGE, MEASURED.
   //
-  // they are right and 600 was a guess. The About slide's text column is 528px wide at 17px/1.8, which is ~58 characters
+  // They are right and 600 was a guess. The About slide's text column is 528px wide at 17px/1.8, which is ~58 characters
   // a line and 30.6px a line, and the column runs from y=210 to the kit chips at y=700 of a 720 page - call it fifteen
   // lines before anything is at risk, which is ~870 characters. 900 is that with the last line's slack, and the counter
   // now appears where the page actually starts to fill up rather than at the halfway mark.

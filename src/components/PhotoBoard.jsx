@@ -815,7 +815,7 @@ export default function PhotoBoard({ creatorId, editable = false, alwaysArrangin
       || String(a.id).localeCompare(String(b.id)))
     // TIDYING PUTS EVERYTHING AT THE MIDDLE SIZE, NOT THE SMALLEST.
     //
-    // they are right, and the reason is what the button is FOR. "Tidy" means "put this board back into a good default",
+    // They are right, and the reason is what the button is FOR. "Tidy" means "put this board back into a good default",
     // and the smallest size is not a default, it is one end of the ladder - a wall of tiny thumbnails is not what
     // anybody would arrange by hand. `medium` is the size a photograph is actually worth looking at on this board, and
     // it is still one press from either of the others.

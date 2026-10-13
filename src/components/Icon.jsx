@@ -130,7 +130,7 @@ const PATHS = {
   // ----------------------------------------------------------------------
   // THE PLATFORM GLYPHS THE INSTALL STEPS NAME.
   //
-  // they are right that they were wrong: the card was drawing Heroicons' `share`, which is the three-nodes-and-two-lines
+  // They are right that they were wrong: the card was drawing Heroicons' `share`, which is the three-nodes-and-two-lines
   // network glyph, for a button that on iOS is a box with an arrow coming out of the top. An instruction that names a
   // symbol and then draws a different symbol is worse than no symbol.
   //

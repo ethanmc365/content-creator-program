@@ -1,6 +1,6 @@
 // WHAT THE PERSON WAS DOING WHEN IT BROKE.
 //
-// they are right, and the reason a row is unreadable is not that too little is stored - it is that what IS stored is the
+// They are right, and the reason a row is unreadable is not that too little is stored - it is that what IS stored is the
 // wrong thing. A production stack trace reads `Fa@.../ui-BaIenqY-.js:4:29678`, and the React component stack reads `Fa /
 // button / div / md / div / Nd`. Both are minified, both name nothing, and neither can be de-minified without source
 // maps uploaded to Sentry with an auth token this build does not have.

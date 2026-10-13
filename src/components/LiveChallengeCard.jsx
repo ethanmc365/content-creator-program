@@ -70,7 +70,7 @@ function prizeForPlace(prizes, place) {
 // button on purpose and this would put most of it back.
 // IT IS A WHITE CARD, NOT A TINT OF THE ORANGE IT SITS ON.
 //
-// they are describing `bg-white/[0.14]` over a gradient: fourteen percent of white over orange is orange, so the panel
+// They are describing `bg-white/[0.14]` over a gradient: fourteen percent of white over orange is orange, so the panel
 // had no edge of its own and every row of it was white text on the same ground as the paragraph beside it. Nothing said
 // "this is a leaderboard" except the word.
 //

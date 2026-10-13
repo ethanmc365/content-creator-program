@@ -26,7 +26,7 @@ import { flightsApi } from '../api/flights'
 // All of this used to be two sections near the bottom of `/flights`, under a records wall, a streak, an airline ranking,
 // a year-by-year chart and the log itself.
 //
-// they are right, and the reason is that they answer a different question with a different owner. `/flights` is about
+// They are right, and the reason is that they answer a different question with a different owner. `/flights` is about
 // YOU - it is a private record, and every number on it is your own. This is about everybody else, and it is the only
 // part of the flight log with any social pull in it: who has flown furthest, who else has been where you are going, who
 // is on your routes. Buried nine screens down, it was a footnote to a personal page; at the top of its own page it is a
@@ -240,7 +240,7 @@ export default function FlightCommunity() {
       // log because obviously people have already logged the countries they've
       // been to when they signed up in that travel map."
       //
-      // they are right, and the flight-log-only version was actively misleading - a creator who has been to thirty
+      // They are right, and the flight-log-only version was actively misleading - a creator who has been to thirty
       // countries and logged four flights ranked below somebody with six flights and no travel map. It is a UNION, not a
       // replacement: a country you flew to counts whether or not you remembered to tick it at signup, and one you drove
       // to counts even though no flight will ever prove it.

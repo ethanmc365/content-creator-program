@@ -117,7 +117,7 @@ export function draftProblems(draft, contact, { team = false } = {}) {
   if (!draft.dob) p.push({ step: 'based', text: 'Add your date of birth' })
   // TOO YOUNG IS A RULE, NOT A DATABASE ERROR.
   //
-  // they are right twice over. The rule was only ever enforced by `profiles_age_check`, which is the LAST line of
+  // They are right twice over. The rule was only ever enforced by `profiles_age_check`, which is the LAST line of
   // defence and speaks Postgres - so somebody was allowed to fill in nine screens and was then handed a constraint name.
   // And the check never ran until Submit, at the far end of the flow, when the answer was known on the screen where the
   // date was typed. It is a validation problem now: named at the field, blocking on the step, and refused with a

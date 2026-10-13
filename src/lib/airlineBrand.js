@@ -1,6 +1,6 @@
 // WHAT AN AIRLINE LOOKS LIKE, WITHOUT SHIPPING 172 TRADEMARK FILES.
 //
-// they are right that the rank badge is dead weight - a list already reads top to bottom and the flight count is on the
+// They are right that the rank badge is dead weight - a list already reads top to bottom and the flight count is on the
 // same row. What replaces it needs care though, because "the airline logo" as a literal instruction runs into two walls
 // at once:
 //

@@ -18,7 +18,7 @@ import { challengesApi } from '../../api/challenges'
 //
 // It used to end with "Where it stands right now" - a provisional top ten off the logged view counts.
 //
-// they are right, and it was worse than redundant: the tab next door lays every paid place out from the prize structure,
+// They are right, and it was worse than redundant: the tab next door lays every paid place out from the prize structure,
 // ranks WITHIN a creator's own group on a split challenge, and marks the participation vouchers. This panel's copy did
 // none of that, so the two disagreed on a page where they sat two clicks apart. One board, on the tab called
 // Leaderboard.

@@ -687,7 +687,7 @@ export default function AdminAnalytics() {
   // ---------------------------------------------------------------------
   // ONE FILTER BAR, NOT FOUR ROWS OF CONTROLS.
   //
-  // they are counting six horizontal bands of chrome above the first number on the page, and the reason there were six
+  // They are counting six horizontal bands of chrome above the first number on the page, and the reason there were six
   // is that each one was added by whoever needed it, in its own row, without anybody looking at the stack. Three of them
   // asked the same two questions twice: this page had a market scope AND the Challenges tab had its own "Where"; this
   // page had a currency toggle AND the Challenges tab had its own "Money".

@@ -1694,7 +1694,7 @@ export default function Messages() {
             /*
              * THE SUGGESTIONS ARE ALREADY ON THE LEFT.
              *
-             * they are right: the same list of people was rendered twice, side by side, on one screen - a grid of names
+             * They are right: the same list of people was rendered twice, side by side, on one screen - a grid of names
              * in the middle of the pane and the identical names in the rail next to it. The empty pane's job is to say
              * the pane is empty and point at where the answer is, and the answer is two inches to the left.
              *

@@ -13,7 +13,7 @@
 //     from €23 at today's European Central Bank rate'. That doesn't really make
 //     sense. It shouldn't be showing up."
 //
-//     they are right, and the reason it did is that the composer only knew what the
+//     They are right, and the reason it did is that the composer only knew what the
 //     figure was a moment ago, not what it started as. A £20 prize opens as €23
 //     (converted - worth saying), and pressing GBP takes it back to £20, which
 //     is the prize itself. Nothing has been converted; the round trip has been

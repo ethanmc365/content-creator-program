@@ -2,7 +2,7 @@ import { useCallback, useLayoutEffect, useRef } from 'react'
 
 // A textarea that is as tall as what is in it.
 //
-// they are right, and the reason is that a fixed-height textarea inside a page that also scrolls gives you two nested
+// They are right, and the reason is that a fixed-height textarea inside a page that also scrolls gives you two nested
 // scrollers with no visible boundary between them: the wheel does one thing over the box and another an inch to the left
 // of it, and you cannot see the paragraph you are editing.
 //

@@ -33,7 +33,7 @@ import { teamApi } from '../../api/team'
 //
 // ONE SENTENCE, AND IT SAYS THE SAME KIND OF THING EVERY TIME.
 //
-// they are right, and the reason is that "Quiet for 2 months" and "Active 3 hours ago" are two different sentences about
+// They are right, and the reason is that "Quiet for 2 months" and "Active 3 hours ago" are two different sentences about
 // the same measurement - one phrased as a duration of absence, the other as a moment in the past - so a column of them
 // cannot be scanned. Every row now reads "Last active <when>", and the only thing the 30-day judgement changes is the
 // colour. Online is the one exception, because "last active 4 seconds ago" is a clumsy way of saying somebody is here.

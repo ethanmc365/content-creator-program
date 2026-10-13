@@ -48,7 +48,7 @@ export const photoCredits = credits
 // An unflown type used to be `opacity-45 grayscale`, recolouring on hover. The argument was that it keeps the shape and
 // takes the colour, so a gap reads as not-yet-yours.
 //
-// they are right about where the signal belongs. A washed-out photograph reads as a broken image before it reads as a
+// They are right about where the signal belongs. A washed-out photograph reads as a broken image before it reads as a
 // state, and on a wall that is mostly unflown it made the whole page look faulty. The state moved to the CARD - white
 // for a gap, brand orange for one you have - which is louder, cannot be mistaken for a rendering fault, and leaves every
 // photograph looking like the aeroplane it is.

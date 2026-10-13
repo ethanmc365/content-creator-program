@@ -12,7 +12,7 @@ import { certificatesApi } from '../../api/certificates'
 
 // THE GRAPHICS, WHERE THE CREATOR ALREADY IS.
 //
-// they are right, and it is worth saying why rather than just doing it: the portfolio is the one page in this product a
+// They are right, and it is worth saying why rather than just doing it: the portfolio is the one page in this product a
 // creator opens when they are thinking about how they LOOK to people outside the community. That is the same thought
 // that makes somebody post "I'm officially a Tryp.com Content Creator" on their story. A library page elsewhere would be
 // a place these files are stored; here it is a thing to do next.

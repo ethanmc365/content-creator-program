@@ -1,6 +1,6 @@
 // WHO IS ALLOWED TO SEE THE PRETEND PEOPLE.
 //
-// they are right, and the reason is worth writing down because the obvious fix is the one that caused it. The eight
+// They are right, and the reason is worth writing down because the obvious fix is the one that caused it. The eight
 // Spanish demo creators were created with `is_test = false` ON PURPOSE: the leaderboard, the roster, the market map, the
 // directory and the spotlight all filter `is_test` out, so flagging them would have made them invisible to the very
 // people the demo was built for. Turning the flag on hides them from the team; leaving it off shows them to forty-five

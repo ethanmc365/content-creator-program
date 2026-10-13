@@ -632,7 +632,7 @@ export default function AdminChallengeForm() {
       // Optional auto-publish time: a cron flips the draft live at this moment.
       // SCHEDULE PUBLISH IS GONE, and the start date does its job.
       //
-      // they are right, and the two fields could disagree: a challenge could be set to publish on the 5th and start on
+      // They are right, and the two fields could disagree: a challenge could be set to publish on the 5th and start on
       // the 1st, and nothing said which won. A draft with a future start date now publishes itself at that date.
       //
       // ONLY A START DATE STILL TO COME SCHEDULES ANYTHING. With the start already passed, "the start date publishes it"

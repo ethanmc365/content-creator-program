@@ -165,7 +165,7 @@ const PLANE_SPEED = 26 // projection units per second
 // Everything on this map was `base / z` with a floor: `Math.max(1.4, 3.4 / z)`. Dividing by z holds a marker at a
 // CONSTANT APPARENT SIZE, which sounds right and is not what the zoom is for here.
 //
-// they are describing the real failure. BFS to DUB is about six projection units long; two 3.4-unit dots sit on top of
+// They are describing the real failure. BFS to DUB is about six projection units long; two 3.4-unit dots sit on top of
 // the whole route, so the arc between them is invisible - and zooming in did not help, because the dots grew with it.
 // Worse, the `Math.max` floor is in MAP units, so past z ~2.4 they stopped shrinking at all and just got bigger and
 // bigger on screen.

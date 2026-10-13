@@ -118,7 +118,7 @@ export function formatChatTime(date) {
 /** "3 days ago" */
 // "3 days ago" up to three days, then a plain date.
 //
-// they are right about where the line is. Relative time is useful exactly while it is still a mental shortcut - today,
+// They are right about where the line is. Relative time is useful exactly while it is still a mental shortcut - today,
 // yesterday, a couple of days - and past that it becomes work: "1 month ago" is a number you have to convert back into a
 // date before it means anything, and it is wrong by up to a month while you do it.
 export function postedOn(date) {

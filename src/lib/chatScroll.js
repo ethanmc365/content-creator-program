@@ -1,6 +1,6 @@
 // OPENING A THREAD AT THE BOTTOM, ONCE, WITHOUT ANYBODY WATCHING IT GET THERE.
 //
-// they are right about the cause and it is worth stating precisely, because two previous attempts treated the symptom.
+// They are right about the cause and it is worth stating precisely, because two previous attempts treated the symptom.
 //
 // A CHAT SCROLLER IS PINNED TO A HEIGHT THAT IS STILL CHANGING. The pin is
 // `scrollTop = scrollHeight`, and `scrollHeight` on the first paint is wrong

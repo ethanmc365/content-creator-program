@@ -95,7 +95,7 @@ export function formatAwardDate(value) {
 // Three axes - LAYOUT, ACCENT, PAPER - and they are three because of what was wrong with having one. The first version
 // was a single centred composition with a colour wash behind it, and
 //
-// they are right about the diagnosis. What made it look generated was the SHAPE - kicker, centred title, rule, centred
+// They are right about the diagnosis. What made it look generated was the SHAPE - kicker, centred title, rule, centred
 // name, centred paragraph, three things along the bottom - which is the shape of every certificate any tool has ever
 // produced. No palette fixes that, so the palette was never the thing to fix.
 //
@@ -339,7 +339,7 @@ export function designStyle(design = {}) {
 // These were orange, gold (#b8860b), teal (#0f766e) and slate (#475569), so the ladder could be read across a feed
 // without reading the words.
 //
-// they are right and the original reasoning was answering the wrong question. A certificate's job is not to rank its
+// They are right and the original reasoning was answering the wrong question. A certificate's job is not to rank its
 // holder against other holders - it is to be posted, by one person, showing that TRYP.COM gave them something. Four
 // colour schemes make four different-looking companies; a gold one next to a teal one on LinkedIn reads as a template
 // pack somebody bought. The tier is still named in the subtitle, which is where a reader actually learns it, and `rank`
@@ -375,7 +375,7 @@ export const tierOf = (key) => TIERS.find((t) => t.key === key) || TIERS[0]
 
 // THE TIER IS NOW DERIVED FROM WHEN IT IS GIVEN.
 //
-// they are right: the tier only changed one word on the card, and it could contradict the trigger (a "Participation"
+// They are right: the tier only changed one word on the card, and it could contradict the trigger (a "Participation"
 // tier on a podium award). The studio no longer asks. The tier column is still written - it sorts a creator's wall,
 // rarest first - but from the trigger, so the two can never disagree.
 export const TIER_FOR_AWARD = {
@@ -395,7 +395,7 @@ export const tierForAward = (awardOn) => TIER_FOR_AWARD[awardOn] || 'honour'
  */
 // THE BADGE DOES NOT NAME ITS OWN CATEGORY.
 //
-// they are right, and it generalises. The certificate already SAYS what it is, in the sentence the whole page is built
+// They are right, and it generalises. The certificate already SAYS what it is, in the sentence the whole page is built
 // around ("for taking part in...", "for reaching..."). A disc in the corner stamped PARTICIPANT is the page labelling
 // itself, and it reads as a category filed against the person rather than a thing they were given. `badgeLabel` is what
 // the badge prints, and it is empty for those three; `label` stays the plain English name of the kind, because the

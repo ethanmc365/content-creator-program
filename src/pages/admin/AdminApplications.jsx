@@ -117,7 +117,7 @@ export default function AdminApplications() {
 
   // ONE TOAST HOST FOR THE WHOLE APP, AND THIS PAGE HAD ITS OWN.
   //
-  // they are describing a hand-rolled `fixed bottom-24` pill that predated `ToastHost` and never learned two things that
+  // They are describing a hand-rolled `fixed bottom-24` pill that predated `ToastHost` and never learned two things that
   // host already knows: the tab bar is ~56px PLUS `env(safe-area-inset-bottom)`, which on an iPhone puts its top edge at
   // about 90px and leaves a 96px offset overlapping it; and a `fixed` element inside a transformed ancestor is
   // positioned against that ancestor rather than the viewport, so the z-index was never the fix. Deleted rather than
@@ -134,7 +134,7 @@ export default function AdminApplications() {
   //
   // AND WHEN THE COUNTRY POINTS AT NOTHING, THE LANGUAGE DOES.
   //
-  // they are describing exactly the case the country test cannot see. Austria is not in the German market's country
+  // They are describing exactly the case the country test cannot see. Austria is not in the German market's country
   // codes and probably should not be, so `resolveMarketForCountryName` correctly returns nothing and the picker seeded
   // EMPTY - which means the default action for an Austrian applicant was "worldwide only", and the German market they
   // would obviously belong in was one unhighlighted chip among six. The information was on the page; it was in the last

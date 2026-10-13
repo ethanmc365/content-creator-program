@@ -641,7 +641,7 @@ export function ShareCard({ data, className = '', style, flush = false }) {
 
   // THE STANDING BADGE IS GONE FROM THIS CARD.
   //
-  // they are right and it took two passes to see why. The badge was picked as the person's STRONGEST standing, which
+  // They are right and it took two passes to see why. The badge was picked as the person's STRONGEST standing, which
   // sounds like the right rule and produces the wrong sentence: the strongest standing for most creators is the puzzle
   // one, because the puzzles are the easiest thing in the product to be good at. So the card built to be posted - the
   // one that is supposed to say "I am a Tryp.com creator and here is my year" - ended on a line about a daily word game.

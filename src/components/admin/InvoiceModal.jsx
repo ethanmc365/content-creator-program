@@ -47,7 +47,7 @@ export function StageChip({ stage }) {
 // ---------------------------------------------------------------------------
 // LOOKING AT AN INVOICE.
 //
-// they are describing the missing middle of the whole workflow. Approving an invoice is a judgement about a DOCUMENT -
+// They are describing the missing middle of the whole workflow. Approving an invoice is a judgement about a DOCUMENT -
 // is the amount right, is the name right, is the bank block filled in - and the queue row shows a name, a number and a
 // total. The only way to see the thing you were signing off was to download a PDF, open it in another application, come
 // back, and press Approve from memory. So people pressed Approve from memory.

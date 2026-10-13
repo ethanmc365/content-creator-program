@@ -208,7 +208,7 @@ export function buildYearInReview({
   const myResults = results.filter((r) => r.creator_id === meId && myChallengeIds.has(r.challenge_id))
   // WHAT A CREATOR'S VIEWS FOR THE YEAR ACTUALLY ARE, AND THE BUG THAT WAS HERE.
   //
-  // they are right, and by a factor of six. This used to treat `results.final_views` as the VERIFIED TOTAL for a
+  // They are right, and by a factor of six. This used to treat `results.final_views` as the VERIFIED TOTAL for a
   // challenge and let it REPLACE the sum of that creator's own submissions in it. `final_views` is not a total. MEASURED
   // across every result row in production: `final_views` equals `max(logged_views)` for that creator in that challenge,
   // in EVERY SINGLE ROW. It is the figure the leaderboard RANKS on - one video, their best - because a creator who
@@ -299,7 +299,7 @@ export function buildYearInReview({
   //
   // A DM IS A MESSAGE.
   //
-  // they are right and the gap was not small. MEASURED: 94 room messages in the year against 216 direct messages - so
+  // They are right and the gap was not small. MEASURED: 94 room messages in the year against 216 direct messages - so
   // the card was showing under a third of what somebody actually said, and calling the rooms "where the community
   // actually happens" while most of it happened in DMs.
   //
