@@ -340,6 +340,17 @@ function rememberedAccess(uid) {
     return v === '1' ? true : v === '0' ? false : undefined
   } catch { return undefined }
 }
+// The header and the page mount together and both asked; one question in flight per account is enough.
+let accessAsk = { uid: null, promise: null }
+function askAccess(uid) {
+  if (accessAsk.uid !== uid || !accessAsk.promise) {
+    const promise = supabase.rpc('vip_has_access').then((r) => r)
+    accessAsk = { uid, promise }
+    const done = () => { if (accessAsk.promise === promise) accessAsk = { uid: null, promise: null } }
+    promise.then(done, done)
+  }
+  return accessAsk.promise
+}
 export function useVipAccess(uid, fallback = false) {
   const value = useSyncExternalStore(
     (fn) => { accessSubs.add(fn); return () => accessSubs.delete(fn) },
@@ -352,7 +363,7 @@ export function useVipAccess(uid, fallback = false) {
     let tries = 0
     let timer = 0
     const ask = () => {
-      supabase.rpc('vip_has_access').then(({ data, error }) => {
+      askAccess(uid).then(({ data, error }) => {
         if (!alive) return
         if (error && tries < 3) { tries += 1; timer = setTimeout(ask, 1500 * tries); return }
         const v = error ? (rememberedAccess(uid) ?? fallback) : !!data
@@ -368,7 +379,7 @@ export function useVipAccess(uid, fallback = false) {
 }
 
 /** Forget the answer (after the owner changes who has access). */
-export function clearVipAccess() { accessCache = { uid: null, value: undefined, fresh: false }; accessSubs.forEach((fn) => fn()) }
+export function clearVipAccess() { accessCache = { uid: null, value: undefined, fresh: false }; accessAsk = { uid: null, promise: null }; accessSubs.forEach((fn) => fn()) }
 
 // ---------------------------------------------------------------- VIP v2 (migration 298)
 

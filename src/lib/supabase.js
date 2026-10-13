@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { resilientFetch } from './netQuality'
+import { shareReads } from './sharedReads'
 
 // Single shared Supabase client for the whole app.
 // The two values below come from your Supabase project's API settings - // see README → "Environment variables".
@@ -32,6 +33,7 @@ export const supabase = createClient(
     },
     // Reads time out and retry once on a weak connection, and their timing is
     // what decides whether the app is on a slow one. See lib/netQuality.
-    global: { fetch: resilientFetch },
+    // Identical reads asked at the same moment go out once. See lib/sharedReads.
+    global: { fetch: shareReads(resilientFetch) },
   }
 )

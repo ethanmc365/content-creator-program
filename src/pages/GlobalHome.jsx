@@ -215,7 +215,6 @@ export default function GlobalHome() {
   // the hub is not worth a timer.
   const [nowMs] = useState(() => Date.now())
   const links = useMemo(() => orderLinks(order), [order])
-  const networkId = network?.id ?? null
 
   function saveOrder(next) {
     const keys = next.map((l) => l.to)
@@ -303,27 +302,10 @@ export default function GlobalHome() {
       const live = {}
       for (const c of challenges || []) live[c.community_id] = c
 
-      // Entries and pace for a global challenge, if one is running. The
-      // denominator is the network roster, which is every creator, so this is
-      // the one participation bar where "of 43" is the honest number.
-      let globalEntries = null
-      let globalParticipation = null
-      const globalChallenge = networkId ? live[networkId] : null
-      if (globalChallenge) {
-        const [{ data: entrants }, { count: netMembers }] = await Promise.all([
-          supabase.from('submissions').select('creator_id').eq('challenge_id', globalChallenge.id),
-          supabase.from('community_members')
-            .select('profile_id, profiles!inner(is_admin, is_test, status)', { count: 'exact', head: true })
-            .eq('community_id', networkId).eq('status', 'active')
-            .eq('profiles.is_admin', false).in('profiles.is_test', testFlags()).eq('profiles.status', 'active'),
-        ])
-        if (cancelled) return
-        globalEntries = (entrants || []).length
-        globalParticipation = {
-          posted: new Set((entrants || []).map((e) => e.creator_id)).size,
-          total: netMembers ?? 0,
-        }
-      }
+      // THE GLOBAL CHALLENGE'S ENTRIES AND PACE ARE NO LONGER READ HERE (13 Oct 2026). They fed the participation bar
+      // the "Open to everyone" section drew, which went on 21 Sep (see below); two queries kept running for nothing,
+      // and needing the network's id made this whole load run TWICE on every visit - once before CommunityContext
+      // answered and again after. That double load was a third of the requests an app open made.
       // The live boards' top three, before the page draws (see prefetchTopThree).
       await prefetchTopThree((challenges || []).map((c) => c.id)).catch(() => {})
       if (cancelled) return
@@ -341,13 +323,11 @@ export default function GlobalHome() {
           (acc[t.creator_id] ||= []).push({ ...t, current: t.start_date <= today })
           return acc
         }, {}),
-        globalEntries,
-        globalParticipation,
       })
     }
     load()
     return () => { cancelled = true }
-  }, [session?.user?.id, networkId])
+  }, [session?.user?.id])
 
   // Remember it for the next visit. See lib/pageCache.
   useEffect(() => { if (d) writePageCache(HUB_CACHE_KEY, d) }, [d])

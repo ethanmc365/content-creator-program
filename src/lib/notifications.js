@@ -232,9 +232,9 @@ export function useNotifications({ userId, pathname, pushPrefs, limit = 40, live
     // Being on the notifications page is not the target of any alert.
     if (pathname === '/notifications') return
     setRows((prev) => prev?.map((n) => (!n.read && linkPathname(n.link) === pathname ? { ...n, read: true } : n)) ?? prev)
-    supabase.from('notifications').update({ read: true })
-      .eq('recipient_id', userId).eq('read', false).eq('link', pathname)
-      .then(() => {})
+    // THE DATABASE IS TOLD ONCE, BY THE LAYOUT (13 Oct 2026). This sent the same UPDATE that AppLayout's
+    // `mark_notifications_read_for_path` sends 700ms later - two writes per page, and on an app open three, because
+    // this one had no delay and also fired for the /home -> /global bounce. Only the list on screen changes here.
     closeNotificationsForPath(pathname)
   }, [pathname, userId])
 

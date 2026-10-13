@@ -103,7 +103,11 @@ export default function Landing() {
 
   const [wall, setWall] = useState([])
 
+  // ONLY FOR SOMEBODY WHO WILL SEE THEM (13 Oct 2026). A signed-in creator who lands here is sent on to /home a
+  // moment later, and four public RPCs went out for a page they never saw - on every visit to the bare address.
+  const showsPage = !loading && (!user || demoAsked)
   useEffect(() => {
+    if (!showsPage) return
     supabase.rpc('landing_stats').then(({ data }) => {
       if (data) setStats(data)
     })
@@ -119,7 +123,7 @@ export default function Landing() {
     supabase.rpc('public_wall_of_fame', { p_limit: 30 }).then(({ data }) => {
       if (data) setWall(data)
     })
-  }, [])
+  }, [showsPage])
 
   // Already signed in? Straight to the app.
   // `asked`, not `on`: `on` waits for `isAdmin`, which arrives with the PROFILE
