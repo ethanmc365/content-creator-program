@@ -9,6 +9,8 @@ import { confirm, notice, promptText, saved } from '../../lib/confirm'
 import { REPORT_REASONS, REPORT_STATUS } from '../../lib/messageActions'
 import { CREATOR_REPORT_LABEL } from '../../lib/creatorReports'
 import { formatDate, cx, timeAgo } from '../../lib/utils'
+import { profilesApi } from '../../api/profiles'
+import { chatApi } from '../../api/chat'
 
 // Where reported messages land.
 //
@@ -79,8 +81,8 @@ function MessageReports({ onCount }) {
     if (!await confirm(`Delete ${what} for everyone? This cannot be undone.`)) return
     setBusyId(report.id)
     const { error } = report.kind === 'dm'
-      ? await supabase.from('direct_messages').delete().eq('id', report.dm_id)
-      : await supabase.from('messages').update({ deleted: true }).eq('id', report.message_id)
+      ? await chatApi.directMessages().delete().eq('id', report.dm_id)
+      : await chatApi.messages().update({ deleted: true }).eq('id', report.message_id)
     if (error) { setBusyId(null); await notice(`Could not delete it: ${error.message}`); return }
     await supabase.rpc('decide_message_report', { p_id: report.id, p_status: 'actioned', p_note: 'Message deleted.' })
     setBusyId(null)
@@ -91,7 +93,7 @@ function MessageReports({ onCount }) {
     const name = report.author?.name || 'this creator'
     if (!await confirm(`Mute ${name}? They can read but not post until you unmute them in Admin → Creators.`)) return
     setBusyId(report.id)
-    const { error } = await supabase.from('profiles').update({ status: 'muted' }).eq('id', report.author_id)
+    const { error } = await profilesApi.profiles().update({ status: 'muted' }).eq('id', report.author_id)
     if (error) { setBusyId(null); await notice(`Could not mute them: ${error.message}`); return }
     await supabase.rpc('decide_message_report', { p_id: report.id, p_status: 'actioned', p_note: `${name} muted.` })
     setBusyId(null)
@@ -311,7 +313,7 @@ function CreatorReports({ onCount }) {
     const name = report.reported?.name || 'this creator'
     if (!await confirm(`Mute ${name}? They can read but not post until you unmute them in Admin → Creators.`)) return
     setBusyId(report.id)
-    const { error } = await supabase.from('profiles').update({ status: 'muted' }).eq('id', report.reported_id)
+    const { error } = await profilesApi.profiles().update({ status: 'muted' }).eq('id', report.reported_id)
     if (error) { setBusyId(null); await notice(`Could not mute them: ${error.message}`); return }
     const { data: { user } = {} } = await supabase.auth.getUser()
     await saved(supabase.from('creator_reports').update({

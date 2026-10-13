@@ -45,6 +45,8 @@ import {
 } from '../lib/groups'
 import { useT } from '../lib/i18n'
 import { useMessageTranslations } from '../lib/quickTranslate'
+import { profilesApi } from '../api/profiles'
+import { chatApi } from '../api/chat'
 
 
 // PINNED CHATS. Three, per device, in localStorage - see the note on the
@@ -626,8 +628,8 @@ export default function Messages() {
       }
       // Who they are, for the header and the @-chips. A draft thread has no
       // conversation row to join the profile through, so it is fetched once.
-      const { data: who } = await supabase
-        .from('profiles').select('id, name, photo_url, city, country').eq('id', creatorId).maybeSingle()
+      const { data: who } = await profilesApi
+        .profiles().select('id, name, photo_url, city, country').eq('id', creatorId).maybeSingle()
       if (!who) return
       setSearch('')
       setDraftTo(who)
@@ -770,8 +772,8 @@ export default function Messages() {
     let cancelled = false
     async function loadThread() {
       setLoadingThread(true)
-      const { data } = await supabase
-        .from('direct_messages')
+      const { data } = await chatApi
+        .directMessages()
         .select('*')
         .eq('conversation_id', conversationId)
         .order('created_at', { ascending: true })
@@ -785,7 +787,7 @@ export default function Messages() {
       const ids = (data ?? []).map((m) => m.id)
       // Reactions (silently no-ops if the table isn't there yet) and the entries a feedback DM carries, together.
       const [reacts, refs] = await Promise.all([
-        ids.length ? supabase.from('dm_reactions').select('*').in('message_id', ids).then(({ data: r }) => r ?? []) : Promise.resolve([]),
+        ids.length ? chatApi.dmReactions().select('*').in('message_id', ids).then(({ data: r }) => r ?? []) : Promise.resolve([]),
         loadEntryRefs((data ?? []).map((m) => m.submission_id)),
       ])
       if (!cancelled) { setReactions(reacts); setEntryRefs(refs) }
@@ -793,8 +795,8 @@ export default function Messages() {
       // flag on the message - one row, many readers - so the watermark on my
       // own membership row moves instead.
       await Promise.all([
-        supabase
-          .from('direct_messages')
+        chatApi
+          .directMessages()
           .update({ read: true })
           .eq('conversation_id', conversationId)
           .eq('recipient_id', user.id)
@@ -820,7 +822,7 @@ export default function Messages() {
   useEffect(() => {
     if (!isGroup || !conversationId) { setGroupReads(new Map()); return undefined }
     let alive = true
-    const pull = () => supabase.from('conversation_members')
+    const pull = () => chatApi.conversationMembers()
       .select('profile_id, last_read_at')
       .eq('conversation_id', conversationId)
       .then(({ data }) => {
@@ -854,7 +856,7 @@ export default function Messages() {
   useEffect(() => {
     if (!isGroup || !conversationId) { setGroupInvites([]); return undefined }
     let cancelled = false
-    supabase.from('conversation_invites')
+    chatApi.conversationInvites()
       .select('id, invited_profile_id, status')
       .eq('conversation_id', conversationId).eq('status', 'pending')
       .then(({ data }) => { if (!cancelled) setGroupInvites(data || []) })
@@ -892,7 +894,7 @@ export default function Messages() {
           setThread((prev) => (prev.some((m) => m.id === msg.id) ? prev : [...prev, msg]))
           // I'm looking at this thread - mark it read immediately.
           if (msg.recipient_id === user.id) {
-            await supabase.from('direct_messages').update({ read: true }).eq('id', msg.id)
+            await chatApi.directMessages().update({ read: true }).eq('id', msg.id)
           } else if (msg.recipient_id == null && msg.sender_id !== user.id) {
             // A group message arriving in the thread I have open. Move the
             // watermark or `loadConversations` below will count it as unread
@@ -1021,14 +1023,14 @@ export default function Messages() {
     if (!isAdmin) return
     if (!await confirm('Delete this message for everyone?')) return
     setThread((prev) => prev.filter((x) => x.id !== m.id))
-    if (!await saved(supabase.from('direct_messages').delete().eq('id', m.id))) setThread((prev) => [...prev, m].sort((a, b) => (a.created_at < b.created_at ? -1 : 1)))
+    if (!await saved(chatApi.directMessages().delete().eq('id', m.id))) setThread((prev) => [...prev, m].sort((a, b) => (a.created_at < b.created_at ? -1 : 1)))
   }
 
   // Accept a pending connection request from the person I'm messaging, right in
   // the thread (smooths the gated-DM flow: accepting connects us and unlocks it).
   async function acceptConnection() {
     if (!activeRelation?.rowId) return
-    const { error } = await supabase.from('connections').update({ status: 'accepted' }).eq('id', activeRelation.rowId)
+    const { error } = await profilesApi.connections().update({ status: 'accepted' }).eq('id', activeRelation.rowId)
     if (!error) setActiveRelation((r) => (r ? { ...r, relation: 'connected' } : r))
   }
 
@@ -1039,10 +1041,10 @@ export default function Messages() {
     const mine = reactions.find((r) => r.message_id === messageId && r.creator_id === user.id && r.emoji === emoji)
     if (mine) {
       setReactions((prev) => prev.filter((r) => r.id !== mine.id))
-      if (!await saved(supabase.from('dm_reactions').delete().eq('id', mine.id))) setReactions((prev) => [...prev, mine])
+      if (!await saved(chatApi.dmReactions().delete().eq('id', mine.id))) setReactions((prev) => [...prev, mine])
     } else {
-      const { data } = await supabase
-        .from('dm_reactions')
+      const { data } = await chatApi
+        .dmReactions()
         .insert({ message_id: messageId, creator_id: user.id, emoji })
         .select('*')
         .single()
@@ -1172,7 +1174,7 @@ export default function Messages() {
     if (!await confirm(`Delete your conversation with ${c.other?.name ?? 'this creator'}? This deletes the entire conversation and removes the chat.`)) return
     setConversations((prev) => prev.filter((x) => x.id !== c.id))
     if (c.id === conversationId) navigate('/messages')
-    const { error } = await supabase.rpc('leave_conversation', { p_conversation: c.id })
+    const { error } = await chatApi.leaveConversation({ p_conversation: c.id })
     if (error) { restore(); notice(`That conversation could not be deleted: ${error.message}`) }
   }
 

@@ -12,6 +12,7 @@ import { INTRO_WANTS, INTRO_SINCE, INTRO_PLATFORMS, buildIntro, introToText } fr
 import { airport } from '../../lib/airports'
 import { COUNTRIES } from '../../lib/countries'
 import { submissionsApi } from '../../api/submissions'
+import { chatApi } from '../../api/chat'
 
 // The introductions room, with the hard part done for you.
 //
@@ -223,7 +224,7 @@ export function IntroModal({ open, onClose, community, channel, onPosted }) {
     if (!enough || busy) return
     setBusy(true)
     const key = community.kind === 'network' ? channel.key : `${community.slug}:${channel.key}`
-    const { error } = await supabase.from('messages').insert({
+    const { error } = await chatApi.messages().insert({
       channel: key,
       channel_id: channel.id,
       community_id: community.id,
@@ -408,8 +409,8 @@ export default function IntroInvite({ community, channel, canPost = true }) {
   useEffect(() => {
     if (!user?.id || !isIntroRoom || !canPost) return undefined
     let alive = true
-    supabase
-      .from('messages').select('id')
+    chatApi
+      .messages().select('id')
       .eq('channel', 'introductions').eq('sender_id', user.id).limit(1)
       .then(({ data }) => {
         if (!alive) return

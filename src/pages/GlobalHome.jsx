@@ -43,6 +43,8 @@ import { testFlags } from '../lib/testData'
 import { useCachedPage, writePageCache } from '../lib/pageCache'
 import { challengesApi } from '../api/challenges'
 import { submissionsApi } from '../api/submissions'
+import { profilesApi } from '../api/profiles'
+import { chatApi } from '../api/chat'
 
 // See lib/pageCache: the hub is the tab a creator lands on and comes back to
 // more than any other, and it was rebuilding itself from nothing every time.
@@ -238,7 +240,7 @@ export default function GlobalHome() {
           .select('community_id, profiles!inner(is_admin, is_test, status)')
           .eq('status', 'active')
           .eq('profiles.is_admin', false).in('profiles.is_test', testFlags()).eq('profiles.status', 'active'),
-        supabase.from('profiles').select('id', { count: 'exact', head: true })
+        profilesApi.profiles().select('id', { count: 'exact', head: true })
           .eq('status', 'active').eq('is_admin', false).in('is_test', testFlags()).is('deletion_requested_at', null),
         challengesApi.challenges().select('id, title, community_id, status, end_date, scoring').eq('status', 'active'),
         // ANNOUNCEMENTS FROM EVERY ROOM THIS CREATOR CAN READ, not just the
@@ -261,7 +263,7 @@ export default function GlobalHome() {
         // everybody. Ethan: "I posted a test announcement in [other markets]
         // but it's not showing up here." Both of those test posts are in the
         // table; nothing ever asked for them.
-        supabase.from('messages')
+        chatApi.messages()
           .select('*, profiles:sender_id(name, photo_url)')
           .or('channel.eq.announcements,channel.like.*:announcements')
           .eq('deleted', false)
@@ -272,13 +274,13 @@ export default function GlobalHome() {
           .gte('end_date', today).order('start_date', { ascending: true }).limit(6),
         // Six, not four. Four left a hole at the end of a three-across grid and
         // read as "we only have four", which is the opposite of the point.
-        supabase.from('profiles').select('id, name, photo_url, bio, country_code')
+        profilesApi.profiles().select('id, name, photo_url, bio, country_code')
           .eq('status', 'active').eq('is_admin', false).in('is_test', testFlags())
           .is('deletion_requested_at', null).order('created_at', { ascending: false }).limit(6),
         // Badge counts for the rail. They were in the avatar menu; the menu no
         // longer holds these links, so the signal has to move with them or a
         // pending connection request becomes invisible.
-        supabase.from('connections').select('id', { count: 'exact', head: true })
+        profilesApi.connections().select('id', { count: 'exact', head: true })
           .eq('connected_creator_id', session?.user?.id ?? '00000000-0000-0000-0000-000000000000')
           .eq('status', 'pending'),
         // The map's own data. CreatorMap takes creators and trips as props
@@ -286,7 +288,7 @@ export default function GlobalHome() {
         // same rows for its card grid and filters and two components loading
         // the roster twice on one page is how a fast page becomes a slow one.
         // Here there is no grid, so this is the only reader.
-        supabase.from('profiles')
+        profilesApi.profiles()
           // countries_visited is what lets a tap on a country answer "who here
           // has been", so it travels with the map's own roster.
           // last_seen_at and bio are what let a city's pin show the creator most
@@ -375,7 +377,7 @@ export default function GlobalHome() {
       // Connections are DIRECTIONAL rows, so being connected to somebody is a
       // row in one direction or the other. Counting only `creator_id = me`
       // would show roughly half of anybody's real network.
-      supabase.from('connections').select('id', { count: 'exact', head: true })
+      profilesApi.connections().select('id', { count: 'exact', head: true })
         .eq('status', 'accepted').or(`creator_id.eq.${uid},connected_creator_id.eq.${uid}`),
     ]).then(([{ count: videos }, { count: myVideos }, { count: myConns }]) => {
       if (cancelled) return

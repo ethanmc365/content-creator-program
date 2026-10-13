@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
-import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import YearInReview from '../components/wrapped/YearInReview'
 import { buildChallengeCards, ChallengeShareCard } from '../components/wrapped/challengeStory'
@@ -14,6 +13,7 @@ import { Spinner } from '../components/ui'
 import { moneyApi } from '../api/money'
 import { challengesApi } from '../api/challenges'
 import { submissionsApi } from '../api/submissions'
+import { profilesApi } from '../api/profiles'
 
 // THE END-OF-CHALLENGE RECAP PAGE (24 Sep 2026). See lib/challengeRecap for
 // the numbers and components/wrapped/challengeStory for the cards; the story
@@ -39,7 +39,7 @@ export default function ChallengeRecap() {
         challengesApi.challenges().select('id, title, status, scoring, start_date, end_date, prize_amount, prize_currency, participation_amount, community_id').eq('id', id).maybeSingle(),
         submissionsApi.submissions().select('id, creator_id, logged_views, platform, video_url, thumbnail_url, submitted_at, profiles:creator_id(is_test)').eq('challenge_id', id).limit(5000),
         challengesApi.results().select('creator_id, rank, final_views, group_id').eq('challenge_id', id),
-        supabase.from('profiles').select('id, name, photo_url, country').eq('id', who).maybeSingle(),
+        profilesApi.profiles().select('id, name, photo_url, country').eq('id', who).maybeSingle(),
       ])
       if (!alive) return
       if (!challenge || !meRow) { setState({ status: 'missing' }); return }

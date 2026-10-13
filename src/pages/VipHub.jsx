@@ -29,6 +29,7 @@ import { cx } from '../lib/utils'
 import { useIsMobile } from '../lib/useKeyboardInset'
 import ReaderText from '../components/ReaderText'
 import { vipApi } from '../api/vip'
+import { profilesApi } from '../api/profiles'
 
 // THE VIP PAGE (2 Oct 2026, migration 294).
 //
@@ -140,7 +141,7 @@ export default function VipHub() {
   useEffect(() => {
     if (!who) return undefined
     let alive = true
-    supabase.from('profiles').select('id, name').eq('id', who).maybeSingle().then(({ data }) => { if (alive) setWhoProfile(data || null) })
+    profilesApi.profiles().select('id, name').eq('id', who).maybeSingle().then(({ data }) => { if (alive) setWhoProfile(data || null) })
     return () => { alive = false }
   }, [who])
   const whoName = who ? ((people || []).find((p) => p.id === who)?.name || (whoProfile?.id === who ? whoProfile.name : null)) : null

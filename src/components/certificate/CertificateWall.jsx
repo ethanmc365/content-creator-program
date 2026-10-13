@@ -13,6 +13,7 @@ import { downloadBlob, snapshotNode } from '../../lib/domSnapshot'
 import CertificateCard, { CERT_W, CERT_H } from './CertificateCard'
 import { fillTemplate, formatAwardDate, sampleFacts, sortCertificates } from '../../lib/certificates'
 import { safeUrl } from '../../lib/safeUrl'
+import { profilesApi } from '../../api/profiles'
 
 // WHAT THE PROGRAMME HAS GIVEN YOU, ON A WALL.
 //
@@ -41,7 +42,7 @@ export default function CertificateWall({ profileId, className, readOnly = false
   useEffect(() => {
     if (!profileId || profileId === profile?.id) { setOwner(null); return undefined }
     let alive = true
-    supabase.from('profiles').select('name, photo_url').eq('id', profileId).maybeSingle().then(({ data }) => { if (alive) setOwner(data || null) })
+    profilesApi.profiles().select('name, photo_url').eq('id', profileId).maybeSingle().then(({ data }) => { if (alive) setOwner(data || null) })
     return () => { alive = false }
   }, [profileId, profile?.id])
   // AN ADMIN ON THEIR OWN REWARDS PAGE SEES EVERY DESIGN AS A CREATOR WOULD (30 Sep 2026). Ethan:

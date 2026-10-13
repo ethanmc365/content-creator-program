@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { supabase } from './supabase'
+import { profilesApi } from '../api/profiles'
 
 // WHICH CLOCK THE CALENDAR IS ON, AND NOTICING WHEN YOU HAVE MOVED.
 //
@@ -133,7 +134,7 @@ export function useTimezone(profile) {
     if (opts.ackDevice !== false) setSeen(device)
     const { data: { user } = {} } = await supabase.auth.getUser()
     if (!user) return
-    await supabase.from('profiles').update(patch).eq('id', user.id)
+    await profilesApi.profiles().update(patch).eq('id', user.id)
   }, [device])
 
   // "Keep what I had" still has to record the device zone, or the prompt comes

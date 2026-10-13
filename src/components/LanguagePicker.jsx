@@ -2,9 +2,9 @@ import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import Icon from './Icon'
 import { LOCALES, loadLocale, setLocale, useLocale } from '../lib/i18n'
-import { supabase } from '../lib/supabase'
 import { loadOverrides } from '../lib/translations'
 import { cx } from '../lib/utils'
+import { profilesApi } from '../api/profiles'
 
 // THE LANGUAGE, PICKED BEFORE YOU HAVE AN ACCOUNT (2 Oct 2026).
 //
@@ -65,7 +65,7 @@ export default function LanguagePicker({ className, tone = 'soft', align = 'righ
     setBusy(null)
     setOpen(false)
     onChosen?.(next)
-    if (userId) supabase.from('profiles').update({ locale: next }).eq('id', userId).then(() => {})
+    if (userId) profilesApi.profiles().update({ locale: next }).eq('id', userId).then(() => {})
   }
 
   return (

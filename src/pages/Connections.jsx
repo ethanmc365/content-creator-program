@@ -17,6 +17,7 @@ import { cx, dateTag } from '../lib/utils'
 import { useT } from '../lib/i18n'
 import { testFlags } from '../lib/testData'
 import { submissionsApi } from '../api/submissions'
+import { profilesApi } from '../api/profiles'
 
 // The connections hub.
 //
@@ -122,8 +123,8 @@ export default function Connections() {
     ] = await Promise.all([
       // Every accepted edge plus every request touching me. One read: the
       // adjacency map needs the whole graph anyway.
-      supabase.from('connections').select('id, creator_id, connected_creator_id, status, created_at'),
-      supabase.from('profiles')
+      profilesApi.connections().select('id, creator_id, connected_creator_id, status, created_at'),
+      profilesApi.profiles()
         .select('id, name, photo_url, bio, country_code, city, country, last_seen_at, created_at')
         .eq('status', 'active').eq('is_admin', false).in('is_test', testFlags())
         .is('deletion_requested_at', null),
@@ -276,13 +277,13 @@ export default function Connections() {
       requests: prev.requests.filter((r) => r.id !== row.id),
       connections: [row.person, ...prev.connections],
     }))
-    if (!await saved(supabase.from('connections').update({ status: 'accepted' }).eq('id', row.id))) { load(); return }
+    if (!await saved(profilesApi.connections().update({ status: 'accepted' }).eq('id', row.id))) { load(); return }
     toast(`You and ${row.person.name.split(' ')[0]} are connected.`)
   }
 
   async function decline(row) {
     setD((prev) => prev && ({ ...prev, requests: prev.requests.filter((r) => r.id !== row.id) }))
-    if (!await saved(supabase.from('connections').delete().eq('id', row.id))) load()
+    if (!await saved(profilesApi.connections().delete().eq('id', row.id))) load()
   }
 
   // Dismissals are local. A suggestion you have said no to should stop coming

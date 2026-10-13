@@ -6,6 +6,8 @@ import Icon from '../Icon'
 import { Avatar } from '../ui'
 import { matchBroadcasts } from '../../lib/broadcastMentions'
 import { overlay } from '../../lib/motion'
+import { profilesApi } from '../../api/profiles'
+import { chatApi } from '../../api/chat'
 
 // The three things a room needs before it is a room rather than a log:
 // something to react with, a way to find what was said, and a way to point at
@@ -43,7 +45,7 @@ export function useProfileNames(ids) {
     if (!missing.length) return undefined
     missing.forEach((id) => asked.current.add(id))
     let alive = true
-    supabase.from('profiles').select('id, name').in('id', missing)
+    profilesApi.profiles().select('id, name').in('id', missing)
       .then(({ data }) => {
         if (!alive || !data?.length) return
         setMap((cur) => {
@@ -65,7 +67,7 @@ export function useReactions(messageIds, myId) {
   useEffect(() => {
     if (!messageIds.length) { setRows([]); return }
     let alive = true
-    supabase.from('reactions').select('id, message_id, creator_id, emoji')
+    chatApi.reactions().select('id, message_id, creator_id, emoji')
       .in('message_id', messageIds)
       .then(({ data }) => { if (alive) setRows(data || []) })
     return () => { alive = false }
@@ -105,12 +107,12 @@ export function useReactions(messageIds, myId) {
     // broken button.
     if (existing) {
       setRows((cur) => cur.filter((r) => r.id !== existing.id))
-      const { error } = await supabase.from('reactions').delete().eq('id', existing.id)
+      const { error } = await chatApi.reactions().delete().eq('id', existing.id)
       if (error) setRows((cur) => [...cur, existing])
     } else {
       const temp = { id: `tmp-${Date.now()}`, message_id: messageId, creator_id: myId, emoji }
       setRows((cur) => [...cur, temp])
-      const { data, error } = await supabase.from('reactions')
+      const { data, error } = await chatApi.reactions()
         .insert({ message_id: messageId, creator_id: myId, emoji })
         .select('id, message_id, creator_id, emoji').single()
       setRows((cur) => {

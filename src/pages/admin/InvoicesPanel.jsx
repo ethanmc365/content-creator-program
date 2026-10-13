@@ -24,6 +24,7 @@ import { downloadInvoicePdf, invoiceFilename } from '../../lib/invoicePdf'
 // demo and the real composer can never draw two different invoices.
 import InvoicePreview from '../../components/InvoicePreview'
 import { moneyApi } from '../../api/money'
+import { profilesApi } from '../../api/profiles'
 
 const FN_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-invoice`
 const LAST_RECIPIENT_KEY = 'tryp_invoice_to'
@@ -127,7 +128,7 @@ export default function InvoicesPanel({ prefill, onClose, onSent }) {
 
   async function load() {
     const [{ data: c }, { data: setting }] = await Promise.all([
-      supabase.from('profiles').select('id, name').eq('status', 'active').eq('is_admin', false).order('name'),
+      profilesApi.profiles().select('id, name').eq('status', 'active').eq('is_admin', false).order('name'),
       supabase.from('app_settings').select('value').eq('key', BILL_TO_SETTING).maybeSingle(),
     ])
     setCreators(c ?? [])

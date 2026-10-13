@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, Navigate } from 'react-router-dom'
 import { motion } from 'motion/react'
-import { supabase } from '../lib/supabase'
 import { useCommunity } from '../context/CommunityContext'
 import { useAuth } from '../context/AuthContext'
 import { useUnread, scopedChannel } from '../context/UnreadContext'
@@ -22,6 +21,7 @@ import { useIsMobile } from '../lib/useKeyboardInset'
 import { pageFade, SPRING } from '../lib/motion'
 import { useT } from '../lib/i18n'
 import { useCachedPage, writePageCache } from '../lib/pageCache'
+import { chatApi } from '../api/chat'
 
 // See lib/pageCache.
 const ROOMS_CACHE_KEY = 'rooms'
@@ -313,7 +313,7 @@ export default function Rooms() {
     if (ctxLoading) return undefined
     if (!placeIds.length) { setRooms([]); return undefined }
     let alive = true
-    supabase.from('channels')
+    chatApi.channels()
       .select('id, key, label, hint, icon, visibility, position, community_id')
       .in('community_id', placeIds)
       .order('position')

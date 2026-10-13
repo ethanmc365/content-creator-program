@@ -12,6 +12,7 @@ import { useVipAccess } from '../../lib/vip'
 import { awaitingCode } from '../../lib/wallet'
 import { moneyApi } from '../../api/money'
 import { challengesApi } from '../../api/challenges'
+import { profilesApi } from '../../api/profiles'
 
 // The admin hub.
 //
@@ -388,8 +389,8 @@ export default function AdminPanel() {
   const persist = useCallback(async (patch) => {
     if (!profile?.id) return
     savedOnce.current = true
-    await supabase
-      .from('profiles')
+    await profilesApi
+      .profiles()
       .update({ admin_prefs: { ...(profile.admin_prefs || {}), ...patch } })
       .eq('id', profile.id)
   }, [profile?.id, profile?.admin_prefs])
@@ -500,7 +501,7 @@ export default function AdminPanel() {
   useEffect(() => {
     async function load() {
       const answers = await Promise.all([
-        supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('status', 'pending').eq('onboarded', true),
+        profilesApi.profiles().select('id', { count: 'exact', head: true }).eq('status', 'pending').eq('onboarded', true),
         moneyApi.invoices().select('id', { count: 'exact', head: true }).eq('stage', 'awaiting_approval'),
         supabase.from('message_reports').select('id', { count: 'exact', head: true }).in('status', ['new', 'reviewing']),
         supabase.from('feedback').select('id', { count: 'exact', head: true }).eq('status', 'new'),

@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import Icon from './Icon'
 import { Avatar } from './ui'
 import { useT } from '../lib/i18n'
+import { profilesApi } from '../api/profiles'
 
 // LOOKING AT ONE CREATOR'S OWN PAGES, AS THEY SEE THEM.
 //
@@ -44,7 +44,7 @@ export function useViewAs() {
   useEffect(() => {
     if (!viewing) { setPerson(null); return undefined }
     let alive = true
-    supabase.from('profiles').select('id, name, photo_url').eq('id', asId).maybeSingle()
+    profilesApi.profiles().select('id, name, photo_url').eq('id', asId).maybeSingle()
       .then(({ data }) => { if (alive) setPerson(data || null) })
     return () => { alive = false }
   }, [viewing, asId])

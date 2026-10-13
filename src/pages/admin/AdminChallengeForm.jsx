@@ -25,6 +25,7 @@ import ChallengeTemplates, { SaveAsTemplate } from '../../components/admin/Chall
 import { templateFromForm } from '../../lib/challengeTemplates'
 import { challengesApi } from '../../api/challenges'
 import { submissionsApi } from '../../api/submissions'
+import { profilesApi } from '../../api/profiles'
 
 // Create / edit a challenge. Everything is customisable: which market it runs
 // in, how it is won, length, brief, rules, platforms and the full prize
@@ -393,7 +394,7 @@ export default function AdminChallengeForm() {
   useEffect(() => {
     if (missingIds.length === 0) return undefined
     let alive = true
-    supabase.from('profiles').select('id, name, photo_url, city, country').in('id', missingIds)
+    profilesApi.profiles().select('id, name, photo_url, city, country').in('id', missingIds)
       .then(({ data }) => { if (alive && data?.length) setStrangers((cur) => [...cur, ...data]) })
     return () => { alive = false }
   }, [missingIds])

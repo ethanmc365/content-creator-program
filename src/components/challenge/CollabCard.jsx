@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react'
-import { supabase } from '../../lib/supabase'
 import { Avatar, Skeleton } from '../ui'
 import Icon from '../Icon'
 import { useT } from '../../lib/i18n'
 import { challengesApi } from '../../api/challenges'
+import { profilesApi } from '../../api/profiles'
 
 // THE COLLAB BONUS: BOTH CREATORS ENTER THE POST (rebuilt 5 Oct 2026, migration 337).
 //
@@ -27,7 +27,7 @@ export default function CollabCard({ challenge, rule, meId }) {
         setRows(mine)
         const ids = [...new Set(mine.map((c) => (c.requester_id === meId ? c.partner_id : c.requester_id)))]
         if (ids.length) {
-          const { data: ps } = await supabase.from('profiles').select('id, name, photo_url').in('id', ids)
+          const { data: ps } = await profilesApi.profiles().select('id, name, photo_url').in('id', ids)
           if (alive) setNames(Object.fromEntries((ps || []).map((p) => [p.id, p])))
         }
       })

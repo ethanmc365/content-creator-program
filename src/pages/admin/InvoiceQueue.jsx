@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { supabase } from '../../lib/supabase'
 import { Avatar, Badge, EmptyState, Select, Skeleton, Spinner, StatCard } from '../../components/ui'
 import Icon from '../../components/Icon'
 import { cx, formatDate, formatMoney } from '../../lib/utils'
@@ -7,6 +6,7 @@ import { invoiceRef } from '../../lib/invoice'
 import { notice } from '../../lib/confirm'
 import { StageChip, payable, useInvoiceViewer } from '../../components/admin/InvoiceModal'
 import { moneyApi } from '../../api/money'
+import { profilesApi } from '../../api/profiles'
 
 // THE APPROVAL QUEUE. What an invoice IS, and everything you can do to one,
 // lives in components/admin/InvoiceModal - the Payouts tab opens the same
@@ -161,7 +161,7 @@ export default function InvoiceQueue({ onEdit, inMarket, onChanged }) {
       moneyApi.invoices()
         .select('*, rewards:reward_id(challenge_id, challenges(title))')
         .order('number', { ascending: false }),
-      supabase.from('profiles').select('id, name, photo_url'),
+      profilesApi.profiles().select('id, name, photo_url'),
     ])
     setRows(inv || [])
     setPeople(new Map((profs || []).map((p) => [p.id, p])))

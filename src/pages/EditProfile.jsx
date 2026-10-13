@@ -17,6 +17,7 @@ import { PageHeader, Spinner } from '../components/ui'
 import { useT } from '../lib/i18n'
 import { useTyping } from '../lib/useTyping'
 import { moneyApi } from '../api/money'
+import { profilesApi } from '../api/profiles'
 
 // Edit every part of your own profile on one calm page.
 //
@@ -202,7 +203,7 @@ export default function EditProfile() {
       }
     }
     const [{ error }] = await Promise.all([
-      supabase.from('profiles').update(payload).eq('id', user.id),
+      profilesApi.profiles().update(payload).eq('id', user.id),
       // Upsert the private contact row (phone never goes in public profiles).
       // Only the phone columns are touched here; payment details are managed on
       // the Settings page and left untouched by this partial upsert.
@@ -284,7 +285,7 @@ export default function EditProfile() {
                 // whole form, so one field the save would not take (or a Save never pressed) left
                 // the picture on the old one - Marta uploaded four times and her profile still
                 // shows the first photo. Now the picture is saved by itself; Save still sends it too.
-                supabase.from('profiles').update({ photo_url: url }).eq('id', user.id).then(({ error }) => {
+                profilesApi.profiles().update({ photo_url: url }).eq('id', user.id).then(({ error }) => {
                   if (error) { setSaveError(error.message); return }
                   refreshProfile()
                 })

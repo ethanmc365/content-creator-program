@@ -18,6 +18,7 @@ import { useMediaQuery } from '../lib/useKeyboardInset'
 import { safeUrl } from '../lib/safeUrl'
 import { vipApi } from '../api/vip'
 import { submissionsApi } from '../api/submissions'
+import { profilesApi } from '../api/profiles'
 
 // MY PORTFOLIO.
 //
@@ -75,10 +76,10 @@ export default function Portfolio() {
   const load = useCallback(async () => {
     if (!viewingId) return
     const [{ data: creator }, { data: port }, { data: subs }, { data: certs }, { data: vipVids }] = await Promise.all([
-      supabase.from('profiles')
+      profilesApi.profiles()
         .select('id, name, photo_url, bio, city, country, instagram_url, tiktok_url, youtube_url, facebook_url, linkedin_url, other_links')
         .eq('id', viewingId).maybeSingle(),
-      supabase.from('creator_portfolios').select('*').eq('profile_id', viewingId).maybeSingle(),
+      profilesApi.creatorPortfolios().select('*').eq('profile_id', viewingId).maybeSingle(),
       submissionsApi.submissions()
         .select('id, platform, video_url, thumbnail_url, caption, logged_views, submitted_at, challenge_id, community_id, challenge:challenges(title), market:communities(name)')
         .eq('creator_id', viewingId)
@@ -210,7 +211,7 @@ export default function Portfolio() {
       updated_at: new Date().toISOString(),
       published_at: p.is_public ? (p.published_at || new Date().toISOString()) : null,
     }
-    const { error } = await supabase.from('creator_portfolios').upsert(row, { onConflict: 'profile_id' })
+    const { error } = await profilesApi.creatorPortfolios().upsert(row, { onConflict: 'profile_id' })
     setSaving(false)
     if (error) {
       setSaveError(true)
@@ -613,7 +614,7 @@ function blankPortfolio(profileId, name) {
 async function freeSlug(name) {
   for (let i = 0; i < 6; i += 1) {
     const candidate = slugify(name, i === 0 ? '' : i + 1)
-    const { data } = await supabase.from('creator_portfolios').select('profile_id').eq('slug', candidate).maybeSingle()
+    const { data } = await profilesApi.creatorPortfolios().select('profile_id').eq('slug', candidate).maybeSingle()
     if (!data) return candidate
   }
   return null

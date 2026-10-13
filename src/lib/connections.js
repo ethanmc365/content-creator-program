@@ -1,11 +1,12 @@
 import { supabase } from './supabase'
+import { profilesApi } from '../api/profiles'
 
 // Connection relationships, from MY point of view, keyed by the other person's
 // id. relation is one of: 'connected' | 'pending_sent' | 'pending_received'.
 // (No entry at all means no relationship yet.)
 export async function loadRelationships(myId) {
-  const { data } = await supabase
-    .from('connections')
+  const { data } = await profilesApi
+    .connections()
     .select('id, creator_id, connected_creator_id, status')
     .or(`creator_id.eq.${myId},connected_creator_id.eq.${myId}`)
   const map = new Map()
@@ -22,8 +23,8 @@ export async function loadRelationships(myId) {
 
 // The relationship between me and one specific person (or null).
 export async function loadRelationship(myId, otherId) {
-  const { data } = await supabase
-    .from('connections')
+  const { data } = await profilesApi
+    .connections()
     .select('id, creator_id, connected_creator_id, status')
     .or(`and(creator_id.eq.${myId},connected_creator_id.eq.${otherId}),and(creator_id.eq.${otherId},connected_creator_id.eq.${myId})`)
     .maybeSingle()
@@ -50,9 +51,9 @@ export async function loadRelationship(myId, otherId) {
 export async function mutualCreators(myId, otherId, limit = 12) {
   if (!myId || !otherId || myId === otherId) return { people: [], total: 0 }
   const [{ data: a }, { data: b }] = await Promise.all([
-    supabase.from('connections').select('creator_id, connected_creator_id')
+    profilesApi.connections().select('creator_id, connected_creator_id')
       .eq('status', 'accepted').or(`creator_id.eq.${myId},connected_creator_id.eq.${myId}`),
-    supabase.from('connections').select('creator_id, connected_creator_id')
+    profilesApi.connections().select('creator_id, connected_creator_id')
       .eq('status', 'accepted').or(`creator_id.eq.${otherId},connected_creator_id.eq.${otherId}`),
   ])
   const mine = new Set((a ?? []).map((r) => (r.creator_id === myId ? r.connected_creator_id : r.creator_id)))
@@ -60,8 +61,8 @@ export async function mutualCreators(myId, otherId, limit = 12) {
   const ids = [...mine].filter((x) => theirs.has(x) && x !== myId && x !== otherId)
   if (!ids.length) return { people: [], total: 0 }
 
-  const { data: people } = await supabase
-    .from('profiles')
+  const { data: people } = await profilesApi
+    .profiles()
     .select('id, name, photo_url, city, country')
     .in('id', ids.slice(0, limit))
     .eq('status', 'active')
@@ -77,8 +78,8 @@ export async function mutualCreators(myId, otherId, limit = 12) {
 // are built by reading the whole edge list. RLS is row level, so a private
 // column on a world-readable row is not a thing that exists. See migration 107.
 export async function sendConnectionRequest(myId, targetId, note) {
-  const { data, error } = await supabase
-    .from('connections')
+  const { data, error } = await profilesApi
+    .connections()
     .insert({ creator_id: myId, connected_creator_id: targetId })
     .select('id')
     .single()

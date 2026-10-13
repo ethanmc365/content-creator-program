@@ -9,6 +9,7 @@ import { referralProgress, referralStage, referralTerms } from '../lib/referrals
 import { useT } from '../lib/i18n'
 import { moneyApi } from '../api/money'
 import { submissionsApi } from '../api/submissions'
+import { profilesApi } from '../api/profiles'
 
 // Creators refer other creators ONE way: they share their personal invite link
 // (/signup?ref=CODE), which credits them automatically.
@@ -49,8 +50,8 @@ export default function Refer() {
   async function load() {
     const [{ data: refs }, { data: joinedProfiles }, { data: me }, { data: cfg }, { data: mine }] = await Promise.all([
       supabase.from('referrals').select('*').eq('referrer_id', user.id).order('created_at', { ascending: false }),
-      supabase.from('profiles').select('id, name, photo_url, created_at, status, onboarded').eq('referred_by', user.id),
-      supabase.from('profiles').select('referral_clicks').eq('id', user.id).single(),
+      profilesApi.profiles().select('id, name, photo_url, created_at, status, onboarded').eq('referred_by', user.id),
+      profilesApi.profiles().select('referral_clicks').eq('id', user.id).single(),
       supabase.from('app_settings').select('value').eq('key', 'referral_reward').maybeSingle(),
       moneyApi.rewards().select('id, amount, currency, status, created_at').eq('creator_id', user.id).eq('source', 'referral').order('created_at'),
     ])

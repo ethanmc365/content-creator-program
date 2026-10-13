@@ -11,6 +11,7 @@ import { Avatar, EmptyState, Modal, PageHeader, Skeleton, Spinner, Toggle } from
 import { LEAD_TITLE_SHORT, TITLE_PRESETS, permissionLabel } from '../../lib/roles'
 import { cx } from '../../lib/utils'
 import { vipApi } from '../../api/vip'
+import { profilesApi } from '../../api/profiles'
 
 const MARKET_FLAG = { uk: '🇬🇧', spain: '🇪🇸', portugal: '🇵🇹', germany: '🇩🇪', romania: '🇷🇴', nordics: '🇸🇪' }
 
@@ -218,7 +219,7 @@ export default function AdminTeam() {
   // needed once somebody presses Add - before drawing anything. The roster and
   // the markets draw the page; the people and the member counts fill in behind.
   const load = useCallback(async () => {
-    const peopleP = supabase.from('profiles').select('id, name, photo_url, country_code, city, country')
+    const peopleP = profilesApi.profiles().select('id, name, photo_url, country_code, city, country')
       .eq('status', 'active').eq('is_test', false).order('name').limit(1000)
     const memP = supabase.from('community_members').select('community_id, profile_id').eq('status', 'active').limit(5000)
     const [{ data: roster, error }, { data: mk }] = await Promise.all([

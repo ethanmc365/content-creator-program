@@ -10,6 +10,7 @@ import { confirm, notice } from '../lib/confirm'
 import { useT } from '../lib/i18n'
 import { createPortal } from 'react-dom'
 import PhotoLightbox from './PhotoLightbox'
+import { profilesApi } from '../api/profiles'
 
 // THE TRAVEL PHOTO BOARD: A PACKED COLLAGE YOU REARRANGE.
 //
@@ -341,7 +342,7 @@ export default function PhotoBoard({ creatorId, editable = false, alwaysArrangin
   const arranging = editable && (alwaysArranging || arrangingSelf)
 
   const load = useCallback(async () => {
-    const { data } = await supabase.from('creator_photos').select('*')
+    const { data } = await profilesApi.creatorPhotos().select('*')
       .eq('creator_id', creatorId).order('sort_order')
     setPhotos(data ?? [])
     // The count is reported from the DRAWABLE tiles, not from the row count -
@@ -413,7 +414,7 @@ export default function PhotoBoard({ creatorId, editable = false, alwaysArrangin
         if (!alive || !img.naturalWidth || !img.naturalHeight) return
         const a = img.naturalWidth / img.naturalHeight
         setAspects((cur) => (cur[p.id] ? cur : { ...cur, [p.id]: a }))
-        if (editable) supabase.from('creator_photos').update({ aspect: a }).eq('id', p.id).then(() => {})
+        if (editable) profilesApi.creatorPhotos().update({ aspect: a }).eq('id', p.id).then(() => {})
       }
       // The same probe that measures also reports a file that is gone, so a
       // missing photo is known before it can paint a broken-image icon.
@@ -571,7 +572,7 @@ export default function PhotoBoard({ creatorId, editable = false, alwaysArrangin
     const byId = new Map(patches.map((x) => [x.id, x.next]))
     setPhotos((cur) => (cur || []).map((p) => (byId.has(p.id) ? { ...p, ...byId.get(p.id) } : p)))
     const results = await Promise.all(patches.map(({ id, next }) =>
-      supabase.from('creator_photos').update(next).eq('id', id)))
+      profilesApi.creatorPhotos().update(next).eq('id', id)))
     const failed = results.find((r) => r.error)
     if (!failed) return
     setPhotos(before)
@@ -777,7 +778,7 @@ export default function PhotoBoard({ creatorId, editable = false, alwaysArrangin
       // `sort_order_mobile` null would have put it wherever its desktop order
       // happens to land in the phone's arrangement, which for a creator who has
       // arranged their phone board is the middle of it.
-      const { error } = await supabase.from('creator_photos').insert({
+      const { error } = await profilesApi.creatorPhotos().insert({
         creator_id: creatorId,
         photo_url: url,
         sort_order: order,
@@ -863,7 +864,7 @@ export default function PhotoBoard({ creatorId, editable = false, alwaysArrangin
     const byId = new Map(byUpload.map((p, i) => [p.id, patch(i)]))
     setPhotos((cur) => (cur || []).map((p) => ({ ...p, ...(byId.get(p.id) || {}) })))
     const results = await Promise.all(byUpload.map((p, i) =>
-      supabase.from('creator_photos').update(patch(i)).eq('id', p.id)))
+      profilesApi.creatorPhotos().update(patch(i)).eq('id', p.id)))
     setResetting(false)
     const failed = results.find((r) => r.error)
     if (failed) {
@@ -885,7 +886,7 @@ export default function PhotoBoard({ creatorId, editable = false, alwaysArrangin
     const before = photos
     const after = (photos || []).map((p) => (p.id === photo.id ? { ...p, [sizeKey]: size } : p))
     setPhotos(after)
-    const { error } = await supabase.from('creator_photos').update({ [sizeKey]: size }).eq('id', photo.id)
+    const { error } = await profilesApi.creatorPhotos().update({ [sizeKey]: size }).eq('id', photo.id)
     if (error) {
       setPhotos(before)
       await notice(`That size could not be saved: ${error.message}`)
@@ -919,7 +920,7 @@ export default function PhotoBoard({ creatorId, editable = false, alwaysArrangin
     if (!ok) return
     const before = photos
     setPhotos((cur) => (cur || []).filter((p) => p.id !== photo.id))
-    const { error } = await supabase.from('creator_photos').delete().eq('id', photo.id)
+    const { error } = await profilesApi.creatorPhotos().delete().eq('id', photo.id)
     if (error) {
       setPhotos(before)
       await notice(`That photo could not be removed: ${error.message}`)
@@ -933,7 +934,7 @@ export default function PhotoBoard({ creatorId, editable = false, alwaysArrangin
   async function saveCaption(photo, caption) {
     if ((caption || '') === (photo.caption || '')) return
     setPhotos((cur) => (cur || []).map((p) => (p.id === photo.id ? { ...p, caption } : p)))
-    const { error } = await supabase.from('creator_photos').update({ caption }).eq('id', photo.id)
+    const { error } = await profilesApi.creatorPhotos().update({ caption }).eq('id', photo.id)
     if (error) await notice(`That caption could not be saved: ${error.message}`)
   }
 
@@ -941,7 +942,7 @@ export default function PhotoBoard({ creatorId, editable = false, alwaysArrangin
     setPhotos((cur) => (cur || []).map((p) => (
       p.id === photo.id ? { ...p, focal_x: focal.x, focal_y: focal.y, zoom } : p)))
     setCropping(null)
-    await supabase.from('creator_photos')
+    await profilesApi.creatorPhotos()
       .update({ focal_x: focal.x, focal_y: focal.y, zoom }).eq('id', photo.id)
   }
 

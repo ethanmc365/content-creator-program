@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { supabase } from '../../lib/supabase'
 import { Avatar, Select, Skeleton, Spinner } from '../ui'
 import Icon from '../Icon'
 import { confirm, notice } from '../../lib/confirm'
 import { toastSuccess } from '../../lib/toast'
 import { clearVipAccess, vipRpc, useKindT } from '../../lib/vip'
 import { formatDate } from '../../lib/utils'
+import { profilesApi } from '../../api/profiles'
 
 // WHO CAN OPEN THE VIP TOOLS (30 Sep 2026, migration 296).
 //
@@ -31,7 +31,7 @@ export function VipAccessTab({ programmes }) {
       const list = (await vipRpc('vip_managers_list')) || []
       // The team's demo login keeps its access for testing, but it is not somebody to list here (3 Oct 2026).
       const ids = [...new Set(list.map((r) => r.profile_id))]
-      const { data: hide } = ids.length ? await supabase.from('profiles').select('id').in('id', ids).or('is_test.eq.true,is_sandbox.eq.true') : { data: [] }
+      const { data: hide } = ids.length ? await profilesApi.profiles().select('id').in('id', ids).or('is_test.eq.true,is_sandbox.eq.true') : { data: [] }
       const hidden = new Set((hide || []).map((h) => h.id))
       setRows(list.filter((r) => !hidden.has(r.profile_id)))
     } catch (e) { setRows([]); notice(e.message) }
@@ -45,7 +45,7 @@ export function VipAccessTab({ programmes }) {
   const [team, setTeam] = useState(null)
   useEffect(() => {
     let alive = true
-    supabase.from('profiles').select('id, name, photo_url, role_title, is_admin').eq('is_test', false).eq('is_sandbox', false)
+    profilesApi.profiles().select('id, name, photo_url, role_title, is_admin').eq('is_test', false).eq('is_sandbox', false)
       .or('is_admin.eq.true,platform_role.in.(owner,global_admin)').order('name').limit(200)
       .then(({ data }) => { if (alive) setTeam(data || []) })
     return () => { alive = false }
@@ -56,7 +56,7 @@ export function VipAccessTab({ programmes }) {
     const mine = ++seq.current
     setSearching(true)
     const id = setTimeout(async () => {
-      const { data } = await supabase.from('profiles').select('id, name, photo_url, role_title, is_admin')
+      const { data } = await profilesApi.profiles().select('id, name, photo_url, role_title, is_admin')
         .ilike('name', `%${term}%`).eq('is_test', false).eq('is_sandbox', false).order('is_admin', { ascending: false }).limit(8)
       if (mine === seq.current) { setFound(data || []); setSearching(false) }
     }, 120)

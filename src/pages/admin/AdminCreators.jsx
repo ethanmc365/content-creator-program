@@ -21,6 +21,8 @@ import { CreatorMarketsBlock } from '../../components/admin/CreatorMarkets'
 import { vipApi } from '../../api/vip'
 import { moneyApi } from '../../api/money'
 import { submissionsApi } from '../../api/submissions'
+import { profilesApi } from '../../api/profiles'
+import { chatApi } from '../../api/chat'
 
 // Creator management: the full list with emails (admin-only RPC), plus all
 // account actions - password reset, mute, suspend, promote to admin, DM.
@@ -111,7 +113,7 @@ export default function AdminCreators() {
 
   async function load() {
     const [{ data: profiles }, { data: emailRows }, { data: seenRows }, { data: memberRows }] = await Promise.all([
-      supabase.from('profiles').select('*').order('created_at', { ascending: false }),
+      profilesApi.profiles().select('*').order('created_at', { ascending: false }),
       supabase.rpc('admin_list_emails'),
       supabase.rpc('admin_list_activity'),
       // WHICH MARKET SOMEBODY IS IN IS THE FILTER THIS PAGE WAS MISSING.
@@ -224,7 +226,7 @@ export default function AdminCreators() {
     async function loadDetail() {
       const [{ data: subs }, { count: msgs }, { data: rewards }, { data: n }, { data: p }] = await Promise.all([
         submissionsApi.submissions().select('*, challenges(title)').eq('creator_id', selected.id).order('submitted_at', { ascending: false }),
-        supabase.from('messages').select('id', { count: 'exact', head: true }).eq('sender_id', selected.id),
+        chatApi.messages().select('id', { count: 'exact', head: true }).eq('sender_id', selected.id),
         moneyApi.rewards().select('*').eq('creator_id', selected.id),
         // The note carries WHO wrote it. It was always shared between admins -
         // one row per creator, an admins-only policy - but it was labelled
@@ -259,7 +261,7 @@ export default function AdminCreators() {
   async function setStatus(creator, status) {
     const verb = { active: 'reactivate', muted: 'mute', suspended: 'suspend' }[status]
     if (!await confirm(`Really ${verb} ${creator.name}?`)) return
-    if (!await saved(supabase.from('profiles').update({ status }).eq('id', creator.id))) return
+    if (!await saved(profilesApi.profiles().update({ status }).eq('id', creator.id))) return
     flash(`${creator.name} is now ${status}.`)
     setSelected(null)
     load()
@@ -291,7 +293,7 @@ export default function AdminCreators() {
   // Restore an account that the creator scheduled for deletion (within the
   // 30-day grace period).
   async function restoreCreator(creator) {
-    const { error } = await supabase.from('profiles').update({ deletion_requested_at: null }).eq('id', creator.id)
+    const { error } = await profilesApi.profiles().update({ deletion_requested_at: null }).eq('id', creator.id)
     if (error) return flash(`Couldn't restore: ${error.message}`)
     flash(`${creator.name}'s account restored.`)
     setSelected(null)

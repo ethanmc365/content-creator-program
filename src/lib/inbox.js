@@ -1,8 +1,9 @@
-import { supabase } from './supabase'
 import { otherParticipant } from './utils'
 import { loadGroupMembers, loadMyInvites } from './groups'
 import { loadRelationships } from './connections'
 import { testFlags } from './testData'
+import { profilesApi } from '../api/profiles'
+import { chatApi } from '../api/chat'
 
 // THE DM INBOX, AS ONE FUNCTION (2 Oct 2026).
 //
@@ -23,7 +24,7 @@ export const DM_CACHE_KEY = 'dm-inbox'
 /** { conversations, invites } for `userId`, enriched with the other person / members and unread counts. */
 export async function fetchInbox(userId, justCreated) {
   const [{ data: allConvos }, invites] = await Promise.all([
-    supabase.from('conversations').select('*').order('last_message_at', { ascending: false }),
+    chatApi.conversations().select('*').order('last_message_at', { ascending: false }),
     loadMyInvites(userId),
   ])
   const convos = (allConvos ?? []).filter((c) => isListableConversation(c, justCreated))
@@ -34,13 +35,13 @@ export async function fetchInbox(userId, justCreated) {
   const otherIds = directs.map((c) => otherParticipant(c, userId)).filter(Boolean)
   const [{ data: profiles }, { data: unreadMsgs }, memberData, { data: groupMsgs }] = await Promise.all([
     otherIds.length
-      ? supabase.from('profiles').select('id, name, photo_url, is_admin, bio').in('id', otherIds)
+      ? profilesApi.profiles().select('id, name, photo_url, is_admin, bio').in('id', otherIds)
       : Promise.resolve({ data: [] }),
-    supabase.from('direct_messages').select('id, conversation_id').eq('recipient_id', userId).eq('read', false),
+    chatApi.directMessages().select('id, conversation_id').eq('recipient_id', userId).eq('read', false),
     loadGroupMembers(groups.map((c) => c.id)),
     // Unread in a group is a watermark, not a flag; only the last 45 days could still be unread.
     groups.length
-      ? supabase.from('direct_messages')
+      ? chatApi.directMessages()
           .select('id, conversation_id, sender_id, created_at')
           .in('conversation_id', groups.map((c) => c.id))
           .gte('created_at', new Date(Date.now() - 45 * 86400000).toISOString())
@@ -84,8 +85,8 @@ export const DM_PEOPLE_CACHE_KEY = 'dm-people'
 
 export async function fetchDmPeople(userId) {
   const [{ data: profiles }, rels] = await Promise.all([
-    supabase
-      .from('profiles')
+    profilesApi
+      .profiles()
       .select('id, name, photo_url, bio, is_admin, city, country, created_at, last_seen_at')
       .eq('status', 'active').in('is_test', testFlags()).is('deletion_requested_at', null)
       .order('last_seen_at', { ascending: false, nullsFirst: false })

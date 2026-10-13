@@ -27,6 +27,8 @@ import ReaderText from '../components/ReaderText'
 import CitySuggestion from '../components/CitySuggestion'
 import { vipApi } from '../api/vip'
 import { moneyApi } from '../api/money'
+import { profilesApi } from '../api/profiles'
+import { chatApi } from '../api/chat'
 
 // FIRST LOGIN: BUILDING A PROFILE THE TEAM CAN ACTUALLY REVIEW.
 //
@@ -606,7 +608,7 @@ export default function Onboarding() {
     // into the one that destroys it.
     if (!hydratedDone.current) return
     await Promise.all([
-      supabase.from('profiles').update(draftColumns(draft)).eq('id', user.id),
+      profilesApi.profiles().update(draftColumns(draft)).eq('id', user.id),
       (contact.phone || contact.phone_country)
         ? moneyApi.creatorPrivate().upsert({
             id: user.id,
@@ -725,7 +727,7 @@ export default function Onboarding() {
     // every submit. See migration 187. That bug is fixed; this silence is what
     // made it invisible, and the silence is the more dangerous of the two.
     const [{ error: profileErr }, { error: privateErr } = {}] = await Promise.all([
-      supabase.from('profiles').update(update).eq('id', user.id),
+      profilesApi.profiles().update(update).eq('id', user.id),
       (contact.phone || contact.phone_country)
         ? moneyApi.creatorPrivate().upsert({
             id: user.id,
@@ -767,7 +769,7 @@ export default function Onboarding() {
     }
 
     if (sayHello && !pending) {
-      await supabase.from('messages').insert({
+      await chatApi.messages().insert({
         channel: 'general',
         sender_id: user.id,
         body: `Hey everyone! ${draft.name || 'A new creator'} here, just joined the community 👋`,

@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { supabase } from '../../lib/supabase'
 import Icon from '../Icon'
 import { cx } from '../../lib/utils'
 import { rankInk, ordinalFor } from '../../lib/podiumTiers'
 import { useT } from '../../lib/i18n'
 import { challengesApi } from '../../api/challenges'
+import { profilesApi } from '../../api/profiles'
 
 // THE REST OF THE PLATFORM, ON THE PROFILE.
 //
@@ -81,7 +81,7 @@ export function PuzzleCard({ creatorId, isMe, firstName }) {
 
   useEffect(() => {
     let alive = true
-    supabase.rpc('profile_game_stats', { p_profile: creatorId })
+    profilesApi.profileGameStats({ p_profile: creatorId })
       .then(({ data }) => {
         if (!alive) return
         // The RPC returns a one-row table, so supabase-js hands back an array.

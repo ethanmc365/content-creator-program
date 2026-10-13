@@ -24,6 +24,8 @@ import { appSoundOn, setAppSoundOn, playDmArrival } from '../lib/appSounds'
 import { startTour } from '../components/tour/TourGate'
 import { soundOn, setSoundOn, playCoin } from '../lib/gameSounds'
 import { moneyApi } from '../api/money'
+import { profilesApi } from '../api/profiles'
+import { chatApi } from '../api/chat'
 
 // Light or dark, explicitly. A "match system" option was tried and removed:
 // following the OS colour scheme was unreliable across real devices.
@@ -142,7 +144,7 @@ export default function Settings() {
     storeMode(mode)
     syncTheme()
     const dark = resolveDark(mode)
-    await supabase.from('profiles').update({ dark_mode: dark }).eq('id', user.id)
+    await profilesApi.profiles().update({ dark_mode: dark }).eq('id', user.id)
     refreshProfile()
   }
 
@@ -184,7 +186,7 @@ export default function Settings() {
   async function toggleMap(next) {
     setShowOnMap(next)
     setSavingMap(true)
-    if (!await saved(supabase.from('profiles').update({ show_on_map: next }).eq('id', user.id))) setShowOnMap(!next)
+    if (!await saved(profilesApi.profiles().update({ show_on_map: next }).eq('id', user.id))) setShowOnMap(!next)
     setSavingMap(false)
     refreshProfile()
   }
@@ -239,8 +241,8 @@ export default function Settings() {
       own('submissions', 'creator_id'), own('connections', 'creator_id'), own('reactions', 'creator_id'),
       own('poll_votes', 'voter_id'), own('referrals', 'referrer_id'), own('rewards', 'creator_id'),
       own('notifications', 'recipient_id'), own('messages', 'sender_id'),
-      supabase.from('direct_messages').select('*').eq('sender_id', uid),
-      supabase.from('direct_messages').select('*').eq('recipient_id', uid),
+      chatApi.directMessages().select('*').eq('sender_id', uid),
+      chatApi.directMessages().select('*').eq('recipient_id', uid),
     ])
     const data = {
       exported_at: new Date().toISOString(),
@@ -272,7 +274,7 @@ export default function Settings() {
   async function deleteAccount() {
     if (!await confirm('Delete your account?\n\nYour profile and content will be hidden immediately and permanently deleted after 30 days. You can restore it by logging back in within 30 days.')) return
     setDeleting(true)
-    const { error } = await supabase.from('profiles').update({ deletion_requested_at: new Date().toISOString() }).eq('id', user.id)
+    const { error } = await profilesApi.profiles().update({ deletion_requested_at: new Date().toISOString() }).eq('id', user.id)
     setDeleting(false)
     if (error) return notice("Couldn't schedule deletion: " + error.message)
     await refreshProfile()
@@ -696,7 +698,7 @@ export default function Settings() {
     setLangCode(setLocale(code))
     if (!user?.id) return
     // The stored language decides the language of push notifications and emails.
-    if (await saved(supabase.from('profiles').update({ locale: code }).eq('id', user.id))) refreshProfile?.()
+    if (await saved(profilesApi.profiles().update({ locale: code }).eq('id', user.id))) refreshProfile?.()
   }
 
   // JUST THE CHOICE (1 Sep 2026).

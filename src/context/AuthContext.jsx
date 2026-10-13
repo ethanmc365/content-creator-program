@@ -7,6 +7,7 @@ import { resetNotifications } from '../lib/notifications'
 import { clearScopeCache } from '../lib/scope'
 import { clearVipAccess, clearVipCache } from '../lib/vip'
 import { identifyForMonitoring } from '../lib/monitoring'
+import { profilesApi } from '../api/profiles'
 
 // AuthContext is the single source of truth for "who is logged in".
 // It exposes the Supabase session, the user's profile row (including
@@ -296,7 +297,7 @@ export function AuthProvider({ children }) {
   // Load the profile row for the signed-in user. Returns { data, error } so
   // callers can tell "no row exists" (PGRST116) apart from a transient failure.
   const fetchProfile = useCallback(async (userId) => {
-    const result = await supabase.from('profiles').select('*').eq('id', userId).single()
+    const result = await profilesApi.profiles().select('*').eq('id', userId).single()
     // THE LANGUAGE FOLLOWS THE ACCOUNT, and this is the one place every path
     // into a profile goes through - first load, refresh after an edit, and the
     // manual retry. `adoptProfileLocale` stands aside if this device has

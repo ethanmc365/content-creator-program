@@ -12,6 +12,7 @@ import { useT } from '../lib/i18n'
 import SectionTitle from './network/SectionTitle'
 import { testFlags } from '../lib/testData'
 import { flagEmoji } from '../lib/countries'
+import { profilesApi } from '../api/profiles'
 
 // WHO TO MEET THIS WEEK.
 //
@@ -76,7 +77,7 @@ export default function WhoToMeet({ className }) {
     async function load() {
       const today = format(new Date(), 'yyyy-MM-dd')
       const [{ data: people }, { data: trips }, { data: rels }] = await Promise.all([
-        supabase.from('profiles')
+        profilesApi.profiles()
           .select('id, name, photo_url, bio, city, country, country_code, city_lng, languages, countries_visited, instagram_url, tiktok_url, youtube_url, facebook_url')
           .eq('status', 'active').in('is_test', testFlags()).eq('is_admin', false)
           .is('deletion_requested_at', null),
@@ -86,7 +87,7 @@ export default function WhoToMeet({ className }) {
           .select('creator_id, city, country, start_date, end_date')
           .gte('end_date', today),
         // Who the viewer is already connected to, either way round.
-        supabase.from('connections')
+        profilesApi.connections()
           .select('creator_id, connected_creator_id, status')
           .or(`creator_id.eq.${user.id},connected_creator_id.eq.${user.id}`),
       ])

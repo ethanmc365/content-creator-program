@@ -19,6 +19,7 @@ import Reveal from '../components/network/Reveal'
 import WhenVisible from '../components/WhenVisible'
 import { useT } from '../lib/i18n'
 import { flagForCountry, flagFromIso } from '../lib/flags'
+import { profilesApi } from '../api/profiles'
 
 // How many upcoming trips to show before the "View more" button.
 const TRIPS_PREVIEW = 6
@@ -445,8 +446,8 @@ export default function Collab() {
     const currentPosts = (data ?? []).filter((p) => p.end_date >= today && p.start_date <= horizonYmd)
     const ids = [...new Set(currentPosts.map((p) => p.creator_id))]
     if (ids.length) {
-      const { data: profs } = await supabase
-        .from('profiles').select('id, name, photo_url, city, city_lat, city_lng, country, countries_visited').in('id', ids)
+      const { data: profs } = await profilesApi
+        .profiles().select('id, name, photo_url, city, city_lat, city_lng, country, countries_visited').in('id', ids)
       const tripsByCreator = {}
       for (const p of currentPosts) {
         (tripsByCreator[p.creator_id] ||= []).push({ country: p.country, city: p.city, start_date: p.start_date, end_date: p.end_date })

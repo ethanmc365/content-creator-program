@@ -17,6 +17,7 @@ import { socialHref, linkHref } from '../../lib/socialLinks'
 import { flagFromIso } from '../../lib/flags'
 import { vipApi } from '../../api/vip'
 import { moneyApi } from '../../api/money'
+import { profilesApi } from '../../api/profiles'
 
 // SIGNUP REVIEW, REBUILT 4 SEP 2026.
 //
@@ -200,7 +201,7 @@ export default function AdminApplications() {
     // `onboarded` is what splits it into "waiting on you" and "never finished".
     // Two queries would be two round trips for one list.
     const [{ data: profiles }, { data: emailRows }] = await Promise.all([
-      supabase.from('profiles').select('*').eq('status', 'pending').is('deletion_requested_at', null)// NEWEST FIRST. Ethan: "it should be filtered by the most recent ones at the
+      profilesApi.profiles().select('*').eq('status', 'pending').is('deletion_requested_at', null)// NEWEST FIRST. Ethan: "it should be filtered by the most recent ones at the
       // top and the older ones at the bottom - that makes sense, not the other
       // way." It does: the queue is a to-do list, and somebody who applied this
       // morning is the one whose decision is still worth making quickly.
@@ -224,7 +225,7 @@ export default function AdminApplications() {
     if (ids.length) {
       const [{ data: priv }, { data: pics }] = await Promise.all([
         moneyApi.creatorPrivate().select('id, phone, phone_country').in('id', ids),
-        supabase.from('creator_photos').select('creator_id, photo_url').in('creator_id', ids).order('sort_order'),
+        profilesApi.creatorPhotos().select('creator_id, photo_url').in('creator_id', ids).order('sort_order'),
       ])
       setPhones(Object.fromEntries((priv ?? []).map((r) => [r.id, [r.phone_country, r.phone].filter(Boolean).join(' ')])))
       const byCreator = {}
@@ -454,7 +455,7 @@ export default function AdminApplications() {
     const next = app.followed_up_at ? null : new Date().toISOString()
     setBusyId(app.id)
     setApps((prev) => prev.map((a) => (a.id === app.id ? { ...a, followed_up_at: next } : a)))
-    const { error } = await supabase.from('profiles').update({ followed_up_at: next }).eq('id', app.id)
+    const { error } = await profilesApi.profiles().update({ followed_up_at: next }).eq('id', app.id)
     setBusyId(null)
     if (error) {
       setApps((prev) => prev.map((a) => (a.id === app.id ? { ...a, followed_up_at: app.followed_up_at } : a)))
@@ -541,7 +542,7 @@ export default function AdminApplications() {
     if (!ids.length) { flash(value ? 'They are all marked already.' : 'None of them are marked.'); return }
     const stamp = value ? new Date().toISOString() : null
     setRunning({ verb: 'Marking', done: 0, total: ids.length })
-    const { error } = await supabase.from('profiles').update({ followed_up_at: stamp }).in('id', ids)
+    const { error } = await profilesApi.profiles().update({ followed_up_at: stamp }).in('id', ids)
     setRunning(null)
     if (error) { flash(`Could not save that: ${error.message}`); return }
     setApps((prev) => prev.map((a) => (ids.includes(a.id) ? { ...a, followed_up_at: stamp } : a)))

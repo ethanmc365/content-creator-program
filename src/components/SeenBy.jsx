@@ -2,9 +2,10 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Avatar, Modal } from './ui'
 import Icon from './Icon'
-import { supabase } from '../lib/supabase'
 import { cx } from '../lib/utils'
 import { useT } from '../lib/i18n'
+import { profilesApi } from '../api/profiles'
+import { chatApi } from '../api/chat'
 
 // "Seen by 12", and what happens when you press it.
 //
@@ -65,12 +66,12 @@ export default function SeenBy({
     let alive = true
     ;(async () => {
       const [{ data: votes }, { data: opts }] = await Promise.all([
-        supabase.from('poll_votes').select('voter_id, option_id').eq('poll_id', pollId),
-        supabase.from('poll_options').select('id, label').eq('poll_id', pollId),
+        chatApi.pollVotes().select('voter_id, option_id').eq('poll_id', pollId),
+        chatApi.pollOptions().select('id, label').eq('poll_id', pollId),
       ])
       const known = new Set(readers.map((r) => r.id))
       const extra = (votes ?? []).map((v) => v.voter_id).filter((id) => !known.has(id))
-      const { data: more } = extra.length ? await supabase.from('profiles').select('id, name, photo_url').in('id', extra) : { data: [] }
+      const { data: more } = extra.length ? await profilesApi.profiles().select('id, name, photo_url').in('id', extra) : { data: [] }
       if (!alive) return
       setPoll({
         votes: votes ?? [],

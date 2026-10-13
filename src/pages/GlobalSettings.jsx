@@ -16,6 +16,7 @@ import { cx, timeAgo } from '../lib/utils'
 import { listContainer, listItem, pageFade } from '../lib/motion'
 import { testFlags } from '../lib/testData'
 import { useT } from '../lib/i18n'
+import { profilesApi } from '../api/profiles'
 
 // Manage markets: every market, the door to opening another, and the ones that
 // have been retired.
@@ -159,7 +160,7 @@ export default function GlobalSettings() {
 
   useEffect(() => {
     if (!isGlobalAdmin) return
-    supabase.from('profiles').select('id, name, photo_url, country_code')
+    profilesApi.profiles().select('id, name, photo_url, country_code')
       .eq('status', 'active').in('is_test', testFlags())
       .order('is_admin', { ascending: false }).order('name').limit(200)
       .then(({ data }) => setAdmins(data || []))

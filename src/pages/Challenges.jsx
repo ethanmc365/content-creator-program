@@ -22,6 +22,7 @@ import { testFlags, isHiddenTestRow } from '../lib/testData'
 import { useCachedPage, writePageCache } from '../lib/pageCache'
 import { challengesApi } from '../api/challenges'
 import { submissionsApi } from '../api/submissions'
+import { profilesApi } from '../api/profiles'
 
 const STATUS_TONE = { active: 'brand', ended: 'amber', archived: 'grey', draft: 'red' }
 
@@ -207,7 +208,7 @@ export default function Challenges() {
               .eq('community_id', c.community_id).eq('status', 'active')
               .eq('profiles.is_admin', false).in('profiles.is_test', testFlags()).eq('profiles.status', 'active')
               .is('profiles.deletion_requested_at', null)
-          : supabase.from('profiles').select('id', { count: 'exact', head: true })
+          : profilesApi.profiles().select('id', { count: 'exact', head: true })
               .eq('status', 'active').eq('is_admin', false).in('is_test', testFlags())
               .is('deletion_requested_at', null)
         const [{ data: entrants }, { count }] = await Promise.all([

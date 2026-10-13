@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { loadRelationship } from '../lib/connections'
 import ConnectButton from './ConnectButton'
@@ -10,6 +9,7 @@ import { Avatar } from './ui'
 import { useT } from '../lib/i18n'
 import { testFlags } from '../lib/testData'
 import { useIsMobile } from '../lib/useKeyboardInset'
+import { profilesApi } from '../api/profiles'
 
 // Deterministic per-cycle shuffle so the spotlight rotates fairly: within each
 // full pass over the pool every creator is featured exactly once (no repeats
@@ -54,8 +54,8 @@ export default function CreatorSpotlight() {
   useEffect(() => {
     let alive = true
     ;(async () => {
-      const { data: pool } = await supabase
-        .from('profiles')
+      const { data: pool } = await profilesApi
+        .profiles()
         .select('id, name, photo_url, bio, about, city, country, countries_visited')
         .eq('status', 'active').eq('is_admin', false).in('is_test', testFlags())
         .is('deletion_requested_at', null)
@@ -71,8 +71,8 @@ export default function CreatorSpotlight() {
       const pick = pickForDay(list)
       if (!pick) { setLoaded(true); return }
       setCreator(pick)
-      const { data: pics } = await supabase
-        .from('creator_photos').select('id, photo_url, caption')
+      const { data: pics } = await profilesApi
+        .creatorPhotos().select('id, photo_url, caption')
         .eq('creator_id', pick.id).order('sort_order').limit(4)
       if (!alive) return
       setPhotos(pics ?? [])

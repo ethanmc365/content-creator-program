@@ -10,6 +10,8 @@ import YearInReview, { YearInReviewLocked } from '../../../components/wrapped/Ye
 import { moneyApi } from '../../../api/money'
 import { challengesApi } from '../../../api/challenges'
 import { submissionsApi } from '../../../api/submissions'
+import { profilesApi } from '../../../api/profiles'
+import { chatApi } from '../../../api/chat'
 
 // THE YEAR IN REVIEW, BEFORE ANY CREATOR CAN SEE IT.
 //
@@ -95,7 +97,7 @@ export default function WrappedLab() {
         connections, collabPosts, gameScores,
         reactions, milestones, creatorMilestones,
       ] = await Promise.all([
-        allRows(() => supabase.from('profiles').select('id, name, photo_url, city, country, status, is_test, is_admin, created_at, accepted_at')),
+        allRows(() => profilesApi.profiles().select('id, name, photo_url, city, country, status, is_test, is_admin, created_at, accepted_at')),
         allRows(() => supabase.from('communities').select('id, slug, name, kind, retired_at')),
         allRows(() => supabase.from('community_members').select('community_id, profile_id, is_home').eq('status', 'active'), { orderBy: ['community_id', 'profile_id'] }),
         allRows(() => supabase.from('flights').select('id, creator_id, from_iata, to_iata, flown_on, airline, aircraft, distance_km, return_of')),
@@ -107,7 +109,7 @@ export default function WrappedLab() {
         // app existed. `challenge_id is null` is the same filter AdminAnalytics
         // uses, and without it the community card counts 0.2% of the year.
         allRows(() => challengesApi.challengeHistory().select('starts_at, total_views, posts, creators, prize_total, prize_currency, challenge_id').is('challenge_id', null)),
-        allRows(() => supabase.from('messages').select('sender_id, channel, created_at, deleted').eq('deleted', false)),
+        allRows(() => chatApi.messages().select('sender_id, channel, created_at, deleted').eq('deleted', false)),
         // COUNTS ONLY - no `body`, no `image_url`, no recipient. The recap says
         // how many messages somebody sent, never what was in one.
         //
@@ -122,12 +124,12 @@ export default function WrappedLab() {
         // admin-only and returns nothing else. The table read is kept as the
         // fallback for the creator-facing route, where a creator reading their
         // own DMs is exactly what RLS allows.
-        allRows(() => supabase.from('direct_messages').select('sender_id, created_at')),
+        allRows(() => chatApi.directMessages().select('sender_id, created_at')),
         supabase.rpc('year_dm_counts', { p_year: YEAR }).then(({ data }) => data || []),
-        allRows(() => supabase.from('connections').select('creator_id, connected_creator_id, status, created_at')),
+        allRows(() => profilesApi.connections().select('creator_id, connected_creator_id, status, created_at')),
         allRows(() => supabase.from('collab_posts').select('creator_id, city, country, start_date, created_at')),
         allRows(() => supabase.from('game_scores').select('player_id, mode, day_key, created_at')),
-        allRows(() => supabase.from('reactions').select('creator_id, created_at')),
+        allRows(() => chatApi.reactions().select('creator_id, created_at')),
         allRows(() => supabase.from('milestones').select('id, title, icon, reward, sort_order, is_active')),
         allRows(() => supabase.from('creator_milestones').select('profile_id, milestone_id, reached_at'), { orderBy: ['profile_id', 'milestone_id'] }),
       ])

@@ -35,6 +35,7 @@ import TranslateText from '../components/TranslateText'
 import { readPageCache, writePageCache } from '../lib/pageCache'
 import { safeUrl } from '../lib/safeUrl'
 import { submissionsApi } from '../api/submissions'
+import { profilesApi } from '../api/profiles'
 
 // A creator's public profile: photo, bio, socials, the orange country map,
 // languages, stats and their content showcase (submitted video links).
@@ -87,7 +88,7 @@ export default function Profile() {
     if (!await confirm(`${verb} ${creator.name}'s application?${note}`)) return
     setDeciding(true)
     const { error } = status === 'active'
-      ? await supabase.from('profiles').update({ status: 'active' }).eq('id', id)
+      ? await profilesApi.profiles().update({ status: 'active' }).eq('id', id)
       : await supabase.rpc('admin_decline_application', { target: id })
     setDeciding(false)
     if (error) { await notice(`Something went wrong: ${error.message}`); return }
@@ -128,7 +129,7 @@ export default function Profile() {
         .limit(12)
       if (!isMe) upcomingFlights = upcomingFlights.eq('share_with_community', true)
 
-      const profileQ = supabase.from('profiles').select('*').eq('id', id).single()
+      const profileQ = profilesApi.profiles().select('*').eq('id', id).single()
       const subsQ = submissionsApi
         .submissions()
         .select('*, challenges(title)')
@@ -1292,8 +1293,8 @@ function ProfileGallery({ creatorId, isMe, creatorName }) {
   // all. The board reports what it drew, and this believes the board.
   const [drawable, setDrawable] = useState(null)
   useEffect(() => {
-    supabase
-      .from('creator_photos')
+    profilesApi
+      .creatorPhotos()
       .select('id', { count: 'exact', head: true })
       .eq('creator_id', creatorId)
       .then(({ count }) => setCount(count ?? 0))

@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
 import { DobField } from '../ProfileFields'
 import Icon from '../Icon'
@@ -9,6 +8,7 @@ import { lockScroll } from '../../lib/scrollLock'
 import { notice } from '../../lib/confirm'
 import { useT } from '../../lib/i18n'
 import { ageFromDob, cx, MIN_AGE } from '../../lib/utils'
+import { profilesApi } from '../../api/profiles'
 
 // THE DATE OF BIRTH WE NEVER ASKED FOR (12 Oct 2026).
 //
@@ -35,7 +35,7 @@ export default function DobSheet({ onSaved }) {
       return
     }
     setBusy(true)
-    const { error } = await supabase.from('profiles').update({ dob }).eq('id', user.id)
+    const { error } = await profilesApi.profiles().update({ dob }).eq('id', user.id)
     setBusy(false)
     if (error) {
       await notice(/18/.test(error.message) ? tr('If you think this is a mistake, email ethan@tryp.com.') : error.message,

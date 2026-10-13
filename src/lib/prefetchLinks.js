@@ -2,6 +2,7 @@ import { prefetchForPath } from './routeChunks'
 import { supabase } from './supabase'
 import { loadRelationship } from './connections'
 import { readPageCache, writePageCache } from './pageCache'
+import { profilesApi } from '../api/profiles'
 
 // FETCH THE PAGE WHILE THE THUMB IS STILL MOVING.
 //
@@ -56,7 +57,7 @@ function warmProfile(id) {
     const me = session?.user?.id
     if (!me) return
     const [{ data: p }, rel] = await Promise.all([
-      supabase.from('profiles').select('*').eq('id', id).single(),
+      profilesApi.profiles().select('*').eq('id', id).single(),
       me === id ? Promise.resolve(null) : loadRelationship(me, id),
     ])
     if (p && !readPageCache(key)) writePageCache(key, { ready: false, creator: p, relation: rel, submissions: [], trips: [], upcoming: [], challengeCount: 0 })

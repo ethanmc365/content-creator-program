@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { supabase } from '../../../lib/supabase'
 import { fetchAll } from '../../../lib/fetchAll'
 import { StatCard, Skeleton, Avatar } from '../../../components/ui'
 import Icon from '../../../components/Icon'
 import { timeAgo } from '../../../lib/utils'
+import { profilesApi } from '../../../api/profiles'
 
 // WHO IS CONNECTED TO WHOM, AS A SECTION OF COMMUNITY HEALTH (24 Sep 2026).
 //
@@ -42,9 +42,9 @@ export default function ConnectionsSection({ market = '', memberRows = [] }) {
   useEffect(() => {
     let alive = true
     Promise.all([
-      fetchAll(() => supabase.from('connections')
+      fetchAll(() => profilesApi.connections()
         .select('id, creator_id, connected_creator_id, status, created_at, accepted_at')),
-      fetchAll(() => supabase.from('profiles')
+      fetchAll(() => profilesApi.profiles()
         .select('id, name, photo_url, is_test, is_admin, status, created_at')),
     ]).then(([{ data: conns }, { data: profs }]) => {
       if (!alive) return

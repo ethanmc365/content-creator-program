@@ -1,13 +1,13 @@
 import { useState } from 'react'
 import { Navigate, Outlet, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
-import { supabase } from '../lib/supabase'
 import { saved } from '../lib/confirm'
 import { PlaneLoader, Spinner } from './ui'
 import RouteSkeleton from './RouteSkeleton'
 import SubmittedCard from './SubmittedCard'
 import { formatDate } from '../lib/utils'
 import { useT } from '../lib/i18n'
+import { profilesApi } from '../api/profiles'
 
 // Route guards.
 //  <ProtectedRoute>  - must be signed in (and not suspended).
@@ -107,7 +107,7 @@ function DeletionScheduled({ profile, signOut, onRestore }) {
   const purgeOn = formatDate(new Date(new Date(profile.deletion_requested_at).getTime() + 30 * 86400000))
   async function restore() {
     setBusy(true)
-    if (!await saved(supabase.from('profiles').update({ deletion_requested_at: null }).eq('id', profile.id))) {
+    if (!await saved(profilesApi.profiles().update({ deletion_requested_at: null }).eq('id', profile.id))) {
       setBusy(false)
       return
     }

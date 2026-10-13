@@ -7,6 +7,7 @@ import Icon from '../Icon'
 import { notice } from '../../lib/confirm'
 import { copyToClipboard } from '../../lib/clipboard'
 import { useT } from '../../lib/i18n'
+import { profilesApi } from '../../api/profiles'
 
 // ONE LINK, ONE CARD, FOR PEOPLE WHO SHOULD JOIN THE TRYP.COM TEAM.
 //
@@ -45,7 +46,7 @@ export default function TeamInvites() {
     const row = data?.[0] ?? null
     setInvite(row)
     if (row) {
-      const { count } = await supabase.from('profiles')
+      const { count } = await profilesApi.profiles()
         .select('id', { count: 'exact', head: true })
         .eq('team_invite_id', row.id).eq('status', 'pending')
         .not('is_test', 'is', true).is('deletion_requested_at', null)

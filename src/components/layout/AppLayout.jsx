@@ -38,6 +38,7 @@ import { JoinMarketHost, openJoinMarket } from '../network/JoinMarket'
 import { applyMotion, getStoredMotion, setShellActive, syncTheme } from '../../lib/theme'
 import LoadTrouble from '../LoadTrouble'
 import { notifications } from '../../api/notifications'
+import { profilesApi } from '../../api/profiles'
 
 // The signed-in app shell. One shared set of icon tabs powers BOTH the
 // desktop top bar and the mobile bottom bar, so they look identical.
@@ -563,8 +564,8 @@ export default function AppLayout() {
   useEffect(() => {
     if (!user) return
     async function count() {
-      const { count } = await supabase
-        .from('connections')
+      const { count } = await profilesApi
+        .connections()
         .select('id', { count: 'exact', head: true })
         .eq('connected_creator_id', user.id)
         .eq('status', 'pending')

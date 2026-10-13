@@ -47,6 +47,7 @@ import { ruleOpenAt } from '../lib/scoring'
 import { safeUrl } from '../lib/safeUrl'
 import { challengesApi } from '../api/challenges'
 import { submissionsApi } from '../api/submissions'
+import { profilesApi } from '../api/profiles'
 
 
 // The platform's own key in SocialMark's table. Two spellings of one list is
@@ -288,8 +289,8 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
           .eq('profiles.status', 'active')
         setAudience(count ?? 0)
       } else {
-        const { count } = await supabase
-          .from('profiles')
+        const { count } = await profilesApi
+          .profiles()
           .select('id', { count: 'exact', head: true })
           .eq('status', 'active')
           .eq('is_admin', false)

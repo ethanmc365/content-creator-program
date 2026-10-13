@@ -8,6 +8,7 @@ import { openCompose } from '../../lib/compose'
 import MarketScope, { useScopedMarkets } from '../../components/admin/MarketScope'
 import { roleBadgeTitle } from '../../lib/roles'
 import { vipApi } from '../../api/vip'
+import { profilesApi } from '../../api/profiles'
 
 // The email page. NOTHING ON IT SENDS AN EMAIL ANY MORE (3 Sep 2026).
 //
@@ -55,7 +56,7 @@ export default function AdminEmail() {
 
   const load = useCallback(async () => {
     const [{ data: profiles }, { data: emailRows }, { data: pending }, { data: logRows }, { data: vipRows }] = await Promise.all([
-      supabase.from('profiles').select('id, name, photo_url, status, is_admin, is_test, deletion_requested_at, platform_role, role_title, is_vip, vip_kind'),
+      profilesApi.profiles().select('id, name, photo_url, status, is_admin, is_test, deletion_requested_at, platform_role, role_title, is_vip, vip_kind'),
       supabase.rpc('admin_list_emails'),
       supabase.from('email_outbox').select('*').eq('status', 'pending').order('created_at', { ascending: true }),
       supabase.rpc('email_log', { p_limit: 100 }),

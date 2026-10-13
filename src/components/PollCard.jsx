@@ -7,6 +7,8 @@ import { cx } from '../lib/utils'
 import { useT } from '../lib/i18n'
 import { Avatar } from './ui'
 import Icon from './Icon'
+import { profilesApi } from '../api/profiles'
+import { chatApi } from '../api/chat'
 
 // An inline poll inside a message.
 //  * Self-contained: loads its own options + votes and subscribes to live
@@ -41,9 +43,9 @@ export default function PollCard({ pollId }) {
 
   const load = useCallback(async () => {
     const [{ data: p }, { data: opts }, { data: vs }] = await Promise.all([
-      supabase.from('polls').select('*').eq('id', pollId).single(),
-      supabase.from('poll_options').select('*').eq('poll_id', pollId).order('sort_order'),
-      supabase.from('poll_votes').select('*').eq('poll_id', pollId),
+      chatApi.polls().select('*').eq('id', pollId).single(),
+      chatApi.pollOptions().select('*').eq('poll_id', pollId).order('sort_order'),
+      chatApi.pollVotes().select('*').eq('poll_id', pollId),
     ])
     setPoll(p)
     setOptions(opts ?? [])
@@ -69,7 +71,7 @@ export default function PollCard({ pollId }) {
     const missing = ids.filter((id) => !people[id])
     if (missing.length === 0) return undefined
     let alive = true
-    supabase.from('profiles').select('id, name, photo_url').in('id', missing).then(({ data }) => {
+    profilesApi.profiles().select('id, name, photo_url').in('id', missing).then(({ data }) => {
       if (!alive || !data) return
       setPeople((cur) => ({ ...cur, ...Object.fromEntries(data.map((p) => [p.id, p])) }))
     })
@@ -89,10 +91,10 @@ export default function PollCard({ pollId }) {
     // Always clear this user's existing vote for the poll by (poll, voter) -
     // robust even if local state is briefly stale, so a re-vote never trips the
     // one-vote-per-person unique constraint.
-    const cleared = await saved(supabase.from('poll_votes').delete().eq('poll_id', pollId).eq('voter_id', user.id))
+    const cleared = await saved(chatApi.pollVotes().delete().eq('poll_id', pollId).eq('voter_id', user.id))
     // Clicking the option you already had toggles your vote off; otherwise record it.
     if (cleared && myVote?.option_id !== optionId) {
-      await saved(supabase.from('poll_votes').insert({ poll_id: pollId, option_id: optionId, voter_id: user.id }))
+      await saved(chatApi.pollVotes().insert({ poll_id: pollId, option_id: optionId, voter_id: user.id }))
     }
     await load()
     setBusy(false)
@@ -100,7 +102,7 @@ export default function PollCard({ pollId }) {
 
   async function closePoll() {
     if (!await confirm('Close this poll? Nobody will be able to vote after this.')) return
-    await saved(supabase.from('polls').update({ closed: true }).eq('id', pollId))
+    await saved(chatApi.polls().update({ closed: true }).eq('id', pollId))
     load()
   }
 

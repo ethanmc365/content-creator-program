@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { supabase } from '../../lib/supabase'
 import { Avatar, Badge, CopyButton, EmptyState, Modal, PageHeader, Skeleton, Spinner, StatCard, Select } from '../../components/ui'
 import { cx } from '../../lib/utils'
 import Icon from '../../components/Icon'
@@ -22,6 +21,7 @@ import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxi
 import { CHART, FILL, axisTick, axisTickSmall, tooltipStyle } from '../../components/charts/chartTheme'
 import { moneyApi } from '../../api/money'
 import { challengesApi } from '../../api/challenges'
+import { profilesApi } from '../../api/profiles'
 
 // A `rewardsTotal` result, printed. "≈" whenever a conversion was involved,
 // because that figure moves with the FX rate and is not the exact amount that
@@ -551,7 +551,7 @@ export default function AdminRewards() {
       // leaving it out made the predicate reject every single row - which is
       // why this tab was completely empty. A filter that reads a column the
       // query did not fetch fails silently and totally.
-      supabase.from('profiles')
+      profilesApi.profiles()
         .select('id, name, photo_url, status, is_test, is_sandbox, deletion_requested_at')
         .eq('status', 'active').eq('is_admin', false).order('name'),
       moneyApi.creatorPrivate().select('*'),
@@ -600,7 +600,7 @@ export default function AdminRewards() {
       moneyApi.rewards()
         .select('*, profiles:creator_id(id, name, photo_url), challenges(title), referred:referred_creator_id(id, name, photo_url)')
         .order('created_at', { ascending: false }),
-      supabase.from('profiles').select('id, name').order('name'),
+      profilesApi.profiles().select('id, name').order('name'),
       challengesApi.challenges().select('id, title, status, end_date').order('created_at', { ascending: false }),
       moneyApi.invoices().select('*').not('reward_id', 'is', null),
       moneyApi.invoices().select('id, stage'),

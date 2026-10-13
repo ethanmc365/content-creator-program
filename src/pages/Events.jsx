@@ -31,6 +31,7 @@ import Reveal from '../components/network/Reveal'
 import { cx, dateLocale } from '../lib/utils'
 import { useLocale, useT } from '../lib/i18n'
 import { safeUrl } from '../lib/safeUrl'
+import { profilesApi } from '../api/profiles'
 
 // THE CALENDAR, THIRD PASS.
 //
@@ -368,7 +369,7 @@ export default function Events() {
         // `creator_id` / `connected_creator_id`, NOT requester/addressee - the
         // table has been called both in different features and only one of them
         // is real.
-        supabase.from('connections')
+        profilesApi.connections()
           .select('creator_id, connected_creator_id')
           .eq('status', 'accepted')
           .or(`creator_id.eq.${user.id},connected_creator_id.eq.${user.id}`),

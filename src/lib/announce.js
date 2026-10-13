@@ -1,4 +1,4 @@
-import { supabase } from './supabase'
+import { chatApi } from '../api/chat'
 
 // POST SOMETHING INTO THE ANNOUNCEMENTS ROOMS IT BELONGS TO.
 //
@@ -77,8 +77,8 @@ export async function postToRooms({ communityIds = [], base = 'announcements', b
 
   // One query for the rooms rather than one per market, and it carries the
   // community's slug and kind so the key can be built without a second lookup.
-  let q = supabase
-    .from('channels')
+  let q = chatApi
+    .channels()
     .select('id, key, community_id, communities:community_id(slug, kind)')
     .eq('key', base)
   if (communityIds.length) q = q.in('community_id', communityIds)
@@ -102,6 +102,6 @@ export async function postToRooms({ communityIds = [], base = 'announcements', b
     body: (body ?? '').trim(),
     ...extra,
   }))
-  const { error: insErr } = await supabase.from('messages').insert(rows)
+  const { error: insErr } = await chatApi.messages().insert(rows)
   return { posted: insErr ? 0 : rows.length, error: insErr }
 }

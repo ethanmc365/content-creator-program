@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { supabase } from './supabase'
+import { chatApi } from '../api/chat'
 
 // Editing a message, and reporting one. The two things every chat surface here
 // now has, in one place because there are three of those surfaces (the legacy
@@ -46,7 +46,7 @@ export function useNowTick(intervalMs = 20000) {
 // or 'dm' (a row in `direct_messages`, 1:1 and groups alike).
 export async function editMessage(kind, id, body) {
   const fn = kind === 'dm' ? 'edit_direct_message' : 'edit_message'
-  const { data, error } = await supabase.rpc(fn, { p_id: id, p_body: body })
+  const { data, error } = await chatApi.call(fn, { p_id: id, p_body: body })
   if (error) throw new Error(friendly(error.message))
   return data // the edited_at timestamp
 }
@@ -66,7 +66,7 @@ export const REPORT_REASONS = [
 ]
 
 export async function reportMessage(kind, id, reason, details) {
-  const { error } = await supabase.rpc('report_message', {
+  const { error } = await chatApi.reportMessage({
     p_kind: kind === 'dm' ? 'dm' : 'channel',
     p_target: id,
     p_reason: reason,

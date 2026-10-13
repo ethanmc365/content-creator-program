@@ -1,4 +1,4 @@
-import { supabase } from './supabase'
+import { chatApi } from '../api/chat'
 
 // Group conversations, client side.
 //
@@ -39,8 +39,8 @@ export function groupName(convo, members, myId) {
 
 /** Create a group, seed it with the owner (a trigger does that) and invite the rest. */
 export async function createGroup({ ownerId, title, emoji, accent, photoUrl = '', inviteIds = [] }) {
-  const { data, error } = await supabase
-    .from('conversations')
+  const { data, error } = await chatApi
+    .conversations()
     .insert({
       kind: 'group',
       created_by: ownerId,
@@ -63,7 +63,7 @@ export async function createGroup({ ownerId, title, emoji, accent, photoUrl = ''
 
 export async function inviteToGroup(conversationId, profileIds, byId) {
   if (!profileIds?.length) return { error: null }
-  const { error } = await supabase.from('conversation_invites').upsert(
+  const { error } = await chatApi.conversationInvites().upsert(
     profileIds.map((id) => ({
       conversation_id: conversationId,
       invited_profile_id: id,
@@ -79,22 +79,22 @@ export async function inviteToGroup(conversationId, profileIds, byId) {
  *  membership is what grants access, and a row saying "accepted" next to no
  *  membership is a lie the UI would believe. */
 export async function acceptInvite(invite, myId) {
-  const { error } = await supabase
-    .from('conversation_members')
+  const { error } = await chatApi
+    .conversationMembers()
     .insert({ conversation_id: invite.conversation_id, profile_id: myId })
   if (error) return { error: error.message }
-  await supabase.from('conversation_invites').update({ status: 'accepted' }).eq('id', invite.id)
+  await chatApi.conversationInvites().update({ status: 'accepted' }).eq('id', invite.id)
   return { error: null }
 }
 
 export async function declineInvite(invite) {
-  const { error } = await supabase
-    .from('conversation_invites').update({ status: 'declined' }).eq('id', invite.id)
+  const { error } = await chatApi
+    .conversationInvites().update({ status: 'declined' }).eq('id', invite.id)
   return { error: error?.message ?? null }
 }
 
 export async function updateGroup(conversationId, patch) {
-  const { error } = await supabase.from('conversations').update(patch).eq('id', conversationId)
+  const { error } = await chatApi.conversations().update(patch).eq('id', conversationId)
   return { error: error?.message ?? null }
 }
 
@@ -115,13 +115,13 @@ export async function updateGroup(conversationId, patch) {
 // the only version of that fact worth trusting - but it stays in the signature
 // so the two call sites do not have to change shape.
 export async function leaveGroup(conversationId) {
-  const { error } = await supabase.rpc('leave_conversation', { p_conversation: conversationId })
+  const { error } = await chatApi.leaveConversation({ p_conversation: conversationId })
   return { error: error?.message ?? null }
 }
 
 export async function removeMember(conversationId, profileId) {
-  const { error } = await supabase
-    .from('conversation_members').delete()
+  const { error } = await chatApi
+    .conversationMembers().delete()
     .eq('conversation_id', conversationId).eq('profile_id', profileId)
   return { error: error?.message ?? null }
 }
@@ -132,14 +132,14 @@ export async function removeMember(conversationId, profileId) {
  *  resolves looks exactly like a successful one from the client, which is how
  *  a row survives a UI that has already removed it. */
 export async function deleteGroup(conversationId) {
-  const { error } = await supabase.from('conversations').delete().eq('id', conversationId)
+  const { error } = await chatApi.conversations().delete().eq('id', conversationId)
   return { error: error?.message ?? null }
 }
 
 /** Unread in a group is a watermark, not a flag: one message, many readers. */
 export async function markGroupRead(conversationId, myId) {
-  await supabase
-    .from('conversation_members')
+  await chatApi
+    .conversationMembers()
     .update({ last_read_at: new Date().toISOString() })
     .eq('conversation_id', conversationId).eq('profile_id', myId)
 }
@@ -148,8 +148,8 @@ export async function markGroupRead(conversationId, myId) {
  *  membership rows (for `last_read_at` and whether they are the owner). */
 export async function loadGroupMembers(conversationIds) {
   if (!conversationIds?.length) return { byConversation: new Map(), rows: [] }
-  const { data } = await supabase
-    .from('conversation_members')
+  const { data } = await chatApi
+    .conversationMembers()
     .select('conversation_id, profile_id, role, last_read_at, profiles:profile_id(id, name, photo_url, is_admin)')
     .in('conversation_id', conversationIds)
   const byConversation = new Map()
@@ -162,8 +162,8 @@ export async function loadGroupMembers(conversationIds) {
 
 /** Invites waiting on the viewer, with enough of the group to decide. */
 export async function loadMyInvites(myId) {
-  const { data } = await supabase
-    .from('conversation_invites')
+  const { data } = await chatApi
+    .conversationInvites()
     .select('id, conversation_id, status, created_at, conversations:conversation_id(id, title, emoji, photo_url, accent, kind), inviter:invited_by(id, name, photo_url)')
     .eq('invited_profile_id', myId)
     .eq('status', 'pending')

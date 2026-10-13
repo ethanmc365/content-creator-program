@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
-import { supabase } from './supabase'
 import { testFlags } from './testData'
+import { profilesApi } from '../api/profiles'
 
 // WHO TO WRITE TO, IN ONE PLACE.
 //
@@ -68,8 +68,8 @@ export function useTeam(myId) {
   const [loading, setLoading] = useState(true)
   useEffect(() => {
     let alive = true
-    supabase
-      .from('profiles')
+    profilesApi
+      .profiles()
       .select('id, name, photo_url, bio, city, country, platform_role')
       .eq('is_admin', true).eq('status', 'active')
       .in('is_test', testFlags())

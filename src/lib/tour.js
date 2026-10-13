@@ -1,5 +1,5 @@
-import { supabase } from './supabase'
 import { readFlag } from './appFlags'
+import { profilesApi } from '../api/profiles'
 
 // THE GUIDED WALKTHROUGH.
 //
@@ -511,7 +511,7 @@ export function clearSeenLocally() {
 export async function markTourComplete(userId) {
   if (!userId) return
   try {
-    await supabase.from('profiles').update({ tour_completed_at: new Date().toISOString() }).eq('id', userId)
+    await profilesApi.profiles().update({ tour_completed_at: new Date().toISOString() }).eq('id', userId)
   } catch { /* a failed write means they see it once more, which is survivable */ }
 }
 

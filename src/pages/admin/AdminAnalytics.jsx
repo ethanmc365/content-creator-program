@@ -38,6 +38,8 @@ import { FILL } from '../../components/charts/chartTheme'
 import { moneyApi } from '../../api/money'
 import { challengesApi } from '../../api/challenges'
 import { submissionsApi } from '../../api/submissions'
+import { profilesApi } from '../../api/profiles'
+import { chatApi } from '../../api/chat'
 
 // THE ORDER IS THE ORDER SOMEBODY READS THEM IN, AND ETHAN SET IT (8 Sep 2026).
 //
@@ -188,7 +190,7 @@ export default function AdminAnalytics() {
         decisions, { data: seenRows }, { data: voucherCounts },
         memberRows, { data: marketRows },
       ] = await Promise.all([
-        allRows(() => supabase.from('profiles').select('id, name, photo_url, created_at, accepted_at, status, is_admin, onboarded, referred_by, deletion_requested_at, is_test, last_seen_at')),
+        allRows(() => profilesApi.profiles().select('id, name, photo_url, created_at, accepted_at, status, is_admin, onboarded, referred_by, deletion_requested_at, is_test, last_seen_at')),
         // `community_id` is what makes a market's challenge list a real list.
         // Without it every market reported "0 challenges run here" while Spain
         // and the UK had one each.
@@ -207,16 +209,16 @@ export default function AdminAnalytics() {
         // the second. Without them every creator's spend read as zero, which
         // made every one of them look infinitely efficient.
         allRows(() => moneyApi.rewards().select('id, amount, status, challenge_id, reward_type, creator_id, currency, source, created_at, distributed_at')),
-        allRows(() => supabase.from('messages').select('id, sender_id, channel, created_at').eq('deleted', false)),
+        allRows(() => chatApi.messages().select('id, sender_id, channel, created_at').eq('deleted', false)),
         // `challenge_id` so the market scope can follow a result to its
         // contest - see lib/analyticsScope.
         allRows(() => challengesApi.results().select('final_views, challenge_id')),
         // TIMESTAMPS AND WHO, NOT JUST A COUNT (2 Oct 2026), so the Overview can be read over a period and a market.
         supabase.from('feedback').select('status, created_at, creator_id'),
-        allRows(() => supabase.from('reactions').select('id, creator_id, created_at')),
-        allRows(() => supabase.from('poll_votes').select('id, voter_id, created_at')),
+        allRows(() => chatApi.reactions().select('id, creator_id, created_at')),
+        allRows(() => chatApi.pollVotes().select('id, voter_id, created_at')),
         allRows(() => supabase.from('game_scores').select('mode, created_at, player_id')),
-        allRows(() => supabase.from('connections').select('id, status, creator_id, connected_creator_id, created_at, accepted_at')),
+        allRows(() => profilesApi.connections().select('id, status, creator_id, connected_creator_id, created_at, accepted_at')),
         allRows(() => supabase.from('collab_posts').select('id, creator_id, created_at')),
         allRows(() => supabase.from('application_decisions').select('decision, created_at')),
         supabase.rpc('admin_list_last_seen'),

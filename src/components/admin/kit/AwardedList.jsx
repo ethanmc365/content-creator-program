@@ -6,6 +6,7 @@ import { cx } from '../../../lib/utils'
 import { confirm, notice } from '../../../lib/confirm'
 import { formatAwardDate, sortCertificates, tierOf } from '../../../lib/certificates'
 import { Preview } from './CertificateStudio'
+import { profilesApi } from '../../../api/profiles'
 
 // WHO HAS WHAT, AND HANDING ONE OUT.
 //
@@ -241,7 +242,7 @@ function GiveByHand({ open, designs, onClose, onDone }) {
 
   useEffect(() => {
     if (!open) return
-    supabase.from('profiles')
+    profilesApi.profiles()
       .select('id, name, photo_url')
       .eq('status', 'active').eq('is_test', false)
       .order('name')

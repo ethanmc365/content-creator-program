@@ -9,6 +9,7 @@ import FlagTile from './network/FlagTile'
 import { enablePush, pushSupported, pushPermission, syncPushSubscription } from '../lib/push'
 import { cx } from '../lib/utils'
 import { useT } from '../lib/i18n'
+import { profilesApi } from '../api/profiles'
 
 // Whether this device has EVER had push granted. Local, because it is a fact
 // about the device rather than about the account: the same creator on a laptop
@@ -116,7 +117,7 @@ export function useNotificationPrefs() {
   async function togglePush(key, value) {
     const next = { ...prefs, [key]: value }
     setPrefs(next)
-    if (!await saved(supabase.from('profiles').update({ notif_prefs: next }).eq('id', user.id))) setPrefs(prefs)
+    if (!await saved(profilesApi.profiles().update({ notif_prefs: next }).eq('id', user.id))) setPrefs(prefs)
     refreshProfile()
   }
 
@@ -143,19 +144,19 @@ export function useNotificationPrefs() {
     if (on) next.delete(channel); else next.add(channel)
     const merged = { ...prefs, muted_rooms: [...next] }
     setPrefs(merged)
-    if (!await saved(supabase.from('profiles').update({ notif_prefs: merged }).eq('id', user.id))) setPrefs(prefs)
+    if (!await saved(profilesApi.profiles().update({ notif_prefs: merged }).eq('id', user.id))) setPrefs(prefs)
     refreshProfile()
   }
   async function toggleEmail(key, value) {
     const next = { ...emailPrefs, [key]: value }
     setEmailPrefs(next)
-    if (!await saved(supabase.from('profiles').update({ email_prefs: next }).eq('id', user.id))) setEmailPrefs(emailPrefs)
+    if (!await saved(profilesApi.profiles().update({ email_prefs: next }).eq('id', user.id))) setEmailPrefs(emailPrefs)
     refreshProfile()
   }
   async function toggleReminderDay(d) {
     const next = reminderDays.includes(d) ? reminderDays.filter((x) => x !== d) : [...reminderDays, d].sort((a, b) => b - a)
     setReminderDays(next)
-    if (!await saved(supabase.from('profiles').update({ challenge_reminder_days: next }).eq('id', user.id))) setReminderDays(reminderDays)
+    if (!await saved(profilesApi.profiles().update({ challenge_reminder_days: next }).eq('id', user.id))) setReminderDays(reminderDays)
     refreshProfile()
   }
   async function turnOnPush() {

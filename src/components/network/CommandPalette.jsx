@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'motion/react'
-import { supabase } from '../../lib/supabase'
 import { useCommunity } from '../../context/CommunityContext'
 import Icon from '../Icon'
 import { Avatar } from '../ui'
@@ -13,6 +12,8 @@ import { useT } from '../../lib/i18n'
 import { lockScroll } from '../../lib/scrollLock'
 import { testFlags } from '../../lib/testData'
 import { challengesApi } from '../../api/challenges'
+import { profilesApi } from '../../api/profiles'
+import { chatApi } from '../../api/chat'
 
 // One box that goes anywhere.
 //
@@ -84,11 +85,11 @@ export default function CommandPalette({ open, onClose }) {
     if (!open) return
     let alive = true
     Promise.all([
-      supabase.from('profiles').select('id, name, photo_url, city, country, country_code')
+      profilesApi.profiles().select('id, name, photo_url, city, country, country_code')
         .eq('status', 'active').in('is_test', testFlags()).order('name').limit(300),
       challengesApi.challenges().select('id, title, status, community_id')
         .neq('status', 'draft').order('start_date', { ascending: false }).limit(60),
-      supabase.from('channels').select('id, key, label, community_id').order('position'),
+      chatApi.channels().select('id, key, label, community_id').order('position'),
     ]).then(([{ data: creators }, { data: challenges }, { data: rooms }]) => {
       if (!alive) return
       setExtra({ creators: creators || [], challenges: challenges || [], rooms: rooms || [] })

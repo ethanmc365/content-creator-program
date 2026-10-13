@@ -8,6 +8,7 @@ import FlagTile from '../network/FlagTile'
 import { notice } from '../../lib/confirm'
 import { toastSuccess } from '../../lib/toast'
 import { cx } from '../../lib/utils'
+import { profilesApi } from '../../api/profiles'
 
 // PLACING A CREATOR IN MARKETS (10 Oct 2026, migration 378).
 //
@@ -58,7 +59,7 @@ export function CreatorMarketsModal({ person, onClose, onDone }) {
   async function save() {
     if (picked.size === 0) { notice('Pick at least one market. To take somebody out of the community, use Remove on their record.'); return }
     setBusy(true)
-    const { data, error } = await supabase.rpc('admin_set_creator_markets', { p_profile: person.id, p_markets: [...picked], p_home: homeNow })
+    const { data, error } = await profilesApi.adminSetCreatorMarkets({ p_profile: person.id, p_markets: [...picked], p_home: homeNow })
     setBusy(false)
     if (error) { notice(error.message); return }
     const a = data?.added || []

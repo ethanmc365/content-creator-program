@@ -27,6 +27,7 @@ import { useT, usePlural } from '../lib/i18n'
 import { testFlags } from '../lib/testData'
 import { challengesApi } from '../api/challenges'
 import { submissionsApi } from '../api/submissions'
+import { chatApi } from '../api/chat'
 
 // A single market's overview, seen by the people IN it.
 //
@@ -73,7 +74,7 @@ export default function ChapterHome() {
         { data: channels }, { count: members }, { data: challenges },
         { data: standings }, { data: ann }, { data: roster }, { data: events },
       ] = await Promise.all([
-        supabase.from('channels').select('id, key, label, hint, icon, visibility, position')
+        chatApi.channels().select('id, key, label, hint, icon, visibility, position')
           .eq('community_id', chapter.id).order('position'),
         supabase.from('community_members')
           .select('profile_id, profiles!inner(is_admin, is_test, status)', { count: 'exact', head: true })
@@ -90,7 +91,7 @@ export default function ChapterHome() {
         // THIS market's announcements, not the network's. The two are different
         // rooms and mixing them is what made the markets feel like views onto
         // one shared feed.
-        supabase.from('messages')
+        chatApi.messages()
           .select('id, body, created_at, profiles:sender_id(name, photo_url)')
           .eq('channel', `${chapter.slug}:announcements`).eq('deleted', false)
           .order('created_at', { ascending: false }).limit(1).maybeSingle(),

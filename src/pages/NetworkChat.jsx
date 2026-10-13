@@ -58,6 +58,8 @@ import { useT } from '../lib/i18n'
 import { useMessageTranslations } from '../lib/quickTranslate'
 import { testFlags } from '../lib/testData'
 import { onResume } from '../lib/resume'
+import { profilesApi } from '../api/profiles'
+import { chatApi } from '../api/chat'
 
 // Per-market chat. Spain's General, the UK's General and the Worldwide General
 // are three separate rooms that happen to share a layout.
@@ -505,7 +507,7 @@ export default function NetworkChat() {
   useEffect(() => {
     if (!introSenders) return undefined
     let alive = true
-    supabase.from('profiles')
+    profilesApi.profiles()
       .select('id, countries_visited, bucket_list, instagram_url, tiktok_url, youtube_url, facebook_url, languages')
       .in('id', introSenders.split(','))
       .then(({ data }) => { if (alive && data) setIntroProfiles(new Map(data.map((p) => [p.id, p]))) })
@@ -552,7 +554,7 @@ export default function NetworkChat() {
   useEffect(() => {
     if (!community) return
     let cancelled = false
-    supabase.from('channels')
+    chatApi.channels()
       .select('id, key, label, hint, icon, visibility, post_policy, position')
       .eq('community_id', community.id).order('position')
       .then(({ data }) => {
@@ -604,7 +606,7 @@ export default function NetworkChat() {
   useEffect(() => {
     if (!sidebarIds.length) { setSidebarRooms([]); return undefined }
     let cancelled = false
-    supabase.from('channels')
+    chatApi.channels()
       .select('id, key, label, icon, visibility, position, community_id')
       .in('community_id', sidebarIds).order('position')
       .then(({ data }) => { if (!cancelled) { ROOM_CACHE.sidebar = data || []; setSidebarRooms(data || []) } })
@@ -618,8 +620,8 @@ export default function NetworkChat() {
     // A room read before this session shows what it had at once; the fresh read replaces it without a skeleton.
     const cached = ROOM_CACHE.messages.get(key)
     if (cached) { setMessages(cached); setMessagesKey(key); setLoading(false) } else setLoading(true)
-    const { data } = await supabase
-      .from('messages')
+    const { data } = await chatApi
+      .messages()
       .select('*, profiles:sender_id(id, name, photo_url, is_admin)')
       .eq('channel', scopedKey(community, active.key))
       .eq('deleted', false)
@@ -685,8 +687,8 @@ export default function NetworkChat() {
           // front. Your own already made the send whoosh, and a background tab
           // is a notification's job.
           if (payload.new.sender_id !== user?.id && !document.hidden) playInbound()
-          const { data } = await supabase
-            .from('messages')
+          const { data } = await chatApi
+            .messages()
             .select('*, profiles:sender_id(id, name, photo_url, is_admin)')
             .eq('id', payload.new.id).single()
           if (data) setMessages((prev) => (prev.some((m) => m.id === data.id) ? prev : [...prev, data]))
@@ -902,7 +904,7 @@ export default function NetworkChat() {
   useEffect(() => {
     if (!roomKey) return undefined
     let alive = true
-    supabase.from('channel_reads').select('user_id, last_read_at').eq('channel', roomKey)
+    chatApi.channelReads().select('user_id, last_read_at').eq('channel', roomKey)
       .then(({ data }) => { if (alive) setReads(new Map((data || []).map((r) => [r.user_id, r.last_read_at]))) })
     const ch = supabase.channel(`net-reads-${roomKey}`)
       .on('postgres_changes',
@@ -1124,7 +1126,7 @@ export default function NetworkChat() {
     setActionsFor(null)
     const snapshot = messages
     setMessages((cur) => cur.filter((x) => x.id !== m.id))
-    const { error } = await supabase.rpc('delete_message', { p_id: m.id })
+    const { error } = await chatApi.deleteMessage({ p_id: m.id })
     if (error) {
       setMessages(snapshot)
       await notice(`Could not delete that message: ${error.message}`)

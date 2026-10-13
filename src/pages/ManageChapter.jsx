@@ -26,6 +26,8 @@ import { CreatorMarketsModal } from '../components/admin/CreatorMarkets'
 import { useT } from '../lib/i18n'
 import { vipApi } from '../api/vip'
 import { challengesApi } from '../api/challenges'
+import { profilesApi } from '../api/profiles'
+import { chatApi } from '../api/chat'
 
 // The country manager's desk: everything one market owns, and nothing that
 // belongs to another one.
@@ -130,7 +132,7 @@ export default function ManageChapter() {
         supabase.from('community_members')
           .select('profile_id, role, is_home, status, profiles!inner(id, name, photo_url, country_code, is_admin, is_test, is_sandbox, status, deletion_requested_at)')
           .eq('community_id', chapter.id).eq('status', 'active'),
-        supabase.from('channels').select('id, key, label, hint, icon, visibility, post_policy, position')
+        chatApi.channels().select('id, key, label, hint, icon, visibility, post_policy, position')
           .eq('community_id', chapter.id).order('position'),
         challengesApi.challenges().select('id, title, status, scoring, end_date')
           .eq('community_id', chapter.id).order('end_date', { ascending: false }),
@@ -139,7 +141,7 @@ export default function ManageChapter() {
         // market is invite only.
         // city/country too: the picker searches on them, because "which Sam"
         // is answered by a face and a city, not by a surname.
-        supabase.from('profiles').select('id, name, photo_url, country_code, city, country')
+        profilesApi.profiles().select('id, name, photo_url, country_code, city, country')
           .eq('status', 'active').in('is_test', testFlags()).order('name').limit(500),
       ])
     setD({
@@ -235,7 +237,7 @@ export default function ManageChapter() {
   // ------------------------------------------------------------------ rooms
   async function addRoom(room) {
     const nextPos = Math.max(0, ...(d.channels.map((c) => c.position) || [0])) + 1
-    const { error } = await supabase.from('channels').insert({
+    const { error } = await chatApi.channels().insert({
       community_id: chapter.id,
       key: room.key,
       label: room.label,
@@ -282,7 +284,7 @@ export default function ManageChapter() {
   async function renameRoom(ch) {
     const label = await promptText(`Rename ${ch.label}`, { defaultValue: ch.label, confirmLabel: 'Rename' })
     if (!label) return
-    const { error } = await supabase.from('channels').update({ label }).eq('id', ch.id)
+    const { error } = await chatApi.channels().update({ label }).eq('id', ch.id)
     if (error) { notice(error.message); return }
     await load()
   }
@@ -294,7 +296,7 @@ export default function ManageChapter() {
       notice(`${ch.label} is part of every market and cannot be removed.`)
       return
     }
-    const { count } = await supabase.from('messages')
+    const { count } = await chatApi.messages()
       .select('id', { count: 'exact', head: true })
       .eq('channel', `${chapter.slug}:${ch.key}`).eq('deleted', false)
     const ok = await confirm(
@@ -303,7 +305,7 @@ export default function ManageChapter() {
         : `Remove ${ch.label}? It is empty, so nothing is lost.`,
     )
     if (!ok) return
-    const { error } = await supabase.from('channels').delete().eq('id', ch.id)
+    const { error } = await chatApi.channels().delete().eq('id', ch.id)
     if (error) { notice(error.message); return }
     await load()
   }
@@ -319,7 +321,7 @@ export default function ManageChapter() {
       ...cur,
       channels: cur.channels.map((c) => (c.id === ch.id ? { ...c, post_policy: next } : c)),
     }))
-    const { error } = await supabase.from('channels').update({ post_policy: next }).eq('id', ch.id)
+    const { error } = await chatApi.channels().update({ post_policy: next }).eq('id', ch.id)
     if (error) {
       setD((cur) => ({
         ...cur,

@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { supabase } from '../lib/supabase'
 import { PageHeader, Skeleton, EmptyState } from '../components/ui'
 import Icon from '../components/Icon'
 import Reveal from '../components/network/Reveal'
@@ -15,6 +14,7 @@ import { safeUrl } from '../lib/safeUrl'
 import { moneyApi } from '../api/money'
 import { challengesApi } from '../api/challenges'
 import { submissionsApi } from '../api/submissions'
+import { profilesApi } from '../api/profiles'
 
 // A `rewardsTotal` result, printed. "≈" whenever a conversion was involved.
 const money = (t) => `${t?.converted ? '≈ ' : ''}${formatMoney(t?.amount ?? 0, t?.currency ?? 'EUR')}`
@@ -54,7 +54,7 @@ export default function Dashboard() {
         challengesApi.results().select('*, challenges(title)').eq('creator_id', whose).order('created_at', { ascending: false }),
         // Filtered to this person: an admin can read every reward, and this is one creator's own page.
         moneyApi.rewards().select('amount, status, currency').eq('creator_id', whose),
-        supabase.from('profiles').select('instagram_url, tiktok_url, youtube_url, facebook_url, linkedin_url, other_links').eq('id', whose).maybeSingle(),
+        profilesApi.profiles().select('instagram_url, tiktok_url, youtube_url, facebook_url, linkedin_url, other_links').eq('id', whose).maybeSingle(),
       ])
       // How many finished each challenge, so a place reads "4th of 23" and the podium knows its width.
       const ids = [...new Set((myResults ?? []).map((r) => r.challenge_id))]

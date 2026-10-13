@@ -9,6 +9,7 @@ import ShareCard, { SHARE_LAYOUT } from './ShareCard'
 import { uploadFile } from '../../lib/upload'
 import { cx } from '../../lib/utils'
 import LiveLeaderboardCard from '../LiveLeaderboardCard'
+import { chatApi } from '../../api/chat'
 
 // SHARING THE RESULT OF A CHALLENGE, AS A PICTURE, INTO THE ROOM IT BELONGS IN.
 //
@@ -90,8 +91,8 @@ export default function ShareLeaderboard({
       // `label`, NOT `name`: channels has no `name` column, and asking for one
       // failed the whole query, so every challenge said "no rooms to post
       // into yet" (22 Sep 2026, the Global Challenge's first share).
-      const { data, error } = await supabase
-        .from('channels')
+      const { data, error } = await chatApi
+        .channels()
         .select('id, key, label, icon, community_id, communities:community_id(name, slug, kind)')
         .eq('community_id', communityId)
         .order('position')

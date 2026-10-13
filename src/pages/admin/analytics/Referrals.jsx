@@ -13,6 +13,7 @@ import { FILL } from '../../../components/charts/chartTheme'
 import { moneyApi } from '../../../api/money'
 import { challengesApi } from '../../../api/challenges'
 import { submissionsApi } from '../../../api/submissions'
+import { profilesApi } from '../../../api/profiles'
 
 // REFERRALS, AS A TAB OF ITS OWN (22 Sep 2026).
 //
@@ -102,10 +103,10 @@ export default function Referrals({ market = '', memberRows = [], scopeLabel = '
     let alive = true
     ;(async () => {
       const [people, referrers, rewards, settings] = await Promise.all([
-        allRows(() => supabase.from('profiles')
+        allRows(() => profilesApi.profiles()
           .select('id, name, photo_url, created_at, status, onboarded, country, referred_by, is_test')
           .not('referred_by', 'is', null)),
-        allRows(() => supabase.from('profiles')
+        allRows(() => profilesApi.profiles()
           .select('id, name, photo_url, country, referral_clicks, is_test')
           .gt('referral_clicks', 0)),
         allRows(() => moneyApi.rewards()
@@ -126,7 +127,7 @@ export default function Referrals({ market = '', memberRows = [], scopeLabel = '
       const known = new Set(referrers.map((r) => r.id))
       const missing = [...new Set(people.map((p) => p.referred_by))].filter((id) => id && !known.has(id))
       const extra = missing.length
-        ? (await supabase.from('profiles').select('id, name, photo_url, country, referral_clicks, is_test').in('id', missing)).data ?? []
+        ? (await profilesApi.profiles().select('id, name, photo_url, country, referral_clicks, is_test').in('id', missing)).data ?? []
         : []
       if (!alive) return
       setRaw({

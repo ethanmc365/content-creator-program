@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from './AuthContext'
 import { useCommunity } from './CommunityContext'
 import { onResume, laterOf } from '../lib/resume'
+import { chatApi } from '../api/chat'
 
 // WHICH ROOMS HAVE SOMETHING NEW IN THEM, ANSWERED ONCE FOR THE WHOLE APP.
 //
@@ -62,7 +63,7 @@ export function UnreadProvider({ children }) {
     if (ctxLoading || !user?.id) return undefined
     if (!placeIds.length) { setChannels([]); return undefined }
     let alive = true
-    supabase.from('channels')
+    chatApi.channels()
       .select('id, key, label, icon, visibility, position, community_id')
       .in('community_id', placeIds)
       .order('position')
@@ -87,7 +88,7 @@ export function UnreadProvider({ children }) {
   // The newest message in each room, in one query rather than one per room.
   const refresh = useCallback(async () => {
     if (!channelList.length) return
-    const { data } = await supabase.from('messages')
+    const { data } = await chatApi.messages()
       .select('channel, body, created_at, sender_id, image_url, video_url, profiles:sender_id(name, photo_url)')
       .in('channel', channelList)
       .eq('deleted', false)
@@ -106,7 +107,7 @@ export function UnreadProvider({ children }) {
   // must survive the answer to a question asked a moment before it.
   const loadReads = useCallback(async () => {
     if (!user?.id) return
-    const { data, error } = await supabase.from('channel_reads')
+    const { data, error } = await chatApi.channelReads()
       .select('channel, last_read_at')
       .eq('user_id', user.id)
     if (error) return

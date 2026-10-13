@@ -17,6 +17,7 @@ import { VipLinkCard } from './adminD'
 import { DateField } from '../DateTimeFields'
 import { safeUrl } from '../../lib/safeUrl'
 import { vipApi } from '../../api/vip'
+import { profilesApi } from '../../api/profiles'
 
 // THE TEAM'S SIDE OF THE VIP PROGRAMME, PART ONE: who is in, and how this month is going (2 Oct 2026).
 
@@ -336,7 +337,7 @@ export function AddVipModal({ open, onClose, programme, profile, onAdded }) {
     if (!open || pick || q.trim().length < 2) { setFound([]); return undefined }
     let alive = true
     const id = setTimeout(async () => {
-      const { data } = await supabase.from('profiles').select('id, name, photo_url, country, is_vip').eq('status', 'active').ilike('name', `%${q.trim()}%`).order('name').limit(8)
+      const { data } = await profilesApi.profiles().select('id, name, photo_url, country, is_vip').eq('status', 'active').ilike('name', `%${q.trim()}%`).order('name').limit(8)
       if (alive) setFound(data || [])
     }, 200)
     return () => { alive = false; clearTimeout(id) }
@@ -731,7 +732,7 @@ export function VipMembersTab({ programme }) {
     // even see Marta". vip_managers is owner-only to read; vip_team_people names them to anybody with VIP access.
     const { data: tp } = await vipApi.teamPeople()
     const ids = [...new Set((tp || []).filter((x) => x.kind === 'staff' && x.programme_id === programme.id).map((x) => x.profile_id))]
-    const { data: pf } = ids.length ? await supabase.from('profiles').select('id, name, photo_url, role_title').in('id', ids) : { data: [] }
+    const { data: pf } = ids.length ? await profilesApi.profiles().select('id, name, photo_url, role_title').in('id', ids) : { data: [] }
     setStaff((pf || []).sort((x, y) => (x.name || '').localeCompare(y.name || '')))
   }, [programme.id])
   useEffect(() => { setData(null); load() }, [load])
@@ -881,7 +882,7 @@ export function VipMoveBlock({ creator, onChanged }) {
     let alive = true
     setDone('')
     ;(async () => {
-      const { data: prof } = await supabase.from('profiles').select('is_vip, is_admin, platform_role').eq('id', creator.id).maybeSingle()
+      const { data: prof } = await profilesApi.profiles().select('is_vip, is_admin, platform_role').eq('id', creator.id).maybeSingle()
       if (prof?.is_admin || prof?.platform_role === 'owner' || prof?.platform_role === 'global_admin') {
         if (alive) setStaff(prof)
         return

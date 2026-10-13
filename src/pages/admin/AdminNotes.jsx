@@ -9,6 +9,7 @@ import RichToolbar from '../../components/RichToolbar'
 import NoteGlyph, { NOTE_GLYPH_KEYS, DEFAULT_GLYPH } from '../../components/NoteGlyph'
 import { cx, timeAgo } from '../../lib/utils'
 import { noteExcerpt } from '../../lib/noteMarkdown'
+import { profilesApi } from '../../api/profiles'
 
 // A private, Notion-lite notes space for the Tryp.com Team. The grid shows note
 // cards you can reorder by dragging; opening a card gives ONE clean page you type
@@ -50,7 +51,7 @@ export default function AdminNotes() {
   // because there are a handful of admins and this saves a query per render.
   const [team, setTeam] = useState({})
   useEffect(() => {
-    supabase.from('profiles').select('id, name').eq('is_admin', true)
+    profilesApi.profiles().select('id, name').eq('is_admin', true)
       .then(({ data }) => setTeam(Object.fromEntries((data ?? []).map((p) => [p.id, p.name]))))
   }, [])
   const authorName = (id) => team[id] ?? 'A colleague'

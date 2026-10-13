@@ -13,6 +13,7 @@ import PortfolioDeck, { useFluidWidth } from './PortfolioDeck'
 import { compactViews } from '../../lib/portfolio'
 import { safeUrl } from '../../lib/safeUrl'
 import { submissionsApi } from '../../api/submissions'
+import { profilesApi } from '../../api/profiles'
 
 // SOMEBODY'S PORTFOLIO, ON THEIR PROFILE.
 //
@@ -55,7 +56,7 @@ export default function ProfilePortfolio({ profileId }) {
   useEffect(() => {
     let alive = true
     ;(async () => {
-      const { data: port } = await supabase.from('creator_portfolios')
+      const { data: port } = await profilesApi.creatorPortfolios()
         .select('*').eq('profile_id', profileId).maybeSingle()
       if (!alive) return
       // `show_on_profile` is checked HERE as well as in the RLS policy. The
@@ -77,7 +78,7 @@ export default function ProfilePortfolio({ profileId }) {
         supabase.from('certificate_awards')
           .select('serial, facts, awarded_at, design:certificate_designs(title, tier, accent, emblem, body)')
           .eq('profile_id', profileId).order('awarded_at', { ascending: false }),
-        supabase.from('profiles')
+        profilesApi.profiles()
           // `other_links` rides along because the deck's contact page lists
           // every place they post, and a free-form link is one of them.
           .select('id, name, photo_url, bio, city, country, instagram_url, tiktok_url, youtube_url, facebook_url, linkedin_url, other_links')

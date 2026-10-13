@@ -18,6 +18,7 @@ import {
 } from '../../lib/surveys'
 import { vipApi } from '../../api/vip'
 import { challengesApi } from '../../api/challenges'
+import { profilesApi } from '../../api/profiles'
 
 // SURVEYS (30 Sep 2026, migration 291; rebuilt 1 Oct 2026, migration 293).
 //
@@ -737,7 +738,7 @@ function SurveyResults({ survey, markets, vipMarkets = [], challenges, onBack, o
       ])
       const ids = [...new Set((r || []).map((x) => x.profile_id).filter(Boolean))]
       const { data: p } = ids.length
-        ? await supabase.from('profiles').select('id, name, photo_url, is_test, community_members(communities(name, kind))').in('id', ids)
+        ? await profilesApi.profiles().select('id, name, photo_url, is_test, community_members(communities(name, kind))').in('id', ids)
         : { data: [] }
       if (!alive) return
       const byId = Object.fromEntries((p || []).map((x) => [x.id, x]))

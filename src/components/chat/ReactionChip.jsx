@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { supabase } from '../../lib/supabase'
 import { Avatar } from '../ui'
 import { cx } from '../../lib/utils'
 import { useT } from '../../lib/i18n'
+import { profilesApi } from '../../api/profiles'
 
 // A REACTION, AND WHO IS BEHIND IT (22 Sep 2026, third design).
 //
@@ -36,7 +36,7 @@ async function loadPeople(ids) {
   const missing = ids.filter((id) => id && !asked.has(id))
   if (!missing.length) return
   missing.forEach((id) => asked.add(id))
-  const { data } = await supabase.from('profiles').select('id, name, photo_url').in('id', missing)
+  const { data } = await profilesApi.profiles().select('id, name, photo_url').in('id', missing)
   for (const p of data || []) people.set(p.id, p)
 }
 

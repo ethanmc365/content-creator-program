@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from 'react'
-import { supabase } from '../../../lib/supabase'
 import { Select } from '../../../components/ui'
 import { LabPage, Panel, Note } from './kit'
 import Icon from '../../../components/Icon'
@@ -7,6 +6,7 @@ import { startTour } from '../../../components/tour/TourGate'
 import { setTourPreviewWho, stepsFor, tourPreviewWho } from '../../../lib/tour'
 import { notice } from '../../../lib/confirm'
 import { cx } from '../../../lib/utils'
+import { profilesApi } from '../../../api/profiles'
 
 // THE TWO WALKTHROUGHS, ONE PRESS EACH (7 Oct 2026).
 //
@@ -41,7 +41,7 @@ export default function WalkthroughLab() {
   const [vips, setVips] = useState([])
   const [who, setWho] = useState(() => tourPreviewWho() || '')
   useEffect(() => {
-    supabase.from('profiles').select('id, name').eq('is_vip', true).eq('status', 'active').eq('is_test', false).order('name')
+    profilesApi.profiles().select('id, name').eq('is_vip', true).eq('status', 'active').eq('is_test', false).order('name')
       .then(({ data }) => setVips(data || []))
   }, [])
   const run = (key) => {

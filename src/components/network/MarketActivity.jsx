@@ -10,6 +10,7 @@ import { listContainer, listItem } from '../../lib/motion'
 import { useT } from '../../lib/i18n'
 import { testFlags } from '../../lib/testData'
 import { submissionsApi } from '../../api/submissions'
+import { chatApi } from '../../api/chat'
 
 // What has actually happened here lately.
 //
@@ -42,7 +43,7 @@ export default function MarketActivity({ market, limit = 8 }) {
           .eq('community_id', market.id).eq('status', 'active')
           .in('profiles.is_test', testFlags()).eq('profiles.status', 'active')
           .order('joined_at', { ascending: false }).limit(limit),
-        supabase.from('messages')
+        chatApi.messages()
           .select('id, channel, created_at, body, profiles:sender_id(id, name, photo_url)')
           .like('channel', `${market.slug}:%`).eq('deleted', false)
           .order('created_at', { ascending: false }).limit(limit),

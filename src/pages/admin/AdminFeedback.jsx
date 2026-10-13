@@ -4,6 +4,7 @@ import { supabase } from '../../lib/supabase'
 import { Avatar, Badge, EmptyState, PageHeader, Select, Skeleton } from '../../components/ui'
 import Icon from '../../components/Icon'
 import { formatDate } from '../../lib/utils'
+import { profilesApi } from '../../api/profiles'
 
 const STATUSES = [
   { key: 'new', label: 'New', tone: 'amber' },
@@ -28,7 +29,7 @@ export default function AdminFeedback() {
     setItems(list)
     const ids = [...new Set(list.map((f) => f.creator_id))]
     if (ids.length) {
-      const { data: profs } = await supabase.from('profiles').select('id, name, photo_url').in('id', ids)
+      const { data: profs } = await profilesApi.profiles().select('id, name, photo_url').in('id', ids)
       setPeople(Object.fromEntries((profs ?? []).map((p) => [p.id, p])))
     }
     setNotes(Object.fromEntries(list.map((f) => [f.id, f.admin_note ?? ''])))

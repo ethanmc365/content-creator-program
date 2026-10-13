@@ -3,6 +3,7 @@ import { supabase } from '../../lib/supabase'
 import { Avatar, EmptyState, PageHeader, Select, Skeleton } from '../../components/ui'
 import Icon from '../../components/Icon'
 import { cx, downloadCsv, formatDateTime } from '../../lib/utils'
+import { profilesApi } from '../../api/profiles'
 
 // Everything the team does, in the order it happened.
 //
@@ -211,7 +212,7 @@ export default function AdminAuditLog() {
     since.current = Date.now()
     // Names and photos for the actor filter and the row avatars. Admins only:
     // nobody else can write to this table.
-    supabase.from('profiles').select('id, name, photo_url').eq('is_admin', true)
+    profilesApi.profiles().select('id, name, photo_url').eq('is_admin', true)
       .then(({ data }) => setPeople(Object.fromEntries((data ?? []).map((p) => [p.id, p]))))
     supabase.from('communities').select('id, name, kind').order('name')
       .then(({ data }) => setMarkets(data ?? []))

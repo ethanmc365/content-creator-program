@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react'
-import { supabase } from '../lib/supabase'
 import { sendConnectionRequest } from '../lib/connections'
 import { Modal } from './ui'
 import { useIsMobile } from '../lib/useKeyboardInset'
 import { confirm, saved } from '../lib/confirm'
 import { useT } from '../lib/i18n'
+import { profilesApi } from '../api/profiles'
 
 // LinkedIn-style connect control. `relation` is { relation, rowId } | null:
 //   null                -> "Connect"        (sends a request -> pending_sent)
@@ -66,7 +66,7 @@ export default function ConnectButton({
       setAsking(true)
       return
     } else if (rel === 'pending_received') {
-      if (await saved(supabase.from('connections').update({ status: 'accepted' }).eq('id', relation.rowId))) {
+      if (await saved(profilesApi.connections().update({ status: 'accepted' }).eq('id', relation.rowId))) {
         onChange?.({ relation: 'connected', rowId: relation.rowId })
       }
     } else if (rel === 'connected') {
@@ -94,11 +94,11 @@ export default function ConnectButton({
       )
       if (!ok) return
       setBusy(true)
-      if (await saved(supabase.from('connections').delete().eq('id', relation.rowId))) onChange?.(null)
+      if (await saved(profilesApi.connections().delete().eq('id', relation.rowId))) onChange?.(null)
     } else {
       // pending_sent: cancelling your OWN request, which asks nothing of
       // anybody and is undone by pressing Connect again.
-      if (await saved(supabase.from('connections').delete().eq('id', relation.rowId))) onChange?.(null)
+      if (await saved(profilesApi.connections().delete().eq('id', relation.rowId))) onChange?.(null)
     }
     setBusy(false)
   }

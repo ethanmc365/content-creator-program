@@ -8,6 +8,7 @@ import { confirm, saved } from '../lib/confirm'
 import { zonedTimeToUtc, formatInZone, zoneCityLabel } from '../lib/localTime'
 import { COMMON_ZONES } from '../lib/timezones'
 import { useT } from '../lib/i18n'
+import { chatApi } from '../api/chat'
 
 // The three things the team can drop into a conversation: a poll, a game
 // challenge, a resource from the library.
@@ -119,11 +120,11 @@ export default function ChatAdminTools({ tool, onClose, postCard, roomLabel = 't
     const options = poll.options.map((o) => o.trim()).filter(Boolean)
     if (!poll.question.trim() || options.length < 2 || busy) return
     setBusy(true)
-    const { data, error } = await supabase.from('polls')
+    const { data, error } = await chatApi.polls()
       .insert({ question: poll.question.trim(), created_by: (await supabase.auth.getUser()).data.user?.id })
       .select('id').single()
     if (!error && data) {
-      if (!await saved(supabase.from('poll_options').insert(options.map((label, i) => ({ poll_id: data.id, label, sort_order: i }))))) return
+      if (!await saved(chatApi.pollOptions().insert(options.map((label, i) => ({ poll_id: data.id, label, sort_order: i }))))) return
       // The card IS the message - no accompanying sentence, or every poll
       // arrives with an empty bubble above it.
       await postCard({ poll_id: data.id })
