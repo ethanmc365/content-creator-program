@@ -124,9 +124,9 @@ export default function ViewSyncPanel({ challengeId, submissions = [], onSynced,
   // Grouped by REASON rather than listed row by row: an admin needs to know
   // "one of these is a photo post" once, not once per entry.
   //
-  // FACEBOOK IS ONE GROUP. Facebook now answers every server with its login page, so "platform refused", "count hidden"
-  // and "no count" were three cards saying one thing: a person has to type these in. They share one card with a box per
-  // entry, so it is done without scrolling to the list.
+  // FACEBOOK FAILURES ARE ONE GROUP. Most Facebook links are read (crawler pages, other regions when one is walled),
+  // but the ones that fail - "platform refused", "count hidden", "no count", "no video" - all need the same thing: a
+  // person types the number in. They share one card with a box per entry, so it is done without scrolling to the list.
   const FB_CODES = new Set(['blocked', 'count_hidden', 'no_count_in_page', 'no_video_id'])
   const keyFor = (s) => (s.platform === 'Facebook' && FB_CODES.has(s.views_sync_error) ? 'facebook' : s.views_sync_error)
   const problems = submissions.reduce((acc, s) => {
@@ -141,7 +141,8 @@ export default function ViewSyncPanel({ challengeId, submissions = [], onSynced,
       meta: code === 'facebook'
         ? {
           label: 'Facebook: type the views in',
-          hint: 'Facebook shows its videos only to people who are signed in, so no server can read them. Open each one, read the views, and type them in here. A typed number is kept, and the entry stops being flagged.',
+          hint: 'Facebook would not show these videos to the reader, even from other regions.',
+          action: 'Open each one, read the views, and type them in here. A typed number is kept and the entry stops being flagged.',
           needsAttention: true,
         }
         : describeSyncError(code),
@@ -335,7 +336,8 @@ export default function ViewSyncPanel({ challengeId, submissions = [], onSynced,
                       {rows.length} {rows.length === 1 ? 'entry' : 'entries'}
                     </span>
                   </p>
-                  {meta.hint ? <p className="mt-1 text-xs leading-relaxed text-smoke">{meta.hint}</p> : null}
+                  {meta.hint ? <p className="mt-1 text-[13px] leading-relaxed text-smoke">{meta.hint}</p> : null}
+                  {meta.action ? <p className="mt-1 text-[13px] leading-relaxed text-ink"><span className="font-semibold">What to do:</span> {meta.action}</p> : null}
                 </div>
                 {onShowEntries && (
                   <button

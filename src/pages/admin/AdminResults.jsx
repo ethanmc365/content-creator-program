@@ -779,12 +779,20 @@ export default function AdminResults() {
                       </p>
                     </div>
                   </div>
-                  {s.views_sync_error ? (
-                    <p className="inline-flex max-w-full items-center gap-1.5 self-start rounded-full bg-brand-tint px-2.5 py-1 text-[11px] font-semibold text-brand" title={describeSyncError(s.views_sync_error)?.hint}>
-                      <Icon name="alert" className="h-3 w-3 shrink-0" />
-                      <span className="truncate">{describeSyncError(s.views_sync_error)?.label}</span>
-                    </p>
-                  ) : null}
+                  {s.views_sync_error ? (() => {
+                    // The code in words: what happened and what to do, on the page (a tooltip is invisible on a phone).
+                    const why = describeSyncError(s.views_sync_error)
+                    return (
+                      <div className="flex max-w-full items-start gap-2 self-start rounded-xl border border-brand/20 bg-white px-3 py-2 text-[13px] leading-snug">
+                        <Icon name="alert" className="mt-0.5 h-4 w-4 shrink-0 text-brand" />
+                        <div className="min-w-0">
+                          <p className="font-semibold text-ink">{why.label} <span className="font-normal text-smoke">({s.views_sync_error})</span></p>
+                          <p className="text-smoke">{why.hint}</p>
+                          <p className="text-ink"><span className="font-semibold">What to do:</span> {why.action}</p>
+                        </div>
+                      </div>
+                    )
+                  })() : null}
                   {/* BONUS POINTS ARE GIVEN HERE, to this entry, by a person.
                       A bonus rule says what it is called and what it is worth; it
                       cannot say who earned it, because "this one was genuinely

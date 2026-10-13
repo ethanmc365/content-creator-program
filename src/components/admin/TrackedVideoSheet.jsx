@@ -162,7 +162,7 @@ export default function TrackedVideoSheet({ row, markets, challenges, profileId,
       if (got.length) note.push(`${tr('Read')} ${got.join(', ')}.`)
       if (r?.error) {
         const d = describeSyncError(r.error)
-        note.push(`${d?.label || r.error}. ${r.detail || ''}`.trim())
+        note.push(`${d?.label || r.error}. ${d?.action || r.detail || ''}`.trim())
       }
       if (probed.status === 'rejected' && !got.length) {
         note.push(probed.reason?.message || tr('Could not reach the platform.'))
