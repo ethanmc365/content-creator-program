@@ -199,7 +199,7 @@ export function pinToBottom(getEl, shouldPin, onSettled) {
     unschedule()
     clearTimeout(cap)
     const el = getEl()
-    if (el && shouldPin()) el.scrollTop = el.scrollHeight
+    if (el && shouldPin() && el.dataset.glide !== '1') el.scrollTop = el.scrollHeight
     delete el?.dataset.pinning
     el?.removeEventListener('load', onLoad, true)
     onSettled?.(true)
@@ -210,7 +210,7 @@ export function pinToBottom(getEl, shouldPin, onSettled) {
     const el = getEl()
     if (!el) { schedule(); return }
     const h = el.scrollHeight
-    if (shouldPin()) el.scrollTop = h
+    if (shouldPin() && el.dataset.glide !== '1') el.scrollTop = h
     // Two ticks at the same height is "nothing is still arriving". One is not
     // enough: a layout that changes every other frame (a font swapping in, an
     // image decoding) would read as stable on the ticks it happened to match.
@@ -266,7 +266,8 @@ export function pinToBottom(getEl, shouldPin, onSettled) {
  * @param {HTMLElement|null} el
  */
 export function isPinning(el) {
-  return !!el && el.dataset.pinning === '1'
+  // `glide`: the keyboard glide is scrolling the thread (lib/useKeyboardInset), not the reader.
+  return !!el && (el.dataset.pinning === '1' || el.dataset.glide === '1')
 }
 
 /**
@@ -328,6 +329,8 @@ export function stickToBottom(getEl, shouldPin) {
     const e = getEl()
     if (!e) return
     if (e.scrollHeight === last && e.clientHeight === lastClient) return
+    // The keyboard glide owns the scroll while it runs; its landing puts the thread exactly where the pin would.
+    if (e.dataset.glide === '1') { last = e.scrollHeight; lastClient = e.clientHeight; return }
     last = e.scrollHeight
     lastClient = e.clientHeight
     if (shouldPin()) e.scrollTop = e.scrollHeight

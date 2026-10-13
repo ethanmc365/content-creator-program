@@ -283,6 +283,8 @@ export default function NetworkChat() {
   const [sidebarRooms, setSidebarRooms] = useState(() => cacheFor.sidebar || [])
   const [messages, setMessages] = useState(() => (cachedKey && cacheFor.messages.get(cachedKey)) || [])
   const [loading, setLoading] = useState(() => !(cachedKey && cacheFor.messages.has(cachedKey)))
+  // WHICH ROOM `messages` BELONGS TO, so a room whose messages are already in hand is shown at once (see `settled`).
+  const [messagesKey, setMessagesKey] = useState(() => (cachedKey && cacheFor.messages.has(cachedKey) ? cachedKey : null))
   const [body, setBody] = useState('')
   const [sending, setSending] = useState(false)
   const [search, setSearch] = useState('')
@@ -334,8 +336,8 @@ export default function NetworkChat() {
   const atBottomRef = useRef(true)
 
   const overlayRef = useRef(null)
-  // Everything under the chat header; it glides with the keyboard (useChatOverlayHeight).
-  const moverRef = useRef(null)
+  // The composer and what floats over it: it rides with the keyboard while the thread scrolls (useChatOverlayHeight).
+  const dockRef = useRef(null)
   const isMobile = useIsMobile()
   useViewportPin(overlayRef, isMobile)
   // No pan when the message box takes focus, so the header stays where it is (see useNoFocusPan).
@@ -433,7 +435,7 @@ export default function NetworkChat() {
   // `chromeHidden` and `kbOpen` do the same thing to the top edge for different
   // reasons - one because the header slid away, one because the keyboard
   // replaced everything - so they share a branch.
-  const { kbOpen, height: overlayH } = useChatOverlayHeight({ enabled: isMobile, chromeHidden, overlayRef, moverRef, scrollerRef, tuck: 2 })
+  const { kbOpen, height: overlayH } = useChatOverlayHeight({ enabled: isMobile, chromeHidden, overlayRef, dockRef, scrollerRef, tuck: 2 })
   const topGone = kbOpen || chromeHidden
   const mobileStyle = isMobile
     ? {
@@ -468,7 +470,9 @@ export default function NetworkChat() {
       }
     : undefined
 
-  useEffect(() => {
+  // A layout effect so the lock is released in the same commit that leaves the chat: AppLayout restores the scroll of
+  // the page you return to in its own layout effect, and a document still locked would clamp it to the top.
+  useLayoutEffect(() => {
     if (!isMobile) return
     document.documentElement.classList.add('overlay-lock')
     return () => document.documentElement.classList.remove('overlay-lock')
@@ -613,7 +617,7 @@ export default function NetworkChat() {
     const key = scopedKey(community, active.key)
     // A room read before this session shows what it had at once; the fresh read replaces it without a skeleton.
     const cached = ROOM_CACHE.messages.get(key)
-    if (cached) { setMessages(cached); setLoading(false) } else setLoading(true)
+    if (cached) { setMessages(cached); setMessagesKey(key); setLoading(false) } else setLoading(true)
     const { data } = await supabase
       .from('messages')
       .select('*, profiles:sender_id(id, name, photo_url, is_admin)')
@@ -623,6 +627,7 @@ export default function NetworkChat() {
       .limit(200)
     ROOM_CACHE.messages.set(key, data || [])
     setMessages(data || [])
+    setMessagesKey(key)
     setLoading(false)
   }, [community, active])
   // Keep the cache as current as the screen (realtime inserts, edits, deletes), so coming back shows the latest.
@@ -699,7 +704,8 @@ export default function NetworkChat() {
   // including ones inserted seconds later.
   const pin = useCallback(() => {
     const el = scrollerRef.current
-    if (el && atBottomRef.current) el.scrollTop = el.scrollHeight
+    // Not while the keyboard glide is scrolling the thread (lib/useKeyboardInset); it lands at the bottom itself.
+    if (el && atBottomRef.current && el.dataset.glide !== '1') el.scrollTop = el.scrollHeight
   }, [])
 
   // A ROOM DOES NOT OPEN HALFWAY UP ITSELF AND THEN CORRECT ITSELF.
@@ -723,11 +729,19 @@ export default function NetworkChat() {
   //
   // `settled` gates OPACITY only - the messages are laid out and measured the
   // whole time, which is what the pinning needs - so this costs no geometry.
-  const [settled, setSettled] = useState(false)
 
+  // NO FLASH WHEN THE MESSAGES ARE ALREADY HERE (13 Oct 2026). Ethan: "when i click on a room the messages seem to
+  // flash". Every open hid the thread for a few frames behind a skeleton and faded it in, even when the room's messages
+  // were in hand from the cache and could be pinned to the bottom before the first paint. Now: messages for THIS room
+  // present -> pin here (a layout effect, so before paint) and show at once; the pin loop below still follows anything
+  // that grows late. Only a room still loading, or still showing the previous room's messages, is hidden.
+  const readyKey = community && active ? scopedKey(community, active.key) : null
+  const ready = !loading && readyKey != null && messagesKey === readyKey
+  // Starts true when the room is ready on mount: the thread is never painted hidden, so nothing fades in.
+  const [settled, setSettled] = useState(ready)
   useLayoutEffect(() => {
     atBottomRef.current = true
-    setSettled(false)
+    setSettled(ready)
     // NOTHING TO PIN WHILE THE ROOM IS STILL LOADING. This effect used to run
     // against the SKELETON: a skeleton has no images and a stable height, so
     // the loop declared it settled within two frames, revealed it, and then
@@ -736,12 +750,13 @@ export default function NetworkChat() {
     // needs no pinning of its own.
     if (loading) return undefined
     pin()
+    if (ready) setSettled(true)
     return pinToBottom(
       () => scrollerRef.current,
       () => atBottomRef.current,
       () => setSettled(true),
     )
-  }, [loading, active?.key, community?.id, pin])
+  }, [loading, ready, active?.key, community?.id, pin])
 
   useEffect(() => { pin() }, [messages.length, pin])
 
@@ -1446,7 +1461,6 @@ export default function NetworkChat() {
           skeleton -> conversation rather than skeleton -> nothing -> flash. It
           is bottom-aligned, because a chat fills upwards from the composer and
           a placeholder that starts at the top is a different screen. */}
-      <div ref={moverRef} className="flex min-h-0 flex-1 flex-col">
       <div className="relative flex min-h-0 flex-1 flex-col">
       <div
         ref={scrollerRef}
@@ -1879,6 +1893,7 @@ export default function NetworkChat() {
       )}
       </div>
 
+      <div ref={dockRef} className="shrink-0">
       {/* THE COMPOSER IS NOT ON SCREEN WHILE YOU ARE SEARCHING.
           Ethan: "it shows up the messaging bar which it shouldn't in that case
           because I would be typing into the search bar, not the message box."

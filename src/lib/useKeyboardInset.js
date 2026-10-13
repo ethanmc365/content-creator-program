@@ -397,7 +397,8 @@ function useSafeInsets() {
 }
 
 const GLIDE_MS = 260
-const GLIDE = `transform ${GLIDE_MS}ms cubic-bezier(0.32, 0.72, 0, 1)`
+// The iOS keyboard's own feel: fast out of the blocks, long soft landing.
+const glideEase = (p) => 1 - (1 - p) ** 4
 
 /**
  * THE CHAT GLIDES WITH THE KEYBOARD (13 Oct 2026).
@@ -406,12 +407,17 @@ const GLIDE = `transform ${GLIDE_MS}ms cubic-bezier(0.32, 0.72, 0, 1)`
  * juttery." The overlay's height used to follow every reading of the viewport: on focus it first DROPPED to the bottom
  * edge (the tab bar leaves before any keyboard is measured), then snapped up in steps as polled readings came in.
  *
- * Now the height is computed in px from one target, and a keyboard-caused change of it is played on the compositor:
- * `moverRef` (everything under the chat header: the thread and the composer) slides on `transform` while the layout
- * changes once, at whichever end leaves no gap. Shrinking (keyboard up): slide the mover up by the difference, then snap
- * the height and drop the transform in the same task. Growing (keyboard down): snap the height first and start the mover
- * that far up, then slide it to rest. The scroller is moved by the same amount at the snap, so not a pixel of the thread
- * moves on that frame. The header sits above the mover (`relative z-10` + opaque) so the thread slides under it.
+ * Now the height is computed in px from one target, and a keyboard-caused change of it is played as a glide, with the
+ * layout changing once, at whichever end leaves no gap:
+ *  - the DOCK (`dockRef`: composer, typing line, anything under the thread) rides on `transform`;
+ *  - the THREAD moves by SCROLLING, never by transforming the scroller or anything around it. Round two moved one
+ *    wrapper around thread and composer, and on an iPhone a transform on an ancestor of a scrolling list re-hosts the
+ *    list's layer: "the previous messages flash, disappear and reappear". The scroller is given room to scroll into
+ *    (extra bottom padding) for the length of the glide, and its scrollTop follows the same curve as the dock, frame
+ *    by frame, so the messages slide up with the box.
+ * Shrinking (keyboard up): glide, then snap the height and drop the padding. Growing (keyboard down): snap the height
+ * with the padding in place, then glide back down. Either way not a pixel moves on the snap frame. While it runs the
+ * scroller carries `data-glide`, which lib/chatScroll reads as "not the reader" (no pin, no at-bottom change).
  *
  * While a keyboard is expected but not measured yet, the chat holds where it is (no drop); with a keyboard remembered on
  * this phone it goes straight to that height, so it rises WITH the keyboard. Changes that are not the keyboard (the app
@@ -420,7 +426,7 @@ const GLIDE = `transform ${GLIDE_MS}ms cubic-bezier(0.32, 0.72, 0, 1)`
 // `tuck`: px of the composer's bottom padding to let run behind the top of the keyboard, so the bar sits snug on the keys
 // (Ethan, 13 Oct: "a slight bit of extra space below the message bar and keyboard ... cut that out"). Done with the
 // height rather than the padding so nothing inside the chat moves at the moment of the tap.
-export function useChatOverlayHeight({ enabled, chromeHidden, overlayRef, moverRef, scrollerRef, tuck = 0 }) {
+export function useChatOverlayHeight({ enabled, chromeHidden, overlayRef, dockRef, scrollerRef, tuck = 0 }) {
   const { height: vpHeight, keyboardOpen, keyboard } = useVisualViewport()
   const safe = useSafeInsets()
   const remembered = rememberedKeyboard()
@@ -454,25 +460,22 @@ export function useChatOverlayHeight({ enabled, chromeHidden, overlayRef, moverR
   const waitingRef = useRef(waiting)
   const [shown, setShown] = useState(target)
   const shownRef = useRef(target)
-  const glide = useRef({ timer: 0, closedAt: 0, open: keyboardOpen })
+  const glide = useRef({ land: null, to: 0, closedAt: 0, open: keyboardOpen })
 
   useLayoutEffect(() => {
     const g = glide.current
     const keyboardChange = g.open !== keyboardOpen || keyboardOpen || Date.now() - g.closedAt < 800
     if (g.open && !keyboardOpen) g.closedAt = Date.now()
     g.open = keyboardOpen
-    const mover = moverRef.current
+    const dock = dockRef.current
     const overlay = overlayRef.current
+    const scroller = scrollerRef.current
     waitingRef.current = waiting
     // Already gliding to exactly this height (a remembered keyboard, now confirmed by Safari): let it finish; its
     // landing reads waitingRef and lets the caret back.
-    if (g.timer && g.to === target) return
+    if (g.land && g.to === target) return
     // Whatever was in flight lands where it was going.
-    if (g.timer) {
-      clearTimeout(g.timer)
-      g.timer = 0
-      g.land?.()
-    }
+    g.land?.()
     if (target === shownRef.current) {
       // Focus held the caret for a move that turned out not to be needed (keyboard already the remembered height).
       if (keyboardOpen && !waiting) releaseCaret(overlay)
@@ -480,43 +483,53 @@ export function useChatOverlayHeight({ enabled, chromeHidden, overlayRef, moverR
     }
     const reduce = typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
     const snap = () => { shownRef.current = target; setShown(target) }
-    if (!enabled || !mover || !overlay || !keyboardChange || reduce) { snap(); releaseCaret(overlay); return }
+    if (!enabled || !dock || !overlay || !scroller || !keyboardChange || reduce) { snap(); releaseCaret(overlay); return }
     holdCaret(overlay, GLIDE_MS + 600)
     g.to = target
-    const d = shownRef.current - target
-    const scroller = scrollerRef.current
-    if (d > 0) {
-      // Up: slide first, then the layout, in one task.
-      mover.style.transition = GLIDE
-      mover.style.transform = `translate3d(0, ${-d}px, 0)`
-      g.land = () => {
-        g.land = null
-        overlay.style.height = `${target}px`
-        mover.style.transition = 'none'
-        mover.style.transform = ''
-        if (scroller) scroller.scrollTop += d
-        snap()
-        // Still waiting on Safari's own measurement: keep holding, the next target lands it.
-        if (!waitingRef.current) releaseCaret(overlay)
-      }
-      g.timer = setTimeout(() => { g.timer = 0; g.land?.() }, GLIDE_MS)
-    } else {
-      // Down: the layout first, then slide to rest.
-      const up = -d
-      overlay.style.height = `${target}px`
-      mover.style.transition = 'none'
-      mover.style.transform = `translate3d(0, ${-up}px, 0)`
-      if (scroller) scroller.scrollTop -= up
-      void mover.offsetHeight
-      mover.style.transition = GLIDE
-      mover.style.transform = 'translate3d(0, 0, 0)'
-      snap()
-      g.land = () => { g.land = null; mover.style.transition = ''; mover.style.transform = ''; if (!waitingRef.current) releaseCaret(overlay) }
-      g.timer = setTimeout(() => { g.timer = 0; g.land?.() }, GLIDE_MS)
+    const d = shownRef.current - target // > 0: getting shorter (keyboard up)
+    const dist = Math.abs(d)
+    const s0 = scroller.scrollTop
+    const pad0 = scroller.style.paddingBottom
+    const padPx = parseFloat(getComputedStyle(scroller).paddingBottom) || 0
+    scroller.dataset.glide = '1'
+    // Room to scroll into for the length of the glide (up: below the end; down: so the taller box does not clamp).
+    scroller.style.paddingBottom = `${padPx + dist}px`
+    if (d < 0) overlay.style.height = `${target}px`
+    // Up: scroll from s0 to s0 + d, dock from 0 to -d. Down: scroll from s0 to s0 - dist, dock from -dist to 0.
+    const frame = (p) => {
+      const e = glideEase(p)
+      scroller.scrollTop = d > 0 ? s0 + dist * e : s0 - dist * e
+      dock.style.transform = `translate3d(0, ${d > 0 ? -dist * e : -dist * (1 - e)}px, 0)`
     }
-  }, [target, keyboardOpen, waiting, enabled, moverRef, overlayRef, scrollerRef])
+    frame(0)
+    const t0 = performance.now()
+    let raf = 0
+    const tick = () => {
+      const p = Math.min(1, (performance.now() - t0) / GLIDE_MS)
+      frame(p)
+      raf = p < 1 ? requestAnimationFrame(tick) : 0
+      if (p >= 1) g.land?.()
+    }
+    raf = requestAnimationFrame(tick)
+    // Never only frames (a background tab does not run them).
+    const timer = setTimeout(() => g.land?.(), GLIDE_MS + 40)
+    g.land = () => {
+      g.land = null
+      cancelAnimationFrame(raf)
+      clearTimeout(timer)
+      if (d > 0) overlay.style.height = `${target}px`
+      scroller.style.paddingBottom = pad0
+      dock.style.transform = ''
+      scroller.scrollTop = d > 0 ? s0 + dist : s0 - dist
+      delete scroller.dataset.glide
+      if (d > 0) snap()
+      // Still waiting on Safari's own measurement: keep holding, the next target lands it.
+      if (!waitingRef.current) releaseCaret(overlay)
+    }
+    if (d < 0) snap()
+  }, [target, keyboardOpen, waiting, enabled, dockRef, overlayRef, scrollerRef])
 
-  useEffect(() => () => clearTimeout(glide.current.timer), [])
+  useEffect(() => () => glide.current.land?.(), [])
 
   return { kbOpen: keyboardOpen, height: shown }
 }

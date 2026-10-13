@@ -8,6 +8,7 @@ import { useUnread, scopedChannel } from '../context/UnreadContext'
 import NetworkLayout from '../components/network/NetworkLayout'
 import NetworkMotion from '../components/NetworkMotion'
 import Reveal from '../components/network/Reveal'
+import { isReturnVisit } from '../lib/navReturn'
 import Reorderable from '../components/network/Reorderable'
 import FlagTile from '../components/network/FlagTile'
 import FlagStack from '../components/network/FlagStack'
@@ -404,6 +405,11 @@ export default function Rooms() {
     let slug = null
     try { slug = sessionStorage.getItem('tryp_last_market') } catch { /* private mode */ }
     if (!slug) return undefined
+    // Coming BACK (a swipe or Back): the page is restored where it was (AppLayout), so no jump to the market as well.
+    if (isReturnVisit()) {
+      try { sessionStorage.removeItem('tryp_last_market') } catch { /* private mode */ }
+      return undefined
+    }
     const id = requestAnimationFrame(() => {
       try { sessionStorage.removeItem('tryp_last_market') } catch { /* private mode */ }
       const el = document.querySelector(`[data-place="${CSS.escape(slug)}"]`)

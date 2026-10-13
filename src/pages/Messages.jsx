@@ -393,8 +393,8 @@ export default function Messages() {
   // the app header + bottom tab bar collapse away while typing. Same approach as
   // the #general chat (see useVisualViewport for the iOS reasoning).
   const overlayRef = useRef(null)
-  // Everything under the chat header; it glides with the keyboard (useChatOverlayHeight).
-  const moverRef = useRef(null)
+  // The composer and what floats over it: it rides with the keyboard while the thread scrolls (useChatOverlayHeight).
+  const dockRef = useRef(null)
   const isMobile = useIsMobile()
   useViewportPin(overlayRef, isMobile)
   // No pan when the message box takes focus, so the header stays where it is (see useNoFocusPan).
@@ -476,7 +476,7 @@ export default function Messages() {
   // tabs are hidden until it closes.
   // `chromeHidden` and `kbOpen` do the same thing to the top edge for different
   // reasons, so they are one condition here.
-  const { kbOpen, height: overlayH } = useChatOverlayHeight({ enabled: isMobile, chromeHidden, overlayRef, moverRef, scrollerRef, tuck: 10 })
+  const { kbOpen, height: overlayH } = useChatOverlayHeight({ enabled: isMobile, chromeHidden, overlayRef, dockRef, scrollerRef, tuck: 10 })
   const topGone = kbOpen || chromeHidden
   const mobileStyle = isMobile
     ? {
@@ -516,7 +516,9 @@ export default function Messages() {
 
   // Lock the document while the mobile DM overlay is up so iOS can't rubber-band
   // the page (which dragged the header down / exposed content above it).
-  useEffect(() => {
+  // A layout effect so the lock is released in the same commit that leaves the chat: AppLayout restores the scroll of
+  // the page you return to in its own layout effect, and a document still locked would clamp it to the top.
+  useLayoutEffect(() => {
     if (!isMobile) return
     document.documentElement.classList.add('overlay-lock')
     return () => document.documentElement.classList.remove('overlay-lock')
@@ -1238,7 +1240,8 @@ export default function Messages() {
   // reliable than scrollIntoView on a sentinel inside this flex/overflow column.
   const scrollToBottom = useCallback((behavior = 'auto') => {
     const el = scrollerRef.current
-    if (!el) return
+    // The keyboard glide is scrolling the thread itself (lib/useKeyboardInset) and lands it at the bottom.
+    if (!el || el.dataset.glide === '1') return
     if (behavior === 'smooth') el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' })
     else el.scrollTop = el.scrollHeight
   }, [])
@@ -2272,7 +2275,6 @@ export default function Messages() {
                 )}
               </div>
 
-              <div ref={moverRef} className="flex min-h-0 flex-1 flex-col">
               {/* Inline connection request: accept without leaving the thread. */}
               {activeRelation?.relation === 'pending_received' && (
                 <div className="mx-5 mt-4 flex items-center gap-3 rounded-card border border-gray-100 bg-white px-4 py-3">
@@ -2639,6 +2641,7 @@ export default function Messages() {
               )}
               </div>
 
+              <div ref={dockRef} className="shrink-0">
               {/* Typing indicator + jump-to-latest pill float above the composer. */}
               <div className="relative">
                 {otherTyping && (

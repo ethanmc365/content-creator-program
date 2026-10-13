@@ -1,7 +1,7 @@
 import { Suspense, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { lazyRoute } from '../../lib/lazyRoute'
 import { createPortal } from 'react-dom'
-import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
+import { Link, NavLink, Outlet, useLocation, useNavigate, useNavigationType } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { syncPushSubscription } from '../../lib/push'
 import { useUnread } from '../../context/UnreadContext'
@@ -337,8 +337,43 @@ export default function AppLayout() {
   // even an instant scroll leaves one painted frame of the new page at the old
   // offset. `useLayoutEffect` runs inside the commit, before the browser paints,
   // so the new page's first frame is its top - there is nothing to see move.
+  // BACK RETURNS YOU TO WHERE YOU WERE (13 Oct 2026). Ethan, swiping out of a room to the rooms list: "the entire page
+  // seems to flash, like to update and it moves slightly". iOS draws the page you are returning to, at the place you
+  // left it, under your finger; then this reset jumped it to the top. A forward visit still starts at the top; a back or
+  // forward (POP) restores the position recorded for that history entry, and re-asserts it briefly while late content
+  // lands, unless the reader has started scrolling.
+  const navType = useNavigationType()
+  const { key: locationKey } = useLocation()
+  const scrollMemo = useRef(new Map())
+  const scrollKey = useRef(locationKey)
+  useEffect(() => {
+    const onScroll = () => { scrollMemo.current.set(scrollKey.current, window.scrollY) }
+    // Also on the tap that starts a navigation: a scroll event is only delivered with a rendered frame.
+    window.addEventListener('scroll', onScroll, { passive: true })
+    window.addEventListener('pointerdown', onScroll, { passive: true, capture: true })
+    return () => {
+      window.removeEventListener('scroll', onScroll)
+      window.removeEventListener('pointerdown', onScroll, { capture: true })
+    }
+  }, [])
   useLayoutEffect(() => {
-    window.scrollTo({ top: 0, left: 0, behavior: 'instant' })
+    scrollKey.current = locationKey
+    const saved = navType === 'POP' ? scrollMemo.current.get(locationKey) || 0 : 0
+    window.scrollTo({ top: saved, left: 0, behavior: 'instant' })
+    if (!saved) return undefined
+    let touched = false
+    const stop = () => { touched = true }
+    window.addEventListener('touchstart', stop, { passive: true, once: true })
+    window.addEventListener('wheel', stop, { passive: true, once: true })
+    const timers = [60, 180, 400].map((ms) => setTimeout(() => {
+      if (!touched && Math.abs(window.scrollY - saved) > 2) window.scrollTo({ top: saved, left: 0, behavior: 'instant' })
+    }, ms))
+    return () => {
+      timers.forEach(clearTimeout)
+      window.removeEventListener('touchstart', stop)
+      window.removeEventListener('wheel', stop)
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pathname])
 
   // Cmd/Ctrl+K opens the palette from anywhere, and `/` does too when you are

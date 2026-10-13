@@ -10,6 +10,7 @@
 // A spring, not a duration curve. Durations feel mechanical when a user
 // interrupts them mid-flight (hovering off a card before it settles); a spring
 // re-targets from wherever it currently is and stays continuous.
+import { isReturnVisit } from './navReturn'
 export const SPRING = { type: 'spring', stiffness: 400, damping: 30 }
 export const SOFT_SPRING = { type: 'spring', stiffness: 260, damping: 26 }
 
@@ -48,7 +49,9 @@ export const cardHover = {
 // what breaks the mobile chat overlay (see the note on `page-in` in
 // tailwind.config.js). Do not add y or scale here.
 export const pageFade = {
-  initial: { opacity: 0 },
+  // A getter, read where it is spread: a page you are coming BACK to is not faded in again (lib/navReturn). Ethan, on
+  // swiping out of a room: "the entire page seems to flash, like to update".
+  get initial() { return isReturnVisit() ? false : { opacity: 0 } },
   animate: { opacity: 1 },
   transition: { duration: 0.25, ease: 'easeOut' },
 }
