@@ -81,7 +81,7 @@ begin
          format('The database spent %s seconds working per minute over the last few minutes (normal is 1 to 2). '
                 'If it keeps climbing, pages start loading without data. Look at Analytics > Error monitoring and the '
                 'heaviest queries in ops_stat_snapshots, or move the project up a compute size.', round(v_busy::numeric, 1))),
-      ('ops:connections', v_conns >= v_max * 0.75,
+      ('ops:connections', v_conns >= v_max * 0.75 and coalesce(v_prev.conns, 0) >= v_max * 0.75,
          'Supabase is running out of connections',
          format('%s of %s database connections are in use. At the limit, new requests are refused.', v_conns, v_max)),
       ('ops:stuck', v_long > 0,

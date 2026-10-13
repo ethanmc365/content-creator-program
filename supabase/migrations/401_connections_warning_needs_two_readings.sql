@@ -1,0 +1,133 @@
+-- 401: the connections warning needs two readings in a row (13 Oct 2026)
+--
+-- ops_health_check samples every five minutes and warned on a single reading at
+-- 75% of max_connections. The count includes Supabase's own services, and a few
+-- dozen people opening the app at once lifts it for a minute: on 13 Oct it read
+-- 46/60 once at 13:10 and 27 five minutes later, with no request refused. A
+-- real squeeze lasts; a burst does not. The warning now needs this reading AND
+-- the previous one at 75%. Live body, one condition changed.
+
+CREATE OR REPLACE FUNCTION public.ops_health_check()
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public', 'extensions'
+AS $function$
+declare
+  v_prev     public.ops_health_samples;
+  v_since    timestamptz;
+  v_exec     double precision;
+  v_hit      bigint;
+  v_read     bigint;
+  v_conns    integer;
+  v_max      integer;
+  v_long     integer;
+  v_long_q   text;
+  v_locks    integer;
+  v_slot     bigint;
+  v_db       bigint;
+  v_queue    integer := 0;
+  v_minutes  double precision;
+  v_busy     double precision;   -- seconds of query time per minute of clock
+  v_cache    double precision;
+  v_read_out jsonb;
+  v_open     text[] := '{}';
+  w          record;
+begin
+  select * into v_prev from public.ops_health_samples
+   where taken_at < now() - interval '2 minutes' order by taken_at desc limit 1;
+
+  select stats_reset into v_since from extensions.pg_stat_statements_info;
+  select coalesce(sum(total_exec_time), 0) into v_exec from extensions.pg_stat_statements;
+  select blks_hit, blks_read into v_hit, v_read from pg_stat_database where datname = current_database();
+  select count(*) into v_conns from pg_stat_activity where backend_type = 'client backend';
+  select setting::int into v_max from pg_settings where name = 'max_connections';
+  select count(*), left(max(regexp_replace(query, '\s+', ' ', 'g')), 200) into v_long, v_long_q
+    from pg_stat_activity
+   where backend_type = 'client backend' and state = 'active'
+     and now() - query_start > interval '60 seconds'
+     and query not ilike '%pg_logical_slot%' and query not ilike '%realtime.list_changes%'
+     and query not ilike 'START_REPLICATION%' and query not ilike '%pg_sleep%';
+  select count(*) into v_locks from pg_stat_activity where wait_event_type = 'Lock';
+  select coalesce(max(pg_wal_lsn_diff(pg_current_wal_lsn(), coalesce(confirmed_flush_lsn, restart_lsn))), 0)::bigint
+    into v_slot from pg_replication_slots;
+  v_db := pg_database_size(current_database());
+  begin
+    execute 'select count(*) from net.http_request_queue' into v_queue;
+  exception when others then v_queue := 0;
+  end;
+
+  -- Rates need a previous sample from the same statistics epoch (a restart resets the counters).
+  if v_prev.taken_at is not null and v_prev.stats_since is not distinct from v_since
+     and now() - v_prev.taken_at between interval '2 minutes' and interval '30 minutes' then
+    v_minutes := extract(epoch from now() - v_prev.taken_at) / 60.0;
+    v_busy := greatest(0, (v_exec - v_prev.exec_ms) / 1000.0) / v_minutes;
+    if (v_hit - v_prev.blks_hit) + (v_read - v_prev.blks_read) > 20000 then
+      v_cache := 100.0 * (v_hit - v_prev.blks_hit) / ((v_hit - v_prev.blks_hit) + (v_read - v_prev.blks_read));
+    end if;
+  end if;
+
+  v_read_out := jsonb_build_object(
+    'busy_s_per_min', round(v_busy::numeric, 1), 'connections', v_conns, 'max_connections', v_max,
+    'long_queries', v_long, 'lock_waits', v_locks, 'slot_lag_mb', round(v_slot / 1048576.0),
+    'db_mb', round(v_db / 1048576.0), 'net_queue', v_queue, 'cache_hit_pct', round(v_cache::numeric, 1));
+
+  insert into public.ops_health_samples (taken_at, stats_since, exec_ms, blks_hit, blks_read, conns, max_conns, readings)
+  values (now(), v_since, v_exec, v_hit, v_read, v_conns, v_max, v_read_out)
+  on conflict (taken_at) do nothing;
+  delete from public.ops_health_samples where taken_at < now() - interval '3 days';
+
+  -- THE THRESHOLDS. Baseline on Micro after the fixes: ~1-2 s of query time per clock minute, ~10-20
+  -- connections. On 7 Oct trivial queries took 12-19 s; any of these would have fired well before that.
+  for w in
+    select * from (values
+      ('ops:busy', v_busy is not null and v_busy >= 20,
+         'Supabase is getting overloaded: the database is busy',
+         format('The database spent %s seconds working per minute over the last few minutes (normal is 1 to 2). '
+                'If it keeps climbing, pages start loading without data. Look at Analytics > Error monitoring and the '
+                'heaviest queries in ops_stat_snapshots, or move the project up a compute size.', round(v_busy::numeric, 1))),
+      ('ops:connections', v_conns >= v_max * 0.75 and coalesce(v_prev.conns, 0) >= v_max * 0.75,
+         'Supabase is running out of connections',
+         format('%s of %s database connections are in use. At the limit, new requests are refused.', v_conns, v_max)),
+      ('ops:stuck', v_long > 0,
+         'A database query has been running for over a minute',
+         format('%s quer%s running for more than 60 seconds. The longest: %s', v_long,
+                case when v_long = 1 then 'y has been' else 'ies have been' end, coalesce(v_long_q, ''))),
+      ('ops:locks', v_locks >= 5,
+         'Database queries are queuing behind each other',
+         format('%s queries are waiting on a lock. This is what the 7 October outage looked like from inside.', v_locks)),
+      ('ops:slot', v_slot >= 512 * 1048576::bigint,
+         'Realtime is falling behind',
+         format('The realtime replication slot is %s MB behind. A slot that never catches up fills the disk.', round(v_slot / 1048576.0))),
+      ('ops:cache', v_cache is not null and v_cache < 95,
+         'Supabase is short of memory',
+         format('Only %s%% of reads were served from memory in the last few minutes (normal is over 99%%). '
+                'The working set no longer fits; the next compute size up fixes it.', round(v_cache::numeric, 1))),
+      ('ops:disk', v_db >= 6 * 1024 * 1048576::bigint,
+         'The database is close to its disk size',
+         format('The database is %s MB. The included disk is 8 GB.', round(v_db / 1048576.0))),
+      ('ops:netqueue', v_queue >= 500,
+         'Outgoing requests are backing up',
+         format('%s outgoing HTTP calls (push, email, media cleanup) are waiting in the pg_net queue.', v_queue))
+    ) t(key, firing, title, detail)
+  loop
+    if w.firing then
+      v_open := v_open || w.key;
+      if not exists (select 1 from public.client_errors e
+                      where e.fingerprint = md5('ops|' || w.key) and e.resolved_at is null) then
+        -- Newly open: tell the owner once. Fails soft; a warning must never break the check.
+        begin
+          perform public.notify_user(p.id, 'report', w.title, left(w.detail, 300), '/admin')
+             from public.profiles p where p.platform_role = 'owner';
+        exception when others then null;
+        end;
+      end if;
+      perform public.report_system_error('ops', w.key, w.title, w.detail, '/admin/analytics?tab=errors');
+    else
+      perform public.clear_system_error('ops', w.key);
+    end if;
+  end loop;
+
+  return v_read_out || jsonb_build_object('open', to_jsonb(v_open));
+end;
+$function$;
