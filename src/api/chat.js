@@ -22,6 +22,7 @@ export const makeChatApi = (db = supabase) => ({
   markChannelRead: (args, opts) => db.rpc('mark_channel_read', args, opts),
   myDmUnread: (args, opts) => db.rpc('my_dm_unread', args, opts),
   messageReports: () => db.from('message_reports'),
+  latestMessagePerRoom: (args, opts) => db.rpc('latest_message_per_room', args, opts),
   /** A chat function chosen at run time (editing a room message or a DM). */
   call: (fn, args, opts) => db.rpc(fn, args, opts),
 })

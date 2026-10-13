@@ -24,6 +24,7 @@ describe('chat api', () => {
     await api.markChannelRead({ x: 1 })
     await api.myDmUnread({ x: 1 })
     await api.messageReports()
+    await api.latestMessagePerRoom({ x: 1 })
     expect(calls).toEqual([
       ['from', 'channel_reads'],
       ['from', 'channels'],
@@ -43,6 +44,7 @@ describe('chat api', () => {
       ['rpc', 'mark_channel_read', { x: 1 }],
       ['rpc', 'my_dm_unread', { x: 1 }],
       ['from', 'message_reports'],
+      ['rpc', 'latest_message_per_room', { x: 1 }],
     ])
   })
 })

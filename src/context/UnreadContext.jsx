@@ -78,15 +78,12 @@ export function UnreadProvider({ children }) {
   const channelList = useMemo(() => keyed.map((r) => r.channel), [keyed])
   const channelSig = channelList.join(',')
 
-  // The newest message in each room, in one query rather than one per room.
+  // The newest message in each room, in one query.
   const refresh = useCallback(async () => {
     if (!channelList.length) return
-    const { data } = await chatApi.messages()
-      .select('channel, body, created_at, sender_id, image_url, video_url, profiles:sender_id(name, photo_url)')
-      .in('channel', channelList)
-      .eq('deleted', false)
-      .order('created_at', { ascending: false })
-      .limit(400)
+    // One row per room (latest_message_per_room, migration 411), read through the room index; the same policies decide
+    // what the reader can see. It used to fetch the 400 newest messages everywhere and keep the first of each room.
+    const { data } = await chatApi.latestMessagePerRoom({ p_channels: channelList })
     const map = new Map()
     for (const m of data || []) if (!map.has(m.channel)) map.set(m.channel, m)
     setLastByChannel(map)
