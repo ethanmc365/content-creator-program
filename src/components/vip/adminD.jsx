@@ -12,6 +12,7 @@ import { toastSuccess } from '../../lib/toast'
 import { MonthField } from '../DateTimeFields'
 import { cx, formatDate } from '../../lib/utils'
 import { BRIEF_METRICS, PERK_KINDS, PERK_METRICS, curSym, money, monthLabel, nf, unitLabel, useOptionalRpc, vipJoinLink, vipRpc, useKindT } from '../../lib/vip'
+import { safeUrl } from '../../lib/safeUrl'
 
 // THE TEAM'S SIDE OF THE VIP PROGRAMME, PART FOUR (30 Sep 2026, migration 299): every market side by side, the one
 // sign-up link and what happens to the people who use it, monthly challenges, perks and trips, and the guides.
@@ -45,7 +46,7 @@ export function VipLinkCard() {
           <div className="relative flex flex-wrap items-center gap-2.5">
             <input readOnly value={url} onFocus={(e) => e.target.select()} aria-label={tr('The VIP sign-up link')} className="min-w-0 flex-1 rounded-xl border-0 bg-white/95 px-3.5 py-2.5 text-sm font-medium text-ink shadow-sm outline-none focus:ring-2 focus:ring-white/60" />
             <button type="button" onClick={async () => { await copyToClipboard(url); toastSuccess(tr('Copied')) }} className="inline-flex items-center gap-2 rounded-xl bg-white px-4 py-2.5 text-sm font-bold text-brand shadow-sm transition-transform hoverable:hover:-translate-y-0.5"><Icon name="copy" className="h-4 w-4" />{tr('Copy')}</button>
-            <a href={url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 rounded-xl bg-white/20 px-4 py-2.5 text-sm font-bold text-white ring-1 ring-white/40 transition-transform hoverable:hover:-translate-y-0.5"><Icon name="eye" className="h-4 w-4" />{tr('Open')}</a>
+            <a href={safeUrl(url)} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 rounded-xl bg-white/20 px-4 py-2.5 text-sm font-bold text-white ring-1 ring-white/40 transition-transform hoverable:hover:-translate-y-0.5"><Icon name="eye" className="h-4 w-4" />{tr('Open')}</a>
           </div>
         )}
       </div>

@@ -562,7 +562,8 @@ Deno.serve(async (req) => {
     if (buf.byteLength > MAX_BYTES) return json(req, { error: 'image too large' }, 502)
     bytes = buf
   } catch (e) {
-    return json(req, { error: 'fetch failed', detail: String(e) }, 502)
+    console.error('thumb-cache fetch', String(e))
+    return json(req, { error: 'fetch failed' }, 502)
   }
 
   const small = await shrink(bytes, contentType)

@@ -33,6 +33,7 @@ import { formatDate, formatViews, postedOn, ageFromDob, cx } from '../lib/utils'
 import { useT } from '../lib/i18n'
 import TranslateText from '../components/TranslateText'
 import { readPageCache, writePageCache } from '../lib/pageCache'
+import { safeUrl } from '../lib/safeUrl'
 
 // A creator's public profile: photo, bio, socials, the orange country map,
 // languages, stats and their content showcase (submitted video links).
@@ -941,7 +942,7 @@ export default function Profile() {
               {socials.map((x) => (
                 <a
                   key={`${x.brand}-${x.url}`}
-                  href={x.url}
+                  href={safeUrl(x.url)}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex items-center gap-2 rounded-full border border-gray-200 py-1.5 pl-2 pr-3.5 text-sm font-medium text-ink transition-all duration-200 hover:-translate-y-0.5 hover:border-brand/40 hover:shadow-card"
@@ -1223,7 +1224,7 @@ function ShowcaseCard({ submission: s, expanded, onToggle }) {
   return (
     <div className="group flex min-w-0 flex-col overflow-hidden rounded-card border border-gray-100 bg-white shadow-card transition-all duration-200 hoverable:hover:-translate-y-0.5 hoverable:hover:shadow-lift">
       <a
-        href={s.video_url}
+        href={safeUrl(s.video_url)}
         target="_blank"
         rel="noopener noreferrer"
         className="relative block"

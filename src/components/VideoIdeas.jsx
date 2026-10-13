@@ -15,6 +15,7 @@ import DealFinder from './DealFinder'
 import { formatViews, cx } from '../lib/utils'
 import { translateTexts } from '../lib/contentTranslate'
 import { getLocale, useLocale, useT } from '../lib/i18n'
+import { safeUrl } from '../lib/safeUrl'
 
 // VIDEO IDEAS (7 Oct 2026).
 //
@@ -375,7 +376,7 @@ function IdeaCard({ v, rank, delay, onPlay, hook, onAddHook = null, reading = fa
         ) : (
           <span className="min-w-0 flex-1 truncate text-[12.5px] font-semibold text-ink">{v.creator_name || v.platform}</span>
         )}
-        <a href={v.video_url} target="_blank" rel="noopener noreferrer" aria-label={tr('Open the original post')} title={tr('Open the original post')} className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-smoke transition-all duration-200 hoverable:hover:scale-110 hoverable:hover:bg-cloud hoverable:hover:text-ink">
+        <a href={safeUrl(v.video_url)} target="_blank" rel="noopener noreferrer" aria-label={tr('Open the original post')} title={tr('Open the original post')} className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-smoke transition-all duration-200 hoverable:hover:scale-110 hoverable:hover:bg-cloud hoverable:hover:text-ink">
           <Icon name="link" className="h-4 w-4" />
         </a>
       </div>

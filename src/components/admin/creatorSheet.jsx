@@ -3,6 +3,7 @@ import { CopyButton, Skeleton } from '../ui'
 import Icon from '../Icon'
 import { cx, formatDateTimeTz } from '../../lib/utils'
 import { useT } from '../../lib/i18n'
+import { safeUrl } from '../../lib/safeUrl'
 
 // THE PIECES BOTH CREATOR POPUPS ARE BUILT FROM.
 //
@@ -141,7 +142,7 @@ export function EntryList({ entries, limit = 6 }) {
           </span>
           {s.video_url && (
             <a
-              href={s.video_url}
+              href={safeUrl(s.video_url)}
               target="_blank"
               rel="noopener noreferrer"
               className="shrink-0 text-[11px] font-semibold text-brand hover:underline"

@@ -12,6 +12,7 @@ import { getLocale, tIn, useT } from '../../lib/i18n'
 import { downloadBlob, snapshotNode } from '../../lib/domSnapshot'
 import CertificateCard, { CERT_W, CERT_H } from './CertificateCard'
 import { fillTemplate, formatAwardDate, sampleFacts, sortCertificates } from '../../lib/certificates'
+import { safeUrl } from '../../lib/safeUrl'
 
 // WHAT THE PROGRAMME HAS GIVEN YOU, ON A WALL.
 //
@@ -518,7 +519,7 @@ function ShareRow({ row, tr, onStory, onTikTok, busy }) {
           <SocialMark brand="tiktok" colored className="h-6 w-6 shrink-0" />
           <span className="min-w-0"><span className="block text-sm font-semibold text-ink">{tr('Share it on TikTok')}</span><span className="block truncate text-[11px] text-smoke">{tr('Saves the picture for a photo post')}</span></span>
         </button>
-        <a href={post} target="_blank" rel="noreferrer" className={tile}>
+        <a href={safeUrl(post)} target="_blank" rel="noreferrer" className={tile}>
           <SocialMark brand="linkedin" colored className="h-6 w-6 shrink-0" />
           <span className="min-w-0"><span className="block text-sm font-semibold text-ink">{tr('Post about it on LinkedIn')}</span><span className="block truncate text-[11px] text-smoke">{tr('Attach the saved picture to your post')}</span></span>
         </a>

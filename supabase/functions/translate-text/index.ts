@@ -31,6 +31,7 @@ const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const SERVICE_ROLE = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 const ANON = Deno.env.get('SUPABASE_ANON_KEY')!
 const ANTHROPIC_KEY = Deno.env.get('ANTHROPIC_API_KEY') || ''
+const TRANSLATE_PER_HOUR = 400
 
 const LANGS: Record<string, string> = { en: 'English', es: 'Spanish', pt: 'European Portuguese', de: 'German', ro: 'Romanian' }
 
@@ -191,6 +192,14 @@ Deno.serve(async (req) => {
   if (items.length === 0) return json(req, { results: [] })
 
   const admin = createClient(SUPABASE_URL, SERVICE_ROLE)
+  // A ceiling per person, because a cache miss can be a paid engine call. Generous: reading a busy room in
+  // another language is a few requests a minute. Same counter table as auth-gate and geocode.
+  const since = new Date(Date.now() - 3_600_000).toISOString()
+  const key = `translate:${userId}`
+  const { count } = await admin.from('auth_attempts').select('id', { count: 'exact', head: true }).eq('identifier', key).gte('created_at', since)
+  if ((count ?? 0) >= TRANSLATE_PER_HOUR) return json(req, { error: 'Too many translations for now. Try again in a while.' }, 429)
+  await admin.from('auth_attempts').insert({ identifier: key })
+
   const results: { text: string; value: string; same: boolean; src_lang: string | null; auto: boolean }[] = []
 
   for (const text of items) {

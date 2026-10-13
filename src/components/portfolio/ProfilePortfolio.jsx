@@ -11,6 +11,7 @@ import { useIsMobile } from '../../lib/useKeyboardInset'
 import { useT } from '../../lib/i18n'
 import PortfolioDeck, { useFluidWidth } from './PortfolioDeck'
 import { compactViews } from '../../lib/portfolio'
+import { safeUrl } from '../../lib/safeUrl'
 
 // SOMEBODY'S PORTFOLIO, ON THEIR PROFILE.
 //
@@ -156,7 +157,7 @@ export default function ProfilePortfolio({ profileId }) {
           <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-gray-400">{tr('Watch them')}</p>
           <div className="flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             {videos.slice(0, 8).map((v) => (
-              <a key={v.id} href={v.video_url} target="_blank" rel="noopener noreferrer"
+              <a key={v.id} href={safeUrl(v.video_url)} target="_blank" rel="noopener noreferrer"
                 className="group flex w-[120px] shrink-0 flex-col gap-1.5 rounded-xl border border-gray-100 p-1.5 transition-all duration-200 hoverable:hover:-translate-y-0.5 hoverable:hover:border-brand/40">
                 <span className="block h-20 w-full overflow-hidden rounded-lg bg-cloud">
                   {v.thumbnail_url && <img src={v.thumbnail_url} alt="" loading="lazy" className="h-full w-full object-cover" />}

@@ -4,6 +4,7 @@ import { videoEmbed, resolveVideoEmbed } from '../lib/videoPreview'
 import { cx } from '../lib/utils'
 import { lockScroll } from '../lib/scrollLock'
 import { useT } from '../lib/i18n'
+import { safeUrl } from '../lib/safeUrl'
 
 // A media-focused lightbox that plays a submitted entry INSIDE the platform:
 // YouTube / TikTok / Instagram all embed via their tokenless iframe players, so
@@ -80,7 +81,7 @@ export default function VideoEmbedModal({ url, platform, title, onClose, footer 
         {footer}
 
         <a
-          href={url}
+          href={safeUrl(url)}
           target="_blank"
           rel="noopener noreferrer"
           className="mx-auto mb-1 mt-4 inline-flex shrink-0 items-center gap-1.5 rounded-full bg-white/15 px-4 py-2 text-xs font-medium text-white transition-colors hover:bg-white/25"

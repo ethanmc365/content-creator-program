@@ -15,6 +15,7 @@ import { TargetBar } from './parts'
 import { ActivityFeed, AttentionCard, SuggestionsCard, TrendCard } from './adminC'
 import { VipLinkCard } from './adminD'
 import { DateField } from '../DateTimeFields'
+import { safeUrl } from '../../lib/safeUrl'
 
 // THE TEAM'S SIDE OF THE VIP PROGRAMME, PART ONE: who is in, and how this month is going (2 Oct 2026).
 
@@ -278,7 +279,7 @@ function AllVideos({ videos, onTypeViews, onCountAgain }) {
           <ul className="grid grid-cols-2 gap-3.5 sm:grid-cols-3 lg:grid-cols-4">
             {shown.map((v, i) => (
               <li key={v.id} style={{ animationDelay: `${Math.min(i, 12) * 30}ms` }} className={cx('group flex flex-col overflow-hidden rounded-card border bg-white shadow-card transition-all duration-300 animate-rise hoverable:hover:-translate-y-1 hoverable:hover:shadow-lift', v.status === 'disqualified' ? 'border-red-100 opacity-75' : 'border-gray-100')}>
-                <a href={v.url} target="_blank" rel="noopener noreferrer" aria-label={tr('Open on the platform')} className="relative block">
+                <a href={safeUrl(v.url)} target="_blank" rel="noopener noreferrer" aria-label={tr('Open on the platform')} className="relative block">
                   <VideoThumb url={v.url} platform={v.platform} thumbnailUrl={v.thumb} />
                   <span className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-ink/80 to-transparent px-3 pb-2.5 pt-8 text-white">
                     <span className="block text-xl font-bold tabular-nums leading-none">{formatViews(v.views_counted)}</span>

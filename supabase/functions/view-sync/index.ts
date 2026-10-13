@@ -154,11 +154,39 @@ class HttpError extends Error {
   constructor(public status: number) { super(`http ${status}`) }
 }
 
+// EVERY REQUEST AND EVERY REDIRECT HOP STAYS ON A PLATFORM HOST. The URLs here come from creators, and
+// `redirect: 'follow'` would let a platform redirect (Facebook's link shim, an app-store bounce) send this
+// server anywhere. Redirects are walked by hand and each hop is checked before it is requested.
+const API_HOSTS = /(^|\.)googleapis\.com$/i
+export function fetchHostAllowed(raw: string): boolean {
+  try {
+    const u = new URL(raw)
+    if (u.protocol !== 'https:' && u.protocol !== 'http:') return false
+    return platformOf(u.hostname) !== null || API_HOSTS.test(u.hostname)
+  } catch {
+    return false
+  }
+}
+
+async function checkedFetch(url: string, init: RequestInit): Promise<{ res: Response; url: string }> {
+  const manual = init.redirect === 'manual'
+  let current = url
+  for (let hop = 0; hop <= 6; hop++) {
+    if (!fetchHostAllowed(current)) throw new Error('blocked_host')
+    const res = await fetch(current, { ...init, redirect: 'manual' })
+    const next = res.headers.get('location')
+    if (manual || res.status < 300 || res.status >= 400 || !next) return { res, url: current }
+    await res.body?.cancel()
+    current = new URL(next, current).toString()
+  }
+  throw new Error('too_many_redirects')
+}
+
 async function getText(url: string, headers: Record<string, string> = {}, redirect: RequestRedirect = 'follow'): Promise<string> {
   const ctrl = new AbortController()
   const timer = setTimeout(() => ctrl.abort(), FETCH_TIMEOUT_MS)
   try {
-    const res = await fetch(url, {
+    const { res } = await checkedFetch(url, {
       headers: { 'User-Agent': UA, 'Accept-Language': 'en-GB,en;q=0.9', ...headers },
       redirect,
       signal: ctrl.signal,
@@ -216,9 +244,9 @@ async function followRedirects(url: string, ua: string = UA): Promise<string | n
   const ctrl = new AbortController()
   const timer = setTimeout(() => ctrl.abort(), FETCH_TIMEOUT_MS)
   try {
-    const res = await fetch(url, { redirect: 'follow', headers: { 'User-Agent': ua }, signal: ctrl.signal })
+    const { res, url: landed } = await checkedFetch(url, { redirect: 'follow', headers: { 'User-Agent': ua }, signal: ctrl.signal })
     await res.body?.cancel()
-    return res.url || null
+    return landed || null
   } catch {
     return null
   } finally {
@@ -464,12 +492,12 @@ async function fbFetch(url: string, ua: string): Promise<{ html: string; url: st
   const ctrl = new AbortController()
   const timer = setTimeout(() => ctrl.abort(), FETCH_TIMEOUT_MS * 2)
   try {
-    const res = await fetch(url, {
+    const { res, url: landed } = await checkedFetch(url, {
       headers: { 'User-Agent': ua, 'Accept-Language': 'en-GB,en;q=0.9' },
       redirect: 'follow',
       signal: ctrl.signal,
     })
-    return { html: await res.text(), url: res.url || url, status: res.status }
+    return { html: await res.text(), url: landed, status: res.status }
   } catch {
     return null
   } finally {
@@ -502,7 +530,7 @@ async function facebookShareTarget(url: string): Promise<{ post: string; owner: 
     const ctrl = new AbortController()
     const timer = setTimeout(() => ctrl.abort(), FETCH_TIMEOUT_MS)
     try {
-      const res = await fetch(url, { headers: { 'User-Agent': ua, 'Accept-Language': 'en-GB,en;q=0.9' }, redirect: 'manual', signal: ctrl.signal })
+      const { res } = await checkedFetch(url, { headers: { 'User-Agent': ua, 'Accept-Language': 'en-GB,en;q=0.9' }, redirect: 'manual', signal: ctrl.signal })
       await res.body?.cancel()
       const found = facebookPostFrom(res.headers.get('location') ?? '')
       if (found) return found
@@ -1614,19 +1642,23 @@ Deno.serve(async (req) => {
     return json(req, { accepted: rows.length }, 202)
   }
 
-  // One chain at a time. Pressing the button twice used to start two overlapping
-  // sweeps writing the same rows. A CONTINUATION is already inside a run, so it
-  // must not be turned away by its own guard.
+  // One chain at a time, claimed in ONE statement (view_sync_claim), so a button press and the cron landing in
+  // the same second cannot both start. A CONTINUATION is already inside a run, so it must not be turned away by
+  // its own guard. A claim that then finds nothing to read is released.
+  let claim: string | null = null
   if (!continuation) {
-    const { data: busy } = await supabase.rpc('view_sync_running')
-    if (busy === true) return json(req, { busy: true }, 409)
+    const { data, error } = await supabase.rpc('view_sync_claim')
+    if (error) return json(req, { error: 'run lock unavailable' }, 503)
+    if (!data) return json(req, { busy: true }, 409)
+    claim = data as string
   }
+  const release = async () => { if (claim) await supabase.rpc('view_sync_release', { p_started: claim }) }
 
   // Named entries are a one-shot: a caller asking for these exact rows wants
   // them read now, not queued behind a staleness rule.
   if (body.submission_ids?.length) {
     const rows = await namedRows(body.submission_ids)
-    if (!rows.length) return json(req, { accepted: 0 })
+    if (!rows.length) { await release(); return json(req, { accepted: 0 }) }
     const progress: Progress = {
       started_at: new Date().toISOString(), trigger: fromCron ? 'scheduled' : 'admin',
       total: rows.length, done: 0, updated: 0, failed: 0, chunk: 1,
@@ -1651,6 +1683,7 @@ Deno.serve(async (req) => {
       // deno-lint-ignore no-explicit-any
       ;(globalThis as any).EdgeRuntime?.waitUntil?.(finishRun(continuation))
     }
+    await release()
     return json(req, { accepted: 0 })
   }
 

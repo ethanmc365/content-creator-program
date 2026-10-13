@@ -1,5 +1,6 @@
 import { Fragment } from 'react'
 import { Link } from 'react-router-dom'
+import { safeUrl } from './safeUrl'
 
 // A tiny Notion-lite markdown renderer for admin notes. Block level:
 //   # / ## / ###   headings
@@ -27,7 +28,7 @@ function inline(text, keyBase) {
     else if (m[3]) out.push(<em key={`${keyBase}-${k++}`}>{m[3]}</em>)
     else if (m[4]) out.push(<code key={`${keyBase}-${k++}`} className="rounded bg-cloud px-1.5 py-0.5 text-[0.85em] text-brand">{m[4]}</code>)
     else if (m[5] && m[6].startsWith('/')) out.push(<Link key={`${keyBase}-${k++}`} to={m[6]} className="quick-link">{m[5]}<svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M9 5l7 7-7 7" /></svg></Link>)
-    else if (m[5]) out.push(<a key={`${keyBase}-${k++}`} href={m[6]} target="_blank" rel="noopener noreferrer" className="text-brand underline">{m[5]}</a>)
+    else if (m[5]) out.push(<a key={`${keyBase}-${k++}`} href={safeUrl(m[6])} target="_blank" rel="noopener noreferrer" className="text-brand underline">{m[5]}</a>)
     rest = rest.slice(m.index + m[0].length)
   }
   return out
@@ -71,7 +72,7 @@ export function renderNote(md = '') {
   return blocks.map((b) => {
     if (b.type === 'hr') return <hr key={b.key} className="my-5 border-gray-200" />
     if (b.type === 'img') return (
-      <a key={b.key} href={b.url} target="_blank" rel="noopener noreferrer" className="my-3 block overflow-hidden rounded-2xl border border-gray-100 bg-cloud shadow-sm">
+      <a key={b.key} href={safeUrl(b.url)} target="_blank" rel="noopener noreferrer" className="my-3 block overflow-hidden rounded-2xl border border-gray-100 bg-cloud shadow-sm">
         <img src={b.url} alt={b.alt || ''} loading="lazy" className="block h-auto w-full" />
       </a>
     )

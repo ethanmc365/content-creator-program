@@ -19,6 +19,7 @@ import EntryPreview, { PointParts } from '../../components/challenge/EntryPrevie
 import SocialMark from '../../components/SocialMark'
 import { scrollToElement } from '../../lib/scrollTo'
 import { useEntryPoints } from '../../lib/entryPoints'
+import { safeUrl } from '../../lib/safeUrl'
 
 // Results entry for one challenge:
 //  1. View counts arrive by themselves - the `view-sync` Edge Function reads
@@ -756,7 +757,7 @@ export default function AdminResults() {
                   video ... because you have that all on the right side." The
                   platform logo moved off the picture too, into the meta line in
                   its own colours. */}
-              <a href={s.video_url} target="_blank" rel="noopener noreferrer" className="w-[5.5rem] shrink-0 self-start overflow-hidden rounded-xl sm:w-28">
+              <a href={safeUrl(s.video_url)} target="_blank" rel="noopener noreferrer" className="w-[5.5rem] shrink-0 self-start overflow-hidden rounded-xl sm:w-28">
                 <EntryPreview compact bare submission={s} />
               </a>
               {/* TWO COLUMNS FROM A TABLET UP (28 Sep 2026). Ethan: "too much
@@ -935,7 +936,7 @@ export default function AdminResults() {
                   />
                   <div className="grid grid-cols-2 gap-2">
                     <a
-                      href={s.video_url}
+                      href={safeUrl(s.video_url)}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-brand px-3 py-2 text-xs font-semibold text-white shadow-sm transition-all duration-200 hover:brightness-110 hoverable:hover:-translate-y-0.5"
@@ -990,7 +991,7 @@ export default function AdminResults() {
                   <p className="mt-0.5 text-xs text-ink/80">{d.reason}</p>
                 </div>
                 {d.snapshot?.video_url && (
-                  <a href={d.snapshot.video_url} target="_blank" rel="noopener noreferrer" className="btn-secondary !py-2 text-xs">Watch ↗</a>
+                  <a href={safeUrl(d.snapshot.video_url)} target="_blank" rel="noopener noreferrer" className="btn-secondary !py-2 text-xs">Watch ↗</a>
                 )}
                 <button type="button" onClick={() => reinstate(d)} className="btn-secondary !py-2 text-xs">Reinstate</button>
               </div>

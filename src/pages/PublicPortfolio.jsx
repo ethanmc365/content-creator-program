@@ -6,6 +6,7 @@ import Icon from '../components/Icon'
 import PortfolioDeck, { useFluidWidth } from '../components/portfolio/PortfolioDeck'
 import { compactViews } from '../lib/portfolio'
 import Reveal from '../components/network/Reveal'
+import { safeUrl } from '../lib/safeUrl'
 
 // A PORTFOLIO ANYBODY CAN OPEN.
 //
@@ -116,7 +117,7 @@ export default function PublicPortfolio() {
               {videos.map((v) => (
                 <a
                   key={v.id}
-                  href={v.video_url}
+                  href={safeUrl(v.video_url)}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="group flex items-center gap-3 rounded-card border border-gray-100 bg-white p-2.5 shadow-card transition-all duration-200 hoverable:hover:-translate-y-0.5 hoverable:hover:shadow-lift"

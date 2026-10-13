@@ -5,6 +5,7 @@ import Icon from './Icon'
 import VideoPlayer from './VideoPlayer'
 import { cx } from '../lib/utils'
 import { useT } from '../lib/i18n'
+import { safeUrl } from '../lib/safeUrl'
 
 // Renders a resource/chat attachment inline: images show the picture, videos
 // show an inline player you tap to play, anything else falls back to a labelled
@@ -45,7 +46,7 @@ export default function MediaAttachment({ url, className, compact = false }) {
   if (type === 'image') {
     return (
       <div className={cx('space-y-2', className)}>
-        <a href={url} target="_blank" rel="noopener noreferrer" aria-label={tr("Open image full size")}>
+        <a href={safeUrl(url)} target="_blank" rel="noopener noreferrer" aria-label={tr("Open image full size")}>
           <img
             src={url}
             alt={name}

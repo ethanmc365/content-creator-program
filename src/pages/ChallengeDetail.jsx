@@ -44,6 +44,7 @@ import { useIsMobile } from '../lib/useKeyboardInset'
 import { useT } from '../lib/i18n'
 import { testFlags } from '../lib/testData'
 import { ruleOpenAt } from '../lib/scoring'
+import { safeUrl } from '../lib/safeUrl'
 
 
 // The platform's own key in SocialMark's table. Two spellings of one list is
@@ -164,7 +165,7 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
   // what a popup blocker stops.
   const openEntry = useCallback((s) => {
     if (playsInline(s.video_url)) { setPlaying(s); return }
-    window.open(s.video_url, '_blank', 'noopener,noreferrer')
+    { const u = safeUrl(s.video_url); if (u) window.open(u, '_blank', 'noopener,noreferrer') }
   }, [])
   const [feedback, setFeedback] = useState({}) // submission id -> the team's note
   // The scoring rules, fetched once: the view ladder (ScoringPanel) and the
@@ -1792,7 +1793,7 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
 
                   <div className="flex gap-2">
                     <a
-                      href={s.video_url}
+                      href={safeUrl(s.video_url)}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="btn inline-flex flex-1 items-center justify-center gap-1.5 bg-brand-tint !py-2 text-xs !text-brand transition-transform duration-200 hoverable:hover:-translate-y-0.5"

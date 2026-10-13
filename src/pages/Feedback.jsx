@@ -11,6 +11,7 @@ import { useT } from '../lib/i18n'
 import { SurveyModal } from '../components/SurveyHost'
 import { TLine } from '../components/TranslatedText'
 import { pendingSurveys } from '../lib/surveys'
+import { safeUrl } from '../lib/safeUrl'
 
 // How a creator's own past reports are labelled back to them.
 const STATUS = {
@@ -210,7 +211,7 @@ export default function Feedback() {
                 </div>
                 <p className="whitespace-pre-line text-sm text-ink">{f.message}</p>
                 {f.screenshot_url && (
-                  <a href={f.screenshot_url} target="_blank" rel="noopener noreferrer" className="mt-3 inline-block">
+                  <a href={safeUrl(f.screenshot_url)} target="_blank" rel="noopener noreferrer" className="mt-3 inline-block">
                     <img src={f.screenshot_url} alt="Attached screenshot" loading="lazy" className="max-h-40 rounded-xl border border-gray-100 object-cover" />
                   </a>
                 )}

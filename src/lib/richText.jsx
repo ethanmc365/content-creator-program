@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom'
 import { BROADCASTS, isBroadcastName } from './broadcastMentions'
+import { safeUrl } from './safeUrl'
 
 // Rendering for chat message bodies:
 //  * @mentions of known members become links to their profile,
@@ -49,7 +50,7 @@ function renderInline(text, { rich, mentionRe, nameToId, onDark }, keyPrefix) {
           : g.mention)
       }
     } else if (g.url) {
-      nodes.push(<a key={`${keyPrefix}u${k}`} href={g.url} target="_blank" rel="noopener noreferrer" className={urlCls}>{g.url}</a>)
+      nodes.push(<a key={`${keyPrefix}u${k}`} href={safeUrl(g.url)} target="_blank" rel="noopener noreferrer" className={urlCls}>{g.url}</a>)
     } else if (g.bold) {
       nodes.push(<strong key={`${keyPrefix}b${k}`} className="font-bold">{g.bold.slice(2, -2)}</strong>)
     } else if (g.italic) {

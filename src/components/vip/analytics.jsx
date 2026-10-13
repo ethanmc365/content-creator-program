@@ -14,6 +14,7 @@ import { CHART, FILL, axisTick, tooltipStyle } from '../charts/chartTheme'
 import { cx, formatDate, formatViews } from '../../lib/utils'
 import { PERIODS, periodRange } from '../../lib/analyticsPeriod'
 import { money, monthLabel, nf, perK, shortDay, vipRpc, useKindT } from '../../lib/vip'
+import { safeUrl } from '../../lib/safeUrl'
 
 // VIP ANALYTICS, OVER ANY DATES (6 Oct 2026).
 //
@@ -244,7 +245,7 @@ function Overview({ data, cur, range }) {
           <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
             {data.top_videos.map((v, i) => (
               <li key={v.id} className="group relative animate-rise transition-transform duration-300 hoverable:hover:-translate-y-1" style={{ animationDelay: `${i * 45}ms` }}>
-                <a href={v.url} target="_blank" rel="noopener noreferrer" className="block overflow-hidden rounded-card border border-gray-100 bg-white shadow-card transition-shadow duration-300 hoverable:group-hover:shadow-lift" aria-label={tr('Open on the platform')}>
+                <a href={safeUrl(v.url)} target="_blank" rel="noopener noreferrer" className="block overflow-hidden rounded-card border border-gray-100 bg-white shadow-card transition-shadow duration-300 hoverable:group-hover:shadow-lift" aria-label={tr('Open on the platform')}>
                   <div className="relative"><VideoThumb url={v.url} platform={v.platform} thumbnailUrl={v.thumb} />
                     <span className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-ink/80 to-transparent px-2.5 pb-2 pt-7 text-white"><span className="block text-lg font-bold tabular-nums leading-none">{formatViews(v.views)}</span><span className="block text-[10px] font-semibold uppercase tracking-wide text-white/80">{tr('gained')}</span></span>
                   </div>

@@ -7,6 +7,7 @@ import { toast } from '../lib/toast'
 import Icon from './Icon'
 import { cx, timeAgo } from '../lib/utils'
 import { useT } from '../lib/i18n'
+import { safeUrl } from '../lib/safeUrl'
 
 // A LINE FROM THE TEAM ON EVERY ENTRY.
 //
@@ -145,7 +146,7 @@ export function EntryReferenceCard({ entry, onDark = false }) {
   if (!entry) return null
   return (
     <a
-      href={entry.video_url}
+      href={safeUrl(entry.video_url)}
       target="_blank"
       rel="noopener noreferrer"
       className={cx(

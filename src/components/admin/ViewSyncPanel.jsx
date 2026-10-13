@@ -14,6 +14,7 @@ import {
   viewSyncBacklog,
   viewSyncStatus,
 } from '../../lib/viewSync'
+import { safeUrl } from '../../lib/safeUrl'
 
 // The controls for automatic view counts, above the entry list on the results
 // page - which is exactly where an admin used to sit opening forty links and
@@ -387,7 +388,7 @@ export default function ViewSyncPanel({ challengeId, submissions = [], onSynced,
                       <span className="shrink-0 text-smoke">{r.platform}</span>
                     </button>
                     <a
-                      href={r.video_url}
+                      href={safeUrl(r.video_url)}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="shrink-0 rounded-full bg-white px-2 py-0.5 font-semibold text-brand shadow-sm hover:underline"
@@ -471,7 +472,7 @@ function FacebookRow({ row, onSave, onShow }) {
         </span>
         <span className="min-w-0 truncate font-semibold text-ink">{row.profiles?.name || 'Unknown creator'}</span>
       </button>
-      <a href={row.video_url} target="_blank" rel="noopener noreferrer" className="shrink-0 rounded-full bg-white px-3 py-1.5 font-semibold text-brand shadow-sm hover:underline">
+      <a href={safeUrl(row.video_url)} target="_blank" rel="noopener noreferrer" className="shrink-0 rounded-full bg-white px-3 py-1.5 font-semibold text-brand shadow-sm hover:underline">
         Open post
       </a>
       <form

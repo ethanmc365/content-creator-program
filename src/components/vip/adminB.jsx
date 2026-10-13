@@ -13,6 +13,7 @@ import { Stat, useMonths } from './adminA'
 import { CopyLinkChip } from './parts'
 import VideoThumb from '../VideoThumb'
 import { HowItWorks, VipContentTab } from './adminD'
+import { safeUrl } from '../../lib/safeUrl'
 
 // THE TEAM'S SIDE OF THE VIP PROGRAMME, PART TWO: the rules, the close, the goals, the numbers (2 Oct 2026).
 
@@ -496,7 +497,7 @@ function ClaimsReview({ claims }) {
             return (
               <li key={k} className="flex items-center gap-3 px-4 py-3 animate-rise" style={{ animationDelay: `${Math.min(i, 8) * 35}ms` }}>
                 <div className="relative w-12 shrink-0 overflow-hidden rounded-lg">
-                  <a href={c.url} target="_blank" rel="noopener noreferrer" aria-label={tr('Open the video')}><VideoThumb url={c.url} platform={c.platform} thumbnailUrl={c.thumb} className="aspect-[9/16] w-full rounded-none" /></a>
+                  <a href={safeUrl(c.url)} target="_blank" rel="noopener noreferrer" aria-label={tr('Open the video')}><VideoThumb url={c.url} platform={c.platform} thumbnailUrl={c.thumb} className="aspect-[9/16] w-full rounded-none" /></a>
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className="flex items-center gap-2 text-sm font-semibold text-ink"><Avatar src={c.photo} name={c.name} size="xs" /><span className="truncate">{c.name}</span></p>

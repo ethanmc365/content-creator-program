@@ -7,6 +7,7 @@ import { Badge, EmptyState, Modal, PageHeader, SkeletonCards, Spinner } from '..
 import Icon from '../components/Icon'
 import { cx, timeAgo } from '../lib/utils'
 import { useT } from '../lib/i18n'
+import { safeUrl } from '../lib/safeUrl'
 
 // How the applicant sees their application move through the admin's pipeline.
 const APPLICANT_STATUS = {
@@ -89,7 +90,7 @@ export default function Jobs() {
     }
     return (
       <div className="flex flex-wrap items-center gap-2">
-        {j.apply_url && <a href={j.apply_url} target="_blank" rel="noopener noreferrer" className="btn-secondary">{tr("Apply form ↗")}</a>}
+        {j.apply_url && <a href={safeUrl(j.apply_url)} target="_blank" rel="noopener noreferrer" className="btn-secondary">{tr("Apply form ↗")}</a>}
         <button onClick={() => openApply(j)} className={big ? 'btn-primary !px-6' : 'btn-primary'}>
           {big ? tr("I'm interested") : tr("Apply")}
         </button>

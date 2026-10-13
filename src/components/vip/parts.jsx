@@ -11,6 +11,7 @@ import { copyToClipboard } from '../../lib/clipboard'
 import { formatDate, formatViews, cx } from '../../lib/utils'
 import { BONUS_KINDS, describeRule, money, monthLabel, nf, perK, prizesByPlace, ruleRunsIn, useOptionalRpc, useVipPreview, vipRpc, useKindT } from '../../lib/vip'
 import { CountUp, VIP_COUNT_MS } from '../network/Motion'
+import { safeUrl } from '../../lib/safeUrl'
 
 // THE PIECES OF A VIP'S PAGE (2 Oct 2026). Kept together because they share one vocabulary - views gained
 // this month, what they are worth, what the statement says - and a screen reads best when every piece uses
@@ -222,7 +223,7 @@ export function VipVideoRow({ video, cpm, currency, onRemoved, delay = 0 }) {
     <li className={cx('group flex gap-3.5 rounded-card border bg-white p-3 shadow-card transition-all duration-300 animate-rise hoverable:hover:-translate-y-0.5 hoverable:hover:shadow-lift sm:p-3.5', out ? 'border-red-100 opacity-80' : 'border-gray-100')} style={{ animationDelay: `${delay}ms` }}>
       {/* THE VIDEO'S OWN COVER (3 Oct 2026), framed like a phone screen, with the platform's mark on it. On hover it only grows a
           little and stays clickable: no play button (6 Oct 2026, Ethan). */}
-      <a href={video.url} target="_blank" rel="noopener noreferrer" className="relative block w-[4.5rem] shrink-0 overflow-hidden rounded-xl shadow-card sm:w-20" aria-label={tr('Open the video')}>
+      <a href={safeUrl(video.url)} target="_blank" rel="noopener noreferrer" className="relative block w-[4.5rem] shrink-0 overflow-hidden rounded-xl shadow-card sm:w-20" aria-label={tr('Open the video')}>
         <VideoThumb url={video.url} platform={video.platform} thumbnailUrl={video.thumb} className="aspect-[9/16] w-full transition-transform duration-500 group-hover:scale-105" />
       </a>
       <div className="min-w-0 flex-1">
@@ -283,7 +284,7 @@ export function VipVideoCard({ video, cpm, currency, onRemoved, delay = 0, rules
 
   return (
     <li className={cx('group relative flex flex-col overflow-hidden rounded-card border bg-white shadow-card transition-all duration-300 animate-rise hoverable:hover:z-10 hoverable:hover:scale-[1.04] hoverable:hover:shadow-lift', out ? 'border-red-100 opacity-80' : 'border-gray-100')} style={{ animationDelay: `${delay}ms` }}>
-      <a href={video.url} target="_blank" rel="noopener noreferrer" className="relative block overflow-hidden" aria-label={tr('Open the video')}>
+      <a href={safeUrl(video.url)} target="_blank" rel="noopener noreferrer" className="relative block overflow-hidden" aria-label={tr('Open the video')}>
         <VideoThumb url={video.url} platform={video.platform} thumbnailUrl={video.thumb} className="aspect-[9/16] w-full rounded-none" />
         <span className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-ink/85 via-ink/40 to-transparent px-2.5 pb-2 pt-9 text-white">
           <span className="block text-lg font-bold tabular-nums leading-none">{formatViews(video.views_total)}</span>

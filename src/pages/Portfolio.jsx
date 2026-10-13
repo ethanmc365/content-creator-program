@@ -15,6 +15,7 @@ import PortfolioEditor from '../components/portfolio/PortfolioEditor'
 import KitStrip, { YearTeaser } from '../components/portfolio/KitStrip'
 import { portfolioFilename, portfolioPdf } from '../lib/portfolioPdf'
 import { useMediaQuery } from '../lib/useKeyboardInset'
+import { safeUrl } from '../lib/safeUrl'
 
 // MY PORTFOLIO.
 //
@@ -539,7 +540,7 @@ function AdminSummary({ portfolio, shown, videos, tr }) {
         {url && (
           <div className="border-t border-gray-100 px-4 py-3">
             <p className="label !mb-1">{tr('Public address')}</p>
-            <a href={url} target="_blank" rel="noreferrer"
+            <a href={safeUrl(url)} target="_blank" rel="noreferrer"
               className="block truncate text-[12px] font-semibold text-brand hover:underline">
               {url}
             </a>

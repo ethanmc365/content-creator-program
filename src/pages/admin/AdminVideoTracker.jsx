@@ -17,6 +17,7 @@ import { useT } from '../../lib/i18n'
 import { translateTexts } from '../../lib/contentTranslate'
 import { notice, promptText } from '../../lib/confirm'
 import { toastSuccess } from '../../lib/toast'
+import { safeUrl } from '../../lib/safeUrl'
 
 // THE VIDEO TRACKER.
 //
@@ -659,7 +660,7 @@ function VideoCard({ v, onOpen, eager = false, hook = null, translated = false }
         className="flex min-w-0 flex-1 cursor-pointer flex-col p-4"
         onClick={(e) => {
           if (e.target.closest('a,button')) return
-          if (v.video_url) window.open(v.video_url, '_blank', 'noopener,noreferrer')
+          if (safeUrl(v.video_url)) window.open(safeUrl(v.video_url), '_blank', 'noopener,noreferrer')
         }}
       >
         {/* THE HOOK, AS THE HEADING. `line-clamp-3` rather than a truncation:

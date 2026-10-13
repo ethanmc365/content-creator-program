@@ -11,6 +11,7 @@ import { cx, formatMoney, formatViews } from '../lib/utils'
 import { rewardsTotal } from '../lib/programme'
 import { useViewAs, ViewingAsBanner } from '../components/ViewingAs'
 import { useT } from '../lib/i18n'
+import { safeUrl } from '../lib/safeUrl'
 
 // A `rewardsTotal` result, printed. "≈" whenever a conversion was involved.
 const money = (t) => `${t?.converted ? '≈ ' : ''}${formatMoney(t?.amount ?? 0, t?.currency ?? 'EUR')}`
@@ -161,7 +162,7 @@ export default function Dashboard() {
         {links.length > 0 && (
           <Reveal className="mb-4 flex flex-wrap gap-2" row stagger={0.04}>
             {links.map(([k, u]) => (
-              <a key={k} href={u} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 rounded-full border border-gray-200 bg-white px-3 py-1.5 text-xs font-semibold capitalize text-ink transition-all duration-200 hoverable:hover:-translate-y-px hoverable:hover:border-brand/40 hoverable:hover:text-brand">
+              <a key={k} href={safeUrl(u)} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 rounded-full border border-gray-200 bg-white px-3 py-1.5 text-xs font-semibold capitalize text-ink transition-all duration-200 hoverable:hover:-translate-y-px hoverable:hover:border-brand/40 hoverable:hover:text-brand">
                 <SocialMark brand={k} colored className="h-4 w-4" />{k === 'tiktok' ? 'TikTok' : k === 'youtube' ? 'YouTube' : k === 'linkedin' ? 'LinkedIn' : k}
               </a>
             ))}
@@ -177,7 +178,7 @@ export default function Dashboard() {
         ) : (
           <Reveal className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4" stagger={0.05}>
             {data.subs.slice(0, 8).map((v) => (
-              <a key={v.id} href={v.video_url} target="_blank" rel="noopener noreferrer" className="group flex flex-col overflow-hidden rounded-card border border-gray-100 bg-white shadow-card transition-all duration-300 hoverable:hover:-translate-y-1 hoverable:hover:shadow-lift">
+              <a key={v.id} href={safeUrl(v.video_url)} target="_blank" rel="noopener noreferrer" className="group flex flex-col overflow-hidden rounded-card border border-gray-100 bg-white shadow-card transition-all duration-300 hoverable:hover:-translate-y-1 hoverable:hover:shadow-lift">
                 <span className="relative block">
                   <VideoThumb url={v.video_url} platform={v.platform} thumbnailUrl={v.thumbnail_url} />
                   <span className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-ink/80 to-transparent px-3 pb-2.5 pt-8 text-white">

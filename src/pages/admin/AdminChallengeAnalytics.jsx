@@ -19,6 +19,7 @@ import ChallengeReach from '../../components/admin/ChallengeReach'
 import EntryPreview from '../../components/challenge/EntryPreview'
 import { useEntryPoints } from '../../lib/entryPoints'
 import { FILL } from '../../components/charts/chartTheme'
+import { safeUrl } from '../../lib/safeUrl'
 
 // Deep-dive analytics for ONE challenge (admin only).
 // Reached by tapping a bar/row on the main Analytics page.
@@ -850,7 +851,7 @@ function AllEntries({ subs, challenge }) {
               {list.slice(0, shown).map((s, i) => (
                 <a
                   key={s.id}
-                  href={s.video_url}
+                  href={safeUrl(s.video_url)}
                   target="_blank"
                   rel="noopener noreferrer"
                   style={{ animationDelay: `${Math.min(i, 12) * 35}ms` }}

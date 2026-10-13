@@ -4,6 +4,7 @@ import { DEFAULT_COPY, PAGE_W, PAGE_H, compactViews, contactEmail, platformsFrom
 import { alpha, fillTemplate, formatAwardDate, readableOn, shift, tierOf } from '../../lib/certificates'
 import { socialHref, linkHref } from '../../lib/socialLinks'
 import { useT } from '../../lib/i18n'
+import { safeUrl } from '../../lib/safeUrl'
 
 // THE PORTFOLIO'S OWN WORDS, IN THE READER'S LANGUAGE (30 Sep 2026). Ethan: "the portfolio pages will
 // need to have the ability to translate ... the actual text they write should just be in the language
@@ -427,7 +428,7 @@ function PlatformRow({ row }) {
     borderRadius: 14, border: `1px solid ${HAIR}`, padding: '9px 13px', background: '#ffffff',
   }
   if (!row.url) return <div style={style}>{inner}</div>
-  return <a href={row.url} target="_blank" rel="noopener noreferrer" style={style}>{inner}</a>
+  return <a href={safeUrl(row.url)} target="_blank" rel="noopener noreferrer" style={style}>{inner}</a>
 }
 
 // ------------------------------------------------------------------- work ---
@@ -719,7 +720,7 @@ function ContactCard({ row, t, wide = false }) {
     boxShadow: '0 4px 14px rgba(26,26,26,0.04)', gridColumn: wide ? '1 / -1' : undefined,
   }
   if (!row.url) return <div style={style}>{inner}</div>
-  return <a href={row.url} target="_blank" rel="noopener noreferrer" style={style}>{inner}</a>
+  return <a href={safeUrl(row.url)} target="_blank" rel="noopener noreferrer" style={style}>{inner}</a>
 }
 
 /**
