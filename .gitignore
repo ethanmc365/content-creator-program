@@ -41,3 +41,6 @@ supabase/.temp/
 
 # created by `deno check` when typechecking edge functions
 deno.lock
+
+# Storage backups hold personal data: never commit them (scripts/backup-storage.mjs)
+storage-backup/
