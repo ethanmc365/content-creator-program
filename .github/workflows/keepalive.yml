@@ -17,9 +17,11 @@ jobs:
     steps:
       - name: Ping Supabase
         run: |
-          ANON="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhldWhxcW94eWdnYXd1Y2t4b2NwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEyODM5NTAsImV4cCI6MjA5Njg1OTk1MH0.P2azZriBeGKjc6lwaLQrOS8HcOGfHbu44d9uI6b-NgI"
+          # Public values (the anon key is the browser key). Repository variables override them at the move.
+          URL="${{ vars.VITE_SUPABASE_URL || 'https://heuhqqoxyggawuckxocp.supabase.co' }}"
+          ANON="${{ vars.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhldWhxcW94eWdnYXd1Y2t4b2NwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEyODM5NTAsImV4cCI6MjA5Njg1OTk1MH0.P2azZriBeGKjc6lwaLQrOS8HcOGfHbu44d9uI6b-NgI' }}"
           CODE=$(curl -sS -o /dev/null -w "%{http_code}" \
-            -X POST "https://heuhqqoxyggawuckxocp.supabase.co/rest/v1/rpc/landing_stats" \
+            -X POST "$URL/rest/v1/rpc/landing_stats" \
             -H "apikey: $ANON" -H "Authorization: Bearer $ANON" \
             -H "Content-Type: application/json" -d '{}')
           echo "Supabase responded with HTTP $CODE"

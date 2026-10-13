@@ -3,6 +3,7 @@ import { defineConfig } from 'vitest/config'
 import react from '@vitejs/plugin-react'
 import devAuth from './vite-dev-auth'
 import bootCss from './vite-boot-css'
+import swEnv from './vite-sw-env'
 
 // https://vite.dev/config/
 export default defineConfig({
@@ -10,7 +11,7 @@ export default defineConfig({
   // part of a production build. It serves /__dev-login, which mints a QA
   // session with the Supabase admin API so signed-in testing never has to get
   // past a captcha. See vite-dev-auth.js for the guards on it.
-  plugins: [react(), devAuth(), bootCss()],
+  plugins: [react(), devAuth(), bootCss(), swEnv()],
   // Use the automatic JSX runtime everywhere (incl. the vitest transform), so
   // source/test files that use JSX don't need to import React explicitly.
   esbuild: { jsx: 'automatic' },

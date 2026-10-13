@@ -24,7 +24,9 @@ jobs:
       - run: npm run build
         env:
           # Build only needs these to be present; the values are public anyway.
-          VITE_SUPABASE_URL: https://heuhqqoxyggawuckxocp.supabase.co
+          # Repository variable VITE_SUPABASE_URL (Settings > Secrets and variables > Actions > Variables); the default is
+          # the current project. Change the variable at the move.
+          VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL || 'https://heuhqqoxyggawuckxocp.supabase.co' }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
 
   # The edge functions run on Deno, not Node, and are deployed by hand. Type-check every one and run their tests under

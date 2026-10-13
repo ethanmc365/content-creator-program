@@ -108,6 +108,7 @@ self.addEventListener('fetch', (event) => {
 // PUSH ANALYTICS (migration 283): the phone reports two facts the server cannot know - that the
 // notification was SHOWN and that it was TAPPED. `tag` is the notification's id. A beacon must
 // never hold up or break the notification, so every failure is swallowed.
+// The project address is written in at build time from VITE_SUPABASE_URL (vite-sw-env.js).
 const TRACK_URL = 'https://heuhqqoxyggawuckxocp.supabase.co/functions/v1/push-track'
 //
 // SHORT ON PURPOSE (4 Oct 2026). Ethan: the app was showing 9 hours in iPhone Screen Time on days he used it for ten minutes, and this beacon
