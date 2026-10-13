@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { supabase } from '../lib/supabase'
 import { roleBadgeTitle } from '../lib/roles'
 import { useAuth } from '../context/AuthContext'
 import WorldMap from '../components/WorldMap'
@@ -36,6 +35,8 @@ import { readPageCache, writePageCache } from '../lib/pageCache'
 import { safeUrl } from '../lib/safeUrl'
 import { submissionsApi } from '../api/submissions'
 import { profilesApi } from '../api/profiles'
+import { flightsApi } from '../api/flights'
+import { teamApi } from '../api/team'
 
 // A creator's public profile: photo, bio, socials, the orange country map,
 // languages, stats and their content showcase (submitted video links).
@@ -89,7 +90,7 @@ export default function Profile() {
     setDeciding(true)
     const { error } = status === 'active'
       ? await profilesApi.profiles().update({ status: 'active' }).eq('id', id)
-      : await supabase.rpc('admin_decline_application', { target: id })
+      : await teamApi.adminDeclineApplication({ target: id })
     setDeciding(false)
     if (error) { await notice(`Something went wrong: ${error.message}`); return }
     navigate('/admin/applications')
@@ -120,8 +121,8 @@ export default function Profile() {
       // Somebody else's upcoming flights are filtered to the ones they share
       // with the community, the same line migration 103 drew for the flight
       // leaderboards. Your own profile shows all of yours.
-      let upcomingFlights = supabase
-        .from('flights')
+      let upcomingFlights = flightsApi
+        .flights()
         .select('id, to_iata, flown_on, share_with_community')
         .eq('creator_id', id)
         .gt('flown_on', today)
@@ -136,7 +137,7 @@ export default function Profile() {
         .eq('creator_id', id)
         .order('submitted_at', { ascending: false })
       const relQ = isMe ? Promise.resolve(null) : loadRelationship(user.id, id)
-      const tripsQ = supabase.from('collab_posts').select('id, city, country, city_lat, city_lng, start_date, end_date').eq('creator_id', id).gte('end_date', today).order('start_date', { ascending: true })
+      const tripsQ = flightsApi.collabPosts().select('id, city, country, city_lat, city_lng, start_date, end_date').eq('creator_id', id).gte('end_date', today).order('start_date', { ascending: true })
       // All five go out together; the page only waits for the first two.
       const [{ data: p }, rel] = await Promise.all([profileQ, relQ])
       if (cancelled) return

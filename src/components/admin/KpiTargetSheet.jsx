@@ -1,5 +1,4 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import { supabase } from '../../lib/supabase'
 import { Floating, Modal } from '../ui'
 import Icon from '../Icon'
 import Segmented from '../network/Segmented'
@@ -8,6 +7,7 @@ import {
 } from '../../lib/kpiTracker'
 import { cx } from '../../lib/utils'
 import { useT } from '../../lib/i18n'
+import { marketsApi } from '../../api/markets'
 
 // SETTING OR EDITING ONE KPI GOAL.
 //
@@ -114,7 +114,7 @@ function SheetBody({
   useEffect(() => {
     if (!pickingMetric) return undefined
     let alive = true
-    let q = supabase.from('kpi_targets').select('*').eq('community_id', communityId).eq('basis', basis).eq('year', p.year).eq('quarter', p.quarter)
+    let q = marketsApi.kpiTargets().select('*').eq('community_id', communityId).eq('basis', basis).eq('year', p.year).eq('quarter', p.quarter)
     q = byMonth ? q.eq('month', p.month) : q.is('month', null)
     q.neq('metric', 'custom').then(({ data }) => {
       if (alive) setExisting(Object.fromEntries((data || []).map((r) => [r.metric, r])))
@@ -158,8 +158,8 @@ function SheetBody({
       notes: notes.trim() || null,
     }
     const { error } = isNew
-      ? await supabase.from('kpi_targets').insert({ ...payload, created_by: profileId })
-      : await supabase.from('kpi_targets').update(payload).eq('id', row.id)
+      ? await marketsApi.kpiTargets().insert({ ...payload, created_by: profileId })
+      : await marketsApi.kpiTargets().update(payload).eq('id', row.id)
     setSaving(false)
     if (error) {
       setErr(error.code === '23505' ? tr('That KPI already has a goal for {p} - edit it instead of adding another.', { p: periodLabel(p) }) : error.message)

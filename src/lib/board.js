@@ -1,4 +1,4 @@
-import { supabase } from './supabase'
+import { contentApi } from '../api/content'
 
 // The community board's data layer, in one place.
 //
@@ -43,7 +43,7 @@ export const tagInfo = (key) => BOARD_TAGS.find((t) => t.key === key) || BOARD_T
  * word in the title.
  */
 export async function loadFeed({ search = '', tag = null, state = null, limit = 50 } = {}) {
-  const { data, error } = await supabase.rpc('board_feed', {
+  const { data, error } = await contentApi.boardFeed({
     q_search: search?.trim() || null,
     q_tag: tag || null,
     q_state: state || null,
@@ -57,12 +57,12 @@ export async function loadFeed({ search = '', tag = null, state = null, limit = 
 /** One question and every answer on it, oldest answer first. */
 export async function loadThread(id) {
   const [{ data: question }, { data: answers }] = await Promise.all([
-    supabase
-      .from('board_questions')
+    contentApi
+      .boardQuestions()
       .select('*, profiles:author_id(id, name, photo_url, city, country, is_admin)')
       .eq('id', id).eq('deleted', false).maybeSingle(),
-    supabase
-      .from('board_answers')
+    contentApi
+      .boardAnswers()
       .select('*, profiles:author_id(id, name, photo_url, city, country, is_admin)')
       .eq('question_id', id).eq('deleted', false)
       .order('created_at', { ascending: true }),
@@ -71,7 +71,7 @@ export async function loadThread(id) {
 }
 
 export async function askQuestion({ authorId, title, body, tag, country }) {
-  return supabase.from('board_questions').insert({
+  return contentApi.boardQuestions().insert({
     author_id: authorId,
     title: title.trim(),
     body: (body || '').trim(),
@@ -94,7 +94,7 @@ export async function askQuestion({ authorId, title, body, tag, country }) {
  * "Japan" chip from its first draft.
  */
 export async function editQuestion({ id, title, body, tag, country }) {
-  return supabase.from('board_questions').update({
+  return contentApi.boardQuestions().update({
     title: title.trim(),
     body: (body || '').trim(),
     tag,
@@ -104,7 +104,7 @@ export async function editQuestion({ id, title, body, tag, country }) {
 }
 
 export async function postAnswer({ questionId, authorId, body }) {
-  return supabase.from('board_answers').insert({
+  return contentApi.boardAnswers().insert({
     question_id: questionId,
     author_id: authorId,
     body: body.trim(),
@@ -127,12 +127,12 @@ export async function postAnswer({ questionId, authorId, body }) {
  * never reached a person. Both now THROW, and both callers show what happened.
  */
 export async function removeQuestion(id) {
-  const { error } = await supabase.rpc('board_remove_question', { p_id: id })
+  const { error } = await contentApi.boardRemoveQuestion({ p_id: id })
   if (error) throw new Error(friendlyBoardError(error.message))
 }
 
 export async function removeAnswer(id) {
-  const { error } = await supabase.rpc('board_remove_answer', { p_id: id })
+  const { error } = await contentApi.boardRemoveAnswer({ p_id: id })
   if (error) throw new Error(friendlyBoardError(error.message))
 }
 

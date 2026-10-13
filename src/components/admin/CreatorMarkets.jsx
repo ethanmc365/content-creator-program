@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
 import { isGlobalRole, useCommunity } from '../../context/CommunityContext'
 import { Avatar, Modal, Spinner } from '../ui'
@@ -9,6 +8,7 @@ import { notice } from '../../lib/confirm'
 import { toastSuccess } from '../../lib/toast'
 import { cx } from '../../lib/utils'
 import { profilesApi } from '../../api/profiles'
+import { marketsApi } from '../../api/markets'
 
 // PLACING A CREATOR IN MARKETS (10 Oct 2026, migration 378).
 //
@@ -27,7 +27,7 @@ export function CreatorMarketsModal({ person, onClose, onDone }) {
 
   useEffect(() => {
     let alive = true
-    supabase.from('community_members').select('community_id, role, is_home, communities!inner(kind)').eq('profile_id', person.id).eq('status', 'active')
+    marketsApi.communityMembers().select('community_id, role, is_home, communities!inner(kind)').eq('profile_id', person.id).eq('status', 'active')
       .then(({ data }) => {
         if (!alive) return
         const rows = (data || []).filter((r) => r.communities?.kind === 'chapter')
@@ -146,7 +146,7 @@ export function CreatorMarketsBlock({ creator, onChanged }) {
   const [open, setOpen] = useState(false)
   const load = useCallback(async () => {
     if (!creator?.id) return
-    const { data } = await supabase.from('community_members').select('community_id, role, is_home, communities!inner(name, kind, country_codes)').eq('profile_id', creator.id).eq('status', 'active')
+    const { data } = await marketsApi.communityMembers().select('community_id, role, is_home, communities!inner(name, kind, country_codes)').eq('profile_id', creator.id).eq('status', 'active')
     setRows((data || []).filter((r) => r.communities?.kind === 'chapter'))
   }, [creator?.id])
   useEffect(() => { load() }, [load])

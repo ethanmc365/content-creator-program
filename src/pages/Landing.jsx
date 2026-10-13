@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, Navigate } from 'react-router-dom'
-import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { useDemoMode } from '../lib/demoMode'
 import { Avatar } from '../components/ui'
@@ -11,6 +10,9 @@ import Reveal from '../components/network/Reveal'
 import { useBootCleared } from '../lib/bootLoader'
 import { cx, formatViews } from '../lib/utils'
 import { useT } from '../lib/i18n'
+import { marketsApi } from '../api/markets'
+import { profilesApi } from '../api/profiles'
+import { settingsApi } from '../api/settings'
 
 // Public landing page - bright, spacious, one clear focal point per section.
 // Live stats come from the public landing_stats() / featured_creators() RPCs;
@@ -108,19 +110,19 @@ export default function Landing() {
   const showsPage = !loading && (!user || demoAsked)
   useEffect(() => {
     if (!showsPage) return
-    supabase.rpc('landing_stats').then(({ data }) => {
+    settingsApi.landingStats().then(({ data }) => {
       if (data) setStats(data)
     })
-    supabase.rpc('featured_creators').then(({ data }) => {
+    profilesApi.featuredCreators().then(({ data }) => {
       if (data) setFeatured(data)
     })
     // Public community map: where creators are based and where they're headed.
-    supabase.rpc('public_creator_map').then(({ data }) => {
+    marketsApi.publicCreatorMap().then(({ data }) => {
       if (data) setMapData({ creators: data.creators || [], trips: data.trips || {}, visited: data.visited || [] })
     })
     // THE WALL OF FAME: the people who have actually won something. Everything
     // else on this page is a promise; this is a result with a name on it.
-    supabase.rpc('public_wall_of_fame', { p_limit: 30 }).then(({ data }) => {
+    profilesApi.publicWallOfFame({ p_limit: 30 }).then(({ data }) => {
       if (data) setWall(data)
     })
   }, [showsPage])

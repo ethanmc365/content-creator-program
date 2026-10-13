@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useLocation } from 'react-router-dom'
-import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
 import { onResume } from '../../lib/resume'
 import { setAgreementHold } from '../../lib/appNag'
@@ -8,6 +7,7 @@ import AgreementSheet from './AgreementSheet'
 import DobSheet from './DobSheet'
 import { useLocale } from '../../lib/i18n'
 import { moneyApi } from '../../api/money'
+import { agreementsApi } from '../../api/agreements'
 
 // Every published agreement this person has not accepted yet, one after another, the first time the app opens after
 // it is published (and again on resume, so a version published while the app sat in the background is still asked
@@ -52,12 +52,12 @@ export default function AgreementGate() {
   const load = useCallback(async () => {
     if (skip) return
     // The text in the reader's language where it has been translated; accept_agreement records exactly that (388).
-    const { data, error } = await supabase.rpc('my_pending_agreements', { p_locale: locale })
+    const { data, error } = await agreementsApi.myPendingAgreements({ p_locale: locale })
     if (error) { setQueue((q) => q ?? []); return }
     // Was an earlier version of the same document accepted? Then this one is an UPDATE, and the sheet says so.
     const rows = data || []
     if (!rows.length) { setQueue([]); return }
-    const { data: had } = await supabase.rpc('my_agreements')
+    const { data: had } = await agreementsApi.myAgreements()
     const seenAudiences = new Set((had || []).map((h) => h.audience))
     // The community terms before the VIP agreement: the one everybody has, then the one only VIPs have.
     rows.sort((a, b) => (a.audience === 'creator' ? 0 : 1) - (b.audience === 'creator' ? 0 : 1))

@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { format } from 'date-fns'
-import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { Avatar } from './ui'
 import Icon from './Icon'
@@ -13,6 +12,7 @@ import SectionTitle from './network/SectionTitle'
 import { testFlags } from '../lib/testData'
 import { flagEmoji } from '../lib/countries'
 import { profilesApi } from '../api/profiles'
+import { flightsApi } from '../api/flights'
 
 // WHO TO MEET THIS WEEK.
 //
@@ -83,7 +83,7 @@ export default function WhoToMeet({ className }) {
           .is('deletion_requested_at', null),
         // Everything upcoming, for everybody. The overlap test needs both sides,
         // and the whole table of future trips is a few dozen rows.
-        supabase.from('collab_posts')
+        flightsApi.collabPosts()
           .select('creator_id, city, country, start_date, end_date')
           .gte('end_date', today),
         // Who the viewer is already connected to, either way round.

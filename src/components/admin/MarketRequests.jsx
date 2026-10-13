@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { supabase } from '../../lib/supabase'
 import { Avatar, Skeleton, Spinner } from '../ui'
 import Icon from '../Icon'
 import FlagTile from '../network/FlagTile'
@@ -9,6 +8,7 @@ import { toastSuccess } from '../../lib/toast'
 import { cx, formatDate, timeAgo } from '../../lib/utils'
 import { marketLanguage } from '../network/JoinMarket'
 import { useContentTranslation } from '../../lib/contentTranslate'
+import { marketsApi } from '../../api/markets'
 
 const LEVEL = { native: 'Native speaker', fluent: 'Fluent', some: 'Speaks a little', none: 'Does not speak it' }
 const TIE = { live: 'Lives there', part_time: 'Lives there part of the year', study: 'Studies there', work: 'Works there', family: 'Family there', audience: 'Audience there' }
@@ -37,7 +37,7 @@ function fit(r, want) {
 export function usePendingMarketRequests() {
   const [n, setN] = useState(null)
   const load = useCallback(async () => {
-    const { count } = await supabase.from('market_join_requests').select('id', { count: 'exact', head: true }).eq('status', 'pending')
+    const { count } = await marketsApi.marketJoinRequests().select('id', { count: 'exact', head: true }).eq('status', 'pending')
     setN(count ?? 0)
   }, [])
   useEffect(() => { load() }, [load])
@@ -53,16 +53,16 @@ export default function MarketRequests({ onChanged }) {
   const load = useCallback(async () => {
     const since = new Date(Date.now() - 45 * 864e5).toISOString()
     const [{ data: req }, { data: comms }] = await Promise.all([
-      supabase.from('market_join_requests')
+      marketsApi.marketJoinRequests()
         .select('id, community_id, profile_id, note, status, created_at, decided_at, decision_note, challenge_id, language_level, ties, profiles:profile_id(id, name, photo_url, country, country_code, city, languages, instagram_url, tiktok_url, is_vip, status)')
         .or(`status.eq.pending,decided_at.gte.${since}`)
         .order('created_at', { ascending: false }),
-      supabase.from('communities').select('id, name, slug, country_codes, kind, language'),
+      marketsApi.communities().select('id, name, slug, country_codes, kind, language'),
     ])
     const byId = Object.fromEntries((comms || []).map((c) => [c.id, c]))
     const ids = [...new Set((req || []).map((r) => r.profile_id))]
     const { data: mem } = ids.length
-      ? await supabase.from('community_members').select('profile_id, community_id, status, role').in('profile_id', ids).eq('status', 'active')
+      ? await marketsApi.communityMembers().select('profile_id, community_id, status, role').in('profile_id', ids).eq('status', 'active')
       : { data: [] }
     const now = {}
     for (const m of mem || []) if (byId[m.community_id]?.kind === 'chapter' && m.role === 'creator') (now[m.profile_id] = now[m.profile_id] || []).push(byId[m.community_id])
@@ -73,7 +73,7 @@ export default function MarketRequests({ onChanged }) {
 
   async function askForMore(r) {
     setBusy(r.id)
-    const { error } = await supabase.rpc('ask_join_request_details', { p_request: r.id })
+    const { error } = await marketsApi.askJoinRequestDetails({ p_request: r.id })
     setBusy(null)
     if (error) { notice(error.message); return }
     toastSuccess(`${r.profiles?.name || 'They'} has been asked to say why and how well they speak the language.`)
@@ -91,7 +91,7 @@ export default function MarketRequests({ onChanged }) {
       reason = reason.trim() || null
     }
     setBusy(r.id)
-    const { error } = await supabase.rpc('decide_join_request', { p_request: r.id, p_accept: accept, p_reason: reason })
+    const { error } = await marketsApi.decideJoinRequest({ p_request: r.id, p_accept: accept, p_reason: reason })
     setBusy(null)
     if (error) { notice(error.message); return }
     toastSuccess(accept ? `${r.profiles?.name || 'They'} can now use ${markets.byId?.[r.community_id]?.name || 'the market'} as well.` : 'Declined. They have been told.')

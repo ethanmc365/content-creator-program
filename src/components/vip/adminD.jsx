@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { supabase } from '../../lib/supabase'
 import { Avatar, Modal, Select, Skeleton, Spinner, Toggle } from '../ui'
 import Icon from '../Icon'
 import { MarketStandings } from './v3'
@@ -160,7 +159,7 @@ export function HowItWorks({ id, title, lines, openByDefault = false }) {
 function useScoped(table, programme, order) {
   const [rows, setRows] = useState(null)
   const load = useCallback(async () => {
-    let q = supabase.from(table).select('*').or(`programme_id.is.null,programme_id.eq.${programme.id}`)
+    let q = vipApi.table(table).select('*').or(`programme_id.is.null,programme_id.eq.${programme.id}`)
     for (const [col, asc] of order) q = q.order(col, { ascending: asc })
     const { data } = await q
     setRows(data || [])

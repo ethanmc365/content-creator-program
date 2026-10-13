@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { supabase } from '../../lib/supabase'
 import { announceScore } from '../../lib/gameScores'
 import { useAuth } from '../../context/AuthContext'
 import { dailyLanguageRound, DAILY_LANGUAGE_ROUNDS } from '../../lib/languages'
@@ -10,6 +9,7 @@ import { Badge, Confetti, StreakChip } from '../ui'
 import GameChrome, { AnswerFlash } from './GameChrome'
 import { playCorrect, playWrong, playCelebrate, playCommiserate } from '../../lib/gameSounds'
 import { useT } from '../../lib/i18n'
+import { gamesApi } from '../../api/games'
 
 // GUESS THE LANGUAGE: read a phrase, name the language. NOW A DAILY PUZZLE.
 //
@@ -143,7 +143,7 @@ export default function LanguageGame({ onExit }) {
   useEffect(() => {
     if (stored) return undefined
     let alive = true
-    supabase.from('game_scores')
+    gamesApi.gameScores()
       .select('correct, total, time_ms')
       .eq('player_id', user.id).eq('mode', 'languages').eq('day_key', day)
       .gte('created_at', ukDayStartIso())
@@ -171,7 +171,7 @@ export default function LanguageGame({ onExit }) {
   }, [done, checking])
 
   useEffect(() => {
-    supabase.from('game_scores')
+    gamesApi.gameScores()
       .select('day_key')
       .eq('player_id', user.id).eq('mode', 'languages').not('day_key', 'is', null)
       .then(({ data }) => setStreakDays((data ?? []).map((r) => r.day_key)))
@@ -194,7 +194,7 @@ export default function LanguageGame({ onExit }) {
     } catch { /* private mode */ }
     if (savedRef.current) return
     savedRef.current = true
-    supabase.from('game_scores').insert({
+    gamesApi.gameScores().insert({
       player_id: user.id, mode: 'languages', region: 'Daily', day_key: day,
       correct: finalCorrect, total: questions.length, time_ms: timeMs,
     }).then(() => announceScore())

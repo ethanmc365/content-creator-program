@@ -19,6 +19,8 @@ import {
 import { vipApi } from '../../api/vip'
 import { challengesApi } from '../../api/challenges'
 import { profilesApi } from '../../api/profiles'
+import { marketsApi } from '../../api/markets'
+import { contentApi } from '../../api/content'
 
 // SURVEYS (30 Sep 2026, migration 291; rebuilt 1 Oct 2026, migration 293).
 //
@@ -58,9 +60,9 @@ export default function AdminSurveys() {
 
   const load = useCallback(async () => {
     const [{ data: s }, { data: r }, { data: m }, { data: c }, { data: vp }] = await Promise.all([
-      supabase.from('surveys').select('*').order('created_at', { ascending: false }),
-      supabase.from('survey_responses').select('survey_id, declined'),
-      supabase.from('communities').select('id, name, kind').is('retired_at', null).eq('kind', 'chapter').order('name'),
+      contentApi.surveys().select('*').order('created_at', { ascending: false }),
+      contentApi.surveyResponses().select('survey_id, declined'),
+      marketsApi.communities().select('id, name, kind').is('retired_at', null).eq('kind', 'chapter').order('name'),
       challengesApi.challenges().select('id, title, start_date, end_date, status').neq('status', 'draft').order('start_date', { ascending: false }).limit(40),
       vipApi.programmes().select('community_id, name').eq('active', true).order('name'),
     ])
@@ -88,8 +90,8 @@ export default function AdminSurveys() {
     delete row.created_at
     delete row.updated_at
     const { data, error } = row.id
-      ? await supabase.from('surveys').update(row).eq('id', row.id).select().single()
-      : await supabase.from('surveys').insert({ ...row, created_by: profile?.id }).select().single()
+      ? await contentApi.surveys().update(row).eq('id', row.id).select().single()
+      : await contentApi.surveys().insert({ ...row, created_by: profile?.id }).select().single()
     if (error) { notice(error.message, { title: tr('Could not save the survey') }); return }
     toastSuccess(status === 'live' ? tr('Live. Creators see it the next time they open the app.') : tr('Saved'))
     setEditing(null)
@@ -102,7 +104,7 @@ export default function AdminSurveys() {
       tr('Send this survey out? It appears for everyone it is for, each time they open the app, until they answer or say no.'),
       { title: tr('Go live'), confirmLabel: tr('Go live') },
     )) return false
-    const { error } = await supabase.from('surveys').update({ status }).eq('id', survey.id)
+    const { error } = await contentApi.surveys().update({ status }).eq('id', survey.id)
     if (error) { notice(error.message, { title: tr('Could not change it') }); return false }
     load()
     return true
@@ -110,7 +112,7 @@ export default function AdminSurveys() {
 
   async function remove(survey) {
     if (!await confirm(tr('Delete "{title}" and every answer to it? This cannot be undone.', { title: survey.title }), { title: tr('Delete survey'), confirmLabel: tr('Delete'), danger: true })) return
-    if (!await saved(supabase.from('surveys').delete().eq('id', survey.id))) return
+    if (!await saved(contentApi.surveys().delete().eq('id', survey.id))) return
     setViewing(null)
     load()
   }
@@ -733,8 +735,8 @@ function SurveyResults({ survey, markets, vipMarkets = [], challenges, onBack, o
     let alive = true
     ;(async () => {
       const [{ data: r }, { data: size }] = await Promise.all([
-        supabase.from('survey_responses').select('*').eq('survey_id', survey.id).order('created_at', { ascending: false }),
-        supabase.rpc('survey_audience_size', { p_survey: survey.id }),
+        contentApi.surveyResponses().select('*').eq('survey_id', survey.id).order('created_at', { ascending: false }),
+        contentApi.surveyAudienceSize({ p_survey: survey.id }),
       ])
       const ids = [...new Set((r || []).map((x) => x.profile_id).filter(Boolean))]
       const { data: p } = ids.length
@@ -772,7 +774,7 @@ function SurveyResults({ survey, markets, vipMarkets = [], challenges, onBack, o
   async function status(st) { setBusy(true); await onStatus(st); setBusy(false) }
   async function removeResponse(r) {
     if (!await confirm(tr('Delete this response? This cannot be undone.'), { title: tr('Delete response'), confirmLabel: tr('Delete'), danger: true })) return
-    const { error } = await supabase.from('survey_responses').delete().eq('id', r.id)
+    const { error } = await contentApi.surveyResponses().delete().eq('id', r.id)
     if (error) { notice(error.message); return }
     setResponses((list) => list.filter((x) => x.id !== r.id))
   }

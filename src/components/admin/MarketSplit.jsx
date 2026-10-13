@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
-import { supabase } from '../../lib/supabase'
 import { fetchAll } from '../../lib/fetchAll'
 import { marketSplit, NO_MARKET } from '../../lib/marketSplit'
 import { formatViews, cx } from '../../lib/utils'
 import Segmented from '../network/Segmented'
 import FlagTile from '../network/FlagTile'
 import { Skeleton } from '../ui'
+import { marketsApi } from '../../api/markets'
 
 // PARTICIPATION BY MARKET (22 Sep 2026).
 //
@@ -38,8 +38,8 @@ export default function MarketSplit({ subs = [], results = [], markets = [], sco
   useEffect(() => {
     let alive = true
     fetchAll(
-      () => supabase
-        .from('community_members')
+      () => marketsApi
+        .communityMembers()
         .select('community_id, profile_id, profiles:profile_id(status, is_admin, is_test)')
         .eq('is_home', true)
         .eq('status', 'active'),

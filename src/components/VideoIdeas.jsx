@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { notice, promptText } from '../lib/confirm'
 import { toastSuccess } from '../lib/toast'
@@ -16,6 +15,7 @@ import { formatViews, cx } from '../lib/utils'
 import { translateTexts } from '../lib/contentTranslate'
 import { getLocale, useLocale, useT } from '../lib/i18n'
 import { safeUrl } from '../lib/safeUrl'
+import { contentApi } from '../api/content'
 
 // VIDEO IDEAS (7 Oct 2026).
 //
@@ -48,7 +48,7 @@ export function useVideoIdeas() {
   const [rows, setRows] = useState(undefined)
   useEffect(() => {
     let alive = true
-    supabase.rpc('video_ideas', { p_min: IDEAS_MIN_VIEWS }).then(({ data, error }) => {
+    contentApi.videoIdeas({ p_min: IDEAS_MIN_VIEWS }).then(({ data, error }) => {
       if (alive) setRows(error ? [] : (data || []))
     })
     return () => { alive = false }
@@ -138,7 +138,7 @@ export default function VideoIdeasBoard({ compact = false }) {
     })
     if (next === null) return auto ? 'skip' : undefined
     const text = next.trim().slice(0, 600) || null
-    const { error } = await supabase.rpc('set_video_hook', { p_video: v.id, p_is_vip: !!v.is_vip, p_text: text })
+    const { error } = await contentApi.setVideoHook({ p_video: v.id, p_is_vip: !!v.is_vip, p_text: text })
     if (error) { notice(error.message); return undefined }
     setTyped((m) => ({ ...m, [v.id]: text }))
     toastSuccess(text ? tr('Hook saved.') : tr('Hook removed.'))

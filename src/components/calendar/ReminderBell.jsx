@@ -1,11 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
-import { supabase } from '../../lib/supabase'
 import { saved } from '../../lib/confirm'
 import { useAuth } from '../../context/AuthContext'
 import { toast } from '../../lib/toast'
 import Icon from '../Icon'
 import { cx } from '../../lib/utils'
 import { useT } from '../../lib/i18n'
+import { eventsApi } from '../../api/events'
 
 // "REMIND ME BEFORE THIS."
 //
@@ -61,7 +61,7 @@ export default function ReminderBell({ item, now, className = '', onOpenDeadline
     // would be one wasted query per deadline card on the page.
     if (!user || past || item.kind === 'deadline') return undefined
     let alive = true
-    supabase.from('event_reminders')
+    eventsApi.eventReminders()
       .select('minutes_before')
       .eq('user_id', user.id).eq('event_key', item.key)
       .maybeSingle()
@@ -130,7 +130,7 @@ export default function ReminderBell({ item, now, className = '', onOpenDeadline
     if (busy) return
     setBusy(true)
     const remindAt = new Date(startsAt.getTime() - minutes * 60_000).toISOString()
-    const { error } = await supabase.from('event_reminders').upsert({
+    const { error } = await eventsApi.eventReminders().upsert({
       user_id: user.id,
       event_key: item.key,
       title: item.title,
@@ -152,7 +152,7 @@ export default function ReminderBell({ item, now, className = '', onOpenDeadline
   async function clear() {
     if (busy) return
     setBusy(true)
-    const ok = await saved(supabase.from('event_reminders').delete().eq('user_id', user.id).eq('event_key', item.key))
+    const ok = await saved(eventsApi.eventReminders().delete().eq('user_id', user.id).eq('event_key', item.key))
     setBusy(false)
     if (!ok) return
     setOpen(false)

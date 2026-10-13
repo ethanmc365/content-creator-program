@@ -1,7 +1,6 @@
 import { memo, useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { format } from 'date-fns'
-import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { useCommunity } from '../context/CommunityContext'
 import { Avatar, Badge, EmptyState, Modal, PageHeader, Skeleton, Spinner, Select } from '../components/ui'
@@ -20,6 +19,7 @@ import WhenVisible from '../components/WhenVisible'
 import { useT } from '../lib/i18n'
 import { flagForCountry, flagFromIso } from '../lib/flags'
 import { profilesApi } from '../api/profiles'
+import { flightsApi } from '../api/flights'
 
 // How many upcoming trips to show before the "View more" button.
 const TRIPS_PREVIEW = 6
@@ -414,17 +414,17 @@ export default function Collab() {
   async function load() {
     const today = todayYmd()
     const [{ data }, { data: ints }, { data: tallies }] = await Promise.all([
-      supabase.from('collab_posts').select('*, profiles:creator_id(id, name, photo_url)').order('start_date', { ascending: true }).limit(300),
+      flightsApi.collabPosts().select('*, profiles:creator_id(id, name, photo_url)').order('start_date', { ascending: true }).limit(300),
       // ONLY THE ROWS THAT ARE ABOUT ME NOW. Migration 099 made an interest
       // private to the person who sent it and the person whose trip it is,
       // because it carries a note somebody wrote to one reader. So this returns
       // the ones I sent and the ones sent to me, and nothing else.
-      supabase.from('collab_interests')
+      flightsApi.collabInterests()
         .select('id, post_id, creator_id, message, acknowledged_at, created_at, profiles:creator_id(id, name, photo_url)')
         .order('created_at', { ascending: false }),
       // …and the public count comes from a definer function that returns post
       // ids and numbers, which is all a card needs to say "3 interested".
-      supabase.rpc('collab_interest_counts'),
+      flightsApi.collabInterestCounts(),
     ])
     setPosts((data ?? []).map((p) => ({ ...p, isPast: p.end_date < today })))
     const count = new Map()
@@ -551,7 +551,7 @@ export default function Collab() {
     // See the note on the field: a trip nobody can act on is not worth posting.
     if (!form.note.trim()) { setError('Add a line about what you are up for - it is what people reply to.'); return }
     setBusy(true)
-    const { error: insErr } = await supabase.from('collab_posts').insert({
+    const { error: insErr } = await flightsApi.collabPosts().insert({
       creator_id: user.id,
       city: form.city.trim(),
       country: form.country.trim() || null,
@@ -590,7 +590,7 @@ export default function Collab() {
   const remove = useCallback(async (post) => {
     const who = post.profiles?.name ? `${post.profiles.name}'s trip to ` : 'the trip to '
     if (!await confirm(`Delete ${who}${post.city}? It disappears from the board for everybody.`)) return
-    const { error: delErr } = await supabase.from('collab_posts').delete().eq('id', post.id)
+    const { error: delErr } = await flightsApi.collabPosts().delete().eq('id', post.id)
     if (delErr) { await notice('Could not delete that trip.'); return }
     setPosts((p) => p.filter((x) => x.id !== post.id))
     toast('Trip deleted')
@@ -623,7 +623,7 @@ export default function Collab() {
       end_date: editForm.end_date,
       note: editForm.note.trim() || null,
     }
-    const { error: updErr } = await supabase.from('collab_posts').update(patch).eq('id', editing.id)
+    const { error: updErr } = await flightsApi.collabPosts().update(patch).eq('id', editing.id)
     setSavingEdit(false)
     if (updErr) { setEditError('Could not save those changes. Please try again.'); return }
     setEditing(null)
@@ -651,7 +651,7 @@ export default function Collab() {
         count.set(postId, Math.max(0, (count.get(postId) || 1) - 1))
         return { ...prev, count, mine, rows: prev.rows.filter((r) => !(r.post_id === postId && r.creator_id === user.id)) }
       })
-      if (!await saved(supabase.from('collab_interests').delete().eq('post_id', postId).eq('creator_id', user.id))) load()
+      if (!await saved(flightsApi.collabInterests().delete().eq('post_id', postId).eq('creator_id', user.id))) load()
       return
     }
     setInterestNote('')
@@ -663,8 +663,8 @@ export default function Collab() {
     if (!interestFor || sendingInterest) return
     setSendingInterest(true)
     const postId = interestFor.id
-    const { data, error: insErr } = await supabase
-      .from('collab_interests')
+    const { data, error: insErr } = await flightsApi
+      .collabInterests()
       .insert({ post_id: postId, creator_id: user.id, message: interestNote.trim() || null })
       .select('id, post_id, creator_id, message, acknowledged_at, created_at')
       .single()
@@ -690,7 +690,7 @@ export default function Collab() {
       ...prev,
       rows: prev.rows.map((r) => (r.id === interestId ? { ...r, acknowledged_at: new Date().toISOString() } : r)),
     }))
-    const { error: ackErr } = await supabase.rpc('acknowledge_collab_interest', { p_interest: interestId })
+    const { error: ackErr } = await flightsApi.acknowledgeCollabInterest({ p_interest: interestId })
     if (ackErr) { notice('Could not mark that as seen.'); load() }
   }
 

@@ -22,6 +22,7 @@ import { loadMarkets } from '../../../lib/markets'
 import { FILL } from '../../../components/charts/chartTheme'
 import { overlaps } from '../../../lib/analyticsPeriod'
 import { challengesApi } from '../../../api/challenges'
+import { teamApi } from '../../../api/team'
 
 // Programme performance: what the prize money actually bought.
 //
@@ -142,7 +143,7 @@ export default function ProgrammePerformance({ market: scopeMarket = null, curre
     // CPM and clicking in showed 23. The list priced a live challenge at its planned cash pot; the page prices it at the pot PLUS the
     // awards and taking-part vouchers earned so far (lib/challengeSpend). They are now the one figure: each running challenge's standings are
     // read here and its spend replaced by the same `challengeSpend`.
-    supabase.rpc('admin_challenge_metrics').then(async ({ data, error }) => {
+    teamApi.adminChallengeMetrics().then(async ({ data, error }) => {
       if (error) setLoadError(error.message)
       const list = data ?? []
       const live = list.filter((r) => r.status === 'active')
@@ -867,7 +868,7 @@ function ChallengeCard({ r, currency, i = 0, onChanged }) {
     if (!ok) return
     setDeleting(true)
     const { error } = platform
-      ? await supabase.rpc('admin_delete_challenge', { target: r.id })
+      ? await teamApi.adminDeleteChallenge({ target: r.id })
       : await deleteHistory(r.id)
     setDeleting(false)
     if (error) { notice(typeof error === 'string' ? error : error.message); return }

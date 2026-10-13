@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { supabase } from '../lib/supabase'
 import { saved } from '../lib/confirm'
 import { useAuth } from '../context/AuthContext'
 import { useCommunity } from '../context/CommunityContext'
@@ -18,6 +17,8 @@ import { useT } from '../lib/i18n'
 import { testFlags } from '../lib/testData'
 import { submissionsApi } from '../api/submissions'
 import { profilesApi } from '../api/profiles'
+import { marketsApi } from '../api/markets'
+import { flightsApi } from '../api/flights'
 
 // The connections hub.
 //
@@ -128,7 +129,7 @@ export default function Connections() {
         .select('id, name, photo_url, bio, country_code, city, country, last_seen_at, created_at')
         .eq('status', 'active').eq('is_admin', false).in('is_test', testFlags())
         .is('deletion_requested_at', null),
-      supabase.from('community_members')
+      marketsApi.communityMembers()
         .select('profile_id, community_id, communities!inner(id, name, kind, slug)')
         .eq('status', 'active').eq('communities.kind', 'chapter'),
       submissionsApi.submissions().select('challenge_id, creator_id'),
@@ -147,8 +148,8 @@ export default function Connections() {
     // Same rows the collab board and the map use, so a trip somebody posts
     // shows up here without a second source of truth.
     const today = new Date().toISOString().slice(0, 10)
-    const { data: tripRows } = await supabase
-      .from('collab_posts')
+    const { data: tripRows } = await flightsApi
+      .collabPosts()
       .select('creator_id, city, country, start_date, end_date, note')
       .gte('end_date', today)
       .order('start_date')
@@ -189,8 +190,8 @@ export default function Connections() {
     // note belonging to somebody else's request even if the ids were wrong.
     const noteBy = new Map()
     if (requests.length) {
-      const { data: notes } = await supabase
-        .from('connection_notes')
+      const { data: notes } = await profilesApi
+        .connectionNotes()
         .select('connection_id, body')
         .in('connection_id', requests.map((r) => r.id))
       for (const n of notes || []) noteBy.set(n.connection_id, n.body)

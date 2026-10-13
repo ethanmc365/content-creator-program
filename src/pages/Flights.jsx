@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { ActionRow, Avatar, Badge, EmptyState, Modal, PageHeader, Skeleton, Spinner } from '../components/ui'
 import { DateField } from '../components/DateTimeFields'
@@ -25,6 +24,7 @@ import { uploadFile } from '../lib/upload'
 import { flagFromIso } from '../lib/flags'
 import { cx, formatDate } from '../lib/utils'
 import { useT } from '../lib/i18n'
+import { flightsApi } from '../api/flights'
 
 // THE FLIGHT LOG.
 //
@@ -607,8 +607,8 @@ export default function Flights() {
   const [offer, setOffer] = useState(null)
 
   const load = useCallback(async () => {
-    const { data } = await supabase
-      .from('flights')
+    const { data } = await flightsApi
+      .flights()
       .select('*')
       .eq('creator_id', user.id)
       .order('flown_on', { ascending: false })
@@ -635,7 +635,7 @@ export default function Flights() {
     ;(async () => {
       const out = {}
       for (const f of upcoming.slice(0, 8)) {
-        const { data } = await supabase.rpc('same_flight', {
+        const { data } = await flightsApi.sameFlight({
           p_from: f.from.iata, p_to: f.to.iata, p_on: f.flown_on,
         })
         if (cancelled) return
@@ -940,7 +940,7 @@ export default function Flights() {
     // or REMOVED. The old code could only do the first, which is why editing a
     // round trip used to be a way of quietly turning it into a one-way.
     if (editing) {
-      const { error: upErr } = await supabase.from('flights').update({
+      const { error: upErr } = await flightsApi.flights().update({
         ...common,
         ...legOne,
         flown_on: form.flown_on,
@@ -956,7 +956,7 @@ export default function Flights() {
         // so anything pointing at it keeps pointing at it, and it keeps its
         // own seat and note - the two fields that are per boarding pass and
         // are not the outbound's to overwrite.
-        const { error: retErr } = await supabase.from('flights').update({
+        const { error: retErr } = await flightsApi.flights().update({
           ...common,
           ...legTwo,
           flown_on: form.return_on,
@@ -969,7 +969,7 @@ export default function Flights() {
         }
         legHome = 'updated'
       } else if (roundTrip) {
-        const { error: retErr } = await supabase.from('flights').insert({
+        const { error: retErr } = await flightsApi.flights().insert({
           ...common,
           ...legTwo,
           flown_on: form.return_on,
@@ -986,7 +986,7 @@ export default function Flights() {
         // The box was ticked when the form opened and is not any more. The
         // confirmation for this is asked BEFORE the save starts - see the
         // top of this function - so by here it is a decision already taken.
-        const { error: delErr } = await supabase.from('flights').delete().eq('id', returnLeg.id)
+        const { error: delErr } = await flightsApi.flights().delete().eq('id', returnLeg.id)
         if (delErr) {
           setSaving(false)
           setError('The changes are saved but the leg home could not be removed. Try again.')
@@ -1008,7 +1008,7 @@ export default function Flights() {
       return
     }
 
-    const { data: out, error: insErr } = await supabase.from('flights').insert({
+    const { data: out, error: insErr } = await flightsApi.flights().insert({
       ...common,
       ...legOne,
       flown_on: form.flown_on,
@@ -1033,7 +1033,7 @@ export default function Flights() {
     // so the error says exactly which one is missing.
     let returnFailed = false
     if (roundTrip) {
-      const { error: retErr } = await supabase.from('flights').insert({
+      const { error: retErr } = await flightsApi.flights().insert({
         ...common,
         ...legTwo,
         flown_on: form.return_on,
@@ -1115,7 +1115,7 @@ export default function Flights() {
   async function postToCollab() {
     if (!offer) return
     if (!offer.note.trim()) return
-    const { error: insErr } = await supabase.from('collab_posts').insert({
+    const { error: insErr } = await flightsApi.collabPosts().insert({
       creator_id: user.id,
       city: offer.city,
       country: offer.country || null,
@@ -1131,7 +1131,7 @@ export default function Flights() {
   async function remove(f) {
     if (!await confirm(`Remove ${f.from.iata} to ${f.to.iata} from your log?`)) return
     setRows((cur) => cur.filter((x) => x.id !== f.id))
-    const { error: delErr } = await supabase.from('flights').delete().eq('id', f.id)
+    const { error: delErr } = await flightsApi.flights().delete().eq('id', f.id)
     if (delErr) { await notice('Could not remove that flight.'); load() }
   }
 

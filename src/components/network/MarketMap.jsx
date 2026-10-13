@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react'
-import { supabase } from '../../lib/supabase'
 import CreatorMap from '../CreatorMap'
 import Icon from '../Icon'
 import MapSkeleton from './MapSkeleton'
 import { useT } from '../../lib/i18n'
 import { testFlags } from '../../lib/testData'
+import { marketsApi } from '../../api/markets'
 
 // Where this market's creators actually are.
 //
@@ -25,8 +25,8 @@ export default function MarketMap({ marketId, marketName, showOnMapOnly = true }
   useEffect(() => {
     if (!marketId) return
     let alive = true
-    supabase
-      .from('community_members')
+    marketsApi
+      .communityMembers()
       .select('profiles!inner(id, name, photo_url, city, country, city_lat, city_lng, is_admin, is_test, status, show_on_map, countries_visited)')
       .eq('community_id', marketId)
       .eq('status', 'active')

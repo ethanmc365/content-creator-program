@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react'
 import { countryMatches } from './countries'
 import { ALL_COUNTRIES as COUNTRIES } from './allCountries'
-import { supabase } from './supabase'
 import { useCommunity } from '../context/CommunityContext'
 import { t } from './i18n'
+import { marketsApi } from '../api/markets'
 
 // Turning what a creator typed into something the network can route on.
 //
@@ -83,8 +83,8 @@ let cache = null
 
 export function loadMarkets() {
   if (cache) return cache
-  cache = supabase
-    .from('communities')
+  cache = marketsApi
+    .communities()
     .select('id, slug, name, kind, is_active, retired_at, country_codes, currency, timezone, tagline')
     .eq('kind', 'chapter')
     .then(({ data, error }) => {

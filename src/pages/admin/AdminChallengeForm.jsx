@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { supabase } from '../../lib/supabase'
 import { confirm, notice } from '../../lib/confirm'
 import { useAuth } from '../../context/AuthContext'
 import Icon from '../../components/Icon'
@@ -26,6 +25,8 @@ import { templateFromForm } from '../../lib/challengeTemplates'
 import { challengesApi } from '../../api/challenges'
 import { submissionsApi } from '../../api/submissions'
 import { profilesApi } from '../../api/profiles'
+import { marketsApi } from '../../api/markets'
+import { teamApi } from '../../api/team'
 
 // Create / edit a challenge. Everything is customisable: which market it runs
 // in, how it is won, length, brief, rules, platforms and the full prize
@@ -274,7 +275,7 @@ export default function AdminChallengeForm() {
     // active member of Worldwide, so `community_id in my_scopes()` is true for
     // all of them and one brief reaches the whole network without any new
     // policy, notification path or special case.
-    supabase.from('communities')
+    marketsApi.communities()
       .select('id, slug, name, kind, country_codes, currency, is_active, cpm_target')
       .order('kind', { ascending: false }).order('name')
       .then(({ data }) => {
@@ -357,8 +358,8 @@ export default function AdminChallengeForm() {
   useEffect(() => {
     if (!form.community_id) { setAudience([]); return undefined }
     let alive = true
-    supabase
-      .from('community_members')
+    marketsApi
+      .communityMembers()
       .select('profile_id, profiles!inner(id, name, photo_url, city, country, is_admin, is_test, is_vip, status)')
       .eq('community_id', form.community_id)
       .eq('status', 'active')
@@ -867,7 +868,7 @@ export default function AdminChallengeForm() {
       `Permanently delete "${form.title || 'this challenge'}"?\n\nThis also deletes ${entries} submission${entries === 1 ? '' : 's'} and all its results. This cannot be undone.`,
     )) return
     setBusy(true)
-    const { error: err } = await supabase.rpc('admin_delete_challenge', { target: id })
+    const { error: err } = await teamApi.adminDeleteChallenge({ target: id })
     setBusy(false)
     if (err) { setError(`Could not delete: ${err.message}`); return }
     navigate('/challenges')

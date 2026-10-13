@@ -13,9 +13,9 @@
 const DEFAULT_DSN = 'https://17378c7401c05460b304f92d28488842@o4512044607733760.ingest.de.sentry.io/4512045143556176'
 
 import * as Sentry from '@sentry/react'
-import { supabase } from './supabase'
 import { installBreadcrumbs, readTrail } from './breadcrumbs'
 import { translationDetected } from './translationGuard'
+import { teamApi } from '../api/team'
 
 /** The DSN actually in use: the env var if set, otherwise the project's own. */
 export const sentryDsn = () => import.meta.env.VITE_SENTRY_DSN || DEFAULT_DSN
@@ -576,7 +576,7 @@ export function captureError(error, context) {
   // supabase-js builder; `.then(ok, fail)` is the shape that is safe. And this
   // is called from the error boundary, so a failure here must go nowhere at all.
   try {
-    supabase.rpc('report_client_error', {
+    teamApi.reportClientError({
       p_message: String(error?.message || error || 'Unknown error'),
       p_route: typeof window !== 'undefined' ? window.location.pathname : null,
       p_component: context?.componentStack ? String(context.componentStack).slice(0, 2000) : null,

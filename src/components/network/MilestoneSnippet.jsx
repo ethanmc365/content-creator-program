@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { supabase } from '../../lib/supabase'
 import Icon from '../Icon'
 import { cx } from '../../lib/utils'
 import { criterionLabel, criterionNeed, milestoneFraction, routeState } from '../../lib/milestones'
 import { useT } from '../../lib/i18n'
+import { certificatesApi } from '../../api/certificates'
 
 // Where somebody is on the route, small enough for a profile or a rail card.
 //
@@ -23,7 +23,7 @@ export default function MilestoneSnippet({ profileId, own = false, className }) 
   useEffect(() => {
     if (!profileId) return undefined
     let alive = true
-    supabase.rpc('milestone_progress', { p_profile: profileId })
+    certificatesApi.milestoneProgress({ p_profile: profileId })
       .then(({ data }) => { if (alive) setRows(data || []) })
     return () => { alive = false }
   }, [profileId])

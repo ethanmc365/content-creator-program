@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useState, useSyncExternalStore } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
 import { useCommunity } from '../../context/CommunityContext'
 import { Modal, Spinner } from '../ui'
@@ -10,6 +9,7 @@ import { confirm, notice } from '../../lib/confirm'
 import { toastSuccess } from '../../lib/toast'
 import { cx } from '../../lib/utils'
 import { useT } from '../../lib/i18n'
+import { marketsApi } from '../../api/markets'
 
 // CREATING FOR ANOTHER MARKET (10 Oct 2026, migration 378).
 //
@@ -86,7 +86,7 @@ function JoinMarketSheet({ initial, onClose, demo = null, inline = false }) {
 
   const load = useCallback(async () => {
     if (demo || !user?.id) return
-    const { data } = await supabase.from('market_join_requests').select('id, community_id, status, note, created_at, decision_note, language_level, ties')
+    const { data } = await marketsApi.marketJoinRequests().select('id, community_id, status, note, created_at, decision_note, language_level, ties')
       .eq('profile_id', user.id).order('created_at', { ascending: false }).limit(20)
     setRequests(data || [])
   }, [user?.id, demo])
@@ -112,7 +112,7 @@ function JoinMarketSheet({ initial, onClose, demo = null, inline = false }) {
     if (!ready) return
     if (demo) { setSent(target); return }
     setBusy(true)
-    const { error } = await supabase.rpc('request_join_market', { p_community: target.id, p_note: why, p_language: level, p_ties: ties })
+    const { error } = await marketsApi.requestJoinMarket({ p_community: target.id, p_note: why, p_language: level, p_ties: ties })
     setBusy(false)
     if (error) { notice(error.message); return }
     setSent(target)
@@ -126,7 +126,7 @@ function JoinMarketSheet({ initial, onClose, demo = null, inline = false }) {
     const m = (chapters || []).find((c) => c.id === r.community_id)
     if (!await confirm(tr('Withdraw your request to join {m}?', { m: m?.name || tr('that market') }), { confirmLabel: tr('Withdraw') })) return
     if (demo) { setRequests((cur) => cur.filter((x) => x.id !== r.id)); return }
-    const { error } = await supabase.from('market_join_requests').delete().eq('id', r.id)
+    const { error } = await marketsApi.marketJoinRequests().delete().eq('id', r.id)
     if (error) { notice(error.message); return }
     toastSuccess(tr('Request withdrawn'))
     load()

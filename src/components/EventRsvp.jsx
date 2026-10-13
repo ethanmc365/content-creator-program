@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react'
-import { supabase } from '../lib/supabase'
 import { saved } from '../lib/confirm'
 import { useAuth } from '../context/AuthContext'
 import Icon from './Icon'
 import { cx } from '../lib/utils'
+import { eventsApi } from '../api/events'
 
 // THE ANSWER CONTROL, AND ONLY THE ANSWER CONTROL.
 //
@@ -26,8 +26,8 @@ export default function EventRsvp({ eventId }) {
   const [busy, setBusy] = useState(false)
 
   async function load() {
-    const { data } = await supabase
-      .from('event_rsvps')
+    const { data } = await eventsApi
+      .eventRsvps()
       .select('user_id, status')
       .eq('event_id', eventId)
     setRows(data ?? [])
@@ -46,9 +46,9 @@ export default function EventRsvp({ eventId }) {
       return mine === status ? rest : [...rest, { user_id: user.id, status }]
     })
     if (mine === status) {
-      await saved(supabase.from('event_rsvps').delete().eq('event_id', eventId).eq('user_id', user.id))
+      await saved(eventsApi.eventRsvps().delete().eq('event_id', eventId).eq('user_id', user.id))
     } else {
-      await saved(supabase.from('event_rsvps').upsert({ event_id: eventId, user_id: user.id, status }, { onConflict: 'event_id,user_id' }))
+      await saved(eventsApi.eventRsvps().upsert({ event_id: eventId, user_id: user.id, status }, { onConflict: 'event_id,user_id' }))
     }
     await load()
     setBusy(false)

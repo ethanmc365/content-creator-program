@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useState } from 'react'
-import { supabase } from '../lib/supabase'
 import { PageHeader, Skeleton, Spinner } from '../components/ui'
 import Icon from '../components/Icon'
 import AgreementSheet from '../components/agreements/AgreementSheet'
@@ -10,6 +9,7 @@ import { dateTag, cx } from '../lib/utils'
 import { useT, useLocale } from '../lib/i18n'
 import { useAuth } from '../context/AuthContext'
 import { notice } from '../lib/confirm'
+import { agreementsApi } from '../api/agreements'
 
 // SETTINGS > AGREEMENTS (7 Oct 2026). Ethan: "Maybe there's a place in settings or somewhere where the creators can
 // actually go back in and review these if they want to." Every document that applies to you, whether you have accepted
@@ -25,7 +25,7 @@ function useSignedPdf() {
   const download = useCallback(async (agreementId) => {
     setBusy(agreementId)
     try {
-      const { data, error } = await supabase.rpc('agreement_signed_copy', { p_agreement: agreementId, p_profile: user.id })
+      const { data, error } = await agreementsApi.agreementSignedCopy({ p_agreement: agreementId, p_profile: user.id })
       if (error) throw error
       const row = Array.isArray(data) ? data[0] : data
       if (!row) throw new Error('No signed copy found.')
@@ -52,12 +52,12 @@ export default function Agreements() {
   const load = useCallback(async () => {
     const [{ data: pend }, { data: had }] = await Promise.all([
       // In the reader's language where the document has been translated (migration 388).
-      supabase.rpc('my_pending_agreements', { p_locale: locale }),
-      supabase.rpc('my_agreements', { p_locale: locale }),
+      agreementsApi.myPendingAgreements({ p_locale: locale }),
+      agreementsApi.myAgreements({ p_locale: locale }),
     ])
     const signedNow = (had || []).filter((h) => h.is_current)
     const docs = await Promise.all(signedNow.map(async (h) => {
-      const { data } = await supabase.rpc('agreement_for_me', { p_agreement: h.agreement_id, p_locale: locale })
+      const { data } = await agreementsApi.agreementForMe({ p_agreement: h.agreement_id, p_locale: locale })
       const d = (Array.isArray(data) ? data[0] : data) || { id: h.agreement_id, title: h.title, audience: h.audience, version: h.version, summary: '' }
       return { ...d, body: h.rendered_body || d.body }
     }))

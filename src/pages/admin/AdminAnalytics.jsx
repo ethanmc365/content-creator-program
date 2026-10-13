@@ -5,7 +5,6 @@ import {
   Cell, ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from 'recharts'
 import { format, startOfMonth, startOfWeek, subWeeks } from 'date-fns'
-import { supabase } from '../../lib/supabase'
 import { allRows as allRowsSeq } from '../../lib/fetchAll'
 
 // Every big table here is read four pages at a time (see lib/fetchAll).
@@ -40,6 +39,11 @@ import { challengesApi } from '../../api/challenges'
 import { submissionsApi } from '../../api/submissions'
 import { profilesApi } from '../../api/profiles'
 import { chatApi } from '../../api/chat'
+import { marketsApi } from '../../api/markets'
+import { gamesApi } from '../../api/games'
+import { flightsApi } from '../../api/flights'
+import { contentApi } from '../../api/content'
+import { teamApi } from '../../api/team'
 
 // THE ORDER IS THE ORDER SOMEBODY READS THEM IN, AND ETHAN SET IT (8 Sep 2026).
 //
@@ -162,7 +166,7 @@ export default function AdminAnalytics() {
   useEffect(() => {
     if (MARKETS_CACHE) return undefined
     let alive = true
-    supabase.from('communities').select('id, slug, name, kind, currency, country_codes, retired_at').order('name')
+    marketsApi.communities().select('id, slug, name, kind, currency, country_codes, retired_at').order('name')
       .then(({ data }) => { MARKETS_CACHE = data || []; if (alive) setQuickMarkets(MARKETS_CACHE) })
     return () => { alive = false }
   }, [])
@@ -214,14 +218,14 @@ export default function AdminAnalytics() {
         // contest - see lib/analyticsScope.
         allRows(() => challengesApi.results().select('final_views, challenge_id')),
         // TIMESTAMPS AND WHO, NOT JUST A COUNT (2 Oct 2026), so the Overview can be read over a period and a market.
-        supabase.from('feedback').select('status, created_at, creator_id'),
+        contentApi.feedback().select('status, created_at, creator_id'),
         allRows(() => chatApi.reactions().select('id, creator_id, created_at')),
         allRows(() => chatApi.pollVotes().select('id, voter_id, created_at')),
-        allRows(() => supabase.from('game_scores').select('mode, created_at, player_id')),
+        allRows(() => gamesApi.gameScores().select('mode, created_at, player_id')),
         allRows(() => profilesApi.connections().select('id, status, creator_id, connected_creator_id, created_at, accepted_at')),
-        allRows(() => supabase.from('collab_posts').select('id, creator_id, created_at')),
-        allRows(() => supabase.from('application_decisions').select('decision, created_at')),
-        supabase.rpc('admin_list_last_seen'),
+        allRows(() => flightsApi.collabPosts().select('id, creator_id, created_at')),
+        allRows(() => teamApi.applicationDecisions().select('decision, created_at')),
+        teamApi.adminListLastSeen(),
         // Participation vouchers are COUNTED from the entries, not read off a
         // number somebody typed. The typed one was never kept up: on the
         // Creative Challenge it said 0 where six creators had actually earned
@@ -231,11 +235,11 @@ export default function AdminAnalytics() {
         // market at a time. Scoping is a filter over these same datasets rather
         // than a second set of queries - there is one definition of "a view" on
         // this page and it must not fork.
-        allRows(() => supabase.from('community_members').select('community_id, profile_id').eq('status', 'active'), { orderBy: ['community_id', 'profile_id'] }),
+        allRows(() => marketsApi.communityMembers().select('community_id, profile_id').eq('status', 'active'), { orderBy: ['community_id', 'profile_id'] }),
         // `slug` and `country_codes` are for the market league, which draws a flag
         // per market and needs a stable key for the CSV. Without them the league
         // rendered every market with an empty flag slot and no way to tell why.
-        supabase.from('communities').select('id, slug, name, kind, currency, country_codes, retired_at').order('name'),
+        marketsApi.communities().select('id, slug, name, kind, currency, country_codes, retired_at').order('name'),
       ])
       // WHAT A RUNNING CHALLENGE HAS COMMITTED SO FAR, for its live CPM: the
       // vouchers and awards earned to date (challenge_prize_standings, the one

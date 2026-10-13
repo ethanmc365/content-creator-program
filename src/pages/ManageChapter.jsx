@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { isRealMember } from '../lib/members'
 import { Link, useParams } from 'react-router-dom'
 import { motion } from 'motion/react'
-import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { useCommunity } from '../context/CommunityContext'
 import { confirm, notice, promptText } from '../lib/confirm'
@@ -28,6 +27,7 @@ import { vipApi } from '../api/vip'
 import { challengesApi } from '../api/challenges'
 import { profilesApi } from '../api/profiles'
 import { chatApi } from '../api/chat'
+import { marketsApi } from '../api/markets'
 
 // The country manager's desk: everything one market owns, and nothing that
 // belongs to another one.
@@ -129,14 +129,14 @@ export default function ManageChapter() {
         // used to have no profile filter at all, which is why this page said
         // 51 members where the market page said 44: it was counting six
         // pending applicants, the QA account and the view-as sandbox.
-        supabase.from('community_members')
+        marketsApi.communityMembers()
           .select('profile_id, role, is_home, status, profiles!inner(id, name, photo_url, country_code, is_admin, is_test, is_sandbox, status, deletion_requested_at)')
           .eq('community_id', chapter.id).eq('status', 'active'),
         chatApi.channels().select('id, key, label, hint, icon, visibility, post_policy, position')
           .eq('community_id', chapter.id).order('position'),
         challengesApi.challenges().select('id, title, status, scoring, end_date')
           .eq('community_id', chapter.id).order('end_date', { ascending: false }),
-        supabase.from('community_standings').select('creator_id, points').eq('community_id', chapter.id),
+        marketsApi.communityStandings().select('creator_id, points').eq('community_id', chapter.id),
         // For adding a creator by hand, which is the only way in when the
         // market is invite only.
         // city/country too: the picker searches on them, because "which Sam"
@@ -180,7 +180,7 @@ export default function ManageChapter() {
 
   async function saveSettings() {
     setSaving('settings')
-    const { error } = await supabase.from('communities').update({
+    const { error } = await marketsApi.communities().update({
       name: settings.name,
       tagline: settings.tagline.trim() || null,
       currency: settings.currency,
@@ -227,7 +227,7 @@ export default function ManageChapter() {
       { title: retiring ? `Retire ${chapter.name}?` : `Bring ${chapter.name} back?`, confirmLabel: retiring ? 'Retire it' : 'Bring it back', danger: retiring },
     )
     if (!ok) return
-    const { error } = await supabase.rpc('set_market_retired', { p_market: chapter.id, p_retired: retiring })
+    const { error } = await marketsApi.setMarketRetired({ p_market: chapter.id, p_retired: retiring })
     if (error) { notice(error.message); return }
     await reload()
     await load()
@@ -340,7 +340,7 @@ export default function ManageChapter() {
   async function addMembers(ids) {
     if (!ids.length) return
     setAdding(true)
-    const { error } = await supabase.from('community_members').insert(
+    const { error } = await marketsApi.communityMembers().insert(
       ids.map((profile_id) => ({
         community_id: chapter.id, profile_id, role: 'creator', is_home: false, status: 'active',
       })),
@@ -358,7 +358,7 @@ export default function ManageChapter() {
       `Remove ${member.profiles.name} from ${chapter.name}? They keep every point they earned here, and every connection they made stays.`,
     )
     if (!ok) return
-    const { error } = await supabase.from('community_members').delete()
+    const { error } = await marketsApi.communityMembers().delete()
       .eq('community_id', chapter.id).eq('profile_id', member.profile_id)
     if (error) { notice(error.message); return }
     clearScopeCache()
@@ -401,7 +401,7 @@ export default function ManageChapter() {
         : `Remove manager rights from ${member.profiles.name}?`
     )
     if (!ok) return
-    const { error } = await supabase.from('community_members').update({ role })
+    const { error } = await marketsApi.communityMembers().update({ role })
       .eq('community_id', chapter.id).eq('profile_id', member.profile_id)
     if (error) { notice(`Could not change role: ${error.message}`); return }
     await load()

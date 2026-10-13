@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { isRealMember } from '../../lib/members'
 import { Link, useNavigate } from 'react-router-dom'
-import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
 import { PageHeader, Skeleton } from '../../components/ui'
 import Icon from '../../components/Icon'
@@ -13,6 +12,11 @@ import { awaitingCode } from '../../lib/wallet'
 import { moneyApi } from '../../api/money'
 import { challengesApi } from '../../api/challenges'
 import { profilesApi } from '../../api/profiles'
+import { marketsApi } from '../../api/markets'
+import { eventsApi } from '../../api/events'
+import { contentApi } from '../../api/content'
+import { teamApi } from '../../api/team'
+import { chatApi } from '../../api/chat'
 
 // The admin hub.
 //
@@ -503,9 +507,9 @@ export default function AdminPanel() {
       const answers = await Promise.all([
         profilesApi.profiles().select('id', { count: 'exact', head: true }).eq('status', 'pending').eq('onboarded', true),
         moneyApi.invoices().select('id', { count: 'exact', head: true }).eq('stage', 'awaiting_approval'),
-        supabase.from('message_reports').select('id', { count: 'exact', head: true }).in('status', ['new', 'reviewing']),
-        supabase.from('feedback').select('id', { count: 'exact', head: true }).eq('status', 'new'),
-        supabase.from('event_suggestions').select('id', { count: 'exact', head: true }).eq('status', 'new'),
+        chatApi.messageReports().select('id', { count: 'exact', head: true }).in('status', ['new', 'reviewing']),
+        contentApi.feedback().select('id', { count: 'exact', head: true }).eq('status', 'new'),
+        eventsApi.eventSuggestions().select('id', { count: 'exact', head: true }).eq('status', 'new'),
         // ROWS, NOT A COUNT (4 Oct 2026). "1 reward still to pay" sent Ethan to Cash & Invoices, where
         // nothing was owed: the one reward was a VOUCHER waiting for its code, which lives on the
         // Vouchers tab. A voucher needs a code, cash needs paying, and the desk has to say which.
@@ -528,17 +532,17 @@ export default function AdminPanel() {
         // unresolved ones and the tick-off on the Error monitoring tab removes
         // the row from here. A crash a creator hit and a scheduled job that
         // failed both land in this table - see migrations 204 and 205.
-        supabase.from('client_errors').select('fingerprint', { count: 'exact', head: true }).is('resolved_at', null).neq('source', 'ops'),
+        teamApi.clientErrors().select('fingerprint', { count: 'exact', head: true }).is('resolved_at', null).neq('source', 'ops'),
         // THE EARLY WARNING (8 Oct 2026, the day after the outage). Ethan: "set up something that will tell me if
         // anything's near breaking or overloading again". ops_health_check() runs every five minutes and opens one
         // row per problem (database busy, connections, stuck queries, lock queues, realtime lag, memory, disk); each
         // closes itself when the reading recovers. Each is its own desk row, in its own words, at the top.
-        supabase.from('client_errors').select('fingerprint, message').is('resolved_at', null).eq('source', 'ops'),
+        teamApi.clientErrors().select('fingerprint, message').is('resolved_at', null).eq('source', 'ops'),
         // A member asking to join another market as well (migration 378), answered on Applications > Market requests.
-        supabase.from('market_join_requests').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
+        marketsApi.marketJoinRequests().select('id', { count: 'exact', head: true }).eq('status', 'pending'),
         // A QUESTION A CREATOR ASKED ON GET HELP (11 Oct 2026). One sat unanswered for two days because the only door to
         // it was a tile nobody had a reason to open. Now it is on the desk the moment it is asked.
-        supabase.from('faq_questions').select('id', { count: 'exact', head: true }).eq('status', 'open'),
+        contentApi.faqQuestions().select('id', { count: 'exact', head: true }).eq('status', 'open'),
       ])
       const [
         { count: pendingApps }, { count: toApprove }, { count: openReports },
@@ -586,13 +590,13 @@ export default function AdminPanel() {
     let alive = true
     async function load() {
       const [{ data: comms }, { data: mine }, { data: counts }, { data: live }] = await Promise.all([
-        supabase.from('communities').select('id, name, slug, kind, country_codes, is_active, retired_at').eq('kind', 'chapter').order('name'),
-        supabase.from('community_members').select('community_id, role').eq('profile_id', profile?.id ?? '00000000-0000-0000-0000-000000000000').eq('status', 'active'),
+        marketsApi.communities().select('id, name, slug, kind, country_codes, is_active, retired_at').eq('kind', 'chapter').order('name'),
+        marketsApi.communityMembers().select('community_id, role').eq('profile_id', profile?.id ?? '00000000-0000-0000-0000-000000000000').eq('status', 'active'),
         // A THIRD SPELLING OF "MEMBER", now the same one as everywhere else.
         // This one excluded admins, the market page did not, and the manage
         // page filtered nothing at all - so one market had three different
         // sizes depending on which screen you asked. See lib/members.
-        supabase.from('community_members')
+        marketsApi.communityMembers()
           .select('community_id, profiles!inner(is_admin, is_test, is_sandbox, status, deletion_requested_at)')
           .eq('status', 'active'),
         challengesApi.challenges().select('id, community_id').eq('status', 'active'),

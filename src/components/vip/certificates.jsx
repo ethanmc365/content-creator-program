@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
 import { Skeleton, Spinner, Toggle } from '../ui'
 import Icon from '../Icon'
@@ -10,6 +9,7 @@ import { cx } from '../../lib/utils'
 import { sampleFacts } from '../../lib/certificates'
 import CertificateCard from '../certificate/CertificateCard'
 import { FitCard } from '../certificate/CertificateWall'
+import { certificatesApi } from '../../api/certificates'
 
 // CERTIFICATES FOR VIP AND OFFICIAL CREATORS (12 Oct 2026, migration 384).
 //
@@ -34,7 +34,7 @@ export function VipCertificatesTab() {
   const [rows, setRows] = useState(null)
   const [busy, setBusy] = useState(null)
   const load = useCallback(async () => {
-    const { data } = await supabase.from('certificate_designs').select('*').order('created_at')
+    const { data } = await certificatesApi.certificateDesigns().select('*').order('created_at')
     setRows(data || [])
   }, [])
   useEffect(() => { load() }, [load])
@@ -43,11 +43,11 @@ export function VipCertificatesTab() {
     // Community-only designs become "both"; switching off goes back to the community alone.
     const audience = on ? 'all' : 'community'
     setBusy(d.id)
-    const { error } = await supabase.from('certificate_designs').update({ audience }).eq('id', d.id)
+    const { error } = await certificatesApi.certificateDesigns().update({ audience }).eq('id', d.id)
     if (error) { setBusy(null); notice(error.message); return }
     let given = 0
     if (on && d.is_active && d.award_on !== 'manual') {
-      const { data, error: e2 } = await supabase.rpc('backfill_certificate_design', { p_design: d.id })
+      const { data, error: e2 } = await certificatesApi.backfillCertificateDesign({ p_design: d.id })
       if (!e2) given = data || 0
     }
     setBusy(null)

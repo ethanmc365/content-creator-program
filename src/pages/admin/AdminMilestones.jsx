@@ -12,6 +12,7 @@ import {
   criterionNeed, fromDays, toDays,
 } from '../../lib/milestones'
 import { CURRENCIES } from '../../lib/timezones'
+import { certificatesApi } from '../../api/certificates'
 
 // Editing the ladder.
 //
@@ -148,8 +149,8 @@ export default function AdminMilestones() {
 
   const load = useCallback(async () => {
     const [{ data, error }, { data: overview }] = await Promise.all([
-      supabase.from('milestones').select('*, milestone_criteria(*)').order('sort_order'),
-      supabase.rpc('milestone_overview'),
+      certificatesApi.milestones().select('*, milestone_criteria(*)').order('sort_order'),
+      certificatesApi.milestoneOverview(),
     ])
     if (error) { notice(error.message); setRows([]); return }
     setRows((data || []).map((m) => ({ ...m, criteria: m.milestone_criteria || [] })))
@@ -239,9 +240,9 @@ export default function AdminMilestones() {
     let id = m.id
     let error
     if (id) {
-      ({ error } = await supabase.from('milestones').update(patch).eq('id', id))
+      ({ error } = await certificatesApi.milestones().update(patch).eq('id', id))
     } else {
-      const ins = await supabase.from('milestones').insert({
+      const ins = await certificatesApi.milestones().insert({
         ...patch,
         // New ones go at the end. Reordering is a drag, not a number to type.
         sort_order: ((rows || []).at(-1)?.sort_order ?? 0) + 10,
@@ -257,9 +258,9 @@ export default function AdminMilestones() {
     // and cannot leave an orphan behind. Diffing would be three queries to
     // achieve the same thing and one more place for a stale row to survive.
     // The delete is checked: if it failed, inserting would duplicate every row.
-    if (!error && id) error = (await supabase.from('milestone_criteria').delete().eq('milestone_id', id)).error
+    if (!error && id) error = (await certificatesApi.milestoneCriteria().delete().eq('milestone_id', id)).error
     if (!error && id) {
-      const ins = await supabase.from('milestone_criteria').insert(
+      const ins = await certificatesApi.milestoneCriteria().insert(
         m.criteria.map((c) => ({
           milestone_id: id,
           metric: c.metric,
@@ -284,14 +285,14 @@ export default function AdminMilestones() {
       { title: `Delete ${m.title}?`, confirmLabel: 'Delete', danger: true },
     )
     if (!ok) return
-    const { error } = await supabase.from('milestones').delete().eq('id', m.id)
+    const { error } = await certificatesApi.milestones().delete().eq('id', m.id)
     if (error) { notice(error.message); return }
     await load()
     toast('Milestone deleted.')
   }
 
   async function toggleActive(m) {
-    const { error } = await supabase.from('milestones').update({ is_active: !m.is_active }).eq('id', m.id)
+    const { error } = await certificatesApi.milestones().update({ is_active: !m.is_active }).eq('id', m.id)
     if (error) { notice(error.message); return }
     await load()
   }
@@ -300,7 +301,7 @@ export default function AdminMilestones() {
   // to land between two rows without a rewrite.
   async function reorder(next) {
     setRows(next)
-    const updates = next.map((m, i) => supabase.from('milestones').update({ sort_order: (i + 1) * 10 }).eq('id', m.id))
+    const updates = next.map((m, i) => certificatesApi.milestones().update({ sort_order: (i + 1) * 10 }).eq('id', m.id))
     const results = await Promise.all(updates)
     const failed = results.find((r) => r.error)
     if (failed) { notice(failed.error.message); await load() }
@@ -734,7 +735,7 @@ function ItemsToSend() {
   const [rows, setRows] = useState(null)
   const [busy, setBusy] = useState(null)
   const load = useCallback(async () => {
-    const { data, error } = await supabase.rpc('milestone_items_to_send')
+    const { data, error } = await certificatesApi.milestoneItemsToSend()
     if (error) { setRows([]); return }
     setRows(data || [])
   }, [])
@@ -743,7 +744,7 @@ function ItemsToSend() {
   async function mark(r, sent) {
     setBusy(`${r.profile_id}:${r.milestone_id}`)
     const { data: { user } = {} } = await supabase.auth.getUser()
-    const { error } = await supabase.from('creator_milestones')
+    const { error } = await certificatesApi.creatorMilestones()
       .update({ items_sent_at: sent ? new Date().toISOString() : null, items_sent_by: sent ? user?.id ?? null : null })
       .eq('profile_id', r.profile_id).eq('milestone_id', r.milestone_id)
     setBusy(null)

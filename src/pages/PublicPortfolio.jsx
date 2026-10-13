@@ -1,12 +1,12 @@
 import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
-import { supabase } from '../lib/supabase'
 import { Spinner } from '../components/ui'
 import Icon from '../components/Icon'
 import PortfolioDeck, { useFluidWidth } from '../components/portfolio/PortfolioDeck'
 import { compactViews } from '../lib/portfolio'
 import Reveal from '../components/network/Reveal'
 import { safeUrl } from '../lib/safeUrl'
+import { profilesApi } from '../api/profiles'
 
 // A PORTFOLIO ANYBODY CAN OPEN.
 //
@@ -32,7 +32,7 @@ export default function PublicPortfolio() {
 
   useEffect(() => {
     let alive = true
-    supabase.rpc('public_portfolio', { p_slug: slug }).then(({ data: row, error }) => {
+    profilesApi.publicPortfolio({ p_slug: slug }).then(({ data: row, error }) => {
       if (!alive) return
       if (error || !row) { setState('missing'); return }
       setData(row)

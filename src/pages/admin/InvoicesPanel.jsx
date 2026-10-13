@@ -25,6 +25,7 @@ import { downloadInvoicePdf, invoiceFilename } from '../../lib/invoicePdf'
 import InvoicePreview from '../../components/InvoicePreview'
 import { moneyApi } from '../../api/money'
 import { profilesApi } from '../../api/profiles'
+import { settingsApi } from '../../api/settings'
 
 const FN_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-invoice`
 const LAST_RECIPIENT_KEY = 'tryp_invoice_to'
@@ -129,7 +130,7 @@ export default function InvoicesPanel({ prefill, onClose, onSent }) {
   async function load() {
     const [{ data: c }, { data: setting }] = await Promise.all([
       profilesApi.profiles().select('id, name').eq('status', 'active').eq('is_admin', false).order('name'),
-      supabase.from('app_settings').select('value').eq('key', BILL_TO_SETTING).maybeSingle(),
+      settingsApi.appSettings().select('value').eq('key', BILL_TO_SETTING).maybeSingle(),
     ])
     setCreators(c ?? [])
     if (setting?.value?.text) setBillTo(setting.value.text)
@@ -374,7 +375,7 @@ export default function InvoicesPanel({ prefill, onClose, onSent }) {
 
   async function saveBillToDefault() {
     setSavingDefault(true)
-    const { error } = await supabase.from('app_settings').upsert({
+    const { error } = await settingsApi.appSettings().upsert({
       key: BILL_TO_SETTING, value: { text: billTo }, updated_at: new Date().toISOString(),
     })
     setSavingDefault(false)

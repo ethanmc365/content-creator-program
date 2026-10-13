@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
 import { confirm, saved } from '../../lib/confirm'
 import { PageHeader, Skeleton, EmptyState } from '../../components/ui'
@@ -10,6 +9,7 @@ import NoteGlyph, { NOTE_GLYPH_KEYS, DEFAULT_GLYPH } from '../../components/Note
 import { cx, timeAgo } from '../../lib/utils'
 import { noteExcerpt } from '../../lib/noteMarkdown'
 import { profilesApi } from '../../api/profiles'
+import { teamApi } from '../../api/team'
 
 // A private, Notion-lite notes space for the Tryp.com Team. The grid shows note
 // cards you can reorder by dragging; opening a card gives ONE clean page you type
@@ -31,8 +31,8 @@ export default function AdminNotes() {
   const editorRef = useRef(null)
 
   const load = useCallback(async () => {
-    const { data } = await supabase
-      .from('admin_notes')
+    const { data } = await teamApi
+      .adminNotes()
       .select('*')
       .order('sort_order', { ascending: true })
       .order('created_at', { ascending: true })
@@ -58,8 +58,8 @@ export default function AdminNotes() {
 
   async function createNote() {
     const maxOrder = notes?.length ? Math.max(...notes.map((n) => n.sort_order)) : 0
-    const { data } = await supabase
-      .from('admin_notes')
+    const { data } = await teamApi
+      .adminNotes()
       .insert({ title: 'Untitled', body: '', emoji: DEFAULT_GLYPH, sort_order: maxOrder + 1, created_by: user.id, shared: false })
       .select('*')
       .single()
@@ -73,7 +73,7 @@ export default function AdminNotes() {
     setSaveState('saving')
     clearTimeout(saveTimer.current)
     saveTimer.current = setTimeout(async () => {
-      const { error } = await supabase.from('admin_notes').update(patch).eq('id', activeId)
+      const { error } = await teamApi.adminNotes().update(patch).eq('id', activeId)
       setSaveState(error ? 'error' : 'saved')
     }, 600)
   }, [activeId])
@@ -92,7 +92,7 @@ export default function AdminNotes() {
     const before = notes
     setNotes((prev) => prev.filter((n) => n.id !== id))
     if (activeId === id) setActiveId(null)
-    if (!await saved(supabase.from('admin_notes').delete().eq('id', id))) setNotes(before)
+    if (!await saved(teamApi.adminNotes().delete().eq('id', id))) setNotes(before)
   }
 
   // Drag-to-reorder (desktop). Splice into the new position, renumber, persist.
@@ -107,7 +107,7 @@ export default function AdminNotes() {
     const renumbered = arr.map((n, i) => ({ ...n, sort_order: i }))
     setNotes(renumbered)
     setDragId(null)
-    renumbered.forEach((n, i) => supabase.from('admin_notes').update({ sort_order: i }).eq('id', n.id).then(() => {}))
+    renumbered.forEach((n, i) => teamApi.adminNotes().update({ sort_order: i }).eq('id', n.id).then(() => {}))
   }
 
 

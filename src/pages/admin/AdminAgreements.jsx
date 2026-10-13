@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
 import { Avatar, PageHeader, Skeleton, Spinner, Toggle } from '../../components/ui'
 import Icon from '../../components/Icon'
@@ -16,6 +15,7 @@ import { copyToClipboard } from '../../lib/clipboard'
 import { guardianUrl } from '../../components/agreements/GuardianShare'
 import { guardianEmail, guardianEmailLang } from '../../lib/guardianEmail'
 import { vipApi } from '../../api/vip'
+import { agreementsApi } from '../../api/agreements'
 
 // ADMIN > AGREEMENTS (7 Oct 2026).
 //
@@ -69,7 +69,7 @@ export default function AdminAgreements() {
   const [preview, setPreview] = useState(null)
   const [registerKey, setRegisterKey] = useState(0)
   const load = useCallback(async () => {
-    const { data } = await supabase.from('agreements').select('*').order('version', { ascending: false })
+    const { data } = await agreementsApi.agreements().select('*').order('version', { ascending: false })
     setDocs(data || [])
   }, [])
   useEffect(() => { load() }, [load])
@@ -96,7 +96,7 @@ export default function AdminAgreements() {
   async function newVersion() {
     // A market's first version starts as a copy of the shared one.
     const base = live || list[0] || (tab === 'vip' && market ? (sharedLive || sharedLatest) : null)
-    const { data, error } = await supabase.from('agreements').insert({
+    const { data, error } = await agreementsApi.agreements().insert({
       audience, programme_id: audience === 'vip' && market ? market : null,
       version: (list[0]?.version || 0) + 1, title: base?.title || AUD[tab], summary: base?.summary || '',
       body: base?.body || `# ${AUD[tab]}\n\n`, requires_signature: base ? base.requires_signature : audience === 'vip', created_by: profile.id,
@@ -109,8 +109,8 @@ export default function AdminAgreements() {
   async function openPreview(d, minor = false) {
     const programme = audience === 'vip' ? (market || null) : null
     const [{ data: body }, { data: summary }] = await Promise.all([
-      supabase.rpc('agreement_preview', { p_agreement: d.id, p_programme: programme, p_body: sampleFill(d.body) }),
-      supabase.rpc('agreement_preview', { p_agreement: d.id, p_programme: programme, p_body: sampleFill(d.summary || '') }),
+      agreementsApi.agreementPreview({ p_agreement: d.id, p_programme: programme, p_body: sampleFill(d.body) }),
+      agreementsApi.agreementPreview({ p_agreement: d.id, p_programme: programme, p_body: sampleFill(d.summary || '') }),
     ])
     setPreview({ ...d, body: body ?? d.body, summary: summary ?? d.summary, minor })
   }
@@ -118,7 +118,7 @@ export default function AdminAgreements() {
   async function publishDoc(d) {
     const who = tab === 'official' ? `every official creator in ${marketName?.replace(/^Tryp\.com Official /, '') || 'that market'}` : d.audience === 'vip' ? 'every active VIP' : 'every creator'
     if (!await confirm(`Switch on v${d.version}? ${who[0].toUpperCase()}${who.slice(1)} will have to ${d.requires_signature ? 'sign' : 'accept'} it before they can use the app, the next time they open it${live ? ', and will be told in a notification' : ''}. A published version cannot be edited.`, { confirmLabel: 'Publish' })) return false
-    const { error } = await supabase.rpc('publish_agreement', { p_agreement: d.id, p_notify: true })
+    const { error } = await agreementsApi.publishAgreement({ p_agreement: d.id, p_notify: true })
     if (error) { notice(error.message); return false }
     toastSuccess('Published. Creators are asked the next time they open the app.')
     await load(); setOpenId(d.id); setRegisterKey((k) => k + 1)
@@ -237,10 +237,10 @@ function PlaceholderGuide({ programme, audience, official = false, bare = false 
   useEffect(() => {
     let alive = true
     // Any agreement id will do for the preview call; the body is passed in.
-    supabase.from('agreements').select('id').limit(1).maybeSingle().then(async ({ data: one }) => {
+    agreementsApi.agreements().select('id').limit(1).maybeSingle().then(async ({ data: one }) => {
       if (!one) return
       const sep = '\u0001'
-      const { data } = await supabase.rpc('agreement_preview', { p_agreement: one.id, p_programme: programme, p_body: sampleFill(PLACEHOLDERS.map(([k]) => k).join(sep)) })
+      const { data } = await agreementsApi.agreementPreview({ p_agreement: one.id, p_programme: programme, p_body: sampleFill(PLACEHOLDERS.map(([k]) => k).join(sep)) })
       if (alive && typeof data === 'string') setValues(Object.fromEntries(data.split(sep).map((v, i) => [PLACEHOLDERS[i][0], v])))
     })
     return () => { alive = false }
@@ -291,7 +291,7 @@ function Translations({ doc, draft = false }) {
   const [open, setOpen] = useState(null)
   useEffect(() => {
     let alive = true
-    supabase.from('agreement_translations').select('locale, title, body, updated_at').eq('agreement_id', doc.id)
+    agreementsApi.agreementTranslations().select('locale, title, body, updated_at').eq('agreement_id', doc.id)
       .then(({ data }) => { if (alive) setRows(data || []) })
     return () => { alive = false }
   }, [doc.id])
@@ -380,7 +380,7 @@ function DraftEditor({ doc, hasLive, onSaved, onPreview, onPublish }) {
 
   async function save(quiet) {
     setBusy(true)
-    const { error } = await supabase.from('agreements').update({ title, summary, body, change_note: note || null, requires_signature: sig, updated_at: new Date().toISOString() }).eq('id', doc.id)
+    const { error } = await agreementsApi.agreements().update({ title, summary, body, change_note: note || null, requires_signature: sig, updated_at: new Date().toISOString() }).eq('id', doc.id)
     setBusy(false)
     if (error) { notice(error.message); return false }
     if (!quiet) toastSuccess('Draft saved.')
@@ -396,7 +396,7 @@ function DraftEditor({ doc, hasLive, onSaved, onPreview, onPublish }) {
   }
   async function discard() {
     if (!await confirm('Delete this draft?', { confirmLabel: 'Delete', danger: true })) return
-    if (await saved(supabase.from('agreements').delete().eq('id', doc.id))) onSaved()
+    if (await saved(agreementsApi.agreements().delete().eq('id', doc.id))) onSaved()
   }
 
   return (
@@ -442,7 +442,7 @@ function Register({ doc }) {
   async function pdf(r) {
     setPdfBusy(r.profile_id)
     try {
-      const { data, error } = await supabase.rpc('agreement_signed_copy', { p_agreement: doc.id, p_profile: r.profile_id })
+      const { data, error } = await agreementsApi.agreementSignedCopy({ p_agreement: doc.id, p_profile: r.profile_id })
       if (error) throw error
       const row = Array.isArray(data) ? data[0] : data
       if (!row) throw new Error('No signed copy found.')
@@ -455,11 +455,11 @@ function Register({ doc }) {
   const [guardians, setGuardians] = useState({})
   useEffect(() => {
     let alive = true
-    supabase.rpc('agreement_register', { p_agreement: doc.id }).then(({ data }) => { if (alive) setRows(data || []) })
+    agreementsApi.agreementRegister({ p_agreement: doc.id }).then(({ data }) => { if (alive) setRows(data || []) })
     // Under-18s: has their parent or guardian confirmed on the link yet (migration 367)?
     // 12 Oct 2026: with the token, so the team can email the parent the link (the creator no longer sends it), and the
     // creator's language and country, to write to the parent in theirs.
-    supabase.from('guardian_consents').select('token, confirmed_at, confirmed_name, agreement_acceptances!inner(profile_id, agreement_id, profiles!agreement_acceptances_profile_id_fkey(locale, country))')
+    agreementsApi.guardianConsents().select('token, confirmed_at, confirmed_name, agreement_acceptances!inner(profile_id, agreement_id, profiles!agreement_acceptances_profile_id_fkey(locale, country))')
       .eq('agreement_acceptances.agreement_id', doc.id)
       .then(({ data }) => { if (alive) setGuardians(Object.fromEntries((data || []).map((g) => [g.agreement_acceptances.profile_id, g]))) })
     return () => { alive = false }

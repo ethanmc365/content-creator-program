@@ -11,6 +11,7 @@ import { cx, formatViews } from '../lib/utils'
 import { EASE } from '../lib/motion'
 import { useT } from '../lib/i18n'
 import { challengesApi } from '../api/challenges'
+import { marketsApi } from '../api/markets'
 
 // EVERY CREATOR, RANKED BY WHAT THE PROGRAMME IS FOR.
 //
@@ -48,7 +49,7 @@ export default function Leaderboard() {
 
   useEffect(() => {
     let alive = true
-    supabase.from('communities')
+    marketsApi.communities()
       .select('id, name, kind, retired_at').eq('kind', 'chapter').order('name')
       .then(({ data }) => { if (alive) setMarkets((data || []).filter((m) => !m.retired_at)) })
     return () => { alive = false }

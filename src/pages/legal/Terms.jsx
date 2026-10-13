@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
 import LegalShell, { H2 } from './LegalShell'
-import { supabase } from '../../lib/supabase'
 import { renderNote } from '../../lib/noteMarkdown'
 import { useLocale } from '../../lib/i18n'
+import { agreementsApi } from '../../api/agreements'
 
 // ONE SET OF TERMS (7 Oct 2026). Once the team publishes the Community Terms on Admin > Agreements, this public page
 // shows exactly that text - the same words a creator accepts in the app - and the hand-written page below is only the
@@ -13,11 +13,11 @@ export default function Terms() {
   useEffect(() => {
     let alive = true
     // In the reader's language when it has been translated (agreement_translations, migration 388); English otherwise.
-    supabase.from('agreements').select('id, title, body, published_at, version').eq('audience', 'creator').not('published_at', 'is', null)
+    agreementsApi.agreements().select('id, title, body, published_at, version').eq('audience', 'creator').not('published_at', 'is', null)
       .is('programme_id', null).order('version', { ascending: false }).limit(1).maybeSingle()
       .then(async ({ data }) => {
         if (data && locale !== 'en') {
-          const { data: tr } = await supabase.from('agreement_translations').select('title, body').eq('agreement_id', data.id).eq('locale', locale).maybeSingle()
+          const { data: tr } = await agreementsApi.agreementTranslations().select('title, body').eq('agreement_id', data.id).eq('locale', locale).maybeSingle()
           if (tr) Object.assign(data, tr)
         }
         if (alive) setDoc(data || null)

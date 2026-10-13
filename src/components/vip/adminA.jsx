@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { supabase } from '../../lib/supabase'
 import { Avatar, Modal, Select, Skeleton, Spinner, Toggle } from '../ui'
 import Segmented from '../network/Segmented'
 import VideoThumb from '../VideoThumb'
@@ -18,6 +17,8 @@ import { DateField } from '../DateTimeFields'
 import { safeUrl } from '../../lib/safeUrl'
 import { vipApi } from '../../api/vip'
 import { profilesApi } from '../../api/profiles'
+import { marketsApi } from '../../api/markets'
+import { teamApi } from '../../api/team'
 
 // THE TEAM'S SIDE OF THE VIP PROGRAMME, PART ONE: who is in, and how this month is going (2 Oct 2026).
 
@@ -619,8 +620,8 @@ export function MoveBackModal({ person, programme, onClose, onDone }) {
   useEffect(() => {
     let alive = true
     Promise.all([
-      supabase.from('communities').select('id, name, country_codes, retired_at').eq('kind', 'chapter').order('name'),
-      supabase.from('community_members').select('community_id, is_home').eq('profile_id', person.id),
+      marketsApi.communities().select('id, name, country_codes, retired_at').eq('kind', 'chapter').order('name'),
+      marketsApi.communityMembers().select('community_id, is_home').eq('profile_id', person.id),
     ]).then(([c, mine]) => {
       if (!alive) return
       const list = (c.data || []).filter((x) => !x.retired_at)
@@ -689,7 +690,7 @@ export function VipMembersTab({ programme }) {
   const emailsRef = useRef(null)
   async function addressesFor(list) {
     if (!emailsRef.current) {
-      const { data, error } = await supabase.rpc('admin_list_emails')
+      const { data, error } = await teamApi.adminListEmails()
       if (error) { notice(error.message); return null }
       emailsRef.current = Object.fromEntries((data || []).map((r) => [r.id, r.email]))
     }

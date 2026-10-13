@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { useMyScopes, inScope } from '../lib/scope'
 import Icon from '../components/Icon'
@@ -23,6 +22,8 @@ import { useCachedPage, writePageCache } from '../lib/pageCache'
 import { challengesApi } from '../api/challenges'
 import { submissionsApi } from '../api/submissions'
 import { profilesApi } from '../api/profiles'
+import { marketsApi } from '../api/markets'
+import { moneyApi } from '../api/money'
 
 const STATUS_TONE = { active: 'brand', ended: 'amber', archived: 'grey', draft: 'red' }
 
@@ -67,7 +68,7 @@ export default function Challenges() {
   // What creators have won, per currency. Re-read whenever the page comes back
   // into view, so the headline follows new prizes without a reload.
   function loadPrizesWon() {
-    supabase.rpc('prizes_won_total').then(({ data, error }) => {
+    moneyApi.prizesWonTotal().then(({ data, error }) => {
       if (error || !data) return
       setPrizesAwarded(Object.fromEntries(data.map((r) => [r.currency || 'EUR', Number(r.amount) || 0])))
     })
@@ -203,7 +204,7 @@ export default function Challenges() {
     async function tally() {
       const entries = await Promise.all(liveOnes.map(async (c) => {
         const roster = c.community_id
-          ? supabase.from('community_members')
+          ? marketsApi.communityMembers()
               .select('profile_id, profiles!inner(is_admin, is_test, status, deletion_requested_at)', { count: 'exact', head: true })
               .eq('community_id', c.community_id).eq('status', 'active')
               .eq('profiles.is_admin', false).in('profiles.is_test', testFlags()).eq('profiles.status', 'active')

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from './supabase'
 import { getLocale, useLocale } from './i18n'
 import { translateInBrowser } from './quickTranslate'
+import { contentApi } from '../api/content'
 
 // WHAT A PERSON WROTE, IN THE READER'S LANGUAGE, WITHOUT A SECOND COPY OF IT.
 //
@@ -46,7 +47,7 @@ function lookupRows(locale, hashes) {
         const byHash = new Map()
         await Promise.all(Array.from({ length: Math.ceil(all.length / LOOKUP_CHUNK) }, async (_, i) => {
           try {
-            const { data } = await supabase.from('content_translations')
+            const { data } = await contentApi.contentTranslations()
               .select('source_hash, value, same, auto, src_lang').eq('locale', locale)
               .in('source_hash', all.slice(i * LOOKUP_CHUNK, (i + 1) * LOOKUP_CHUNK))
             for (const r of data || []) byHash.set(r.source_hash, r)
@@ -105,7 +106,7 @@ async function fetchTexts(need, locale) {
         const row = { value: same ? t : r.value, same, auto: true, src_lang: r.src }
         memo.set(key(locale, t), row)
         out[t] = row
-        supabase.rpc('cache_content_translation', { p_locale: locale, p_source: t, p_value: r.value, p_src: r.src }).then(() => {}, () => {})
+        contentApi.cacheContentTranslation({ p_locale: locale, p_source: t, p_value: r.value, p_src: r.src }).then(() => {}, () => {})
       } catch { viaServer.push(t) }
     }))
     // The batches go out together rather than one after another.

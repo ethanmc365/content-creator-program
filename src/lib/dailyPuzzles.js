@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
-import { supabase } from './supabase'
 import { ukDayIndex, ukDayStartIso } from './daily'
+import { gamesApi } from '../api/games'
 
 // THE THREE DAILY PUZZLES, IN ONE PLACE.
 //
@@ -172,7 +172,7 @@ export function useDailyPuzzles(userId) {
       // carry the same `mode`; without this filter a practice round somebody
       // played this morning would be counted as today's puzzle and would tick
       // their card green for a puzzle they have not opened.
-      supabase.from('game_scores')
+      gamesApi.gameScores()
         .select('mode, player_id, profiles:player_id(is_test)')
         .in('mode', DAILY_KEYS)
         .eq('day_key', ukDayIndex())
@@ -181,7 +181,7 @@ export function useDailyPuzzles(userId) {
       // accumulated streak and the per-puzzle ones. It was `select('day_key')`,
       // which threw away the only thing that distinguishes them.
       userId
-        ? supabase.from('game_scores').select('mode, day_key').eq('player_id', userId).not('day_key', 'is', null)
+        ? gamesApi.gameScores().select('mode, day_key').eq('player_id', userId).not('day_key', 'is', null)
         : Promise.resolve({ data: [] }),
     ]).then(([{ data: rows }, { data: mine }]) => {
       if (!alive) return

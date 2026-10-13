@@ -1,4 +1,3 @@
-import { supabase } from './supabase'
 import { profilesApi } from '../api/profiles'
 
 // Connection relationships, from MY point of view, keyed by the other person's
@@ -90,7 +89,7 @@ export async function sendConnectionRequest(myId, targetId, note) {
     // A failed note must not fail the request. The connection is the point; the
     // note is the nicety, and silently losing it beats telling somebody their
     // request did not send when it did.
-    await supabase.from('connection_notes')
+    await profilesApi.connectionNotes()
       .insert({ connection_id: data.id, author_id: myId, body: body.slice(0, 300) })
   }
   return data.id

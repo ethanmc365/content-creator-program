@@ -27,6 +27,9 @@ export const makeVipApi = (db = supabase) => ({
   teamPeople: (args, opts) => db.rpc('vip_team_people', args, opts),
   claimVipInvite: (args, opts) => db.rpc('claim_vip_invite', args, opts),
   adminApproveVipApplication: (args, opts) => db.rpc('admin_approve_vip_application', args, opts),
+  perks: () => db.from('vip_perks'),
+  /** A VIP content table by name (perks, briefs and guides share one list component). */
+  table: (name) => db.from(name),
   /** Any VIP database function by name (the VIP screens build the name: vipRpc('vip_x')). */
   call: (fn, args, opts) => db.rpc(fn, args, opts),
 })

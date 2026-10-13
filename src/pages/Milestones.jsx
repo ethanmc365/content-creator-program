@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react'
 import { motion } from 'motion/react'
-import { supabase } from '../lib/supabase'
 import BackLink from '../components/BackLink'
 import MilestonePath from '../components/network/MilestonePath'
 import Icon from '../components/Icon'
@@ -12,6 +11,8 @@ import { useViewAs, ViewingAsBanner } from '../components/ViewingAs'
 import { useAuth } from '../context/AuthContext'
 import { useT } from '../lib/i18n'
 import { VipTeaserCard } from '../components/vip/VipLocked'
+import { certificatesApi } from '../api/certificates'
+import { profilesApi } from '../api/profiles'
 
 // Where a creator has got to, and what is next.
 //
@@ -57,9 +58,9 @@ export default function Milestones() {
   useEffect(() => {
     let alive = true
     Promise.all([
-      supabase.rpc('milestone_progress', { p_profile: whose }),
-      supabase.rpc('milestone_standings'),
-      supabase.rpc('creator_metrics', { p_profile: whose }),
+      certificatesApi.milestoneProgress({ p_profile: whose }),
+      certificatesApi.milestoneStandings(),
+      profilesApi.creatorMetrics({ p_profile: whose }),
     ]).then(([{ data: prog }, { data: stand }, { data: mets }]) => {
       if (!alive) return
       setRows(prog || [])

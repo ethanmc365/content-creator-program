@@ -21,6 +21,9 @@ describe('chat api', () => {
     await api.deleteMessage({ x: 1 })
     await api.leaveConversation({ x: 1 })
     await api.reportMessage({ x: 1 })
+    await api.markChannelRead({ x: 1 })
+    await api.myDmUnread({ x: 1 })
+    await api.messageReports()
     expect(calls).toEqual([
       ['from', 'channel_reads'],
       ['from', 'channels'],
@@ -37,6 +40,9 @@ describe('chat api', () => {
       ['rpc', 'delete_message', { x: 1 }],
       ['rpc', 'leave_conversation', { x: 1 }],
       ['rpc', 'report_message', { x: 1 }],
+      ['rpc', 'mark_channel_read', { x: 1 }],
+      ['rpc', 'my_dm_unread', { x: 1 }],
+      ['from', 'message_reports'],
     ])
   })
 })

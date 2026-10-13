@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react'
-import { supabase } from '../lib/supabase'
 import Icon from './Icon'
 import MediaAttachment from './MediaAttachment'
 import { noteExcerpt } from '../lib/noteMarkdown'
 import { useT } from '../lib/i18n'
+import { contentApi } from '../api/content'
 
 // An inline guide card inside a chat message. The resource library itself was retired on 12 Oct 2026 (Video ideas took
 // its place), so cards already posted still show what they shared, with no link to a page that is gone.
@@ -26,7 +26,7 @@ export default function ResourceCard({ resourceId }) {
 
   useEffect(() => {
     let alive = true
-    supabase.from('resources').select('*').eq('id', resourceId).single()
+    contentApi.resources().select('*').eq('id', resourceId).single()
       .then(({ data }) => { if (alive) setResource(data) })
     return () => { alive = false }
   }, [resourceId])

@@ -1,5 +1,5 @@
-import { supabase } from './supabase'
 import { setOverrides, DEFAULT_LOCALE } from './i18n'
+import { contentApi } from '../api/content'
 
 // THE RUNTIME OVERRIDE LAYER, FETCHED (migration 168).
 //
@@ -20,8 +20,8 @@ export async function loadOverrides(code) {
   // asking would be a round trip on every English creator's boot.
   if (!code || code === DEFAULT_LOCALE) return
   try {
-    const { data, error } = await supabase
-      .from('translations')
+    const { data, error } = await contentApi
+      .translations()
       .select('source, value')
       .eq('locale', code)
     if (error || !data) return
@@ -35,8 +35,8 @@ export async function loadOverrides(code) {
 
 /** Every override row for a language, newest first, for the editor. */
 export async function listOverrides(code) {
-  const { data, error } = await supabase
-    .from('translations')
+  const { data, error } = await contentApi
+    .translations()
     .select('source, value, updated_at, updated_by, profiles:updated_by(name)')
     .eq('locale', code)
     .order('updated_at', { ascending: false })
@@ -52,11 +52,11 @@ export async function listOverrides(code) {
 export async function saveOverride(code, source, value, byId) {
   const text = (value || '').trim()
   if (!text) {
-    const { error } = await supabase
-      .from('translations').delete().eq('locale', code).eq('source', source)
+    const { error } = await contentApi
+      .translations().delete().eq('locale', code).eq('source', source)
     return { error: error?.message ?? null, cleared: true }
   }
-  const { error } = await supabase.from('translations').upsert({
+  const { error } = await contentApi.translations().upsert({
     locale: code,
     source,
     value: text,

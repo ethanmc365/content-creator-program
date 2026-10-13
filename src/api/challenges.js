@@ -28,6 +28,7 @@ export const makeChallengesApi = (db = supabase) => ({
   rebuildChallengeResults: (args, opts) => db.rpc('rebuild_challenge_results', args, opts),
   recalcChallengePoints: (args, opts) => db.rpc('recalc_challenge_points', args, opts),
   viewsLeaderboard: (args, opts) => db.rpc('views_leaderboard', args, opts),
+  setEntryFeedback: (args, opts) => db.rpc('set_entry_feedback', args, opts),
   /** A challenge function chosen at run time (award or withdraw a bonus). */
   call: (fn, args, opts) => db.rpc(fn, args, opts),
 })

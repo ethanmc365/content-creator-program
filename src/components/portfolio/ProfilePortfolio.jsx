@@ -2,7 +2,6 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
-import { supabase } from '../../lib/supabase'
 import Icon from '../Icon'
 import { Modal } from '../ui'
 import { cx } from '../../lib/utils'
@@ -14,6 +13,7 @@ import { compactViews } from '../../lib/portfolio'
 import { safeUrl } from '../../lib/safeUrl'
 import { submissionsApi } from '../../api/submissions'
 import { profilesApi } from '../../api/profiles'
+import { certificatesApi } from '../../api/certificates'
 
 // SOMEBODY'S PORTFOLIO, ON THEIR PROFILE.
 //
@@ -75,7 +75,7 @@ export default function ProfilePortfolio({ profileId }) {
         submissionsApi.submissions()
           .select('id, platform, video_url, thumbnail_url, logged_views, challenge_id, community_id, challenge:challenges(title), market:communities(name)')
           .eq('creator_id', profileId).order('logged_views', { ascending: false, nullsFirst: false }),
-        supabase.from('certificate_awards')
+        certificatesApi.certificateAwards()
           .select('serial, facts, awarded_at, design:certificate_designs(title, tier, accent, emblem, body)')
           .eq('profile_id', profileId).order('awarded_at', { ascending: false }),
         profilesApi.profiles()

@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Modal, Spinner } from '../ui'
 import Icon from '../Icon'
-import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
 import { ROOM_LABELS, postToRooms } from '../../lib/announce'
 import { snapshotNode, downloadBlob, slugForFile } from '../../lib/domSnapshot'
@@ -10,6 +9,7 @@ import { uploadFile } from '../../lib/upload'
 import { cx } from '../../lib/utils'
 import LiveLeaderboardCard from '../LiveLeaderboardCard'
 import { chatApi } from '../../api/chat'
+import { marketsApi } from '../../api/markets'
 
 // SHARING THE RESULT OF A CHALLENGE, AS A PICTURE, INTO THE ROOM IT BELONGS IN.
 //
@@ -84,7 +84,7 @@ export default function ShareLeaderboard({
     const run = async () => {
       let communityId = challenge?.community_id
       if (!communityId) {
-        const { data: net } = await supabase.from('communities').select('id').eq('kind', 'network').maybeSingle()
+        const { data: net } = await marketsApi.communities().select('id').eq('kind', 'network').maybeSingle()
         communityId = net?.id ?? null
       }
       if (!communityId) { if (!dead) setRooms([]); return }

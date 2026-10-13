@@ -11,6 +11,8 @@ import { LOCALES, loadLocale, setLocale, useT } from '../../lib/i18n'
 import { loadOverrides } from '../../lib/translations'
 import GoogleButton from '../../components/GoogleButton'
 import { vipApi } from '../../api/vip'
+import { teamApi } from '../../api/team'
+import { moneyApi } from '../../api/money'
 
 // Public creator signup. New accounts are creators by default - // admins are promoted later (see README → "Making an account an admin").
 // `?demo=1`, for an admin only, renders this page inertly inside the Testing
@@ -85,7 +87,7 @@ export default function Signup() {
   useEffect(() => {
     if (!teamToken) return undefined
     let alive = true
-    supabase.rpc('team_invite_check', { p_token: teamToken }).then(({ data }) => {
+    teamApi.teamInviteCheck({ p_token: teamToken }).then(({ data }) => {
       const row = Array.isArray(data) ? data[0] : data
       if (alive) setTeamInvite(row?.valid ? row : { valid: false })
     })
@@ -109,7 +111,7 @@ export default function Signup() {
       if (localStorage.getItem(key)) return
       localStorage.setItem(key, '1')
     } catch { /* private mode: still count the click */ }
-    supabase.rpc('increment_referral_click', { code: ref }).then(() => {})
+    moneyApi.incrementReferralClick({ code: ref }).then(() => {})
   }, [ref, demo])
 
   // Navigate declaratively once the session is really in context, for the same

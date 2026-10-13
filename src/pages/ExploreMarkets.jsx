@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { motion } from 'motion/react'
-import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { useCommunity } from '../context/CommunityContext'
 import NetworkLayout, { flagFromIso } from '../components/network/NetworkLayout'
@@ -17,6 +16,7 @@ import { testFlags } from '../lib/testData'
 import ReaderText from '../components/ReaderText'
 import { openJoinMarket } from '../components/network/JoinMarket'
 import { challengesApi } from '../api/challenges'
+import { marketsApi } from '../api/markets'
 
 // Every market, and whether it is yours.
 //
@@ -177,7 +177,7 @@ export default function ExploreMarkets() {
     let cancelled = false
     async function load() {
       const [{ data: mems }, { data: challenges }] = await Promise.all([
-        supabase.from('community_members')
+        marketsApi.communityMembers()
           .select('community_id, profiles!inner(is_admin, is_test, status)')
           .eq('status', 'active')
           .eq('profiles.is_admin', false).in('profiles.is_test', testFlags()).eq('profiles.status', 'active'),
@@ -201,7 +201,7 @@ export default function ExploreMarkets() {
   useEffect(() => {
     if (!user?.id) return
     let alive = true
-    supabase.from('market_join_requests')
+    marketsApi.marketJoinRequests()
       .select('community_id, status')
       .eq('profile_id', user.id)
       .eq('status', 'pending')

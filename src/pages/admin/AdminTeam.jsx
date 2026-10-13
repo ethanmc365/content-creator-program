@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
 import { confirm, notice, promptText } from '../../lib/confirm'
 import { toast } from '../../lib/toast'
@@ -12,6 +11,8 @@ import { LEAD_TITLE_SHORT, TITLE_PRESETS, permissionLabel } from '../../lib/role
 import { cx } from '../../lib/utils'
 import { vipApi } from '../../api/vip'
 import { profilesApi } from '../../api/profiles'
+import { marketsApi } from '../../api/markets'
+import { teamApi } from '../../api/team'
 
 const MARKET_FLAG = { uk: '🇬🇧', spain: '🇪🇸', portugal: '🇵🇹', germany: '🇩🇪', romania: '🇷🇴', nordics: '🇸🇪' }
 
@@ -221,10 +222,10 @@ export default function AdminTeam() {
   const load = useCallback(async () => {
     const peopleP = profilesApi.profiles().select('id, name, photo_url, country_code, city, country')
       .eq('status', 'active').eq('is_test', false).order('name').limit(1000)
-    const memP = supabase.from('community_members').select('community_id, profile_id').eq('status', 'active').limit(5000)
+    const memP = marketsApi.communityMembers().select('community_id, profile_id').eq('status', 'active').limit(5000)
     const [{ data: roster, error }, { data: mk }] = await Promise.all([
-      supabase.rpc('team_roster'),
-      supabase.from('communities').select('id, name, slug, kind').eq('kind', 'chapter').is('retired_at', null).order('name'),
+      teamApi.teamRoster(),
+      marketsApi.communities().select('id, name, slug, kind').eq('kind', 'chapter').is('retired_at', null).order('name'),
     ])
     if (error) { notice(`Could not load the team: ${error.message}`); setTeam([]); return }
     setTeam(roster || [])
@@ -250,7 +251,7 @@ export default function AdminTeam() {
     )
     if (title === null) return
     setBusy(true)
-    const { error } = await supabase.rpc('set_team_member', {
+    const { error } = await teamApi.setTeamMember({
       target: person.id,
       p_title: title || null,
       p_clear_title: !title,
@@ -275,7 +276,7 @@ export default function AdminTeam() {
     )
     if (!ok) return
     setBusy(true)
-    const { error } = await supabase.rpc('set_team_member', { target: personId, p_admin: true })
+    const { error } = await teamApi.setTeamMember({ target: personId, p_admin: true })
     setBusy(false)
     if (error) { notice(error.message); return }
     await load()
@@ -290,7 +291,7 @@ export default function AdminTeam() {
     )
     if (!ok) return
     setBusy(true)
-    const { error } = await supabase.rpc('set_team_member', {
+    const { error } = await teamApi.setTeamMember({
       target: person.id, p_admin: false, p_clear_title: true,
     })
     setBusy(false)
@@ -319,7 +320,7 @@ export default function AdminTeam() {
     }
 
     setBusy(true)
-    const { error } = await supabase.rpc('transfer_ownership', { target: target.id })
+    const { error } = await teamApi.transferOwnership({ target: target.id })
     setBusy(false)
     if (error) { notice(error.message); return }
     await refreshProfile()
@@ -351,10 +352,10 @@ export default function AdminTeam() {
     setBusy(true)
     const already = memberIds[market.id]?.has(personId)
     const { error } = already
-      ? await supabase.from('community_members').update({ role: 'manager' }).eq('community_id', market.id).eq('profile_id', personId)
-      : await supabase.from('community_members').insert({ community_id: market.id, profile_id: personId, role: 'manager', status: 'active' })
+      ? await marketsApi.communityMembers().update({ role: 'manager' }).eq('community_id', market.id).eq('profile_id', personId)
+      : await marketsApi.communityMembers().insert({ community_id: market.id, profile_id: personId, role: 'manager', status: 'active' })
     if (!error && !isAdmin) {
-      const { error: adminErr } = await supabase.rpc('set_team_member', { target: personId, p_admin: true })
+      const { error: adminErr } = await teamApi.setTeamMember({ target: personId, p_admin: true })
       if (adminErr) notice(`${person.name} manages ${market.name}, but could not be added to the team: ${adminErr.message}`)
     }
     setBusy(false)
@@ -371,7 +372,7 @@ export default function AdminTeam() {
     )
     if (!ok) return
     setBusy(true)
-    const { error } = await supabase.from('community_members').update({ role: 'creator' })
+    const { error } = await marketsApi.communityMembers().update({ role: 'creator' })
       .eq('community_id', market.id).eq('profile_id', person.id)
     setBusy(false)
     if (error) { notice(error.message); return }

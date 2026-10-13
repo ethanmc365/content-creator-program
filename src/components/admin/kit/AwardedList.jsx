@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { supabase } from '../../../lib/supabase'
 import { Avatar, EmptyState, Modal, Skeleton, Spinner } from '../../ui'
 import Icon from '../../Icon'
 import { cx } from '../../../lib/utils'
@@ -7,6 +6,7 @@ import { confirm, notice } from '../../../lib/confirm'
 import { formatAwardDate, sortCertificates, tierOf } from '../../../lib/certificates'
 import { Preview } from './CertificateStudio'
 import { profilesApi } from '../../../api/profiles'
+import { certificatesApi } from '../../../api/certificates'
 
 // WHO HAS WHAT, AND HANDING ONE OUT.
 //
@@ -30,11 +30,11 @@ export default function AwardedList() {
 
   const load = useCallback(async () => {
     const [{ data: awards }, { data: ds }] = await Promise.all([
-      supabase.from('certificate_awards')
+      certificatesApi.certificateAwards()
         .select('*, design:certificate_designs(*), creator:profiles!certificate_awards_profile_id_fkey(id, name, photo_url)')
         .order('awarded_at', { ascending: false })
         .limit(400),
-      supabase.from('certificate_designs').select('*').order('name'),
+      certificatesApi.certificateDesigns().select('*').order('name'),
     ])
     setRows(awards || [])
     setDesigns(ds || [])
@@ -58,7 +58,7 @@ export default function AwardedList() {
       `Take back the certificate "${row.design?.title}" from ${row.creator?.name}? It disappears from their rewards page and their portfolio.`,
       { title: 'Take it back', confirmLabel: 'Take it back', danger: true },
     )) return
-    const { error } = await supabase.from('certificate_awards').delete().eq('id', row.id)
+    const { error } = await certificatesApi.certificateAwards().delete().eq('id', row.id)
     if (error) return notice(error.message, { title: 'Could not do that' })
     setOpen(null)
     load()
@@ -263,7 +263,7 @@ function GiveByHand({ open, designs, onClose, onDone }) {
     // awarding to somebody who already has it is a no-op rather than an error -
     // which is what makes selecting "everybody" safe to press twice.
     const results = await Promise.all(picked.map((id) =>
-      supabase.rpc('award_certificate', { p_design: design, p_profile: id })))
+      certificatesApi.awardCertificate({ p_design: design, p_profile: id })))
     setBusy(false)
     const failed = results.filter((r) => r.error)
     if (failed.length) return notice(failed[0].error.message, { title: 'Some did not go out' })

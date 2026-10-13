@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react'
-import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
 import { Modal, Spinner } from '../ui'
 import Icon from '../Icon'
 import { cx } from '../../lib/utils'
 import { notice } from '../../lib/confirm'
 import { notifications } from '../../api/notifications'
+import { marketsApi } from '../../api/markets'
+import { teamApi } from '../../api/team'
 
 // SEND EVERYONE A PUSH ABOUT THIS CHALLENGE, from the challenge.
 //
@@ -68,7 +69,7 @@ export default function ChallengePush({ challenge, open, onClose }) {
   useEffect(() => {
     if (!open || !marketId) return undefined
     let alive = true
-    supabase.from('communities').select('name').eq('id', marketId).maybeSingle()
+    marketsApi.communities().select('name').eq('id', marketId).maybeSingle()
       .then(({ data }) => { if (alive && data?.name) setMarketName(data.name) })
     return () => { alive = false }
   }, [open, marketId])
@@ -97,9 +98,9 @@ export default function ChallengePush({ challenge, open, onClose }) {
       // DEFINER precisely so this question can be answered, and it already
       // excludes test accounts and people on their way out.
       const [{ data: adoption }, { data: members }] = await Promise.all([
-        supabase.rpc('admin_push_adoption'),
+        teamApi.adminPushAdoption(),
         toMarket
-          ? supabase.from('community_members').select('profile_id').eq('community_id', marketId)
+          ? marketsApi.communityMembers().select('profile_id').eq('community_id', marketId)
           : Promise.resolve({ data: null }),
       ])
       const inMarket = members ? new Set(members.map((m) => m.profile_id)) : null

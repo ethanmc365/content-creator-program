@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useState } from 'react'
-import { supabase } from '../../lib/supabase'
 import { Modal, PlaneLoader } from '../ui'
 import { AppleMark, GoogleMark, OutlookMark } from './CalendarBrandMarks'
 import { confirm } from '../../lib/confirm'
 import { toast } from '../../lib/toast'
 import { useT } from '../../lib/i18n'
+import { eventsApi } from '../../api/events'
 
 // SUBSCRIBE ONCE, AND IT KEEPS ITSELF UP TO DATE.
 //
@@ -57,7 +57,7 @@ export default function SubscribeCalendar({ open, onClose }) {
   // failure a screen can have.
   const mint = useCallback(async () => {
     setFailed('')
-    const { data, error } = await supabase.rpc('my_calendar_token')
+    const { data, error } = await eventsApi.myCalendarToken()
     if (error) { setFailed(error.message || 'Could not create your calendar link.'); return }
     setToken(data)
   }, [])
@@ -101,7 +101,7 @@ export default function SubscribeCalendar({ open, onClose }) {
   async function reset() {
     if (!await confirm('Reset the link? Any calendar already subscribed to the old one will stop updating.')) return
     setBusy(true)
-    const { data, error } = await supabase.rpc('rotate_calendar_token')
+    const { data, error } = await eventsApi.rotateCalendarToken()
     setBusy(false)
     if (error) { toast('Could not reset the link'); return }
     setToken(data)

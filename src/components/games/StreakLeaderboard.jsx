@@ -1,12 +1,12 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { supabase } from '../../lib/supabase'
 import { Avatar, Modal, Skeleton } from '../ui'
 import Flame from './Flame'
 import Icon from '../Icon'
 import { cx } from '../../lib/utils'
 import { useT } from '../../lib/i18n'
 import { FREEZES_PER_MONTH } from '../../lib/gameStreak'
+import { gamesApi } from '../../api/games'
 
 // WHO ELSE IS ON A RUN, AND WHO HAS EVER HAD THE LONGEST ONE.
 //
@@ -93,7 +93,7 @@ export default function StreakLeaderboard({ open, onClose, myId, freezesLeft = n
     let alive = true
     TABS.forEach((t) => {
       if (rows[t.key] !== undefined) return
-      supabase.rpc(t.rpc, { p_limit: 50 }).then(({ data }) => {
+      gamesApi.call(t.rpc, { p_limit: 50 }).then(({ data }) => {
         if (alive) setRows((cur) => (cur[t.key] !== undefined ? cur : { ...cur, [t.key]: data ?? [] }))
       })
     })

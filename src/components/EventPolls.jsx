@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useState } from 'react'
-import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { confirm, notice, saved } from '../lib/confirm'
 import { Avatar, Badge, Modal, Spinner } from './ui'
@@ -12,6 +11,7 @@ import { announceToMarkets } from '../lib/announce'
 import MarketPicker from './calendar/MarketPicker'
 import { toast } from '../lib/toast'
 import { useT } from '../lib/i18n'
+import { eventsApi } from '../api/events'
 
 // FIND A TIME: an admin proposes time slots, creators tick yes/no per slot, and
 // the admin picks the slot most people can make - no external scheduling tool.
@@ -146,7 +146,7 @@ export default function EventPolls() {
 
   const load = useCallback(async () => {
     // Polls + slots first, then all votes for those slots (with names for admins).
-    const { data: pollRows } = await supabase.from('event_polls')
+    const { data: pollRows } = await eventsApi.eventPolls()
       .select('*, event_poll_slots(*)')
       .order('created_at', { ascending: false })
       .limit(6)
@@ -165,7 +165,7 @@ export default function EventPolls() {
     const slotIds = open.flatMap((p) => p.event_poll_slots.map((s) => s.id))
     let votes = []
     if (slotIds.length) {
-      const { data: v } = await supabase.from('event_poll_votes')
+      const { data: v } = await eventsApi.eventPollVotes()
         .select('*, profiles:creator_id(id, name, photo_url)')
         .in('slot_id', slotIds)
       votes = v ?? []
@@ -180,7 +180,7 @@ export default function EventPolls() {
   useEffect(() => { load() }, [load])
 
   async function vote(slot, available) {
-    const { error } = await supabase.from('event_poll_votes')
+    const { error } = await eventsApi.eventPollVotes()
       .upsert({ slot_id: slot.id, creator_id: user.id, available }, { onConflict: 'slot_id,creator_id' })
     if (error) { notice(`Could not save your vote: ${error.message}`); return }
     load()
@@ -188,12 +188,12 @@ export default function EventPolls() {
 
   async function closePoll(poll) {
     if (!await confirm(poll.closed ? `Reopen "${poll.title}"?` : `Close voting on "${poll.title}"?`)) return
-    await saved(supabase.from('event_polls').update({ closed: !poll.closed }).eq('id', poll.id))
+    await saved(eventsApi.eventPolls().update({ closed: !poll.closed }).eq('id', poll.id))
     load()
   }
   async function removePoll(poll) {
     if (!await confirm(`Delete the "${poll.title}" availability poll and all its votes?`)) return
-    await saved(supabase.from('event_polls').delete().eq('id', poll.id))
+    await saved(eventsApi.eventPolls().delete().eq('id', poll.id))
     load()
   }
 
@@ -336,11 +336,11 @@ function PollComposer({ open, onClose, onCreated }) {
     if (!title.trim()) { notice('Give the meet a title.'); return }
     if (slots.length === 0) { notice('Add at least one time slot.'); return }
     setSaving(true)
-    const { data: poll, error } = await supabase.from('event_polls')
+    const { data: poll, error } = await eventsApi.eventPolls()
       .insert({ title: title.trim(), note: note.trim() || null, created_by: user.id, community_ids: markets })
       .select().single()
     if (error) { setSaving(false); notice(`Could not create it: ${error.message}`); return }
-    const { error: slotErr } = await supabase.from('event_poll_slots')
+    const { error: slotErr } = await eventsApi.eventPollSlots()
       .insert(slots.map((s) => ({ ...s, poll_id: poll.id })))
     if (slotErr) { setSaving(false); notice(`Created, but the slots failed: ${slotErr.message}`); return }
 

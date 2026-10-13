@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { supabase } from '../../lib/supabase'
 import { useT } from '../../lib/i18n'
 import { flagFromIso } from '../../lib/flags'
 import { cx, formatDate } from '../../lib/utils'
 import Icon from '../Icon'
 import { openJoinMarket } from '../network/JoinMarket'
+import { marketsApi } from '../../api/markets'
 
 // WHAT THE OTHER MARKETS ARE RUNNING (1 Oct 2026).
 //
@@ -29,7 +29,7 @@ export default function OtherMarketChallenges({ staffRows = null, communities = 
   useEffect(() => {
     if (staff) return undefined
     let alive = true
-    supabase.rpc('other_market_challenges').then(({ data, error }) => {
+    marketsApi.otherMarketChallenges().then(({ data, error }) => {
       if (alive) setRows(error ? [] : (data ?? []))
     })
     return () => { alive = false }

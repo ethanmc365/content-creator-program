@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { motion } from 'motion/react'
-import { supabase } from '../lib/supabase'
 import { useCommunity } from '../context/CommunityContext'
 import NetworkLayout from '../components/network/NetworkLayout'
 import NetworkMotion from '../components/NetworkMotion'
@@ -20,6 +19,7 @@ import { useT } from '../lib/i18n'
 import { testFlags } from '../lib/testData'
 import { challengesApi } from '../api/challenges'
 import { submissionsApi } from '../api/submissions'
+import { marketsApi } from '../api/markets'
 
 // A market's own challenge board.
 //
@@ -58,7 +58,7 @@ export default function MarketChallenges() {
           .select('*, submissions(count)')
           .eq('community_id', market.id)
           .order('start_date', { ascending: false }),
-        supabase.from('community_members')
+        marketsApi.communityMembers()
           .select('profile_id, profiles!inner(is_admin, is_test, status)', { count: 'exact', head: true })
           .eq('community_id', market.id).eq('status', 'active')
           .eq('profiles.is_admin', false).in('profiles.is_test', testFlags()).eq('profiles.status', 'active'),

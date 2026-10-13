@@ -1,6 +1,5 @@
 import { useState } from 'react'
 import { Link, NavLink } from 'react-router-dom'
-import { supabase } from '../../lib/supabase'
 import { useCommunity } from '../../context/CommunityContext'
 import { notice } from '../../lib/confirm'
 import { clearScopeCache } from '../../lib/scope'
@@ -11,6 +10,7 @@ import { cx } from '../../lib/utils'
 import { marketName } from '../../lib/markets'
 import { useT } from '../../lib/i18n'
 import ReaderText from '../ReaderText'
+import { marketsApi } from '../../api/markets'
 
 // The identity strip every page inside a market wears.
 //
@@ -60,7 +60,7 @@ export default function MarketHeader({ market, memberCount, canManage, tab }) {
 
   async function join() {
     setBusy(true)
-    const { error } = await supabase.rpc('join_market', { p_slug: market.slug })
+    const { error } = await marketsApi.joinMarket({ p_slug: market.slug })
     setBusy(false)
     if (error) { notice(error.message); return }
     clearScopeCache()

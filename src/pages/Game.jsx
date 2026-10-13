@@ -25,6 +25,7 @@ import PinpointGame from '../components/games/PinpointGame'
 import ZipGame from '../components/games/ZipGame'
 import { cx } from '../lib/utils'
 import { useT } from '../lib/i18n'
+import { gamesApi } from '../api/games'
 
 const BRAND = '#d94407'
 const BRAND_LIGHT = '#f5853f'
@@ -127,7 +128,7 @@ export default function Game() {
 
   useEffect(() => {
     if (!eventId) return
-    supabase.from('game_events').select('*').eq('id', eventId).single().then(({ data }) => {
+    gamesApi.gameEvents().select('*').eq('id', eventId).single().then(({ data }) => {
       if (data) { setEvent(data); setMode(data.mode); setRegion(data.region) }
     })
   }, [eventId])
@@ -882,7 +883,7 @@ function Results({ result, mode, region, eventId, userId, onPlayAgain, onMenu })
   // `created_at` when `day_key` is null, so playing any travel game holds the
   // run up without this table having to pretend a quiz is a daily puzzle.
   useEffect(() => {
-    supabase.from('game_scores').insert({
+    gamesApi.gameScores().insert({
       player_id: userId, mode, region, correct: result.correct, total: result.total,
       time_ms: result.time_ms, event_id: eventId || null,
     }).then(() => { setSaving(false); announceScore() })
@@ -962,7 +963,7 @@ function Leaderboard({ mode, region, eventId, highlightUser, daily = false, head
   // fastest time, test accounts never ranked - and returns the streak with it,
   // which removes the second unbounded query this used to make as well.
   const load = useCallback(async () => {
-    const { data, error } = await supabase.rpc('game_mode_leaderboard', {
+    const { data, error } = await gamesApi.gameModeLeaderboard({
       p_mode: mode,
       p_region: region,
       p_event: eventId ?? null,
@@ -1006,7 +1007,7 @@ function Leaderboard({ mode, region, eventId, highlightUser, daily = false, head
     if (!isAdmin) return
     if (!await confirm(`Delete ${r.profiles?.name}'s score (${r.correct}/${r.total})?`)) return
     setRows((prev) => (prev ? prev.filter((x) => x.id !== r.id) : prev))
-    await saved(supabase.from('game_scores').delete().eq('id', r.id))
+    await saved(gamesApi.gameScores().delete().eq('id', r.id))
   }
   const startPress = (r) => { if (isAdmin) pressTimer.current = setTimeout(() => { longPressedRef.current = true; deleteScore(r) }, 550) }
   const cancelPress = () => clearTimeout(pressTimer.current)

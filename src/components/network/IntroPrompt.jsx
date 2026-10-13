@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from 'react'
-import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
 import Icon from '../Icon'
 import { Modal } from '../ui'
@@ -13,6 +12,7 @@ import { airport } from '../../lib/airports'
 import { COUNTRIES } from '../../lib/countries'
 import { submissionsApi } from '../../api/submissions'
 import { chatApi } from '../../api/chat'
+import { flightsApi } from '../../api/flights'
 
 // The introductions room, with the hard part done for you.
 //
@@ -178,9 +178,9 @@ export function IntroModal({ open, onClose, community, channel, onPosted }) {
     let alive = true
     const today = new Date().toISOString().slice(0, 10)
     Promise.all([
-      supabase.from('flights').select('id', { count: 'exact', head: true }).eq('creator_id', user.id),
+      flightsApi.flights().select('id', { count: 'exact', head: true }).eq('creator_id', user.id),
       submissionsApi.submissions().select('id', { count: 'exact', head: true }).eq('creator_id', user.id),
-      supabase.from('flights').select('to_iata, flown_on').eq('creator_id', user.id).gte('flown_on', today).order('flown_on').limit(1),
+      flightsApi.flights().select('to_iata, flown_on').eq('creator_id', user.id).gte('flown_on', today).order('flown_on').limit(1),
     ]).then(([f, sub, up]) => {
       if (!alive) return
       setExtras({ flights: f.count || 0, videos: sub.count || 0 })

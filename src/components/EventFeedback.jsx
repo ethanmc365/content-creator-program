@@ -1,6 +1,5 @@
 import { createPortal } from 'react-dom'
 import { useCallback, useEffect, useState } from 'react'
-import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { confirm, notice, saved } from '../lib/confirm'
 import { Avatar, Badge, Modal, Spinner } from './ui'
@@ -10,6 +9,7 @@ import { useMarkets } from '../lib/markets'
 import { useMyScopes } from '../lib/scope'
 import MarketPicker from './calendar/MarketPicker'
 import { useT } from '../lib/i18n'
+import { eventsApi } from '../api/events'
 
 // Two small "close the loop" features for events:
 //  * SuggestEvent  - creators propose sessions they'd like; admins get
@@ -38,7 +38,7 @@ export function SuggestEvent({ open = false, onClose }) {
   const [suggestions, setSuggestions] = useState([])
 
   const load = useCallback(async () => {
-    const { data } = await supabase.from('event_suggestions')
+    const { data } = await eventsApi.eventSuggestions()
       .select('*, profiles:creator_id(id, name, photo_url)')
       .order('created_at', { ascending: false })
       .limit(isAdmin ? 20 : 5)
@@ -51,7 +51,7 @@ export function SuggestEvent({ open = false, onClose }) {
     e.preventDefault()
     if (!title.trim()) return
     setSaving(true)
-    const { error } = await supabase.from('event_suggestions')
+    const { error } = await eventsApi.eventSuggestions()
       .insert({ creator_id: user.id, title: title.trim(), details: details.trim() || null, community_ids: markets })
     setSaving(false)
     if (error) { notice(`Could not send your suggestion: ${error.message}`); return }
@@ -61,12 +61,12 @@ export function SuggestEvent({ open = false, onClose }) {
   }
 
   async function setStatus(s, status) {
-    await saved(supabase.from('event_suggestions').update({ status }).eq('id', s.id))
+    await saved(eventsApi.eventSuggestions().update({ status }).eq('id', s.id))
     load()
   }
   async function remove(s) {
     if (!await confirm(`Delete the suggestion "${s.title}"?`)) return
-    await saved(supabase.from('event_suggestions').delete().eq('id', s.id))
+    await saved(eventsApi.eventSuggestions().delete().eq('id', s.id))
     load()
   }
 
@@ -185,7 +185,7 @@ export function EventRatingPrompt() {
       // Ended at least an hour ago. `ends_at` when there is one, otherwise the
       // start plus an hour, which is what the old query assumed silently.
       const to = new Date(now - 60 * 60_000).toISOString()
-      const { data: past } = await supabase.from('events')
+      const { data: past } = await eventsApi.events()
         .select('id, title, date, ends_at')
         .eq('rsvp_enabled', true)
         .gte('date', from).lte('date', to)
@@ -197,8 +197,8 @@ export function EventRatingPrompt() {
       const [{ data: rsvps }, { data: ratings }] = await Promise.all([
         // ONLY "GOING". Somebody who said they could not make it has nothing to
         // rate, and asking them reads as the app not having listened.
-        supabase.from('event_rsvps').select('event_id').eq('user_id', user.id).eq('status', 'going').in('event_id', ids),
-        supabase.from('event_ratings').select('event_id').eq('creator_id', user.id).in('event_id', ids),
+        eventsApi.eventRsvps().select('event_id').eq('user_id', user.id).eq('status', 'going').in('event_id', ids),
+        eventsApi.eventRatings().select('event_id').eq('creator_id', user.id).in('event_id', ids),
       ])
       if (!alive) return
       const went = new Set((rsvps ?? []).map((r) => r.event_id))
@@ -218,7 +218,7 @@ export function EventRatingPrompt() {
     // and waiting on a round trip to dismiss something you declined is the
     // wrong order.
     setTarget(null)
-    await supabase.from('event_ratings').insert({
+    await eventsApi.eventRatings().insert({
       event_id: target.id, creator_id: user.id, rating: null, skipped: true, asked_at: new Date().toISOString(),
     })
   }
@@ -226,7 +226,7 @@ export function EventRatingPrompt() {
   async function submit() {
     if (!rating) return
     setSaving(true)
-    const { error } = await supabase.from('event_ratings').insert({
+    const { error } = await eventsApi.eventRatings().insert({
       event_id: target.id,
       creator_id: user.id,
       rating,
@@ -311,7 +311,7 @@ export function EventRatingsAdmin() {
     if (!isAdmin) return
     let alive = true
     ;(async () => {
-      const { data: ratings } = await supabase.from('event_ratings')
+      const { data: ratings } = await eventsApi.eventRatings()
         .select('event_id, rating, comment, skipped, created_at, profiles:creator_id(id, name, photo_url), events:event_id(id, title, date)')
         .eq('skipped', false)
         .order('created_at', { ascending: false })

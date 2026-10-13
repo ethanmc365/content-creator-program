@@ -1,4 +1,5 @@
 import { supabase } from './supabase'
+import { teamApi } from '../api/team'
 
 // REPORTING A PERSON.
 //
@@ -51,7 +52,7 @@ export async function reportCreator(reportedId, reason, details) {
   if (!user) return { ok: false, message: 'You need to be signed in to do that.' }
   if (user.id === reportedId) return { ok: false, message: 'You cannot report yourself.' }
 
-  const { error } = await supabase.from('creator_reports').insert({
+  const { error } = await teamApi.creatorReports().insert({
     reporter_id: user.id,
     reported_id: reportedId,
     reason,

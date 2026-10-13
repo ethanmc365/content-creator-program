@@ -48,6 +48,7 @@ import { safeUrl } from '../lib/safeUrl'
 import { challengesApi } from '../api/challenges'
 import { submissionsApi } from '../api/submissions'
 import { profilesApi } from '../api/profiles'
+import { marketsApi } from '../api/markets'
 
 
 // The platform's own key in SocialMark's table. Two spellings of one list is
@@ -279,8 +280,8 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
       if (ch?.community_id) {
         // The join column is `profile_id`. Same query MarketChallenges runs for
         // its own bar, so the two can never disagree about who counts.
-        const { count } = await supabase
-          .from('community_members')
+        const { count } = await marketsApi
+          .communityMembers()
           .select('profile_id, profiles!inner(is_admin, is_test, status)', { count: 'exact', head: true })
           .eq('community_id', ch.community_id)
           .eq('status', 'active')

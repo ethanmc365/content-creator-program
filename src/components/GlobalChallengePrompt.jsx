@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Link, useLocation } from 'react-router-dom'
-import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import Icon from './Icon'
 import FlagTile from './network/FlagTile'
@@ -11,6 +10,7 @@ import { formatMoney, formatViews, cx } from '../lib/utils'
 import { useT } from '../lib/i18n'
 import { challengesApi } from '../api/challenges'
 import { submissionsApi } from '../api/submissions'
+import { marketsApi } from '../api/markets'
 
 // "THE GLOBAL CHALLENGE IS ON", WHEN YOU OPEN THE APP (4 Oct 2026).
 //
@@ -48,7 +48,7 @@ export default function GlobalChallengePrompt() {
     let alive = true
     const id = setTimeout(async () => {
       // Which worldwide challenge is live?
-      const { data: net } = await supabase.from('communities').select('id').eq('kind', 'network').maybeSingle()
+      const { data: net } = await marketsApi.communities().select('id').eq('kind', 'network').maybeSingle()
       if (!alive || !net) return
       const { data: ch } = await challengesApi.challenges()
         .select('id, title, end_date, scoring, prize_amount, prize_currency, status, community_id, join_bonus_points')

@@ -1,6 +1,5 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
 import Icon from '../Icon'
 import { Spinner } from '../ui'
@@ -9,6 +8,7 @@ import { toastSuccess } from '../../lib/toast'
 import { cx } from '../../lib/utils'
 import { viewerZone } from '../../lib/eventTime'
 import { useT } from '../../lib/i18n'
+import { eventsApi } from '../../api/events'
 
 // A VIP'S MONTH, PLANNED ON THE CALENDAR (3 Oct 2026).
 //
@@ -62,7 +62,7 @@ export default function VipPlanCard({ overview, items, now, onAdded }) {
       type: 'personal', timezone: viewerZone(), owner_id: user.id, created_by: user.id,
       community_ids: [], rsvp_enabled: false,
     }))
-    const { error } = await supabase.from('events').insert(rows)
+    const { error } = await eventsApi.events().insert(rows)
     setBusy(false)
     if (error) { notice(error.message); return }
     toastSuccess(list.length === 1 ? tr('Added to your calendar') : tr('{n} posting days added to your calendar', { n: list.length }))

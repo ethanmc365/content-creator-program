@@ -4,7 +4,6 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { copyToClipboard } from '../../lib/clipboard'
 import { toastSuccess } from '../../lib/toast'
 import { useIsPhone } from '../../lib/useKeyboardInset'
-import { supabase } from '../../lib/supabase'
 import { applicantBucket } from '../../lib/onboardingProgress'
 import { useAuth } from '../../context/AuthContext'
 import ChallengeParticipation from '../../components/admin/ChallengeParticipation'
@@ -23,6 +22,8 @@ import { moneyApi } from '../../api/money'
 import { submissionsApi } from '../../api/submissions'
 import { profilesApi } from '../../api/profiles'
 import { chatApi } from '../../api/chat'
+import { marketsApi } from '../../api/markets'
+import { teamApi } from '../../api/team'
 
 // Creator management: the full list with emails (admin-only RPC), plus all
 // account actions - password reset, mute, suspend, promote to admin, DM.
@@ -114,13 +115,13 @@ export default function AdminCreators() {
   async function load() {
     const [{ data: profiles }, { data: emailRows }, { data: seenRows }, { data: memberRows }] = await Promise.all([
       profilesApi.profiles().select('*').order('created_at', { ascending: false }),
-      supabase.rpc('admin_list_emails'),
-      supabase.rpc('admin_list_activity'),
+      teamApi.adminListEmails(),
+      teamApi.adminListActivity(),
       // WHICH MARKET SOMEBODY IS IN IS THE FILTER THIS PAGE WAS MISSING.
       // A country manager opening a roster of everybody worldwide has to read
       // past four other markets to find their own, which is most of the reason
       // the page felt like hunting.
-      supabase.from('community_members')
+      marketsApi.communityMembers()
         .select('profile_id, communities!inner(name, kind)')
         .eq('status', 'active').eq('communities.kind', 'chapter'),
     ])
@@ -214,7 +215,7 @@ export default function AdminCreators() {
     setNowTick(Date.now())
     const tick = setInterval(() => setNowTick(Date.now()), 30000)
     const refresh = setInterval(async () => {
-      const { data } = await supabase.rpc('admin_list_activity')
+      const { data } = await teamApi.adminListActivity()
       if (data) setLastSeen(Object.fromEntries(data.map((r) => [r.id, { signIn: r.last_sign_in_at, seen: r.last_seen_at, posted: r.last_posted_at, active: r.last_active_at }])))
     }, 60000)
     return () => { clearInterval(tick); clearInterval(refresh) }
@@ -232,7 +233,7 @@ export default function AdminCreators() {
         // one row per creator, an admins-only policy - but it was labelled
         // "Private note" with no author, so it read as your own scratchpad and
         // nobody could tell whether a note was theirs or a colleague's.
-        supabase.from('creator_admin_notes').select('note, updated_at, updated_by').eq('creator_id', selected.id).maybeSingle(),
+        teamApi.creatorAdminNotes().select('note, updated_at, updated_by').eq('creator_id', selected.id).maybeSingle(),
         moneyApi.creatorPrivate().select('phone, phone_country').eq('id', selected.id).maybeSingle(),
       ])
       setDetail({ submissions: subs ?? [], messageCount: msgs ?? 0, rewards: rewards ?? [] })
@@ -244,7 +245,7 @@ export default function AdminCreators() {
   }, [selected])
 
   async function saveNote() {
-    const { error } = await supabase.from('creator_admin_notes').upsert({
+    const { error } = await teamApi.creatorAdminNotes().upsert({
       creator_id: selected.id, note, updated_by: user.id, updated_at: new Date().toISOString(),
     })
     if (error) return flash(`Couldn't save note: ${error.message}`)
@@ -272,7 +273,7 @@ export default function AdminCreators() {
     if (!await confirm(promoting
       ? `Promote ${creator.name} to admin? They'll get FULL admin power.`
       : `Remove admin rights from ${creator.name}?`)) return
-    const { error } = await supabase.rpc('admin_set_admin', { target: creator.id, make_admin: promoting })
+    const { error } = await teamApi.adminSetAdmin({ target: creator.id, make_admin: promoting })
     if (error) { flash(`Couldn't update: ${error.message}`); return }
     flash(promoting ? `${creator.name} is now an admin.` : `${creator.name} is no longer an admin.`)
     setSelected(null)
@@ -312,7 +313,7 @@ export default function AdminCreators() {
   async function deleteCreator(creator) {
     if (!await confirm(`PERMANENTLY delete ${creator.name}? This removes their account and ALL their content (submissions, messages, photos, rewards). This cannot be undone.`)) return
     if (!await confirm(`Are you absolutely sure? Type-check: this will erase ${creator.name} forever.`)) return
-    const { error } = await supabase.rpc('admin_delete_creator', { target: creator.id })
+    const { error } = await teamApi.adminDeleteCreator({ target: creator.id })
     if (error) return flash(`Couldn't delete: ${error.message}`)
     flash(`${creator.name} has been permanently deleted.`)
     setSelected(null)

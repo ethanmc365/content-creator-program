@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react'
-import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
 import { Avatar, Modal } from '../ui'
 import { ContactBlock, ContactRow, EntryList, PageTile, SheetLabel, StatTile } from './creatorSheet'
@@ -10,6 +9,8 @@ import { CreatorMarketsBlock } from './CreatorMarkets'
 import ChallengeParticipation from './ChallengeParticipation'
 import { moneyApi } from '../../api/money'
 import { submissionsApi } from '../../api/submissions'
+import { marketsApi } from '../../api/markets'
+import { teamApi } from '../../api/team'
 
 // THE ADMIN RECORD, WHERE THE ADMIN ALREADY IS.
 //
@@ -55,12 +56,12 @@ export default function CreatorPeek({ creator, open, onClose }) {
           submissionsApi.submissions().select('id, video_url, platform, logged_views, submitted_at, challenges(title)')
             .eq('creator_id', id).order('submitted_at', { ascending: false }),
           moneyApi.rewards().select('amount, currency, status').eq('creator_id', id),
-          supabase.from('creator_admin_notes').select('note, updated_at, updated_by').eq('creator_id', id).maybeSingle(),
+          teamApi.creatorAdminNotes().select('note, updated_at, updated_by').eq('creator_id', id).maybeSingle(),
           moneyApi.creatorPrivate().select('phone, phone_country').eq('id', id).maybeSingle(),
           // The address lives in `auth.users`, which no client may read. This is
           // the definer RPC the roster uses, asked for one row.
-          supabase.rpc('admin_list_emails'),
-          supabase.from('community_members').select('communities(name)').eq('profile_id', id),
+          teamApi.adminListEmails(),
+          marketsApi.communityMembers().select('communities(name)').eq('profile_id', id),
         ])
       if (!alive) return
       setData({
@@ -79,7 +80,7 @@ export default function CreatorPeek({ creator, open, onClose }) {
   }, [open, id])
 
   async function saveNote() {
-    const { error } = await supabase.from('creator_admin_notes').upsert({
+    const { error } = await teamApi.creatorAdminNotes().upsert({
       creator_id: id, note, updated_by: user.id, updated_at: new Date().toISOString(),
     })
     // THE RESULT IS READ. A refused upsert resolves like a successful one in

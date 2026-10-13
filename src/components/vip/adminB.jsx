@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useState } from 'react'
-import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
 import { Avatar, Modal, Select, Skeleton, Spinner, Toggle } from '../ui'
 import Segmented from '../network/Segmented'
@@ -15,6 +14,7 @@ import VideoThumb from '../VideoThumb'
 import { HowItWorks, VipContentTab } from './adminD'
 import { safeUrl } from '../../lib/safeUrl'
 import { vipApi } from '../../api/vip'
+import { settingsApi } from '../../api/settings'
 
 // THE TEAM'S SIDE OF THE VIP PROGRAMME, PART TWO: the rules, the close, the goals, the numbers (2 Oct 2026).
 
@@ -778,13 +778,13 @@ export function SyncEvery() {
   const [saved, setSaved] = useState('')
   useEffect(() => {
     let alive = true
-    supabase.from('app_settings').select('value').eq('key', 'vip_sync').maybeSingle()
+    settingsApi.appSettings().select('value').eq('key', 'vip_sync').maybeSingle()
       .then(({ data }) => { if (alive) { const h = String(data?.value?.interval_hours ?? 6); setHours(h); setSaved(h) } })
     return () => { alive = false }
   }, [])
   async function save() {
     const h = Math.min(48, Math.max(1, Math.round(Number(hours) || 6)))
-    const { error } = await supabase.from('app_settings').upsert({ key: 'vip_sync', value: { interval_hours: h } })
+    const { error } = await settingsApi.appSettings().upsert({ key: 'vip_sync', value: { interval_hours: h } })
     if (error) { notice(error.message); return }
     setHours(String(h)); setSaved(String(h))
     toastSuccess(tr('Views are now read every {n} hours.', { n: h }))

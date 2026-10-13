@@ -3,7 +3,6 @@ import { confirm, promptText } from '../../lib/confirm'
 import { toastSuccess } from '../../lib/toast'
 import { Link, useSearchParams } from 'react-router-dom'
 import MarketRequests, { usePendingMarketRequests } from '../../components/admin/MarketRequests'
-import { supabase } from '../../lib/supabase'
 import { Avatar, Badge, CopyButton, EmptyState, PageHeader, Skeleton, Spinner } from '../../components/ui'
 import PhotoLightbox from '../../components/PhotoLightbox'
 import { onboardingProgress } from '../../lib/onboardingProgress'
@@ -18,6 +17,7 @@ import { flagFromIso } from '../../lib/flags'
 import { vipApi } from '../../api/vip'
 import { moneyApi } from '../../api/money'
 import { profilesApi } from '../../api/profiles'
+import { teamApi } from '../../api/team'
 
 // SIGNUP REVIEW, REBUILT 4 SEP 2026.
 //
@@ -206,7 +206,7 @@ export default function AdminApplications() {
       // way." It does: the queue is a to-do list, and somebody who applied this
       // morning is the one whose decision is still worth making quickly.
       .order('created_at', { ascending: false }),
-      supabase.rpc('admin_list_emails'),
+      teamApi.adminListEmails(),
     ])
     const list = profiles ?? []
     // Team applicants first: they are the ones whose approval hands over the admin panel.
@@ -215,7 +215,7 @@ export default function AdminApplications() {
     list.sort((a, b) => weight(b) - weight(a))
     setApps(list)
     if (list.some((a) => a.team_invite_id)) {
-      supabase.from('team_invites').select('id, label').then(({ data }) => setInviteLabels(Object.fromEntries((data ?? []).map((r) => [r.id, r.label]))))
+      teamApi.teamInvites().select('id, label').then(({ data }) => setInviteLabels(Object.fromEntries((data ?? []).map((r) => [r.id, r.label]))))
     }
     setEmails(Object.fromEntries((emailRows ?? []).map((r) => [r.id, r.email])))
 
@@ -381,7 +381,7 @@ export default function AdminApplications() {
       : 'the worldwide community only'
     if (!await confirm(`Approve ${app.name} into ${where}?`)) return
     setBusyId(app.id)
-    const { data, error } = await supabase.rpc('admin_approve_application', {
+    const { data, error } = await teamApi.adminApproveApplication({
       target: app.id,
       // ALWAYS AN ARRAY, even when it holds one slug or none. The function
       // takes text[] now; sending a bare string would resolve to no overload
@@ -415,7 +415,7 @@ export default function AdminApplications() {
     )
     if (title === null) return
     setBusyId(app.id)
-    const { error } = await supabase.rpc('approve_team_member', {
+    const { error } = await teamApi.approveTeamMember({
       p_profile: app.id,
       p_role_title: title || suggested || null,
     })
@@ -433,7 +433,7 @@ export default function AdminApplications() {
     const who = app.name?.trim() || 'this account'
     if (!await confirm(`Delete ${who}? This permanently removes the account and cannot be undone.`)) return
     setBusyId(app.id)
-    const { error } = await supabase.rpc('admin_decline_application', { target: app.id })
+    const { error } = await teamApi.adminDeclineApplication({ target: app.id })
     setBusyId(null)
     if (error) { flash(`Something went wrong: ${error.message}`); return }
     flash(`${who} deleted.`)
@@ -525,7 +525,7 @@ export default function AdminApplications() {
       setRunning({ verb: 'Approving', done, total: list.length })
       const error = app.is_vip && !app.team_application
         ? ((await approveVip(app)) === true ? null : true)
-        : (await supabase.rpc('admin_approve_application', { target: app.id, p_market_slugs: placeIn[app.id] ?? [] })).error
+        : (await teamApi.adminApproveApplication({ target: app.id, p_market_slugs: placeIn[app.id] ?? [] })).error
       if (error) failed.push(app.name)
       else done++
     }

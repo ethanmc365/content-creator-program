@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
-import { supabase } from '../../lib/supabase'
 import Icon from '../Icon'
 import { cx } from '../../lib/utils'
 import { useT } from '../../lib/i18n'
+import { agreementsApi } from '../../api/agreements'
 
 // THE PARENT OR GUARDIAN STEP, FOR THE TWO MEMBERS WHO STILL NEED IT (rebuilt 12 Oct 2026).
 //
@@ -17,7 +17,7 @@ export function useGuardianLinks(refreshKey = 0) {
   const [rows, setRows] = useState(null)
   useEffect(() => {
     let alive = true
-    supabase.rpc('my_guardian_links').then(({ data, error }) => { if (alive) setRows(error ? [] : data || []) })
+    agreementsApi.myGuardianLinks().then(({ data, error }) => { if (alive) setRows(error ? [] : data || []) })
     return () => { alive = false }
   }, [refreshKey])
   return rows

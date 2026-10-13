@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import Icon from '../components/Icon'
 import Reveal from '../components/network/Reveal'
@@ -11,6 +10,7 @@ import { AIRCRAFT } from '../lib/airlines'
 import { aircraftSeen } from '../lib/flightStats'
 import { cx } from '../lib/utils'
 import { useT } from '../lib/i18n'
+import { flightsApi } from '../api/flights'
 
 // THE AIRCRAFT COLLECTION.
 //
@@ -160,8 +160,8 @@ export default function AircraftCollection() {
 
   useEffect(() => {
     let cancelled = false
-    supabase
-      .from('flights')
+    flightsApi
+      .flights()
       .select('aircraft, airline, flown_on, distance_km, from_iata, to_iata')
       .eq('creator_id', user.id)
       .limit(1000)

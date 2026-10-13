@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { supabase } from '../../lib/supabase'
 import { Avatar, EmptyState, PageHeader, Select, Skeleton } from '../../components/ui'
 import Icon from '../../components/Icon'
 import { cx, downloadCsv, formatDateTime } from '../../lib/utils'
 import { profilesApi } from '../../api/profiles'
+import { marketsApi } from '../../api/markets'
+import { teamApi } from '../../api/team'
 
 // Everything the team does, in the order it happened.
 //
@@ -188,8 +189,8 @@ export default function AdminAuditLog() {
   // render stays satisfied.
   const load = useCallback(async (append = false) => {
     if (!append) setRows(null)
-    let q = supabase
-      .from('admin_audit_log')
+    let q = teamApi
+      .adminAuditLog()
       .select('*', append ? undefined : { count: 'exact' })
       .or(`entity.is.null,entity.neq.app_settings,target_name.is.null,target_name.not.in.${BOOKKEEPING_KEYS}`)
       .order('created_at', { ascending: false })
@@ -214,7 +215,7 @@ export default function AdminAuditLog() {
     // nobody else can write to this table.
     profilesApi.profiles().select('id, name, photo_url').eq('is_admin', true)
       .then(({ data }) => setPeople(Object.fromEntries((data ?? []).map((p) => [p.id, p]))))
-    supabase.from('communities').select('id, name, kind').order('name')
+    marketsApi.communities().select('id, name, kind').order('name')
       .then(({ data }) => setMarkets(data ?? []))
   }, [])
 

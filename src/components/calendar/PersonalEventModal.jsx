@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react'
-import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
 import { Modal, Spinner } from '../ui'
 import Icon from '../Icon'
@@ -9,6 +8,7 @@ import { isoToTimeInput, cx } from '../../lib/utils'
 import { DateField, TimeField } from '../DateTimeFields'
 import { viewerZone } from '../../lib/eventTime'
 import { useT } from '../../lib/i18n'
+import { eventsApi } from '../../api/events'
 
 // YOUR OWN DATES, ON THE SAME CALENDAR.
 //
@@ -92,8 +92,8 @@ export default function PersonalEventModal({ open, onClose, editing, onSaved }) 
       rsvp_enabled: false,
     }
     const { error } = editing
-      ? await supabase.from('events').update(payload).eq('id', editing.id)
-      : await supabase.from('events').insert({ ...payload, created_by: user.id })
+      ? await eventsApi.events().update(payload).eq('id', editing.id)
+      : await eventsApi.events().insert({ ...payload, created_by: user.id })
     setBusy(false)
     if (error) { notice(`Could not save that: ${error.message}`); return }
     toast(editing ? 'Updated' : 'Added to your calendar')
@@ -105,7 +105,7 @@ export default function PersonalEventModal({ open, onClose, editing, onSaved }) 
     if (!editing) return
     if (!await confirm(`Delete "${editing.title}"?`)) return
     setBusy(true)
-    const { error } = await supabase.from('events').delete().eq('id', editing.id)
+    const { error } = await eventsApi.events().delete().eq('id', editing.id)
     setBusy(false)
     if (error) { notice(`Could not delete that: ${error.message}`); return }
     toast('Deleted')

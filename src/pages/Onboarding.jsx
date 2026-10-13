@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
-import { supabase } from '../lib/supabase'
 import { isoForCountryName, loadMarkets, resolveMarket } from '../lib/markets'
 import { flagFromIso } from '../lib/flags'
 import {
@@ -29,6 +28,8 @@ import { vipApi } from '../api/vip'
 import { moneyApi } from '../api/money'
 import { profilesApi } from '../api/profiles'
 import { chatApi } from '../api/chat'
+import { marketsApi } from '../api/markets'
+import { teamApi } from '../api/team'
 
 // FIRST LOGIN: BUILDING A PROFILE THE TEAM CAN ACTUALLY REVIEW.
 //
@@ -469,7 +470,7 @@ export default function Onboarding() {
     let token = null
     try { token = localStorage.getItem('tryp_team_invite') } catch { /* private mode */ }
     if (!token) return
-    supabase.rpc('claim_team_invite', { p_token: token }).then(({ data }) => {
+    teamApi.claimTeamInvite({ p_token: token }).then(({ data }) => {
       if (data === true) { setTeamApplication(true); refreshProfile?.() }
       try { localStorage.removeItem('tryp_team_invite') } catch { /* nothing to do */ }
     })
@@ -764,7 +765,7 @@ export default function Onboarding() {
       if (vipErr) console.warn('Could not settle the VIP market at onboarding:', vipErr.message)
       clearVipCache()
     } else if (market.market?.slug) {
-      const { error: joinErr } = await supabase.rpc('join_market', { p_slug: market.market.slug })
+      const { error: joinErr } = await marketsApi.joinMarket({ p_slug: market.market.slug })
       if (joinErr) console.warn('Could not join market at onboarding:', joinErr.message)
     }
 

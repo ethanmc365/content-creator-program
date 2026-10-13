@@ -11,6 +11,7 @@ import { CREATOR_REPORT_LABEL } from '../../lib/creatorReports'
 import { formatDate, cx, timeAgo } from '../../lib/utils'
 import { profilesApi } from '../../api/profiles'
 import { chatApi } from '../../api/chat'
+import { teamApi } from '../../api/team'
 
 // Where reported messages land.
 //
@@ -44,8 +45,8 @@ function MessageReports({ onCount }) {
   const [busyId, setBusyId] = useState(null)
 
   const load = useCallback(async () => {
-    const { data } = await supabase
-      .from('message_reports')
+    const { data } = await chatApi
+      .messageReports()
       .select('*, reporter:reporter_id(id, name, photo_url), author:author_id(id, name, photo_url, is_admin, status)')
       .order('created_at', { ascending: false })
       .limit(300)
@@ -65,7 +66,7 @@ function MessageReports({ onCount }) {
           { placeholder: 'Optional, for the record', confirmLabel: 'Save' },
         )
       : null
-    const { error } = await supabase.rpc('decide_message_report', {
+    const { error } = await teamApi.decideMessageReport({
       p_id: report.id, p_status: status, p_note: note || null,
     })
     setBusyId(null)
@@ -84,7 +85,7 @@ function MessageReports({ onCount }) {
       ? await chatApi.directMessages().delete().eq('id', report.dm_id)
       : await chatApi.messages().update({ deleted: true }).eq('id', report.message_id)
     if (error) { setBusyId(null); await notice(`Could not delete it: ${error.message}`); return }
-    await supabase.rpc('decide_message_report', { p_id: report.id, p_status: 'actioned', p_note: 'Message deleted.' })
+    await teamApi.decideMessageReport({ p_id: report.id, p_status: 'actioned', p_note: 'Message deleted.' })
     setBusyId(null)
     load()
   }
@@ -95,7 +96,7 @@ function MessageReports({ onCount }) {
     setBusyId(report.id)
     const { error } = await profilesApi.profiles().update({ status: 'muted' }).eq('id', report.author_id)
     if (error) { setBusyId(null); await notice(`Could not mute them: ${error.message}`); return }
-    await supabase.rpc('decide_message_report', { p_id: report.id, p_status: 'actioned', p_note: `${name} muted.` })
+    await teamApi.decideMessageReport({ p_id: report.id, p_status: 'actioned', p_note: `${name} muted.` })
     setBusyId(null)
     load()
   }
@@ -278,8 +279,8 @@ function CreatorReports({ onCount }) {
   const [busyId, setBusyId] = useState(null)
 
   const load = useCallback(async () => {
-    const { data } = await supabase
-      .from('creator_reports')
+    const { data } = await teamApi
+      .creatorReports()
       .select('*, reporter:reporter_id(id, name, photo_url), reported:reported_id(id, name, photo_url, city, country, status, is_admin)')
       .order('created_at', { ascending: false })
       .limit(300)
@@ -298,7 +299,7 @@ function CreatorReports({ onCount }) {
     )
     setBusyId(report.id)
     const { data: { user } = {} } = await supabase.auth.getUser()
-    const { error } = await supabase.from('creator_reports').update({
+    const { error } = await teamApi.creatorReports().update({
       status,
       admin_note: note || null,
       reviewed_by: user?.id ?? null,
@@ -316,7 +317,7 @@ function CreatorReports({ onCount }) {
     const { error } = await profilesApi.profiles().update({ status: 'muted' }).eq('id', report.reported_id)
     if (error) { setBusyId(null); await notice(`Could not mute them: ${error.message}`); return }
     const { data: { user } = {} } = await supabase.auth.getUser()
-    await saved(supabase.from('creator_reports').update({
+    await saved(teamApi.creatorReports().update({
       status: 'actioned', admin_note: `${name} muted.`,
       reviewed_by: user?.id ?? null, reviewed_at: new Date().toISOString(),
     }).eq('id', report.id))

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { supabase } from './supabase'
+import { marketsApi } from '../api/markets'
 
 // Which markets is the signed-in creator in?
 //
@@ -51,14 +52,14 @@ export function loadMyScopes() {
       return { ids: null, homeId: null, networkId: null, rows: [] }
     }
     const [{ data, error }, { data: net }] = await Promise.all([
-      supabase
-        .from('community_members')
+      marketsApi
+        .communityMembers()
         .select('community_id, role, is_home')
         .eq('profile_id', user.id)
         .eq('status', 'active'),
       // The network's id, so a page can tell a GLOBAL challenge from a market
       // one without carrying the whole community list around.
-      supabase.from('communities').select('id').eq('kind', 'network').maybeSingle(),
+      marketsApi.communities().select('id').eq('kind', 'network').maybeSingle(),
     ])
     // A read failure must fail OPEN. If the membership tables are unreadable for
     // any reason, showing a creator every challenge is the behaviour they had

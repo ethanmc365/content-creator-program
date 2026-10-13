@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { motion } from 'motion/react'
-import { supabase } from '../lib/supabase'
 import { useCommunity } from '../context/CommunityContext'
 import NetworkLayout, { flagFromIso } from '../components/network/NetworkLayout'
 import NetworkMotion from '../components/NetworkMotion'
@@ -17,6 +16,7 @@ import { listContainer, listItem, pageFade } from '../lib/motion'
 import { testFlags } from '../lib/testData'
 import { useT } from '../lib/i18n'
 import { profilesApi } from '../api/profiles'
+import { marketsApi } from '../api/markets'
 
 // Manage markets: every market, the door to opening another, and the ones that
 // have been retired.
@@ -178,8 +178,8 @@ export default function GlobalSettings() {
   // WHO IS ASKING TO GET IN.
   const [joinRequests, setJoinRequests] = useState([])
   const loadRequests = useCallback(async () => {
-    const { data } = await supabase
-      .from('market_join_requests')
+    const { data } = await marketsApi
+      .marketJoinRequests()
       .select('id, created_at, community_id, profiles:profile_id(id, name, photo_url, country), communities:community_id(name)')
       .eq('status', 'pending')
       .order('created_at')
@@ -241,7 +241,7 @@ export default function GlobalSettings() {
       )
       if (reason == null || !reason.trim()) return
     }
-    const { error } = await supabase.rpc('decide_join_request', {
+    const { error } = await marketsApi.decideJoinRequest({
       p_request: r.id, p_accept: accept, p_reason: reason,
     })
     if (error) { notice(error.message); return }
@@ -268,7 +268,7 @@ export default function GlobalSettings() {
     if (!await confirm(
       `Permanently delete ${c.name}?\n\nThis is for a market created by mistake. Anything with members or challenges is refused - retire those instead.`,
     )) return
-    const { error } = await supabase.rpc('delete_market', { p_market: c.id })
+    const { error } = await marketsApi.deleteMarket({ p_market: c.id })
     if (error) { notice(error.message); return }
     await reload()
     notice(`${c.name} deleted.`)
@@ -276,7 +276,7 @@ export default function GlobalSettings() {
 
   async function createMarket() {
     setBusy(true)
-    const { error } = await supabase.rpc('create_market', {
+    const { error } = await marketsApi.createMarket({
       p_slug: form.slug,
       p_name: form.name.trim(),
       p_country_codes: form.codes,
@@ -293,8 +293,8 @@ export default function GlobalSettings() {
     if (!error && form.leads.length > 1) {
       // create_market takes one lead; the rest are set in the same breath so a
       // market never briefly exists with only half its team.
-      const { data: made } = await supabase.from('communities').select('id').eq('slug', form.slug).maybeSingle()
-      if (made?.id) await supabase.rpc('set_market_leads', { p_market: made.id, p_leads: form.leads })
+      const { data: made } = await marketsApi.communities().select('id').eq('slug', form.slug).maybeSingle()
+      if (made?.id) await marketsApi.setMarketLeads({ p_market: made.id, p_leads: form.leads })
     }
     setBusy(false)
     if (error) { notice(`Could not open the market: ${error.message}`); return }

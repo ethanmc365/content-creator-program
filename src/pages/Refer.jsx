@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react'
-import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { Avatar, Badge, EmptyState, PageHeader, Skeleton } from '../components/ui'
 import Icon from '../components/Icon'
@@ -10,6 +9,7 @@ import { useT } from '../lib/i18n'
 import { moneyApi } from '../api/money'
 import { submissionsApi } from '../api/submissions'
 import { profilesApi } from '../api/profiles'
+import { settingsApi } from '../api/settings'
 
 // Creators refer other creators ONE way: they share their personal invite link
 // (/signup?ref=CODE), which credits them automatically.
@@ -49,17 +49,17 @@ export default function Refer() {
 
   async function load() {
     const [{ data: refs }, { data: joinedProfiles }, { data: me }, { data: cfg }, { data: mine }] = await Promise.all([
-      supabase.from('referrals').select('*').eq('referrer_id', user.id).order('created_at', { ascending: false }),
+      moneyApi.referrals().select('*').eq('referrer_id', user.id).order('created_at', { ascending: false }),
       profilesApi.profiles().select('id, name, photo_url, created_at, status, onboarded').eq('referred_by', user.id),
       profilesApi.profiles().select('referral_clicks').eq('id', user.id).single(),
-      supabase.from('app_settings').select('value').eq('key', 'referral_reward').maybeSingle(),
+      settingsApi.appSettings().select('value').eq('key', 'referral_reward').maybeSingle(),
       moneyApi.rewards().select('id, amount, currency, status, created_at').eq('creator_id', user.id).eq('source', 'referral').order('created_at'),
     ])
     setReferrals(refs ?? [])
     setLinkClicks(me?.referral_clicks ?? 0)
     setTerms(referralTerms(cfg?.value))
     setVouchers(mine ?? [])
-    supabase.rpc('referral_leaderboard', { p_limit: 10 }).then(({ data }) => setBoard(data ?? []))
+    moneyApi.referralLeaderboard({ p_limit: 10 }).then(({ data }) => setBoard(data ?? []))
 
     // Which referred creators have actually submitted a challenge video? That is
     // what counts towards the voucher. Tag each person with their

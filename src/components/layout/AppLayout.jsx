@@ -39,6 +39,8 @@ import { applyMotion, getStoredMotion, setShellActive, syncTheme } from '../../l
 import LoadTrouble from '../LoadTrouble'
 import { notifications } from '../../api/notifications'
 import { profilesApi } from '../../api/profiles'
+import { contentApi } from '../../api/content'
+import { chatApi } from '../../api/chat'
 
 // The signed-in app shell. One shared set of icon tabs powers BOTH the
 // desktop top bar and the mobile bottom bar, so they look identical.
@@ -479,7 +481,7 @@ export default function AppLayout() {
     if (!user) return undefined
     let alive = true
     const check = () => {
-      supabase.from('app_updates').select('id, published_on').eq('published', true).order('published_on', { ascending: false }).order('created_at', { ascending: false }).limit(1)
+      contentApi.appUpdates().select('id, published_on').eq('published', true).order('published_on', { ascending: false }).order('created_at', { ascending: false }).limit(1)
         .then(({ data }) => {
           if (!alive || !data?.[0]) return
           let seen = ''
@@ -524,7 +526,7 @@ export default function AppLayout() {
     // tab. `my_dm_unread` adds the group side, measured against each member's
     // own last_read_at watermark.
     async function count() {
-      const { data } = await supabase.rpc('my_dm_unread')
+      const { data } = await chatApi.myDmUnread()
       setDmUnread(data ?? 0)
     }
     count()

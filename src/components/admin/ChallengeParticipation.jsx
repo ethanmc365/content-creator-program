@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react'
-import { supabase } from '../../lib/supabase'
 import Icon from '../Icon'
 import { cx } from '../../lib/utils'
 import { SheetLabel } from './creatorSheet'
 import { challengesApi } from '../../api/challenges'
 import { submissionsApi } from '../../api/submissions'
+import { marketsApi } from '../../api/markets'
+import { contentApi } from '../../api/content'
 
 // HAS THIS CREATOR TAKEN PART? (11 Oct 2026)
 //
@@ -33,8 +34,8 @@ export default function ChallengeParticipation({ profileId, isVip = false }) {
     let alive = true
     ;(async () => {
       const [{ data: mem }, { data: net }] = await Promise.all([
-        supabase.from('community_members').select('community_id').eq('profile_id', profileId).eq('status', 'active'),
-        supabase.from('communities').select('id').eq('kind', 'network'),
+        marketsApi.communityMembers().select('community_id').eq('profile_id', profileId).eq('status', 'active'),
+        marketsApi.communities().select('id').eq('kind', 'network'),
       ])
       const ids = [...new Set([...(mem ?? []), ...(net ?? [])].map((r) => r.community_id ?? r.id))]
       if (!ids.length) { if (alive) setRows([]); return }
@@ -42,7 +43,7 @@ export default function ChallengeParticipation({ profileId, isVip = false }) {
         challengesApi.challenges().select('id, title, community_id, end_date, communities(name, kind)')
           .eq('status', 'active').in('community_id', ids).order('end_date', { ascending: true }),
         submissionsApi.submissions().select('challenge_id').eq('creator_id', profileId),
-        supabase.from('tracked_videos').select('challenge_id').eq('creator_id', profileId).is('submission_id', null),
+        contentApi.trackedVideos().select('challenge_id').eq('creator_id', profileId).is('submission_id', null),
         submissionsApi.submissionDisqualifications().select('challenge_id').eq('creator_id', profileId),
       ])
       if (!alive) return

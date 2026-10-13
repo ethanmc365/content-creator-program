@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { format, startOfWeek, subWeeks } from 'date-fns'
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
-import { supabase } from '../../../lib/supabase'
 import { allRows } from '../../../lib/fetchAll'
 import { Avatar, Badge, Skeleton, StatCard } from '../../../components/ui'
 import Icon from '../../../components/Icon'
@@ -14,6 +13,7 @@ import { moneyApi } from '../../../api/money'
 import { challengesApi } from '../../../api/challenges'
 import { submissionsApi } from '../../../api/submissions'
 import { profilesApi } from '../../../api/profiles'
+import { settingsApi } from '../../../api/settings'
 
 // REFERRALS, AS A TAB OF ITS OWN (22 Sep 2026).
 //
@@ -112,7 +112,7 @@ export default function Referrals({ market = '', memberRows = [], scopeLabel = '
         allRows(() => moneyApi.rewards()
           .select('id, creator_id, amount, currency, status, created_at, referred_creator_id')
           .not('referred_creator_id', 'is', null)),
-        supabase.from('app_settings').select('value').eq('key', 'referral_reward').maybeSingle(),
+        settingsApi.appSettings().select('value').eq('key', 'referral_reward').maybeSingle(),
       ])
       const ids = people.map((p) => p.id)
       const [subs, results] = ids.length

@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
 import { PageHeader, Select, Skeleton, Spinner } from '../../components/ui'
 import Icon from '../../components/Icon'
@@ -8,6 +7,7 @@ import { toast } from '../../lib/toast'
 import AutoTextarea from '../../components/AutoTextarea'
 import { cx } from '../../lib/utils'
 import { fetchAll } from '../../lib/fetchAll'
+import { contentApi } from '../../api/content'
 
 // THE HOOK BANK, FOR THE TEAM (24 Sep 2026).
 //
@@ -43,7 +43,7 @@ export default function AdminHooks() {
   const load = useCallback(async () => {
     // PAGED: the API answers at most 1,000 rows and the bank holds ~1,500, so
     // a single read said "1,000 in rotation" and hid a third of the bank.
-    const { data, error } = await fetchAll(() => supabase.from('hooks')
+    const { data, error } = await fetchAll(() => contentApi.hooks()
       .select('id, text, family, uses, is_active, source, created_at'))
     if (error) { notice(error.message); setRows([]); return }
     setRows((data || []).sort((a, b) => b.uses - a.uses || a.text.localeCompare(b.text)))
@@ -80,7 +80,7 @@ export default function AdminHooks() {
     const t = text.trim().replace(/\s+/g, ' ')
     if (t.length < 3) return
     setSaving(true)
-    const { error } = await supabase.from('hooks').insert({
+    const { error } = await contentApi.hooks().insert({
       text: t, family: family || 'More ideas', source: 'team', uses: 1, created_by: profile?.id ?? null,
     })
     setSaving(false)
@@ -95,7 +95,7 @@ export default function AdminHooks() {
 
   async function toggle(h) {
     setRows((cur) => cur.map((x) => (x.id === h.id ? { ...x, is_active: !x.is_active } : x)))
-    const { error } = await supabase.from('hooks').update({ is_active: !h.is_active }).eq('id', h.id)
+    const { error } = await contentApi.hooks().update({ is_active: !h.is_active }).eq('id', h.id)
     if (error) { notice(error.message); load() }
   }
 
@@ -109,14 +109,14 @@ export default function AdminHooks() {
     setEditingId(null)
     if (!next || next === h.text) return
     setRows((cur) => cur.map((x) => (x.id === h.id ? { ...x, text: next } : x)))
-    const { error } = await supabase.from('hooks').update({ text: next }).eq('id', h.id)
+    const { error } = await contentApi.hooks().update({ text: next }).eq('id', h.id)
     if (error) { notice(error.message); load() } else toast('Hook saved.')
   }
 
   async function remove(h) {
     if (!await confirm(`"${h.text}"`, { title: 'Delete this hook?', confirmLabel: 'Delete', danger: true })) return
     setRows((cur) => cur.filter((x) => x.id !== h.id))
-    const { error } = await supabase.from('hooks').delete().eq('id', h.id)
+    const { error } = await contentApi.hooks().delete().eq('id', h.id)
     if (error) { notice(error.message); load() }
   }
 

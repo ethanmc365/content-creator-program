@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { supabase } from '../../lib/supabase'
 import { announceScore } from '../../lib/gameScores'
 import { useAuth } from '../../context/AuthContext'
 import { Badge, StreakChip } from '../ui'
@@ -10,6 +9,7 @@ import { hintForPath } from '../../lib/zipHint'
 import { ukDayIndex, ukDayStartIso, untilNextUkMidnight, dailyStreak } from '../../lib/daily'
 import { cx } from '../../lib/utils'
 import { useT } from '../../lib/i18n'
+import { gamesApi } from '../../api/games'
 
 // Flight Path: drag the plane through the numbered stops in order, leaving a
 // contrail behind you, until every cell of the sky is covered. One layout per
@@ -333,7 +333,7 @@ export default function ZipGame({ onExit }) {
   useEffect(() => {
     if (stored) return
     let alive = true
-    supabase.from('game_scores')
+    gamesApi.gameScores()
       .select('time_ms')
       .eq('player_id', user.id).eq('mode', 'zip').eq('day_key', day)
       .gte('created_at', ukDayStartIso())
@@ -379,7 +379,7 @@ export default function ZipGame({ onExit }) {
 
   // My daily streak for this game (consecutive UK days played).
   useEffect(() => {
-    supabase.from('game_scores')
+    gamesApi.gameScores()
       .select('day_key')
       .eq('player_id', user.id).eq('mode', 'zip').not('day_key', 'is', null)
       .then(({ data }) => setStreakDays((data ?? []).map((r) => r.day_key)))
@@ -421,7 +421,7 @@ export default function ZipGame({ onExit }) {
     localStorage.setItem(STORE_KEY, JSON.stringify({ day, time_ms }))
     if (savedRef.current) return
     savedRef.current = true
-    supabase.from('game_scores').insert({
+    gamesApi.gameScores().insert({
       player_id: user.id, mode: 'zip', region: 'Daily', day_key: day,
       correct: 1, total: 1, time_ms,
     }).then(() => announceScore())

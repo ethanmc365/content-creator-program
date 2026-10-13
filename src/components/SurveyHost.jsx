@@ -1,6 +1,5 @@
 import { Fragment, useCallback, useEffect, useId, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { Spinner } from './ui'
 import Icon from './Icon'
@@ -10,6 +9,7 @@ import { lockScroll } from '../lib/scrollLock'
 import { answered, minutesFor, pendingSurveys } from '../lib/surveys'
 import { cx } from '../lib/utils'
 import { useT } from '../lib/i18n'
+import { contentApi } from '../api/content'
 
 // A SURVEY, POPPED UP (30 Sep 2026, migration 291; rebuilt 1 Oct 2026, migration 293).
 //
@@ -42,8 +42,8 @@ export default function SurveyHost() {
     // Last in the queue: give the other asks a head start to claim this app open first.
     const id = setTimeout(async () => {
       const [{ data: live }, { data: mine }] = await Promise.all([
-        supabase.from('surveys').select('*').eq('status', 'live'),
-        supabase.from('survey_responses').select('survey_id').eq('profile_id', user.id),
+        contentApi.surveys().select('*').eq('status', 'live'),
+        contentApi.surveyResponses().select('survey_id').eq('profile_id', user.id),
       ])
       if (!alive) return
       const next = pendingSurveys(live, mine, [])[0]
@@ -133,7 +133,7 @@ export function SurveyCard({ survey, onDone = () => {}, preview = false, stage: 
 
   async function write(row) {
     if (preview) return true
-    const { error } = await supabase.from('survey_responses').insert({ survey_id: survey.id, profile_id: user.id, ...row })
+    const { error } = await contentApi.surveyResponses().insert({ survey_id: survey.id, profile_id: user.id, ...row })
     // Already answered on another device counts as done.
     if (error && error.code !== '23505') { setErr(tr('That did not send. Try again in a moment.')); return false }
     return true

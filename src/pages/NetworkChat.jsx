@@ -60,6 +60,7 @@ import { testFlags } from '../lib/testData'
 import { onResume } from '../lib/resume'
 import { profilesApi } from '../api/profiles'
 import { chatApi } from '../api/chat'
+import { marketsApi } from '../api/markets'
 
 // Per-market chat. Spain's General, the UK's General and the Worldwide General
 // are three separate rooms that happen to share a layout.
@@ -645,7 +646,7 @@ export default function NetworkChat() {
   useEffect(() => {
     if (!community) return
     let alive = true
-    supabase.from('community_members')
+    marketsApi.communityMembers()
       .select('profile_id, profiles!inner(id, name, photo_url, status, is_test)')
       .eq('community_id', community.id).eq('status', 'active')
       .eq('profiles.status', 'active').in('profiles.is_test', testFlags())
@@ -938,7 +939,7 @@ export default function NetworkChat() {
     const key = readPending.current
     readPending.current = null
     if (!key) return
-    supabase.rpc('mark_channel_read', { p_channel: key })
+    chatApi.markChannelRead({ p_channel: key })
       .then(({ data }) => {
         if (data && user?.id) setReads((prev) => new Map(prev).set(user.id, data))
       }, () => {})

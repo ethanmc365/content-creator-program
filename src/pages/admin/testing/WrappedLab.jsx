@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from 'react'
-import { supabase } from '../../../lib/supabase'
 import { allRows } from '../../../lib/fetchAll'
 import { LabPage, Panel, Note, Choice } from './kit'
 import { Avatar, PlaneLoader, Skeleton } from '../../../components/ui'
@@ -12,6 +11,11 @@ import { challengesApi } from '../../../api/challenges'
 import { submissionsApi } from '../../../api/submissions'
 import { profilesApi } from '../../../api/profiles'
 import { chatApi } from '../../../api/chat'
+import { marketsApi } from '../../../api/markets'
+import { gamesApi } from '../../../api/games'
+import { flightsApi } from '../../../api/flights'
+import { certificatesApi } from '../../../api/certificates'
+import { teamApi } from '../../../api/team'
 
 // THE YEAR IN REVIEW, BEFORE ANY CREATOR CAN SEE IT.
 //
@@ -98,9 +102,9 @@ export default function WrappedLab() {
         reactions, milestones, creatorMilestones,
       ] = await Promise.all([
         allRows(() => profilesApi.profiles().select('id, name, photo_url, city, country, status, is_test, is_admin, created_at, accepted_at')),
-        allRows(() => supabase.from('communities').select('id, slug, name, kind, retired_at')),
-        allRows(() => supabase.from('community_members').select('community_id, profile_id, is_home').eq('status', 'active'), { orderBy: ['community_id', 'profile_id'] }),
-        allRows(() => supabase.from('flights').select('id, creator_id, from_iata, to_iata, flown_on, airline, aircraft, distance_km, return_of')),
+        allRows(() => marketsApi.communities().select('id, slug, name, kind, retired_at')),
+        allRows(() => marketsApi.communityMembers().select('community_id, profile_id, is_home').eq('status', 'active'), { orderBy: ['community_id', 'profile_id'] }),
+        allRows(() => flightsApi.flights().select('id, creator_id, from_iata, to_iata, flown_on, airline, aircraft, distance_km, return_of')),
         allRows(() => submissionsApi.submissions().select('id, creator_id, challenge_id, platform, logged_views, submitted_at, thumbnail_url, video_url')),
         allRows(() => challengesApi.results().select('challenge_id, creator_id, final_views, rank')),
         allRows(() => moneyApi.rewards().select('creator_id, amount, currency, reward_type, created_at')),
@@ -125,13 +129,13 @@ export default function WrappedLab() {
         // fallback for the creator-facing route, where a creator reading their
         // own DMs is exactly what RLS allows.
         allRows(() => chatApi.directMessages().select('sender_id, created_at')),
-        supabase.rpc('year_dm_counts', { p_year: YEAR }).then(({ data }) => data || []),
+        teamApi.yearDmCounts({ p_year: YEAR }).then(({ data }) => data || []),
         allRows(() => profilesApi.connections().select('creator_id, connected_creator_id, status, created_at')),
-        allRows(() => supabase.from('collab_posts').select('creator_id, city, country, start_date, created_at')),
-        allRows(() => supabase.from('game_scores').select('player_id, mode, day_key, created_at')),
+        allRows(() => flightsApi.collabPosts().select('creator_id, city, country, start_date, created_at')),
+        allRows(() => gamesApi.gameScores().select('player_id, mode, day_key, created_at')),
         allRows(() => chatApi.reactions().select('creator_id, created_at')),
-        allRows(() => supabase.from('milestones').select('id, title, icon, reward, sort_order, is_active')),
-        allRows(() => supabase.from('creator_milestones').select('profile_id, milestone_id, reached_at'), { orderBy: ['profile_id', 'milestone_id'] }),
+        allRows(() => certificatesApi.milestones().select('id, title, icon, reward, sort_order, is_active')),
+        allRows(() => certificatesApi.creatorMilestones().select('profile_id, milestone_id, reached_at'), { orderBy: ['profile_id', 'milestone_id'] }),
       ])
       if (!alive) return
       setRaw({

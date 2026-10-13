@@ -21,6 +21,11 @@ describe('money api', () => {
     await api.deleteInvoice({ x: 1 })
     await api.nextInvoiceNumber({ x: 1 })
     await api.adminSetPaymentDetails({ x: 1 })
+    await api.referrals()
+    await api.attachReferral({ x: 1 })
+    await api.incrementReferralClick({ x: 1 })
+    await api.referralLeaderboard({ x: 1 })
+    await api.prizesWonTotal({ x: 1 })
     expect(calls).toEqual([
       ['from', 'creator_private'],
       ['from', 'invoices'],
@@ -37,6 +42,11 @@ describe('money api', () => {
       ['rpc', 'delete_invoice', { x: 1 }],
       ['rpc', 'next_invoice_number', { x: 1 }],
       ['rpc', 'admin_set_payment_details', { x: 1 }],
+      ['from', 'referrals'],
+      ['rpc', 'attach_referral', { x: 1 }],
+      ['rpc', 'increment_referral_click', { x: 1 }],
+      ['rpc', 'referral_leaderboard', { x: 1 }],
+      ['rpc', 'prizes_won_total', { x: 1 }],
     ])
   })
 })

@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from 'react'
-import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import CreatorCard from '../components/CreatorCard'
 import CreatorMap from '../components/CreatorMap'
@@ -15,6 +14,7 @@ import { cx } from '../lib/utils'
 import { useT } from '../lib/i18n'
 import { testFlags } from '../lib/testData'
 import { profilesApi } from '../api/profiles'
+import { flightsApi } from '../api/flights'
 
 const norm = (s) => (s || '').toLowerCase().replace(/[^a-z]/g, '')
 function distanceKm(aLat, aLng, bLat, bLng) {
@@ -81,7 +81,7 @@ export default function Directory() {
         loadRelationships(user.id),
         // Current + upcoming collab trips drive the map's "travelling now"
         // animation and the "Currently in" chips on the cards.
-        supabase.from('collab_posts').select('creator_id, city, country, city_lat, city_lng, start_date, end_date')
+        flightsApi.collabPosts().select('creator_id, city, country, city_lat, city_lng, start_date, end_date')
           .gte('end_date', today).order('start_date'),
       ])
       setCreators(profiles ?? [])

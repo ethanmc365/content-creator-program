@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useState } from 'react'
-import { supabase } from '../../../lib/supabase'
 import { useAuth } from '../../../context/AuthContext'
 import { EmptyState, Skeleton, Spinner, Toggle } from '../../ui'
 import { KitAction } from '../../../pages/admin/AdminCreatorKit'
@@ -20,6 +19,8 @@ import {
   optionsOf, tierForAward, ordinal,
 } from '../../../lib/certificates'
 import { STARTERS } from './certificateStarters'
+import { marketsApi } from '../../../api/markets'
+import { certificatesApi } from '../../../api/certificates'
 
 // THE CERTIFICATE BUILDER.
 //
@@ -91,9 +92,9 @@ export default function CertificateStudio() {
 
   const load = useCallback(async () => {
     const [{ data: designs }, { data: coms }, { data: miles }] = await Promise.all([
-      supabase.from('certificate_designs').select('*').order('created_at', { ascending: false }),
-      supabase.from('communities').select('id, name, kind').order('kind', { ascending: false }).order('name'),
-      supabase.from('milestones').select('id, title').eq('is_active', true).order('sort_order'),
+      certificatesApi.certificateDesigns().select('*').order('created_at', { ascending: false }),
+      marketsApi.communities().select('id, name, kind').order('kind', { ascending: false }).order('name'),
+      certificatesApi.milestones().select('id, title').eq('is_active', true).order('sort_order'),
     ])
     setRows(designs || [])
     setMarkets(coms || [])
@@ -111,8 +112,8 @@ export default function CertificateStudio() {
     }
     delete row.__isNew
     const { error } = row.id
-      ? await supabase.from('certificate_designs').update(row).eq('id', row.id)
-      : await supabase.from('certificate_designs').insert(row)
+      ? await certificatesApi.certificateDesigns().update(row).eq('id', row.id)
+      : await certificatesApi.certificateDesigns().insert(row)
     if (error) return notice(error.message, { title: 'Could not save that design' })
     setEditing(null)
     load()
@@ -137,7 +138,7 @@ export default function CertificateStudio() {
     // lint errors and reads as a mistake.
     const rest = { ...row }
     for (const key of ['id', 'created_at', 'updated_at']) delete rest[key]
-    const { error } = await supabase.from('certificate_designs')
+    const { error } = await certificatesApi.certificateDesigns()
       .insert({ ...rest, name: name.slice(0, 80), is_active: false, created_by: profile?.id })
     if (error) return notice(error.message, { title: 'Could not duplicate that' })
     load()
@@ -148,7 +149,7 @@ export default function CertificateStudio() {
       `Delete "${row.name}"? Certificates already awarded from it are deleted too, and creators lose them.`,
       { title: 'Delete design', confirmLabel: 'Delete', danger: true },
     )) return
-    const { error } = await supabase.from('certificate_designs').delete().eq('id', row.id)
+    const { error } = await certificatesApi.certificateDesigns().delete().eq('id', row.id)
     if (error) return notice(error.message, { title: 'Could not delete that' })
     setEditing(null)
     load()
@@ -887,7 +888,7 @@ function WhoGetsThis({ design }) {
   const [busy, setBusy] = useState(false)
 
   const look = useCallback(async () => {
-    const { data, error } = await supabase.rpc('certificate_candidates', { p_design: design.id })
+    const { data, error } = await certificatesApi.certificateCandidates({ p_design: design.id })
     if (error) { setRows([]); return }
     setRows(data || [])
   }, [design.id])
@@ -908,7 +909,7 @@ function WhoGetsThis({ design }) {
       { title: 'Award to everybody who qualifies', confirmLabel: `Award ${fresh.length}` },
     )) return
     setBusy(true)
-    const { data, error } = await supabase.rpc('backfill_certificate_design', { p_design: design.id })
+    const { data, error } = await certificatesApi.backfillCertificateDesign({ p_design: design.id })
     setBusy(false)
     if (error) return notice(error.message, { title: 'Could not award those' })
     await notice(`${data} awarded.`, { title: 'Done' })

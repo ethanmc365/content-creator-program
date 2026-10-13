@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react'
 import Icon from './Icon'
 import { Modal } from './ui'
-import { supabase } from '../lib/supabase'
 import { pickHook } from '../lib/hooks'
 import { fetchAll } from '../lib/fetchAll'
 import { copyToClipboard } from '../lib/clipboard'
@@ -11,6 +10,7 @@ import { cx } from '../lib/utils'
 import DealFinder from './DealFinder'
 import { OnDemandSwitch } from './TranslatedText'
 import { useTranslateOnDemand } from '../lib/quickTranslate'
+import { contentApi } from '../api/content'
 
 // "HOOK ME UP" (24 Sep 2026).
 //
@@ -59,7 +59,7 @@ function readCachedBank() {
 
 async function fetchBank() {
   // Paged: the API stops at 1,000 rows and the bank is bigger than that.
-  const { data, error } = await fetchAll(() => supabase.from('hooks').select('id, text, uses').eq('is_active', true))
+  const { data, error } = await fetchAll(() => contentApi.hooks().select('id, text, uses').eq('is_active', true))
   if (error) throw error
   bank = data || []
   try { localStorage.setItem(BANK_KEY, JSON.stringify({ at: Date.now(), hooks: bank })) } catch { /* full or private */ }

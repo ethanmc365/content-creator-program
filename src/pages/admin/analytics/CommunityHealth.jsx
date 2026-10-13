@@ -5,13 +5,13 @@ import {
   ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from 'recharts'
 import { format } from 'date-fns'
-import { supabase } from '../../../lib/supabase'
 import { Avatar, Skeleton, StatCard } from '../../../components/ui'
 import { downloadCsv, formatViews, timeAgo, cx } from '../../../lib/utils'
 import ConnectionsSection from './ConnectionsSection'
 import PushDelivery from './PushDelivery'
 import Icon from '../../../components/Icon'
 import { FILL } from '../../../components/charts/chartTheme'
+import { teamApi } from '../../../api/team'
 
 // Community health: is the place actually being used, and by whom.
 //
@@ -91,9 +91,9 @@ export default function CommunityHealth({ market = '', memberRows = [], scopeLab
     let alive = true
     setWeekly(null)
     Promise.all([
-      supabase.rpc('admin_weekly_activity', { p_weeks: 16, p_community: market || null }),
-      supabase.rpc('admin_push_adoption'),
-      supabase.rpc('admin_creator_scorecard'),
+      teamApi.adminWeeklyActivity({ p_weeks: 16, p_community: market || null }),
+      teamApi.adminPushAdoption(),
+      teamApi.adminCreatorScorecard(),
     ]).then(([w, p, s]) => {
       if (!alive) return
       setWeekly(w.data ?? [])

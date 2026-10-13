@@ -18,6 +18,11 @@ export const makeMoneyApi = (db = supabase) => ({
   deleteInvoice: (args, opts) => db.rpc('delete_invoice', args, opts),
   nextInvoiceNumber: (args, opts) => db.rpc('next_invoice_number', args, opts),
   adminSetPaymentDetails: (args, opts) => db.rpc('admin_set_payment_details', args, opts),
+  referrals: () => db.from('referrals'),
+  attachReferral: (args, opts) => db.rpc('attach_referral', args, opts),
+  incrementReferralClick: (args, opts) => db.rpc('increment_referral_click', args, opts),
+  referralLeaderboard: (args, opts) => db.rpc('referral_leaderboard', args, opts),
+  prizesWonTotal: (args, opts) => db.rpc('prizes_won_total', args, opts),
   /** An invoice function chosen at run time (the invoice sheet's actions). */
   call: (fn, args, opts) => db.rpc(fn, args, opts),
   voucherDaysAward: (args, opts) => db.rpc('voucher_days_award', args, opts),

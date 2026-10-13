@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { Avatar, EmptyState, PageHeader, Skeleton } from '../components/ui'
 import Icon from '../components/Icon'
@@ -17,6 +16,8 @@ import AircraftPhoto from '../components/network/AircraftPhoto'
 import { isoForCountryName } from '../lib/markets'
 import { cx } from '../lib/utils'
 import { useT } from '../lib/i18n'
+import { marketsApi } from '../api/markets'
+import { flightsApi } from '../api/flights'
 
 // THE FLIGHT LOG, ACROSS EVERYBODY.
 //
@@ -151,7 +152,7 @@ export default function FlightCommunity() {
   useEffect(() => {
     let cancelled = false
     const from = win === 'year' ? `${thisYear}-01-01` : '1970-01-01'
-    supabase.rpc('flight_leaderboard', { p_from: from, p_to: today }).then(({ data }) => {
+    flightsApi.flightLeaderboard({ p_from: from, p_to: today }).then(({ data }) => {
       if (!cancelled) setBoard(data ?? [])
     })
     return () => { cancelled = true }
@@ -165,7 +166,7 @@ export default function FlightCommunity() {
   // about the group rather than about a ranking inside it.
   useEffect(() => {
     let cancelled = false
-    supabase.rpc('community_flight_totals').then(({ data }) => {
+    marketsApi.communityFlightTotals().then(({ data }) => {
       if (cancelled) return
       const row = Array.isArray(data) ? data[0] : data
       if (row) setTotals({ km: Number(row.total_km) || 0, n: Number(row.total_flights) || 0 })
@@ -178,11 +179,11 @@ export default function FlightCommunity() {
   useEffect(() => {
     let cancelled = false
     Promise.all([
-      supabase.rpc('community_aircraft'),
-      supabase.rpc('community_flight_records'),
+      marketsApi.communityAircraft(),
+      marketsApi.communityFlightRecords(),
       // How many logged flights have NO aircraft on them. See the note on the
       // wall below, and migration 167.
-      supabase.rpc('community_aircraft_gap'),
+      marketsApi.communityAircraftGap(),
     ]).then(([a, rec, gap]) => {
       if (cancelled) return
       setFleet(a.data ?? [])
@@ -202,7 +203,7 @@ export default function FlightCommunity() {
     let cancelled = false
     setRoutes(null)
     const from = mapWin === 'year' ? `${thisYear}-01-01` : '1970-01-01'
-    supabase.rpc('community_routes', { p_from: from, p_to: today }).then(({ data }) => {
+    marketsApi.communityRoutes({ p_from: from, p_to: today }).then(({ data }) => {
       if (!cancelled) setRoutes(data ?? [])
     })
     return () => { cancelled = true }
@@ -212,7 +213,7 @@ export default function FlightCommunity() {
   // (it is your data, under RLS) rather than through the shared aggregate.
   useEffect(() => {
     let cancelled = false
-    supabase.from('flights').select('*').eq('creator_id', user.id)
+    flightsApi.flights().select('*').eq('creator_id', user.id)
       .order('flown_on', { ascending: false }).limit(1000)
       .then(({ data }) => { if (!cancelled) setMine(data ?? []) })
     return () => { cancelled = true }
@@ -231,7 +232,7 @@ export default function FlightCommunity() {
     ;(async () => {
       const out = {}
       for (const r of topRoutes) {
-        const { data } = await supabase.rpc('route_flyers', { p_a: r.from.iata, p_b: r.to.iata })
+        const { data } = await flightsApi.routeFlyers({ p_a: r.from.iata, p_b: r.to.iata })
         if (cancelled) return
         if (data?.length) out[r.key] = data
       }
@@ -725,7 +726,7 @@ function RouteCreators({ from, to }) {
   useEffect(() => {
     let cancelled = false
     setRows(null)
-    supabase.rpc('route_creators', { p_a: from, p_b: to }).then(({ data }) => {
+    flightsApi.routeCreators({ p_a: from, p_b: to }).then(({ data }) => {
       if (!cancelled) setRows(data ?? [])
     })
     return () => { cancelled = true }

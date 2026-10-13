@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { format } from 'date-fns'
 import { motion } from 'motion/react'
-import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { useCommunity } from '../context/CommunityContext'
 import NetworkLayout, { RailCard, flagFromIso } from '../components/network/NetworkLayout'
@@ -45,6 +44,8 @@ import { challengesApi } from '../api/challenges'
 import { submissionsApi } from '../api/submissions'
 import { profilesApi } from '../api/profiles'
 import { chatApi } from '../api/chat'
+import { marketsApi } from '../api/markets'
+import { flightsApi } from '../api/flights'
 
 // See lib/pageCache: the hub is the tab a creator lands on and comes back to
 // more than any other, and it was rebuilding itself from nothing every time.
@@ -236,7 +237,7 @@ export default function GlobalHome() {
         { count: connCount },
         { data: mapPeople }, { data: mapTrips },
       ] = await Promise.all([
-        supabase.from('community_members')
+        marketsApi.communityMembers()
           .select('community_id, profiles!inner(is_admin, is_test, status)')
           .eq('status', 'active')
           .eq('profiles.is_admin', false).in('profiles.is_test', testFlags()).eq('profiles.status', 'active'),
@@ -269,7 +270,7 @@ export default function GlobalHome() {
           .eq('deleted', false)
           .gte('created_at', new Date(Date.now() - ANNOUNCEMENT_MAX_AGE_DAYS * 86400000).toISOString())
           .order('created_at', { ascending: false }).limit(40),
-        supabase.from('collab_posts')
+        flightsApi.collabPosts()
           .select('id, city, country, start_date, end_date, profiles:creator_id(name, photo_url)')
           .gte('end_date', today).order('start_date', { ascending: true }).limit(6),
         // Six, not four. Four left a hole at the end of a three-across grid and
@@ -296,7 +297,7 @@ export default function GlobalHome() {
           // `byPinPriority` in CreatorMap).
           .select('id, name, photo_url, bio, city, country, country_code, city_lat, city_lng, show_on_map, countries_visited, last_seen_at')
           .eq('status', 'active').in('is_test', testFlags()).is('deletion_requested_at', null),
-        supabase.from('collab_posts').select('creator_id, city, country, city_lat, city_lng, start_date, end_date')
+        flightsApi.collabPosts().select('creator_id, city, country, city_lat, city_lng, start_date, end_date')
           .gte('end_date', today).order('start_date'),
       ])
 
@@ -358,7 +359,7 @@ export default function GlobalHome() {
   const [flights, setFlights] = useState(() => lastFlights)
   useEffect(() => {
     let cancelled = false
-    supabase.rpc('community_flight_totals').then(({ data }) => {
+    marketsApi.communityFlightTotals().then(({ data }) => {
       if (cancelled) return
       const row = Array.isArray(data) ? data[0] : data
       if (row) setFlights((lastFlights = { km: Number(row.total_km) || 0, n: Number(row.total_flights) || 0 }))

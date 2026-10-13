@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { confirm, saved } from '../lib/confirm'
 import { Badge, EmptyState, Modal, PageHeader, SkeletonCards, Spinner } from '../components/ui'
@@ -8,6 +7,7 @@ import Icon from '../components/Icon'
 import { cx, timeAgo } from '../lib/utils'
 import { useT } from '../lib/i18n'
 import { safeUrl } from '../lib/safeUrl'
+import { contentApi } from '../api/content'
 
 // How the applicant sees their application move through the admin's pipeline.
 const APPLICANT_STATUS = {
@@ -37,8 +37,8 @@ export default function Jobs() {
 
   async function load() {
     const [{ data: jobRows }, { data: apps }] = await Promise.all([
-      supabase.from('jobs').select('*').eq('status', 'open').order('created_at', { ascending: false }),
-      supabase.from('job_applications').select('id, job_id, status').eq('creator_id', user.id),
+      contentApi.jobs().select('*').eq('status', 'open').order('created_at', { ascending: false }),
+      contentApi.jobApplications().select('id, job_id, status').eq('creator_id', user.id),
     ])
     setJobs(jobRows ?? [])
     setApplied(new Map((apps ?? []).map((a) => [a.job_id, a])))
@@ -52,7 +52,7 @@ export default function Jobs() {
     e.preventDefault()
     if (!pitch.trim()) { setError("Add a short note on why you'd be a great fit."); return }
     setSending(true)
-    const { error: insErr } = await supabase.from('job_applications').insert({
+    const { error: insErr } = await contentApi.jobApplications().insert({
       job_id: applyJob.id, creator_id: user.id, pitch: pitch.trim(),
     })
     setSending(false)
@@ -65,7 +65,7 @@ export default function Jobs() {
     if (!await confirm(`Withdraw your application for "${job.title}"?`)) return
     const before = applied
     setApplied((m) => { const n = new Map(m); n.delete(job.id); return n })
-    if (!await saved(supabase.from('job_applications').delete().eq('job_id', job.id).eq('creator_id', user.id))) setApplied(before)
+    if (!await saved(contentApi.jobApplications().delete().eq('job_id', job.id).eq('creator_id', user.id))) setApplied(before)
   }
 
   // THE OFFICIAL PROGRAMME LEADS (12 Oct 2026). Ethan: "no one has actually

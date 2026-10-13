@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { supabase } from './supabase'
+import { gamesApi } from '../api/games'
 
 // ONE STREAK, ONE DEFINITION, ONE PLACE IT IS WORKED OUT.
 //
@@ -32,7 +32,7 @@ export function useGameStreak() {
   const [state, setState] = useState({ streak: 0, best: 0, freezesLeft: 5, frozenDays: [], loading: true })
   useEffect(() => {
     let alive = true
-    supabase.rpc('my_game_streak').then(({ data }) => {
+    gamesApi.myGameStreak().then(({ data }) => {
       if (!alive) return
       const row = Array.isArray(data) ? data[0] : data
       setState({

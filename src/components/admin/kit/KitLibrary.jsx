@@ -7,6 +7,7 @@ import { cx } from '../../../lib/utils'
 import { pickClass } from '../../../lib/pick'
 import { confirm, notice } from '../../../lib/confirm'
 import { kitUrl, uploadKitImage } from '../../../pages/admin/AdminCreatorKit'
+import { certificatesApi } from '../../../api/certificates'
 
 // THE GRAPHICS CREATORS REPOST.
 //
@@ -44,7 +45,7 @@ export default function KitLibrary() {
   const fileRef = useRef(null)
 
   const load = useCallback(async () => {
-    const { data } = await supabase.from('creator_kit_assets')
+    const { data } = await certificatesApi.creatorKitAssets()
       .select('*').order('sort_order').order('created_at', { ascending: false })
     setRows(data || [])
   }, [])
@@ -62,7 +63,7 @@ export default function KitLibrary() {
     for (const [i, file] of files.entries()) {
       try {
         const { path, width, height } = await uploadKitImage(file)
-        const { error } = await supabase.from('creator_kit_assets').insert({
+        const { error } = await certificatesApi.creatorKitAssets().insert({
           // The filename is the first draft of the title. An admin uploading
           // six graphics should not have to type six names before seeing them.
           title: file.name.replace(/\.[^.]+$/, '').replace(/[-_]+/g, ' ').slice(0, 80) || 'Untitled',
@@ -82,7 +83,7 @@ export default function KitLibrary() {
 
   async function patch(row, fields) {
     setRows((rs) => rs.map((r) => (r.id === row.id ? { ...r, ...fields } : r)))
-    const { error } = await supabase.from('creator_kit_assets').update(fields).eq('id', row.id)
+    const { error } = await certificatesApi.creatorKitAssets().update(fields).eq('id', row.id)
     if (error) { notice(error.message, { title: 'Could not save that' }); load() }
   }
 
@@ -95,7 +96,7 @@ export default function KitLibrary() {
     // storage delete fails we are left with a file nobody references, which
     // costs a few megabytes; if the row delete fails after the file is gone,
     // every creator's portfolio draws a broken image.
-    const { error } = await supabase.from('creator_kit_assets').delete().eq('id', row.id)
+    const { error } = await certificatesApi.creatorKitAssets().delete().eq('id', row.id)
     if (error) return notice(error.message, { title: 'Could not delete that' })
     await supabase.storage.from('creator-kit').remove([row.path])
     load()
@@ -121,7 +122,7 @@ export default function KitLibrary() {
     // Renumber the lot. Writing one row's new index is not enough when the
     // existing numbers are 0,0,0 - which they are for anything inserted before
     // ordering existed - and a full renumber is six rows.
-    Promise.all(list.map((r, i) => supabase.from('creator_kit_assets').update({ sort_order: i }).eq('id', r.id)))
+    Promise.all(list.map((r, i) => certificatesApi.creatorKitAssets().update({ sort_order: i }).eq('id', r.id)))
       .then(load)
   }
 

@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react'
 import { confirm, saved } from '../../lib/confirm'
-import { supabase } from '../../lib/supabase'
 import { Avatar, Badge, EmptyState, PageHeader, Select, Skeleton } from '../../components/ui'
 import Icon from '../../components/Icon'
 import { formatDate } from '../../lib/utils'
 import { profilesApi } from '../../api/profiles'
+import { contentApi } from '../../api/content'
 
 const STATUSES = [
   { key: 'new', label: 'New', tone: 'amber' },
@@ -24,7 +24,7 @@ export default function AdminFeedback() {
   const [notes, setNotes] = useState({}) // id -> draft admin_note
 
   async function load() {
-    const { data: fb } = await supabase.from('feedback').select('*').order('created_at', { ascending: false })
+    const { data: fb } = await contentApi.feedback().select('*').order('created_at', { ascending: false })
     const list = fb ?? []
     setItems(list)
     const ids = [...new Set(list.map((f) => f.creator_id))]
@@ -38,13 +38,13 @@ export default function AdminFeedback() {
   useEffect(() => { load() }, [])
 
   async function setStatus(item, status) {
-    if (!await saved(supabase.from('feedback').update({ status, updated_at: new Date().toISOString() }).eq('id', item.id))) return
+    if (!await saved(contentApi.feedback().update({ status, updated_at: new Date().toISOString() }).eq('id', item.id))) return
     setItems((prev) => prev.map((f) => (f.id === item.id ? { ...f, status } : f)))
   }
 
   async function saveNote(item) {
     const admin_note = (notes[item.id] ?? '').trim()
-    if (!await saved(supabase.from('feedback').update({ admin_note, updated_at: new Date().toISOString() }).eq('id', item.id))) return
+    if (!await saved(contentApi.feedback().update({ admin_note, updated_at: new Date().toISOString() }).eq('id', item.id))) return
     setItems((prev) => prev.map((f) => (f.id === item.id ? { ...f, admin_note } : f)))
   }
 
@@ -52,7 +52,7 @@ export default function AdminFeedback() {
   async function deleteItem(item) {
     if (!await confirm('Delete this report for good? This can’t be undone.')) return
     setItems((prev) => prev.filter((f) => f.id !== item.id))
-    if (!await saved(supabase.from('feedback').delete().eq('id', item.id))) load()
+    if (!await saved(contentApi.feedback().delete().eq('id', item.id))) load()
   }
 
   const newCount = items.filter((f) => f.status === 'new').length

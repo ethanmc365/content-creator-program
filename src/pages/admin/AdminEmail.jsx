@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { supabase } from '../../lib/supabase'
 import { Avatar, Badge, CopyButton, PageHeader, Skeleton } from '../../components/ui'
 import Icon from '../../components/Icon'
 import { cx, formatDateTime } from '../../lib/utils'
@@ -9,6 +8,7 @@ import MarketScope, { useScopedMarkets } from '../../components/admin/MarketScop
 import { roleBadgeTitle } from '../../lib/roles'
 import { vipApi } from '../../api/vip'
 import { profilesApi } from '../../api/profiles'
+import { teamApi } from '../../api/team'
 
 // The email page. NOTHING ON IT SENDS AN EMAIL ANY MORE (3 Sep 2026).
 //
@@ -57,9 +57,9 @@ export default function AdminEmail() {
   const load = useCallback(async () => {
     const [{ data: profiles }, { data: emailRows }, { data: pending }, { data: logRows }, { data: vipRows }] = await Promise.all([
       profilesApi.profiles().select('id, name, photo_url, status, is_admin, is_test, deletion_requested_at, platform_role, role_title, is_vip, vip_kind'),
-      supabase.rpc('admin_list_emails'),
-      supabase.from('email_outbox').select('*').eq('status', 'pending').order('created_at', { ascending: true }),
-      supabase.rpc('email_log', { p_limit: 100 }),
+      teamApi.adminListEmails(),
+      teamApi.emailOutbox().select('*').eq('status', 'pending').order('created_at', { ascending: true }),
+      teamApi.emailLog({ p_limit: 100 }),
       vipApi.members().select('profile_id, programme_id, vip_programmes(id, name)').neq('status', 'left'),
     ])
     setProgOf(new Map((vipRows ?? []).filter((r) => r.vip_programmes).map((r) => [r.profile_id, r.vip_programmes])))
@@ -433,7 +433,7 @@ function ReviewQueue({ queue, setQueue, emailById }) {
     const who = item.recipient_name || 'this creator'
     if (!await confirm(`Mark the welcome email to ${who} as sent?\n\nThis only records that you have written to them - it does not send anything.`)) return
     setActing('sent')
-    const { error } = await supabase.from('email_outbox')
+    const { error } = await teamApi.emailOutbox()
       .update({ status: 'sent', decided_at: new Date().toISOString() })
       .eq('id', item.id)
     setActing(null)
@@ -445,7 +445,7 @@ function ReviewQueue({ queue, setQueue, emailById }) {
     const who = item.recipient_name || 'this creator'
     if (!await confirm(`Take ${who} off the welcome list?\n\nThey are already in the community and have their in-app notification. This only drops the reminder to write to them.`)) return
     setActing('skip')
-    await supabase.from('email_outbox')
+    await teamApi.emailOutbox()
       .update({ status: 'declined', decided_at: new Date().toISOString() })
       .eq('id', item.id)
     setActing(null)
@@ -454,7 +454,7 @@ function ReviewQueue({ queue, setQueue, emailById }) {
 
   async function saveEdits() {
     setActing('save')
-    const { error } = await supabase.from('email_outbox')
+    const { error } = await teamApi.emailOutbox()
       .update({ subject: item.subject, body: item.body })
       .eq('id', item.id)
     setActing(null)

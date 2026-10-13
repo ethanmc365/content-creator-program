@@ -1,11 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
-import { supabase } from '../../lib/supabase'
 import { takeRef } from '../../lib/oauth'
 import { AppLoader } from '../../components/ui'
 import AuthShell from './AuthShell'
 import { useT } from '../../lib/i18n'
+import { moneyApi } from '../../api/money'
 
 // WHERE THE GOOGLE ROUND TRIP LANDS.
 //
@@ -64,7 +64,7 @@ export default function AuthCallback() {
       const ref = takeRef()
       // A thenable, not a promise: `.rpc(...).catch()` would throw a TypeError.
       // `.then(ok, fail)` is the shape that is safe on a supabase-js builder.
-      if (ref) supabase.rpc('attach_referral', { p_code: ref }).then(() => {}, () => {})
+      if (ref) moneyApi.attachReferral({ p_code: ref }).then(() => {}, () => {})
     }
     // `/home` and not `/onboarding`: ProtectedRoute owns that decision and
     // already makes it correctly for a brand-new account (`!profile.onboarded`

@@ -2,7 +2,6 @@ import { memo, useCallback, useEffect, useMemo, useState } from 'react'
 import { Navigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { useCommunity } from '../../context/CommunityContext'
-import { supabase } from '../../lib/supabase'
 import { PageHeader, Skeleton, EmptyState, Spinner } from '../../components/ui'
 import Icon from '../../components/Icon'
 import AutoTextarea from '../../components/AutoTextarea'
@@ -13,6 +12,8 @@ import { forgetTranslation } from '../../lib/contentTranslate'
 import { toastSuccess } from '../../lib/toast'
 import { cx, timeAgo } from '../../lib/utils'
 import { challengesApi } from '../../api/challenges'
+import { eventsApi } from '../../api/events'
+import { contentApi } from '../../api/content'
 
 // THE PLATFORM'S WORDS, EDITED BY THE PEOPLE WHO SPEAK THEM.
 //
@@ -624,8 +625,8 @@ async function loadLiveSources() {
   const [{ data: ch }, { data: sv }, { data: ev }] = await Promise.all([
     challengesApi.challenges().select('id, title, description, rules, start_date, end_date, status, created_at')
       .neq('status', 'archived').or(`end_date.is.null,end_date.gte.${today}`).order('start_date', { ascending: false }).limit(20),
-    supabase.from('surveys').select('id, title, intro, thanks, questions, created_at').eq('status', 'live').eq('is_test', false).limit(20),
-    supabase.from('events').select('id, title, description, date').gte('date', nowIso).order('date').limit(30),
+    contentApi.surveys().select('id, title, intro, thanks, questions, created_at').eq('status', 'live').eq('is_test', false).limit(20),
+    eventsApi.events().select('id, title, description, date').gte('date', nowIso).order('date').limit(30),
   ])
   const ids = (ch || []).map((c) => c.id)
   const { data: rules } = ids.length
@@ -670,7 +671,7 @@ function ContentTab({ locale, userId, onError }) {
 
   const load = useCallback(async () => {
     const [{ data, error }, groups] = await Promise.all([
-      supabase.from('content_translations')
+      contentApi.contentTranslations()
         .select('source_hash, source, value, src_lang, same, auto, updated_at, reviewer:reviewed_by(name)')
         .eq('locale', locale).eq('same', false).order('updated_at', { ascending: false }).limit(300),
       loadLiveSources().catch(() => []),
@@ -683,7 +684,7 @@ function ContentTab({ locale, userId, onError }) {
 
   async function save(row, value) {
     setBusyKey(row.source_hash)
-    const { error } = await supabase.from('content_translations')
+    const { error } = await contentApi.contentTranslations()
       .update({ value: value.trim(), auto: false, reviewed_by: userId, updated_at: new Date().toISOString() })
       .eq('source_hash', row.source_hash).eq('locale', locale)
     setBusyKey(null)
@@ -694,7 +695,7 @@ function ContentTab({ locale, userId, onError }) {
   }
   async function redo(row) {
     setBusyKey(row.source_hash)
-    const { error } = await supabase.from('content_translations').delete().eq('source_hash', row.source_hash).eq('locale', locale)
+    const { error } = await contentApi.contentTranslations().delete().eq('source_hash', row.source_hash).eq('locale', locale)
     setBusyKey(null)
     if (error) { onError(error.message); return }
     forgetTranslation(locale, row.source)

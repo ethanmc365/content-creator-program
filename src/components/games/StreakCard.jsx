@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react'
-import { supabase } from '../../lib/supabase'
 import Icon from '../Icon'
 import { weekOf } from '../../lib/daily'
 import { FREEZES_PER_MONTH } from '../../lib/gameStreak'
@@ -8,6 +7,7 @@ import { playFireWhoosh } from '../../lib/gameSounds'
 import { cx } from '../../lib/utils'
 import Flame from './Flame'
 import { useT } from '../../lib/i18n'
+import { gamesApi } from '../../api/games'
 
 // YOUR RUN, YOUR RECORD, AND WHAT IS PROTECTING IT.
 //
@@ -280,7 +280,7 @@ export default function StreakCard({ className, days = [], today = null, myId = 
 
   useEffect(() => {
     let alive = true
-    supabase.rpc('my_game_streak').then(({ data }) => {
+    gamesApi.myGameStreak().then(({ data }) => {
       if (alive) setS(Array.isArray(data) ? data[0] : data)
     })
     return () => { alive = false }

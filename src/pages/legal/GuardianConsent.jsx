@@ -1,13 +1,13 @@
 import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import LegalShell from './LegalShell'
-import { supabase } from '../../lib/supabase'
 import { renderNote } from '../../lib/noteMarkdown'
 import Icon from '../../components/Icon'
 import { Spinner } from '../../components/ui'
 import { cx, formatDate } from '../../lib/utils'
 import { useT } from '../../lib/i18n'
 import { SUPPORT_EMAIL } from '../../lib/team'
+import { agreementsApi } from '../../api/agreements'
 
 // /guardian/<token>: WHERE A PARENT OR GUARDIAN CONFIRMS (8 Oct 2026, migration 367).
 //
@@ -26,7 +26,7 @@ export default function GuardianConsent() {
 
   useEffect(() => {
     let alive = true
-    supabase.rpc('guardian_consent_view', { p_token: token || '' }).then(({ data, error }) => {
+    agreementsApi.guardianConsentView({ p_token: token || '' }).then(({ data, error }) => {
       if (!alive) return
       setDoc(error || !data ? null : data)
       if (data?.guardian_name) setName(data.guardian_name)
@@ -36,7 +36,7 @@ export default function GuardianConsent() {
 
   async function confirm() {
     setBusy(true); setErr('')
-    const { data, error } = await supabase.rpc('guardian_consent_confirm', { p_token: token, p_name: name.trim() })
+    const { data, error } = await agreementsApi.guardianConsentConfirm({ p_token: token, p_name: name.trim() })
     setBusy(false)
     if (error) { setErr(error.message); return }
     setDoc((d) => ({ ...d, confirmed_at: data, confirmed_name: name.trim() }))

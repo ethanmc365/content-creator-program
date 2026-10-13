@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from 'react'
-import { supabase } from '../../lib/supabase'
 import { Modal, Select, Spinner } from '../ui'
 import Icon from '../Icon'
 import AutoTextarea from '../AutoTextarea'
@@ -10,6 +9,7 @@ import { describeSyncError, probeLink } from '../../lib/viewSync'
 import { getVideoPreview } from '../../lib/videoPreview'
 import { atHandle, parseTags } from '../../lib/videoTracker'
 import { useT } from '../../lib/i18n'
+import { contentApi } from '../../api/content'
 
 // ADDING A VIDEO THE PLATFORM HAS NEVER SEEN, AND EDITING ONE IT HAS.
 //
@@ -224,8 +224,8 @@ export default function TrackedVideoSheet({ row, markets, challenges, profileId,
     }
 
     const res = row?.id
-      ? await supabase.from('tracked_videos').update(payload).eq('id', row.id)
-      : await supabase.from('tracked_videos').insert({ ...payload, reason: 'manual', added_by: profileId || null })
+      ? await contentApi.trackedVideos().update(payload).eq('id', row.id)
+      : await contentApi.trackedVideos().insert({ ...payload, reason: 'manual', added_by: profileId || null })
 
     setSaving(false)
     if (res.error) {
@@ -251,7 +251,7 @@ export default function TrackedVideoSheet({ row, markets, challenges, profileId,
     )
     if (!ok) return
     setSaving(true)
-    const { error } = await supabase.from('tracked_videos').delete().eq('id', row.id)
+    const { error } = await contentApi.trackedVideos().delete().eq('id', row.id)
     setSaving(false)
     if (error) { setErr(error.message); return }
     onSaved()

@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { format } from 'date-fns'
-import { supabase } from '../../../lib/supabase'
 import { Skeleton } from '../../../components/ui'
 import Segmented from '../../../components/network/Segmented'
 import PeriodPicker from '../../../components/PeriodPicker'
@@ -16,6 +15,7 @@ import { notice } from '../../../lib/confirm'
 import { compact, foldWeeks, pctChange, rangeLabel, snapshotSvg, snapshotText, viewsFor } from '../../../lib/weeklySnapshot'
 import { cx, downloadCsv, formatViews } from '../../../lib/utils'
 import { useT } from '../../../lib/i18n'
+import { teamApi } from '../../../api/team'
 
 // VIEWS GAINED, ANY DAYS, ONE HALF OR BOTH - AND THE WEEKLY SNAPSHOT (9 Oct 2026).
 //
@@ -61,7 +61,7 @@ export default function ViewsReport() {
     const hit = cache.current.get(key)
     const pk = periodKey
     if (hit && tick === 0) { setData(hit); setShownKey(pk); setErr('') } else setLoading(true)
-    supabase.rpc('admin_views_gained', { p_from: from, p_to: to }).then(({ data: d, error }) => {
+    teamApi.adminViewsGained({ p_from: from, p_to: to }).then(({ data: d, error }) => {
       if (!alive) return
       if (error) { setErr(error.message); setLoading(false); return }
       cache.current.set(key, d); setData(d); setShownKey(pk); setErr(''); setLoading(false)

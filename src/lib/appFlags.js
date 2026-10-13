@@ -1,4 +1,4 @@
-import { supabase } from './supabase'
+import { settingsApi } from '../api/settings'
 
 // PLATFORM-WIDE SWITCHES, READ FROM THE DATABASE.
 //
@@ -17,8 +17,8 @@ const cache = new Map()
 
 export async function readFlag(key) {
   if (cache.has(key)) return cache.get(key)
-  const p = supabase
-    .from('app_settings').select('value').eq('key', key).maybeSingle()
+  const p = settingsApi
+    .appSettings().select('value').eq('key', key).maybeSingle()
     .then(({ data, error }) => {
       if (error || !data) return false
       return data.value === true || data.value === 'true'

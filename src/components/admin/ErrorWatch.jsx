@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react'
-import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
 import { Skeleton } from '../ui'
 import Icon from '../Icon'
@@ -8,6 +7,7 @@ import { CONTEXT_MARK, sentryIssues, sentryLink } from '../../lib/monitoring'
 import { explain } from '../../lib/errorGuide'
 import { toastSuccess } from '../../lib/toast'
 import { useT } from '../../lib/i18n'
+import { teamApi } from '../../api/team'
 
 // IS ANYTHING BROKEN RIGHT NOW.
 //
@@ -110,8 +110,8 @@ export default function ErrorWatch() {
   const [openRow, setOpenRow] = useState(null)
 
   async function load() {
-    const { data } = await supabase
-      .from('client_errors')
+    const { data } = await teamApi
+      .clientErrors()
       .select('*')
       .order('last_seen_at', { ascending: false })
       .limit(100)
@@ -122,7 +122,7 @@ export default function ErrorWatch() {
   async function resolve(row, done) {
     setRows((prev) => prev.map((r) => (r.fingerprint === row.fingerprint
       ? { ...r, resolved_at: done ? new Date().toISOString() : null } : r)))
-    const { error } = await supabase.from('client_errors')
+    const { error } = await teamApi.clientErrors()
       .update({ resolved_at: done ? new Date().toISOString() : null, resolved_by: done ? user.id : null })
       .eq('fingerprint', row.fingerprint)
     // The result is read: a refused update resolves like a successful one in

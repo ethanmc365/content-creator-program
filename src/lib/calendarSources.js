@@ -1,8 +1,9 @@
-import { supabase } from './supabase'
 import { inScope } from './scope'
 import { t } from './i18n'
 import { moneyApi } from '../api/money'
 import { challengesApi } from '../api/challenges'
+import { eventsApi } from '../api/events'
+import { flightsApi } from '../api/flights'
 
 // EVERYTHING THAT IS ALREADY A DATE, ON THE PAGE THAT IS ABOUT DATES.
 //
@@ -79,7 +80,7 @@ export async function loadCalendar({ userId, scopeIds, vip = null }) {
     { data: trips },
     { data: invoices },
   ] = await Promise.all([
-    supabase.from('events').select('*').order('date'),
+    eventsApi.events().select('*').order('date'),
     // A CHALLENGE THAT IS NOT RUNNING HAS NO DEADLINE TO MISS.
     //
     // This dropped only drafts, so an ARCHIVED challenge kept its "closes"
@@ -93,10 +94,10 @@ export async function loadCalendar({ userId, scopeIds, vip = null }) {
     challengesApi.challenges().select('id, title, start_date, end_date, community_id, status').not('status', 'in', '("draft","archived")'),
     // Own flights only. `share_with_community` governs what OTHER people see of
     // a flight; it has nothing to do with whether it is on your own calendar.
-    supabase.from('flights')
+    flightsApi.flights()
       .select('id, from_iata, to_iata, flown_on, airline, flight_number, return_of')
       .eq('creator_id', userId).order('flown_on'),
-    supabase.from('collab_posts')
+    flightsApi.collabPosts()
       .select('id, city, country, start_date, end_date')
       .eq('creator_id', userId).order('start_date'),
     // Only invoices that have actually gone out. A draft is an internal state

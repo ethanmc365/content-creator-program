@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from 'react'
-import { supabase } from '../../lib/supabase'
 import { announceScore } from '../../lib/gameScores'
 import { useAuth } from '../../context/AuthContext'
 import { Badge, StreakChip } from '../ui'
@@ -13,6 +12,7 @@ import { cx } from '../../lib/utils'
 import { NO_AUTOFILL_SEARCH } from '../../lib/noAutofill'
 import { playCelebrate, playCommiserate, playWrong } from '../../lib/gameSounds'
 import { useT } from '../../lib/i18n'
+import { gamesApi } from '../../api/games'
 
 // Guess the Country: travel clues revealed one at a time; you get one guess per
 // clue, so guessing early scores more. A new puzzle lands at midnight UK time,
@@ -77,7 +77,7 @@ export default function PinpointGame({ onExit }) {
   useEffect(() => {
     if (stored) return
     let alive = true
-    supabase.from('game_scores')
+    gamesApi.gameScores()
       .select('correct, total, time_ms')
       .eq('player_id', user.id).eq('mode', 'pinpoint').eq('day_key', day)
       .gte('created_at', ukDayStartIso())
@@ -113,7 +113,7 @@ export default function PinpointGame({ onExit }) {
 
   // My daily streak for this game (consecutive UK days played).
   useEffect(() => {
-    supabase.from('game_scores')
+    gamesApi.gameScores()
       .select('day_key')
       .eq('player_id', user.id).eq('mode', 'pinpoint').not('day_key', 'is', null)
       .then(({ data }) => setStreakDays((data ?? []).map((r) => r.day_key)))
@@ -131,7 +131,7 @@ export default function PinpointGame({ onExit }) {
     if (savedRef.current) return
     savedRef.current = true
     // Score: 5 points for a first-clue solve down to 1 on the last, 0 for a miss.
-    supabase.from('game_scores').insert({
+    gamesApi.gameScores().insert({
       player_id: user.id, mode: 'pinpoint', region: 'Daily', day_key: day,
       correct: result === 'won' ? maxClues + 1 - guessed : 0, total: maxClues, time_ms,
     }).then(() => announceScore())

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
-import { supabase } from '../../lib/supabase'
 import CertificateCard, { CERT_W, CERT_H } from '../../components/certificate/CertificateCard'
 import { useCertificateDesign } from '../../lib/certificateLang'
+import { certificatesApi } from '../../api/certificates'
 
 // DEV ONLY: every certificate design in every language, at 0.4 scale, to check nothing overflows.
 const LANGS = ['en', 'es', 'pt', 'de', 'ro']
@@ -22,7 +22,7 @@ function One({ design, lang }) {
 export default function CertBench() {
   const [designs, setDesigns] = useState([])
   const only = new URLSearchParams(window.location.search).get('d')
-  useEffect(() => { supabase.from('certificate_designs').select('*').order('created_at').then(({ data }) => setDesigns(data || [])) }, [])
+  useEffect(() => { certificatesApi.certificateDesigns().select('*').order('created_at').then(({ data }) => setDesigns(data || [])) }, [])
   return (
     <div style={{ padding: 12, background: '#fff' }}>
       {designs.filter((d, i) => only == null || String(i) === only).map((d) => (

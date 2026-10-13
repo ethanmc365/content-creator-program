@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from 'react'
-import { supabase } from '../lib/supabase'
 import { saved } from '../lib/confirm'
 import { useAuth } from '../context/AuthContext'
 import { useUnread } from '../context/UnreadContext'
@@ -10,6 +9,7 @@ import { enablePush, pushSupported, pushPermission, syncPushSubscription } from 
 import { cx } from '../lib/utils'
 import { useT } from '../lib/i18n'
 import { profilesApi } from '../api/profiles'
+import { teamApi } from '../api/team'
 
 // Whether this device has EVER had push granted. Local, because it is a fact
 // about the device rather than about the account: the same creator on a laptop
@@ -463,7 +463,7 @@ export function CreatorNotifications({ state }) {
   async function sendTest() {
     setTesting('sending')
     const registered = await syncPushSubscription(user?.id, { force: true })
-    const { data, error } = await supabase.rpc('send_test_push')
+    const { data, error } = await teamApi.sendTestPush()
     if (error || !data) return setTesting(tr("Could not send the test. Please try again."))
     if (!data.ok) return setTesting(tr("Give it thirty seconds before sending another."))
     if (!registered) return setTesting(tr("Sent, but this device could not register for notifications. Try closing and reopening the app."))

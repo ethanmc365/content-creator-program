@@ -2,7 +2,6 @@ import { Children, useCallback, useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useAuth } from '../../context/AuthContext'
 import { certificateLocales, dateIn, prefetchCertificateDesign, useCertificateDesign } from '../../lib/certificateLang'
-import { supabase } from '../../lib/supabase'
 import { Modal, Skeleton, Spinner } from '../ui'
 import Icon from '../Icon'
 import SocialMark from '../SocialMark'
@@ -14,6 +13,7 @@ import CertificateCard, { CERT_W, CERT_H } from './CertificateCard'
 import { fillTemplate, formatAwardDate, sampleFacts, sortCertificates } from '../../lib/certificates'
 import { safeUrl } from '../../lib/safeUrl'
 import { profilesApi } from '../../api/profiles'
+import { certificatesApi } from '../../api/certificates'
 
 // WHAT THE PROGRAMME HAS GIVEN YOU, ON A WALL.
 //
@@ -54,14 +54,14 @@ export default function CertificateWall({ profileId, className, readOnly = false
 
   const load = useCallback(async () => {
     if (!profileId) return
-    const { data } = await supabase.from('certificate_awards')
+    const { data } = await certificatesApi.certificateAwards()
       .select('*, design:certificate_designs(*), person:profiles!certificate_awards_profile_id_fkey(photo_url)')
       .eq('profile_id', profileId)
       .order('awarded_at', { ascending: false })
     const sorted = sortCertificates(data || [])
     setRows(sorted)
     // Creators read only LIVE designs (RLS); an admin reads drafts too, for the preview.
-    const { data: ds } = await supabase.from('certificate_designs').select('*').order('created_at')
+    const { data: ds } = await certificatesApi.certificateDesigns().select('*').order('created_at')
     setDesigns(ds || [])
     // Every language this person can save in, translated before they open one.
     const langs = certificateLocales(profile, { all: isAdmin })
@@ -82,7 +82,7 @@ export default function CertificateWall({ profileId, className, readOnly = false
   async function openOne(row) {
     setOpen(row)
     if (row.seen_at || readOnly) return
-    await supabase.from('certificate_awards').update({ seen_at: new Date().toISOString() }).eq('id', row.id)
+    await certificatesApi.certificateAwards().update({ seen_at: new Date().toISOString() }).eq('id', row.id)
     setRows((rs) => rs.map((r) => (r.id === row.id ? { ...r, seen_at: new Date().toISOString() } : r)))
   }
 

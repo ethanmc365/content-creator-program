@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useState } from 'react'
-import { supabase } from '../lib/supabase'
 import { useAuth } from './AuthContext'
+import { marketsApi } from '../api/markets'
 
 // Who am I, in which communities, and which one am I looking at right now.
 //
@@ -39,13 +39,13 @@ export function CommunityProvider({ children }) {
     // community, but only the rosters of the ones you are in), and an embedded
     // join would silently return the intersection of the two.
     const [{ data: mems, error: memErr }, { data: comms, error: commErr }] = await Promise.all([
-      supabase
-        .from('community_members')
+      marketsApi
+        .communityMembers()
         .select('community_id, role, is_home, status')
         .eq('profile_id', session.user.id)
         .eq('status', 'active'),
-      supabase
-        .from('communities')
+      marketsApi
+        .communities()
         .select('id, slug, name, kind, country_codes, currency, timezone, language, is_active, cpm_target, prize_baseline, tagline, join_policy, settings, lead_id, retired_at')
         .order('kind', { ascending: false })
         .order('name'),

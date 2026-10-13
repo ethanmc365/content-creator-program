@@ -2,7 +2,6 @@ import { gentleScrollToSelector } from '../lib/gentleScroll'
 import { Suspense, useCallback, useEffect, useState } from 'react'
 import { lazyRoute } from '../lib/lazyRoute'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { Avatar, PageHeader, Skeleton } from '../components/ui'
 import Icon from '../components/Icon'
@@ -30,6 +29,7 @@ import { useIsMobile } from '../lib/useKeyboardInset'
 import ReaderText from '../components/ReaderText'
 import { vipApi } from '../api/vip'
 import { profilesApi } from '../api/profiles'
+import { marketsApi } from '../api/markets'
 
 // THE VIP PAGE (2 Oct 2026, migration 294).
 //
@@ -183,7 +183,7 @@ export default function VipHub() {
       official
         ? vipApi.bonusRules().select('*').eq('programme_id', programmeId).eq('active', true).order('created_at')
         : vipApi.bonusRules().select('*').or(`programme_id.eq.${programmeId},audience.eq.all`).eq('active', true).order('created_at'),
-      supabase.from('communities').select('country_codes').eq('id', communityId).maybeSingle(),
+      marketsApi.communities().select('country_codes').eq('id', communityId).maybeSingle(),
       vipApi.programmes().select('tagline').eq('id', programmeId).maybeSingle(),
       isStaff || sample ? none : vipApi.members().select('headline').eq('profile_id', previewWho || user.id).maybeSingle(),
     ])

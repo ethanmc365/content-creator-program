@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { supabase } from '../../lib/supabase'
 import Icon from '../Icon'
 import { Skeleton } from '../ui'
 import AircraftPhoto from './AircraftPhoto'
@@ -8,6 +7,7 @@ import { airport } from '../../lib/airports'
 import { useT } from '../../lib/i18n'
 import { AIRCRAFT } from '../../lib/airlines'
 import { cx } from '../../lib/utils'
+import { flightsApi } from '../../api/flights'
 
 // THE FLIGHT LOG, ON THE PAGE PEOPLE ACTUALLY SHOW EACH OTHER.
 //
@@ -46,8 +46,8 @@ export default function ProfileFlights({ creatorId, isMe, name, rail = false }) 
 
   useEffect(() => {
     let cancelled = false
-    let q = supabase
-      .from('flights')
+    let q = flightsApi
+      .flights()
       .select('id, from_iata, to_iata, distance_km, aircraft, flown_on, share_with_community')
       .eq('creator_id', creatorId)
       .limit(1000)

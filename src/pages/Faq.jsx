@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { Avatar, Modal, Skeleton, Spinner, Toggle } from '../components/ui'
 import Icon from '../components/Icon'
@@ -15,6 +14,7 @@ import { toastSuccess } from '../lib/toast'
 import { cx, timeAgo } from '../lib/utils'
 import { useT } from '../lib/i18n'
 import HelpTeam, { HelpOpenDoors } from '../components/HelpTeam'
+import { contentApi } from '../api/content'
 
 // QUESTIONS AND ANSWERS (7 Oct 2026).
 //
@@ -60,20 +60,20 @@ export default function Faq() {
 
   const loadFaqs = useCallback(async () => {
     const [{ data }, { data: pub }] = await Promise.all([
-      supabase.from('faqs').select('*').order('position').order('created_at'),
-      supabase.from('faq_questions').select('id, question, answer, answered_at').eq('is_public', true).eq('status', 'answered').is('faq_id', null).order('answered_at', { ascending: false }).limit(30),
+      contentApi.faqs().select('*').order('position').order('created_at'),
+      contentApi.faqQuestions().select('id, question, answer, answered_at').eq('is_public', true).eq('status', 'answered').is('faq_id', null).order('answered_at', { ascending: false }).limit(30),
     ])
     setFaqs(data || [])
     setCommunity(pub || [])
   }, [])
   const loadMine = useCallback(async () => {
     if (!user?.id) return
-    const { data } = await supabase.from('faq_questions').select('*').eq('asker_id', user.id).order('created_at', { ascending: false })
+    const { data } = await contentApi.faqQuestions().select('*').eq('asker_id', user.id).order('created_at', { ascending: false })
     setMine(data || [])
   }, [user?.id])
   const loadInbox = useCallback(async () => {
     if (!isAdmin) return
-    const { data } = await supabase.from('faq_questions').select('*, asker:profiles!faq_questions_asker_id_fkey(id, name, photo_url)').order('created_at', { ascending: false }).limit(200)
+    const { data } = await contentApi.faqQuestions().select('*, asker:profiles!faq_questions_asker_id_fkey(id, name, photo_url)').order('created_at', { ascending: false }).limit(200)
     setInbox(data || [])
   }, [isAdmin])
   useEffect(() => { loadFaqs() }, [loadFaqs])
@@ -220,14 +220,14 @@ function AnswersTab({ faqs, community, editing, onEditRow, onChanged }) {
     const other = list[i + dir]
     if (!other) return
     const done = await Promise.all([
-      saved(supabase.from('faqs').update({ position: other.position }).eq('id', f.id)),
-      saved(supabase.from('faqs').update({ position: f.position }).eq('id', other.id)),
+      saved(contentApi.faqs().update({ position: other.position }).eq('id', f.id)),
+      saved(contentApi.faqs().update({ position: f.position }).eq('id', other.id)),
     ])
     if (done.every(Boolean)) onChanged()
   }
   async function remove(f) {
     if (!await confirm(tr('Delete this question and its answer?'), { confirmLabel: tr('Delete'), danger: true })) return
-    const { error } = await supabase.from('faqs').delete().eq('id', f.id)
+    const { error } = await contentApi.faqs().delete().eq('id', f.id)
     if (error) { notice(error.message); return }
     toastSuccess(tr('Deleted.'))
     onChanged()
@@ -332,7 +332,7 @@ function AskCard({ onAsked, compact = false, bare = false }) {
   async function send() {
     if (question.trim().length < 5) return
     setBusy(true)
-    const { error } = await supabase.from('faq_questions').insert({ asker_id: user.id, question: question.trim(), details: details.trim() || null })
+    const { error } = await contentApi.faqQuestions().insert({ asker_id: user.id, question: question.trim(), details: details.trim() || null })
     setBusy(false)
     if (error) { notice(error.message); return }
     setQuestion(''); setDetails(''); setSent(true)
@@ -365,13 +365,13 @@ function MineTab({ rows, onChanged }) {
   const [editId, setEditId] = useState(null)
   const [text, setText] = useState('')
   async function save(r) {
-    const { error } = await supabase.from('faq_questions').update({ question: text.trim(), updated_at: new Date().toISOString() }).eq('id', r.id)
+    const { error } = await contentApi.faqQuestions().update({ question: text.trim(), updated_at: new Date().toISOString() }).eq('id', r.id)
     if (error) { notice(error.message); return }
     setEditId(null); onChanged()
   }
   async function withdraw(r) {
     if (!await confirm(tr('Withdraw this question?'), { confirmLabel: tr('Withdraw'), danger: true })) return
-    const { error } = await supabase.from('faq_questions').delete().eq('id', r.id)
+    const { error } = await contentApi.faqQuestions().delete().eq('id', r.id)
     if (error) { notice(error.message); return }
     onChanged()
   }
@@ -456,11 +456,11 @@ function InboxItem({ r, categories, onChanged }) {
     setBusy(true)
     let faqId = r.faq_id
     if (toFaq && !faqId) {
-      const { data, error } = await supabase.from('faqs').insert({ category: category.trim() || 'General', question: question.trim(), answer, position: 999, from_question: r.id, created_by: user.id }).select('id').single()
+      const { data, error } = await contentApi.faqs().insert({ category: category.trim() || 'General', question: question.trim(), answer, position: 999, from_question: r.id, created_by: user.id }).select('id').single()
       if (error) { setBusy(false); notice(error.message); return }
       faqId = data.id
     }
-    const { error } = await supabase.from('faq_questions').update({
+    const { error } = await contentApi.faqQuestions().update({
       question: question.trim(), answer, status: 'answered', answered_by: user.id, answered_at: r.answered_at || new Date().toISOString(),
       is_public: isPublic, faq_id: faqId, updated_at: new Date().toISOString(),
     }).eq('id', r.id)
@@ -470,12 +470,12 @@ function InboxItem({ r, categories, onChanged }) {
     onChanged()
   }
   async function close() {
-    await saved(supabase.from('faq_questions').update({ status: 'closed', updated_at: new Date().toISOString() }).eq('id', r.id))
+    await saved(contentApi.faqQuestions().update({ status: 'closed', updated_at: new Date().toISOString() }).eq('id', r.id))
     onChanged()
   }
   async function remove() {
     if (!await confirm(tr('Delete this question?'), { confirmLabel: tr('Delete'), danger: true })) return
-    await saved(supabase.from('faq_questions').delete().eq('id', r.id))
+    await saved(contentApi.faqQuestions().delete().eq('id', r.id))
     onChanged()
   }
 
@@ -572,8 +572,8 @@ function FaqEditor({ row, categories, nextPosition, onClose, onSaved }) {
     setBusy(true)
     const payload = { question: question.trim(), category: category.trim() || 'General', answer, published, updated_at: new Date().toISOString() }
     const { error } = row
-      ? await supabase.from('faqs').update(payload).eq('id', row.id)
-      : await supabase.from('faqs').insert({ ...payload, position: nextPosition, created_by: user.id })
+      ? await contentApi.faqs().update(payload).eq('id', row.id)
+      : await contentApi.faqs().insert({ ...payload, position: nextPosition, created_by: user.id })
     setBusy(false)
     if (error) { notice(error.message); return }
     toastSuccess(row ? tr('Saved.') : tr('Added.'))

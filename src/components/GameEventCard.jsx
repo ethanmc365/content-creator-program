@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import Icon from './Icon'
 import { useT } from '../lib/i18n'
+import { gamesApi } from '../api/games'
 
 const fmtTime = (ms) => `${Math.floor(ms / 60000)}:${String(Math.floor((ms % 60000) / 1000)).padStart(2, '0')}`
 const MODE_LABEL = { flags: 'Guess the flag', map: 'Find on the map', airports: 'Airport codes', currencies: 'Currencies' }
@@ -16,8 +17,8 @@ export default function GameEventCard({ eventId }) {
 
   const load = useCallback(async () => {
     const [{ data: ev }, { data: scores }] = await Promise.all([
-      supabase.from('game_events').select('*').eq('id', eventId).single(),
-      supabase.from('game_scores').select('*, profiles:player_id(name)').eq('event_id', eventId),
+      gamesApi.gameEvents().select('*').eq('id', eventId).single(),
+      gamesApi.gameScores().select('*, profiles:player_id(name)').eq('event_id', eventId),
     ])
     setEvent(ev)
     // best run per player

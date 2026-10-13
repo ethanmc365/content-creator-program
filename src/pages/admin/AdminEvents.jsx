@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { confirm, notice } from '../../lib/confirm'
-import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
 import { useMarkets } from '../../lib/markets'
 import { Avatar, EmptyState, Modal, PageHeader, Skeleton, Spinner } from '../../components/ui'
@@ -15,6 +14,7 @@ import { viewerZone, shortZoneName } from '../../lib/eventTime'
 import { zoneOffsetLabel } from '../../lib/timezone'
 import { formatDateTime, isoToTimeInput, timeAgo, cx } from '../../lib/utils'
 import { challengesApi } from '../../api/challenges'
+import { eventsApi } from '../../api/events'
 
 // MANAGE EVENTS, REBUILT.
 //
@@ -115,7 +115,7 @@ export default function AdminEvents() {
     // are derived from `challenges`, so they cannot be edited here, but leaving
     // them out meant the list disagreed with the calendar it feeds.
     const [{ data: rows }, { data: ch }] = await Promise.all([
-      supabase.from('events').select('*').is('owner_id', null).order('date', { ascending: false }),
+      eventsApi.events().select('*').is('owner_id', null).order('date', { ascending: false }),
       challengesApi.challenges().select('id, title, start_date, end_date, community_id').neq('status', 'draft'),
     ])
     const derived = (ch ?? []).flatMap((c) => [
@@ -156,7 +156,7 @@ export default function AdminEvents() {
   const [ideas, setIdeas] = useState([])
   useEffect(() => {
     let cancelled = false
-    supabase.from('event_suggestions')
+    eventsApi.eventSuggestions()
       .select('id, title, created_at, profiles:creator_id(id, name, photo_url)')
       .eq('status', 'new')
       .order('created_at', { ascending: false })
@@ -254,8 +254,8 @@ export default function AdminEvents() {
     }
     const isNew = editing === 'new'
     const { data: saved, error } = isNew
-      ? await supabase.from('events').insert({ ...payload, created_by: user.id }).select().single()
-      : await supabase.from('events').update(payload).eq('id', editing.id).select().single()
+      ? await eventsApi.events().insert({ ...payload, created_by: user.id }).select().single()
+      : await eventsApi.events().update(payload).eq('id', editing.id).select().single()
     if (error) { setBusy(false); notice(`Could not save that: ${error.message}`); return }
 
     if (isNew && form.announce && saved) {
@@ -279,7 +279,7 @@ export default function AdminEvents() {
 
   async function remove(event) {
     if (!await confirm(`Delete "${event.title}"?`)) return
-    const { error } = await supabase.from('events').delete().eq('id', event.id)
+    const { error } = await eventsApi.events().delete().eq('id', event.id)
     if (error) { notice(`Could not delete that: ${error.message}`); return }
     toast('Deleted')
     load()

@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
 import { PageHeader, Skeleton, Spinner, Select, Avatar } from '../../components/ui'
 import Icon from '../../components/Icon'
@@ -18,6 +17,7 @@ import { translateTexts } from '../../lib/contentTranslate'
 import { notice, promptText } from '../../lib/confirm'
 import { toastSuccess } from '../../lib/toast'
 import { safeUrl } from '../../lib/safeUrl'
+import { contentApi } from '../../api/content'
 
 // THE VIDEO TRACKER.
 //
@@ -91,7 +91,7 @@ export default function AdminVideoTracker() {
   const set = useCallback((patch) => setFilter((f) => ({ ...f, ...patch })), [])
 
   const load = useCallback(async () => {
-    const videos = await supabase.rpc('admin_tracked_videos')
+    const videos = await contentApi.adminTrackedVideos()
     if (videos.error) { setErr(videos.error.message); setRows([]); return }
     setErr('')
     setRows(videos.data || [])
@@ -101,7 +101,7 @@ export default function AdminVideoTracker() {
   async function sync() {
     setSyncing(true)
     setSyncNote('')
-    const { data, error } = await supabase.rpc('sync_tracked_videos')
+    const { data, error } = await contentApi.syncTrackedVideos()
     setSyncing(false)
     if (error) { setErr(error.message); return }
     setErr('')
@@ -143,7 +143,7 @@ export default function AdminVideoTracker() {
       title: v.screen_text ? 'Edit the hook' : 'Type the hook', defaultValue: v.screen_text || '', confirmLabel: 'Save',
     })
     if (next === null || next === undefined) return
-    const { error } = await supabase.rpc('set_video_hook', { p_video: v.id, p_is_vip: true, p_text: next })
+    const { error } = await contentApi.setVideoHook({ p_video: v.id, p_is_vip: true, p_text: next })
     if (error) { notice(error.message); return }
     toastSuccess('Hook saved.')
     setRows((rs) => rs.map((r) => (r.id === v.id ? { ...r, screen_text: next.trim() || null } : r)))
@@ -562,7 +562,7 @@ function VideoCard({ v, onOpen, eager = false, hook = null, translated = false }
       // screen, and whether the note survives to the next page load is not
       // something the reader should be made to wait for.
       if (url !== v.thumbnail_url) {
-        supabase.from('tracked_videos').update({ thumbnail_url: url }).eq('id', v.id).then(() => {})
+        contentApi.trackedVideos().update({ thumbnail_url: url }).eq('id', v.id).then(() => {})
       }
     })
     return () => { alive = false }

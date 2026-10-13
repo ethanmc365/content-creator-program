@@ -22,6 +22,7 @@ import {
 import Segmented from '../../components/network/Segmented'
 import { usePlural, useT } from '../../lib/i18n'
 import { flagEmoji } from '../../lib/countries'
+import { marketsApi } from '../../api/markets'
 
 // THE KPI TRACKER.
 //
@@ -126,8 +127,8 @@ export default function AdminKpis() {
   useEffect(() => {
     let alive = true
     Promise.all([
-      supabase.from('communities').select('id, name, kind, currency, country_codes').is('retired_at', null),
-      supabase.rpc('my_managed_scopes'),
+      marketsApi.communities().select('id, name, kind, currency, country_codes').is('retired_at', null),
+      marketsApi.myManagedScopes(),
     ]).then(([{ data: c, error: cErr }, { data: m, error: mErr }]) => {
       if (!alive) return
       if (cErr) { setErr(cErr.message); return }
@@ -164,7 +165,7 @@ export default function AdminKpis() {
   const cacheRef = useRef(new Map())
   const fetchSet = useCallback(async (sc, bs, y, q, m) => {
     const bm = m != null
-    const base = () => supabase.from('kpi_targets').select('*, creator:created_by(id, name, photo_url)')
+    const base = () => marketsApi.kpiTargets().select('*, creator:created_by(id, name, photo_url)')
       .eq('community_id', sc).eq('basis', bs).eq('year', y).eq('quarter', q)
     let tq = base()
     tq = bm ? tq.eq('month', m) : tq.is('month', null)
@@ -172,7 +173,7 @@ export default function AdminKpis() {
     const [t, o, a] = await Promise.all([
       tq.order('created_at'),
       other.order('created_at'),
-      supabase.rpc('kpi_actuals', { p_community_id: sc, p_year: y, p_quarter: q, p_basis: bs, ...(bm ? { p_month: m } : {}) }),
+      marketsApi.kpiActuals({ p_community_id: sc, p_year: y, p_quarter: q, p_basis: bs, ...(bm ? { p_month: m } : {}) }),
     ])
     return { t, o, a, bm }
   }, [])
@@ -346,7 +347,7 @@ export default function AdminKpis() {
       unit: r.unit || 'number', cumulative: r.cumulative !== false, higher_is_better: r.higher_is_better !== false,
       created_by: profile?.id,
     }))
-    const { error } = await supabase.from('kpi_targets').insert(rows)
+    const { error } = await marketsApi.kpiTargets().insert(rows)
     if (error) { setErr(error.message); return }
     invalidate()
   }
@@ -357,7 +358,7 @@ export default function AdminKpis() {
       { danger: true, confirmLabel: tr('Delete') },
     )
     if (!ok) return
-    const { error } = await supabase.from('kpi_targets').delete().eq('id', row.id)
+    const { error } = await marketsApi.kpiTargets().delete().eq('id', row.id)
     if (error) { setErr(error.message); return }
     invalidate()
   }

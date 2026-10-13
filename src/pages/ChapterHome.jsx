@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react'
 import { format } from 'date-fns'
 import { Link, useParams } from 'react-router-dom'
 import { motion } from 'motion/react'
-import { supabase } from '../lib/supabase'
 import { useCommunity } from '../context/CommunityContext'
 import NetworkLayout, { RailCard, flagFromIso } from '../components/network/NetworkLayout'
 import MarketsRailCard from '../components/network/MarketsRailCard'
@@ -28,6 +27,8 @@ import { testFlags } from '../lib/testData'
 import { challengesApi } from '../api/challenges'
 import { submissionsApi } from '../api/submissions'
 import { chatApi } from '../api/chat'
+import { marketsApi } from '../api/markets'
+import { eventsApi } from '../api/events'
 
 // A single market's overview, seen by the people IN it.
 //
@@ -76,7 +77,7 @@ export default function ChapterHome() {
       ] = await Promise.all([
         chatApi.channels().select('id, key, label, hint, icon, visibility, position')
           .eq('community_id', chapter.id).order('position'),
-        supabase.from('community_members')
+        marketsApi.communityMembers()
           .select('profile_id, profiles!inner(is_admin, is_test, status)', { count: 'exact', head: true })
           .eq('community_id', chapter.id).eq('status', 'active')
           .eq('profiles.is_admin', false).in('profiles.is_test', testFlags()).eq('profiles.status', 'active'),
@@ -99,14 +100,14 @@ export default function ChapterHome() {
         // but it has to pick them by who was here most recently, and you cannot
         // sort by presence over a slice the database chose for you. A market
         // roster is tens of rows, not thousands.
-        supabase.from('community_members')
+        marketsApi.communityMembers()
           .select('profile_id, role, profiles!inner(id, name, photo_url, country_code, last_seen_at, is_admin, is_test, status, platform_role, role_title, earned_role)')
           .eq('community_id', chapter.id).eq('status', 'active')
           .in('profiles.is_test', testFlags()).eq('profiles.status', 'active'),
         // What is coming up here. Events scoped to THIS market plus the
         // network-wide ones, because a worldwide Q&A is still something a
         // Spanish creator should see on the Spanish page.
-        supabase.from('events')
+        eventsApi.events()
           .select('id, title, date, type, community_id')
           .or(`community_id.eq.${chapter.id},community_id.is.null`)
           .gte('date', new Date().toISOString())

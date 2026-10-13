@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { motion } from 'motion/react'
-import { supabase } from '../../lib/supabase'
 import Icon from '../Icon'
 import { Avatar } from '../ui'
 import { RailCardSkeleton } from './Skeletons'
@@ -11,6 +10,7 @@ import { useT } from '../../lib/i18n'
 import { testFlags } from '../../lib/testData'
 import { submissionsApi } from '../../api/submissions'
 import { chatApi } from '../../api/chat'
+import { marketsApi } from '../../api/markets'
 
 // What has actually happened here lately.
 //
@@ -38,7 +38,7 @@ export default function MarketActivity({ market, limit = 8 }) {
     let alive = true
     async function load() {
       const [{ data: joins }, { data: posts }, { data: subs }] = await Promise.all([
-        supabase.from('community_members')
+        marketsApi.communityMembers()
           .select('profile_id, joined_at, profiles!inner(id, name, photo_url, is_test, status)')
           .eq('community_id', market.id).eq('status', 'active')
           .in('profiles.is_test', testFlags()).eq('profiles.status', 'active')

@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import { supabase } from '../lib/supabase'
 import { fetchIn } from '../lib/fetchAll'
 import { useAuth } from '../context/AuthContext'
 import { notice } from '../lib/confirm'
@@ -72,7 +71,7 @@ export function EntryFeedbackEditor({ submissionId, creatorName, feedback, onSav
     const v = body.trim()
     if (!v || busy) return
     setBusy(true)
-    const { error } = await supabase.rpc('set_entry_feedback', { p_submission: submissionId, p_body: v })
+    const { error } = await challengesApi.setEntryFeedback({ p_submission: submissionId, p_body: v })
     setBusy(false)
     if (error) { notice(`That did not send: ${error.message}`); return }
     toast(existing ? 'Feedback updated' : `Sent to ${creatorName || 'them'}`)

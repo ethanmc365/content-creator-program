@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { supabase } from '../lib/supabase'
 import { copyToClipboard } from '../lib/clipboard'
 import Icon from '../components/Icon'
 import CertificateCard, { CERT_W, CERT_H } from '../components/certificate/CertificateCard'
 import { designStyle, fillTemplate, formatAwardDate } from '../lib/certificates'
 import { useFluidWidth } from '../components/portfolio/PortfolioDeck'
 import { useT } from '../lib/i18n'
+import { certificatesApi } from '../api/certificates'
 
 // IS THIS CERTIFICATE REAL?
 //
@@ -62,7 +62,7 @@ export default function VerifyCertificate() {
   const look = useCallback(async (code) => {
     if (!code) return
     setState('loading')
-    const { data: row, error } = await supabase.rpc('verify_certificate', { p_serial: code })
+    const { data: row, error } = await certificatesApi.verifyCertificate({ p_serial: code })
     if (error || !row) { setData(null); setState('missing'); return }
     setData(row)
     setState('found')

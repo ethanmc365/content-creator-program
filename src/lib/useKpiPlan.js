@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
-import { supabase } from './supabase'
 import { mergeKpiRows, periodKey, rowsForPeriod } from './kpiTracker'
+import { marketsApi } from '../api/markets'
 
 // EVERY GOAL OF SEVERAL SCOPES OVER SEVERAL PERIODS, IN TWO REQUESTS (30 Sep 2026).
 //
@@ -36,7 +36,7 @@ export function useKpiPlan({ scopes, periods, enabled = true }) {
     ;(async () => {
       const ids = [...new Set(scopes.map((s) => s.id))]
       const years = [...new Set(periods.map((p) => p.year))]
-      const { data: targets, error } = await supabase.from('kpi_targets')
+      const { data: targets, error } = await marketsApi.kpiTargets()
         .select('*').in('community_id', ids).in('year', years)
       if (!alive) return
       if (error) { setState({ key, data: cache.get(key) || null, error: error.message }); return }
@@ -60,7 +60,7 @@ export function useKpiPlan({ scopes, periods, enabled = true }) {
       }
       const actuals = new Map()
       for (let i = 0; i < items.length; i += 120) {
-        const { data: a, error: aErr } = await supabase.rpc('kpi_actuals_batch', { p_items: items.slice(i, i + 120) })
+        const { data: a, error: aErr } = await marketsApi.kpiActualsBatch({ p_items: items.slice(i, i + 120) })
         if (!alive) return
         if (aErr) { setState({ key, data: cache.get(key) || null, error: aErr.message }); return }
         for (const r of a || []) {

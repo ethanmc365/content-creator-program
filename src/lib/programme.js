@@ -1,3 +1,4 @@
+import { settingsApi } from '../api/settings'
 // Programme economics: what a prize pot actually bought.
 //
 // These are the numbers the programme has been tracked on in a spreadsheet, and
@@ -265,7 +266,7 @@ export async function publishFxRates(supabase, rates) {
   )
   if (!Object.keys(clean).length) return
   try {
-    await supabase.from('app_settings').upsert({
+    await settingsApi.appSettings().upsert({
       key: 'fx_rates',
       value: { base: 'GBP', ...clean },
       updated_at: new Date().toISOString(),

@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { EmptyState, Modal, PageHeader, Skeleton, Spinner, Toggle } from '../components/ui'
 import Icon from '../components/Icon'
@@ -14,6 +13,7 @@ import { useTranslateOnDemand } from '../lib/quickTranslate'
 import { cx } from '../lib/utils'
 import { DateField } from '../components/DateTimeFields'
 import { useLocale, useT } from '../lib/i18n'
+import { contentApi } from '../api/content'
 
 // WHAT'S NEW (6 Oct 2026).
 //
@@ -55,7 +55,7 @@ export default function Updates() {
   const [seenThen] = useState(() => { try { return localStorage.getItem(SEEN_KEY) || '' } catch { return '' } })
 
   const load = useCallback(async () => {
-    const { data, error: e } = await supabase.from('app_updates').select('*').order('published_on', { ascending: false }).order('created_at', { ascending: false })
+    const { data, error: e } = await contentApi.appUpdates().select('*').order('published_on', { ascending: false }).order('created_at', { ascending: false })
     if (e) { setError(e.message); setRows([]); return }
     setError('')
     setRows(data || [])
@@ -86,13 +86,13 @@ export default function Updates() {
 
   async function remove(r) {
     if (!await confirm(tr('Delete this update for good? Hide it instead if you might want it back.'), { confirmLabel: tr('Delete'), danger: true })) return
-    const { error: e } = await supabase.from('app_updates').delete().eq('id', r.id)
+    const { error: e } = await contentApi.appUpdates().delete().eq('id', r.id)
     if (e) { notice(e.message); return }
     toastSuccess(tr('Deleted'))
     load()
   }
   async function setPublished(r, published) {
-    const { error: e } = await supabase.from('app_updates').update({ published }).eq('id', r.id)
+    const { error: e } = await contentApi.appUpdates().update({ published }).eq('id', r.id)
     if (e) { notice(e.message); return }
     toastSuccess(published ? tr('Showing to everyone') : tr('Hidden from creators'))
     load()
@@ -239,8 +239,8 @@ function UpdateEditor({ row, authorId, onClose, onSaved }) {
     setBusy(true)
     const payload = { title: title.trim(), summary: summary.trim() || null, body, kind, icon, published_on: date, published }
     const { error } = editing
-      ? await supabase.from('app_updates').update(payload).eq('id', row.id)
-      : await supabase.from('app_updates').insert({ ...payload, created_by: authorId })
+      ? await contentApi.appUpdates().update(payload).eq('id', row.id)
+      : await contentApi.appUpdates().insert({ ...payload, created_by: authorId })
     setBusy(false)
     if (error) { notice(error.message); return }
     toastSuccess(editing ? tr('Saved') : tr('Posted'))

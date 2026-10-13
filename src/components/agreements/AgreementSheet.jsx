@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
 import { GuardianSent } from './GuardianShare'
 import { GUARDIAN_CONSENT_ON } from '../../lib/guardianConsent'
@@ -11,6 +10,7 @@ import AgreementDoc from './AgreementDoc'
 import { lockScroll } from '../../lib/scrollLock'
 import { getLocale, useT } from '../../lib/i18n'
 import { cx, dateTag } from '../../lib/utils'
+import { agreementsApi } from '../../api/agreements'
 
 export { headingsOf } from './AgreementDoc'
 
@@ -64,7 +64,7 @@ export default function AgreementSheet({ doc, updated = false, onAccepted, onClo
   useEffect(() => {
     if (preview || readOnly) { setCtx({ name: null, minor: previewMinor }); return undefined }
     let alive = true
-    supabase.rpc('my_agreement_context').then(({ data }) => { if (alive) setCtx(data || { minor: false }) }, () => { if (alive) setCtx({ minor: false }) })
+    agreementsApi.myAgreementContext().then(({ data }) => { if (alive) setCtx(data || { minor: false }) }, () => { if (alive) setCtx({ minor: false }) })
     return () => { alive = false }
   }, [preview, previewMinor, readOnly])
 
@@ -90,7 +90,7 @@ export default function AgreementSheet({ doc, updated = false, onAccepted, onClo
       return
     }
     setBusy(true); setErr('')
-    const { error } = await supabase.rpc('accept_agreement', {
+    const { error } = await agreementsApi.acceptAgreement({
       p_agreement: doc.id,
       p_method: doc.requires_signature ? sig.method : 'click',
       p_signed_name: doc.requires_signature ? sig.name : null,

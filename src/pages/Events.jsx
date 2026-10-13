@@ -4,7 +4,6 @@ import {
   addDays, addMonths, eachDayOfInterval, endOfMonth, endOfWeek, format as dfFormat,
   isSameDay, isSameMonth, isToday, isWeekend, startOfMonth, startOfWeek,
 } from 'date-fns'
-import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { useMyScopes } from '../lib/scope'
 import { Modal, PageHeader } from '../components/ui'
@@ -32,6 +31,7 @@ import { cx, dateLocale } from '../lib/utils'
 import { useLocale, useT } from '../lib/i18n'
 import { safeUrl } from '../lib/safeUrl'
 import { profilesApi } from '../api/profiles'
+import { eventsApi } from '../api/events'
 
 // THE CALENDAR, THIRD PASS.
 //
@@ -363,7 +363,7 @@ export default function Events() {
     if (!ids.length) return undefined
     ;(async () => {
       const [{ data: rows }, { data: conns }] = await Promise.all([
-        supabase.from('event_rsvps')
+        eventsApi.eventRsvps()
           .select('event_id, user_id, status, profiles:user_id(id, name, photo_url)')
           .in('event_id', ids),
         // `creator_id` / `connected_creator_id`, NOT requester/addressee - the

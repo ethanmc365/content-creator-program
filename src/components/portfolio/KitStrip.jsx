@@ -8,6 +8,7 @@ import { notice } from '../../lib/confirm'
 import { useT } from '../../lib/i18n'
 import { downloadBlob } from '../../lib/domSnapshot'
 import { kitThumbPath } from '../../lib/kitThumb'
+import { certificatesApi } from '../../api/certificates'
 
 // THE GRAPHICS, WHERE THE CREATOR ALREADY IS.
 //
@@ -80,7 +81,7 @@ export default function KitStrip({ className }) {
   const [open, setOpen] = useState(null)
 
   useEffect(() => {
-    supabase.from('creator_kit_assets')
+    certificatesApi.creatorKitAssets()
       .select('id, title, blurb, kind, kinds, path, width, height')
       .eq('is_active', true)
       .order('sort_order').order('created_at')

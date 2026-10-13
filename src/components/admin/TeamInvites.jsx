@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
 import { Skeleton, Spinner } from '../ui'
 import Icon from '../Icon'
@@ -8,6 +7,7 @@ import { notice } from '../../lib/confirm'
 import { copyToClipboard } from '../../lib/clipboard'
 import { useT } from '../../lib/i18n'
 import { profilesApi } from '../../api/profiles'
+import { teamApi } from '../../api/team'
 
 // ONE LINK, ONE CARD, FOR PEOPLE WHO SHOULD JOIN THE TRYP.COM TEAM.
 //
@@ -40,8 +40,8 @@ export default function TeamInvites() {
   const [copied, setCopied] = useState('')
 
   const load = useCallback(async () => {
-    const { data } = await supabase
-      .from('team_invites').select('*').is('revoked_at', null)
+    const { data } = await teamApi
+      .teamInvites().select('*').is('revoked_at', null)
       .order('created_at', { ascending: false }).limit(1)
     const row = data?.[0] ?? null
     setInvite(row)
@@ -65,7 +65,7 @@ export default function TeamInvites() {
     const bytes = new Uint8Array(18)
     crypto.getRandomValues(bytes)
     const token = `tryp-team-${[...bytes].map((b) => b.toString(16).padStart(2, '0')).join('')}`
-    const { error } = await supabase.from('team_invites').insert({ token, created_by: profile?.id ?? null, expires_at: null })
+    const { error } = await teamApi.teamInvites().insert({ token, created_by: profile?.id ?? null, expires_at: null })
     setBusy(false)
     if (error) { notice(error.message, { title: 'Could not make the link' }); return }
     await load()

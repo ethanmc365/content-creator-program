@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from 'react'
-import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { Badge, EmptyState, PageHeader, Skeleton, Spinner } from '../components/ui'
 import Icon from '../components/Icon'
@@ -12,6 +11,7 @@ import { SurveyModal } from '../components/SurveyHost'
 import { TLine } from '../components/TranslatedText'
 import { pendingSurveys } from '../lib/surveys'
 import { safeUrl } from '../lib/safeUrl'
+import { contentApi } from '../api/content'
 
 // How a creator's own past reports are labelled back to them.
 const STATUS = {
@@ -44,8 +44,8 @@ export default function Feedback() {
   }
 
   async function load() {
-    const { data } = await supabase
-      .from('feedback')
+    const { data } = await contentApi
+      .feedback()
       .select('*')
       .eq('creator_id', user.id)
       .order('created_at', { ascending: false })
@@ -73,7 +73,7 @@ export default function Feedback() {
         return
       }
     }
-    const { error } = await supabase.from('feedback').insert({
+    const { error } = await contentApi.feedback().insert({
       creator_id: user.id,
       type,
       message: message.trim(),
@@ -238,8 +238,8 @@ function SurveysForYou() {
   const [open, setOpen] = useState(null)
   const load = async () => {
     const [{ data: live }, { data: mine }] = await Promise.all([
-      supabase.from('surveys').select('*').eq('status', 'live'),
-      supabase.from('survey_responses').select('survey_id').eq('profile_id', user.id),
+      contentApi.surveys().select('*').eq('status', 'live'),
+      contentApi.surveyResponses().select('survey_id').eq('profile_id', user.id),
     ])
     // ONLY THE ONES THAT ARE REALLY FOR YOU (12 Oct 2026). Ethan saw "The
     // Global Challenge: how did it go?" a week before the challenge ended. A
@@ -248,7 +248,7 @@ function SurveysForYou() {
     // asked here, and a challenge survey waits for its challenge to end.
     const pending = pendingSurveys(live, mine)
     const ok = await Promise.all(pending.map((s) =>
-      supabase.rpc('survey_is_for', { p_survey: s.id, p_profile: user.id }).then(({ data }) => data === true)))
+      contentApi.surveyIsFor({ p_survey: s.id, p_profile: user.id }).then(({ data }) => data === true)))
     setList(pending.filter((_, i) => ok[i]))
   }
   useEffect(() => { if (user?.id) load() }, [user?.id]) // eslint-disable-line react-hooks/exhaustive-deps

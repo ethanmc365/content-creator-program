@@ -5,6 +5,8 @@
 // admin-only at the server; these helpers exist so the admin panel and the
 // Testing Centre call it the same way and read the same vocabulary of errors.
 import { supabase } from './supabase'
+import { teamApi } from '../api/team'
+import { settingsApi } from '../api/settings'
 
 // What the sync can come back with, in the words an admin should see. The keys
 // are the `views_sync_error` values the function writes onto a submission, so a
@@ -113,7 +115,7 @@ export async function startViewSync({ challengeId, submissionIds, force = false 
 // Schedule, last run, whether an Instagram session is present (never the cookie
 // itself) and how the current entries are doing.
 export async function viewSyncStatus() {
-  const { data, error } = await supabase.rpc('view_sync_status')
+  const { data, error } = await teamApi.viewSyncStatus()
   if (error) throw error
   return data
 }
@@ -122,7 +124,7 @@ export async function viewSyncStatus() {
 // big enough that one sweep does not clear it, which is the point at which an
 // admin needs to be told the queue is draining rather than stuck.
 export async function viewSyncBacklog() {
-  const { data, error } = await supabase.rpc('view_sync_backlog')
+  const { data, error } = await teamApi.viewSyncBacklog()
   if (error) throw error
   return data
 }
@@ -130,7 +132,7 @@ export async function viewSyncBacklog() {
 // The two credentials automatic views needs. Written by admins, read only by
 // the Edge Function, never readable back through the API.
 export async function saveViewSyncSecret(name, value) {
-  const { error } = await supabase.rpc('set_view_sync_secret', { p_name: name, p_value: value })
+  const { error } = await teamApi.setViewSyncSecret({ p_name: name, p_value: value })
   if (error) throw error
 }
 
@@ -138,8 +140,8 @@ export async function saveViewSyncSecret(name, value) {
 // the leaderboard works now, on every challenge, current and future; only how
 // OFTEN is a decision worth anybody's attention.
 export async function saveViewSyncSettings({ intervalHours }) {
-  const { error } = await supabase
-    .from('app_settings')
+  const { error } = await settingsApi
+    .appSettings()
     .upsert({ key: 'view_sync', value: { enabled: true, interval_hours: intervalHours }, updated_at: new Date().toISOString() })
   if (error) throw error
 }

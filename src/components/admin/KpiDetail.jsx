@@ -3,7 +3,6 @@ import { Link } from 'react-router-dom'
 import {
   Area, Bar, BarChart, CartesianGrid, ComposedChart, Line, ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from 'recharts'
-import { supabase } from '../../lib/supabase'
 import { Avatar, Modal, Skeleton } from '../ui'
 import Icon from '../Icon'
 import KpiProgress from './KpiProgress'
@@ -12,6 +11,7 @@ import { daysUntil, formatKpiValue, metricDef, metricLabel, periodLabel, rowStat
 import { CHART, FILL, axisTick, tooltipStyle as chartTip } from '../charts/chartTheme'
 import { useT } from '../../lib/i18n'
 import { CountUp } from '../network/Motion'
+import { marketsApi } from '../../api/markets'
 
 // ONE KPI, OPENED UP (28 Sep 2026).
 //
@@ -50,7 +50,7 @@ const cacheKey = (scope, basis, { year, quarter, month }, metric) => `${scope}:$
 function fetchDetail(scope, basis, period, metric) {
   const ck = cacheKey(scope, basis, period, metric)
   if (inflight.has(ck)) return inflight.get(ck)
-  const p = supabase.rpc('kpi_detail', {
+  const p = marketsApi.kpiDetail({
     p_community_id: scope, p_year: period.year, p_quarter: period.quarter, p_month: period.month ?? null, p_metric: metric, p_basis: basis,
   }).then((res) => { inflight.delete(ck); if (!res.error) detailCache.set(ck, res.data); return res })
   inflight.set(ck, p)

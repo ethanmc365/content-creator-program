@@ -12,6 +12,11 @@ describe('profiles api', () => {
     await api.profiles()
     await api.adminSetCreatorMarkets({ x: 1 })
     await api.profileGameStats({ x: 1 })
+    await api.connectionNotes()
+    await api.featuredCreators({ x: 1 })
+    await api.creatorMetrics({ x: 1 })
+    await api.publicPortfolio({ x: 1 })
+    await api.publicWallOfFame({ x: 1 })
     expect(calls).toEqual([
       ['from', 'connections'],
       ['from', 'creator_photos'],
@@ -19,6 +24,11 @@ describe('profiles api', () => {
       ['from', 'profiles'],
       ['rpc', 'admin_set_creator_markets', { x: 1 }],
       ['rpc', 'profile_game_stats', { x: 1 }],
+      ['from', 'connection_notes'],
+      ['rpc', 'featured_creators', { x: 1 }],
+      ['rpc', 'creator_metrics', { x: 1 }],
+      ['rpc', 'public_portfolio', { x: 1 }],
+      ['rpc', 'public_wall_of_fame', { x: 1 }],
     ])
   })
 })

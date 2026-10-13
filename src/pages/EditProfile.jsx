@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { format } from 'date-fns'
 import { useAuth } from '../context/AuthContext'
-import { supabase } from '../lib/supabase'
 import { AvatarUpload, LanguageSelect, SocialInputs, DobField, PhoneInput, QuoteField } from '../components/ProfileFields'
 import WorldMap from '../components/WorldMap'
 import Icon from '../components/Icon'
@@ -18,6 +17,7 @@ import { useT } from '../lib/i18n'
 import { useTyping } from '../lib/useTyping'
 import { moneyApi } from '../api/money'
 import { profilesApi } from '../api/profiles'
+import { flightsApi } from '../api/flights'
 
 // Edit every part of your own profile on one calm page.
 //
@@ -155,8 +155,8 @@ export default function EditProfile() {
   // Upcoming trips, shown read-only here (managed on the collab board).
   const [trips, setTrips] = useState([])
   useEffect(() => {
-    supabase
-      .from('collab_posts')
+    flightsApi
+      .collabPosts()
       .select('id, city, country, start_date, end_date')
       .eq('creator_id', user.id)
       .gte('end_date', format(new Date(), 'yyyy-MM-dd'))

@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { useViewAs, ViewingAsBanner } from '../components/ViewingAs'
 import { Modal, PageHeader, Skeleton, Spinner } from '../components/ui'
@@ -19,6 +18,8 @@ import { safeUrl } from '../lib/safeUrl'
 import { vipApi } from '../api/vip'
 import { submissionsApi } from '../api/submissions'
 import { profilesApi } from '../api/profiles'
+import { certificatesApi } from '../api/certificates'
+import { teamApi } from '../api/team'
 
 // MY PORTFOLIO.
 //
@@ -84,7 +85,7 @@ export default function Portfolio() {
         .select('id, platform, video_url, thumbnail_url, caption, logged_views, submitted_at, challenge_id, community_id, challenge:challenges(title), market:communities(name)')
         .eq('creator_id', viewingId)
         .order('logged_views', { ascending: false, nullsFirst: false }),
-      supabase.from('certificate_awards')
+      certificatesApi.certificateAwards()
         .select('*, design:certificate_designs(title, tier, accent, emblem, body)')
         .eq('profile_id', viewingId)
         .order('awarded_at', { ascending: false }),
@@ -102,7 +103,7 @@ export default function Portfolio() {
     // page never gets it from here: it reads the address saved into the copy.
     let email = viewingId === user?.id ? (user?.email || null) : null
     if (!email && viewingId !== user?.id) {
-      const { data: rows } = await supabase.rpc('admin_list_emails')
+      const { data: rows } = await teamApi.adminListEmails()
       email = (rows || []).find((r) => r.id === viewingId)?.email || null
     }
     setState({

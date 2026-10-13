@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
-import { supabase } from '../../lib/supabase'
 import { cx } from '../../lib/utils'
+import { marketsApi } from '../../api/markets'
 
 // READING AN ADMIN PAGE ONE MARKET AT A TIME.
 //
@@ -36,8 +36,8 @@ export function useScopedMarkets() {
   useEffect(() => {
     let alive = true
     Promise.all([
-      supabase.from('communities').select('id, name, kind, currency, retired_at').order('name'),
-      supabase.from('community_members').select('community_id, profile_id').eq('status', 'active'),
+      marketsApi.communities().select('id, name, kind, currency, retired_at').order('name'),
+      marketsApi.communityMembers().select('community_id, profile_id').eq('status', 'active'),
     ]).then(([{ data: c }, { data: m }]) => {
       if (!alive) return
       // Retired markets and the worldwide shell are not places you scope TO.

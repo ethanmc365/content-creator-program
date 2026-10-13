@@ -30,6 +30,7 @@ describe('challenges api', () => {
     await api.rebuildChallengeResults({ x: 1 })
     await api.recalcChallengePoints({ x: 1 })
     await api.viewsLeaderboard({ x: 1 })
+    await api.setEntryFeedback({ x: 1 })
     expect(calls).toEqual([
       ['from', 'challenge_boosts'],
       ['from', 'challenge_collabs'],
@@ -55,6 +56,7 @@ describe('challenges api', () => {
       ['rpc', 'rebuild_challenge_results', { x: 1 }],
       ['rpc', 'recalc_challenge_points', { x: 1 }],
       ['rpc', 'views_leaderboard', { x: 1 }],
+      ['rpc', 'set_entry_feedback', { x: 1 }],
     ])
   })
 })

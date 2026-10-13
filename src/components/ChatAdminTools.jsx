@@ -9,6 +9,8 @@ import { zonedTimeToUtc, formatInZone, zoneCityLabel } from '../lib/localTime'
 import { COMMON_ZONES } from '../lib/timezones'
 import { useT } from '../lib/i18n'
 import { chatApi } from '../api/chat'
+import { gamesApi } from '../api/games'
+import { contentApi } from '../api/content'
 
 // The three things the team can drop into a conversation: a poll, a game
 // challenge, a resource from the library.
@@ -50,8 +52,8 @@ export default function ChatAdminTools({ tool, onClose, postCard, roomLabel = 't
   // your mind about going out anyway.
   const loadPending = useCallback(async () => {
     if (!room?.channel) { setPending([]); return }
-    const { data } = await supabase
-      .from('scheduled_announcements')
+    const { data } = await contentApi
+      .scheduledAnnouncements()
       .select('id, body, scheduled_for, tz, created_by')
       .eq('channel', room.channel)
       .is('posted_at', null)
@@ -85,7 +87,7 @@ export default function ChatAdminTools({ tool, onClose, postCard, roomLabel = 't
     if (!schedule.body.trim() || !scheduledAt || inThePast || busy) return
     setBusy(true)
     const { data: me } = await supabase.auth.getUser()
-    const { error } = await supabase.from('scheduled_announcements').insert({
+    const { error } = await contentApi.scheduledAnnouncements().insert({
       body: schedule.body.trim(),
       scheduled_for: scheduledAt.toISOString(),
       tz: zone,
@@ -102,7 +104,7 @@ export default function ChatAdminTools({ tool, onClose, postCard, roomLabel = 't
 
   async function cancelSchedule(row) {
     if (!await confirm('Cancel this scheduled message? It will not be posted.')) return
-    await supabase.from('scheduled_announcements')
+    await contentApi.scheduledAnnouncements()
       .update({ cancelled_at: new Date().toISOString() }).eq('id', row.id)
     loadPending()
   }
@@ -136,7 +138,7 @@ export default function ChatAdminTools({ tool, onClose, postCard, roomLabel = 't
     e.preventDefault()
     if (!game.title.trim() || busy) return
     setBusy(true)
-    const { data, error } = await supabase.from('game_events')
+    const { data, error } = await gamesApi.gameEvents()
       .insert({
         title: game.title.trim(),
         mode: game.mode,

@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react'
 import { Bar, CartesianGrid, ComposedChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
-import { supabase } from '../../../lib/supabase'
 import { Skeleton, StatCard } from '../../../components/ui'
 import Segmented from '../../../components/network/Segmented'
 import { cx, timeAgo } from '../../../lib/utils'
 import { FILL } from '../../../components/charts/chartTheme'
+import { teamApi } from '../../../api/team'
 
 // DID THE PUSH GO OUT, AND DID ANYONE OPEN IT? (30 Sep 2026, migration 283)
 //
@@ -48,13 +48,13 @@ export default function PushDelivery() {
     setMore([])
     const hit = pushCache.get(days)
     if (hit) setData(hit); else setFetching(true)
-    supabase.rpc('admin_push_analytics', { p_days: days, p_recent: PAGE, p_offset: 0 }).then(({ data: d, error }) => {
+    teamApi.adminPushAnalytics({ p_days: days, p_recent: PAGE, p_offset: 0 }).then(({ data: d, error }) => {
       if (!alive) return
       setFetching(false)
       if (error) setErr(error.message); else { setErr(''); pushCache.set(days, d); setData(d) }
       for (const other of [7, 30, 90]) {
         if (other !== days && !pushCache.has(other)) {
-          supabase.rpc('admin_push_analytics', { p_days: other, p_recent: PAGE, p_offset: 0 }).then(({ data: o }) => { if (o) pushCache.set(other, o) })
+          teamApi.adminPushAnalytics({ p_days: other, p_recent: PAGE, p_offset: 0 }).then(({ data: o }) => { if (o) pushCache.set(other, o) })
         }
       }
     })
@@ -64,7 +64,7 @@ export default function PushDelivery() {
   async function loadMore() {
     setLoadingMore(true)
     const offset = (data?.recent?.length || 0) + more.length
-    const { data: d } = await supabase.rpc('admin_push_analytics', { p_days: days, p_recent: PAGE, p_offset: offset })
+    const { data: d } = await teamApi.adminPushAnalytics({ p_days: days, p_recent: PAGE, p_offset: offset })
     setMore((m) => [...m, ...(d?.recent || [])])
     setLoadingMore(false)
   }

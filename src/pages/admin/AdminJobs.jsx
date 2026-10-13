@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { confirm, saved } from '../../lib/confirm'
-import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
 import { Avatar, Badge, CopyButton, EmptyState, Modal, PageHeader, Select, Skeleton, Spinner } from '../../components/ui'
 import Icon from '../../components/Icon'
 import { formatDate, timeAgo } from '../../lib/utils'
+import { contentApi } from '../../api/content'
+import { teamApi } from '../../api/team'
 
 // Manage hiring posts: create / edit / open / close roles, AND review the
 // applications each role has received. Opening a role notifies every creator.
@@ -30,9 +31,9 @@ export default function AdminJobs() {
 
   async function load() {
     const [{ data: jobRows }, { data: appRows }, { data: emailRows }] = await Promise.all([
-      supabase.from('jobs').select('*').order('created_at', { ascending: false }),
-      supabase.from('job_applications').select('*, profiles:creator_id(id, name, photo_url)').order('created_at', { ascending: false }),
-      supabase.rpc('admin_list_emails'),
+      contentApi.jobs().select('*').order('created_at', { ascending: false }),
+      contentApi.jobApplications().select('*, profiles:creator_id(id, name, photo_url)').order('created_at', { ascending: false }),
+      teamApi.adminListEmails(),
     ])
     setJobs(jobRows ?? [])
     setApps(appRows ?? [])
@@ -64,28 +65,28 @@ export default function AdminJobs() {
       apply_url: form.apply_url.trim() || null,
       status: form.status,
     }
-    if (editing === 'new') await supabase.from('jobs').insert({ ...payload, created_by: user.id })
-    else await supabase.from('jobs').update(payload).eq('id', editing.id)
+    if (editing === 'new') await contentApi.jobs().insert({ ...payload, created_by: user.id })
+    else await contentApi.jobs().update(payload).eq('id', editing.id)
     setBusy(false)
     setEditing(null)
     load()
   }
 
   async function toggleStatus(job) {
-    await saved(supabase.from('jobs').update({ status: job.status === 'open' ? 'closed' : 'open' }).eq('id', job.id))
+    await saved(contentApi.jobs().update({ status: job.status === 'open' ? 'closed' : 'open' }).eq('id', job.id))
     load()
   }
 
   async function remove(job) {
     if (!await confirm(`Delete "${job.title}"? This also removes its applications.`)) return
-    await saved(supabase.from('jobs').delete().eq('id', job.id))
+    await saved(contentApi.jobs().delete().eq('id', job.id))
     load()
   }
 
   // Move an applicant along the pipeline (optimistic).
   async function setAppStatus(app, status) {
     setApps((list) => list.map((a) => (a.id === app.id ? { ...a, status } : a)))
-    await saved(supabase.from('job_applications').update({ status }).eq('id', app.id))
+    await saved(contentApi.jobApplications().update({ status }).eq('id', app.id))
   }
 
   // Open the 1:1 conversation with an applicant and jump into it.
