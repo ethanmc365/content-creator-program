@@ -22,7 +22,7 @@ import { useCachedPage, writePageCache } from '../lib/pageCache'
 import { DM_CACHE_KEY, DM_PEOPLE_CACHE_KEY, fetchDmPeople, fetchInbox, isListableConversation } from '../lib/inbox'
 import { pinToBottom, isPinning, stickToBottom } from '../lib/chatScroll'
 import { formatChatTime, formatMessageTime, messageTimeTitle, otherParticipant, cx } from '../lib/utils'
-import { useVisualViewport, useIsMobile, useViewportPin, useNoFocusPan } from '../lib/useKeyboardInset'
+import { useChatOverlayHeight, useIsMobile, useViewportPin, useNoFocusPan } from '../lib/useKeyboardInset'
 import { setChatChromeHidden, readerMovedChrome, chromeGestureHandlers } from '../lib/chatChrome'
 import { useNoScrollChain, useOverlayTouchLock } from '../lib/noScrollChain'
 import { RoomSearch, ComposerSearch } from '../components/ChatSearch'
@@ -392,8 +392,9 @@ export default function Messages() {
   // hugs the keyboard, the person you're messaging stays pinned at the top, and
   // the app header + bottom tab bar collapse away while typing. Same approach as
   // the #general chat (see useVisualViewport for the iOS reasoning).
-  const { height: vpHeight, keyboardOpen: kbOpen } = useVisualViewport()
   const overlayRef = useRef(null)
+  // Everything under the chat header; it glides with the keyboard (useChatOverlayHeight).
+  const moverRef = useRef(null)
   const isMobile = useIsMobile()
   useViewportPin(overlayRef, isMobile)
   // No pan when the message box takes focus, so the header stays where it is (see useNoFocusPan).
@@ -461,8 +462,11 @@ export default function Messages() {
   // Hiding on scroll alone is not enough: a short conversation never scrolls,
   // so the room this was copied from used to keep its chrome for ever in
   // exactly the threads that had the least to show.
-  useEffect(() => {
-    setChatChromeHidden(isMobile && threadOpen)
+  // BEFORE THE FIRST FRAME, WITHOUT THE SLIDE (13 Oct 2026). Ethan: "when i click on a dm, it briefly shows the header
+  // animation going away even though the header was never there". As an effect this ran after the thread had painted
+  // with the header and a gap for it, then slid it away. A layout effect lands before paint; `instant` skips the slide.
+  useLayoutEffect(() => {
+    setChatChromeHidden(isMobile && threadOpen, { instant: true })
     setChromeHidden(isMobile && threadOpen)
   }, [isMobile, threadOpen])
 
@@ -472,13 +476,13 @@ export default function Messages() {
   // tabs are hidden until it closes.
   // `chromeHidden` and `kbOpen` do the same thing to the top edge for different
   // reasons, so they are one condition here.
+  const { kbOpen, height: overlayH } = useChatOverlayHeight({ enabled: isMobile, chromeHidden, overlayRef, moverRef, scrollerRef })
   const topGone = kbOpen || chromeHidden
   const mobileStyle = isMobile
     ? {
         top: topGone ? 0 : 'calc(4rem + env(safe-area-inset-top))',
-        height: kbOpen
-          ? `${vpHeight}px`
-          : `calc(${vpHeight}px - ${chromeHidden ? '0rem' : '4rem - env(safe-area-inset-top)'} - 4.5rem - env(safe-area-inset-bottom))`,
+        // One px height for both states, glided on keyboard changes (useChatOverlayHeight).
+        height: `${overlayH}px`,
         // Clamp to >= 0: on iOS a downward pull at the top makes offsetTop go
         // negative, which would ride the overlay up above the header.
         // `transform` is written frame by frame by useViewportPin (12 Oct 2026), not here.
@@ -1347,7 +1351,7 @@ export default function Messages() {
   // write `scrollTop = scrollHeight`, so even when they overlap they agree.
   useEffect(() => {
     if (atBottomRef.current) scrollToBottom('auto')
-  }, [kbOpen, vpHeight, scrollToBottom])
+  }, [kbOpen, overlayH, scrollToBottom])
 
   // Track whether the reader is pinned to the bottom of the thread.
   const onScrollMessages = useCallback(() => {
@@ -2205,7 +2209,8 @@ export default function Messages() {
                   the buttons inside it: both happen. */}
               <div
                 onPointerDown={showChrome}
-                className="flex items-center gap-3 border-b border-gray-100 px-5 py-3"
+                // Above the mover (relative z-10, opaque): the thread slides under it as the keyboard comes and goes.
+                className="relative z-10 flex items-center gap-3 border-b border-gray-100 bg-white px-5 py-3"
               >
                 <button onClick={() => { showChrome(); navigate('/messages') }} className="rounded-full p-2 text-smoke hover:bg-cloud sm:hidden" aria-label={tr("Back to inbox")}>
                   <svg className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
@@ -2267,6 +2272,7 @@ export default function Messages() {
                 )}
               </div>
 
+              <div ref={moverRef} className="flex min-h-0 flex-1 flex-col">
               {/* Inline connection request: accept without leaving the thread. */}
               {activeRelation?.relation === 'pending_received' && (
                 <div className="mx-5 mt-4 flex items-center gap-3 rounded-card border border-gray-100 bg-white px-4 py-3">
@@ -2733,6 +2739,7 @@ export default function Messages() {
                 />
                 </>
                 )}
+              </div>
               </div>
             </>
           )}

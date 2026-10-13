@@ -25,7 +25,7 @@ import BoostPrompt from '../BoostPrompt'
 import VoucherDayPrompt from '../VoucherDayPrompt'
 import AgreementGate from '../agreements/AgreementGate'
 import { useChatSearchTarget } from '../../lib/chatSearch'
-import { useChatChromeHidden } from '../../lib/chatChrome'
+import { useChatChromeHidden, chatChromeFlipInstant } from '../../lib/chatChrome'
 import { startHeartbeat } from '../../lib/presence'
 import { cx } from '../../lib/utils'
 import { useKeyboardOpen, useIsPhone } from '../../lib/useKeyboardInset'
@@ -660,7 +660,9 @@ export default function AppLayout() {
           // reads as two things happening near each other. `will-change` keeps
           // the header on its own layer so the slide never waits on a paint of
           // the page behind it.
-          'transition-transform duration-[280ms] ease-[cubic-bezier(0.32,0.72,0,1)] [will-change:transform]',
+          'duration-[280ms] ease-[cubic-bezier(0.32,0.72,0,1)] [will-change:transform]',
+          // A DM thread opens with the header already away: no slide for a header the reader never saw go (13 Oct 2026).
+          chatChromeFlipInstant() ? 'transition-none' : 'transition-transform',
           chromeHidden && '-translate-y-full',
         )}
         // UNDER THE CLOCK IN DARK MODE. The status bar is translucent there

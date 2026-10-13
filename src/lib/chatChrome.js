@@ -22,9 +22,15 @@ let hidden = false
 let lastFlip = 0
 const listeners = new Set()
 
-export function setChatChromeHidden(next) {
+// `instant`: this flip is not a movement anybody should watch (a DM thread opening with the header already away), so
+// the shell applies it without its slide. Read with chatChromeFlipInstant() on the render the flip causes.
+let instantFlip = false
+export function chatChromeFlipInstant() { return instantFlip }
+
+export function setChatChromeHidden(next, { instant = false } = {}) {
   if (hidden === next) return
   hidden = next
+  instantFlip = instant
   lastFlip = Date.now()
   for (const fn of listeners) fn(hidden)
 }

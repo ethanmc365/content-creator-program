@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 
 // Tracks the on-screen (software) keyboard + visual viewport so the chat can be
 // laid out WhatsApp-style on mobile: composer hugging the top of the keyboard,
@@ -57,6 +57,7 @@ function readViewport(focused) {
   // chrome can never be mistaken for one again.
   const raw = Math.round(window.innerHeight - vv.height)
   const keyboard = focused && raw > 120 ? raw : 0
+  if (keyboard) rememberKeyboard(keyboard)
   return {
     height: Math.round(vv.height),
     offsetTop: Math.round(vv.offsetTop),
@@ -328,4 +329,154 @@ export function useNoFocusPan(ref, enabled) {
       root.removeEventListener('focusin', onFocus, true)
     }
   }, [ref, enabled])
+}
+
+// THE KEYBOARD'S LAST MEASURED HEIGHT ON THIS PHONE (iOS only), so the chat can start moving the moment the field takes
+// focus instead of waiting for Safari to report the new viewport (often only once the keyboard has finished arriving).
+// Used only after a real focus, never on a touch: see useNoFocusPan for why touch-driven geometry was removed.
+const KB_KEY = 'tryp_kb_h'
+let kbMemo = null
+function rememberKeyboard(px) {
+  if (!isIOS() || Math.abs((kbMemo || 0) - px) < 4) return
+  kbMemo = px
+  try { localStorage.setItem(KB_KEY, String(px)) } catch { /* private mode */ }
+}
+export function rememberedKeyboard() {
+  if (!isIOS()) return 0
+  if (kbMemo == null) {
+    try { kbMemo = Number(localStorage.getItem(KB_KEY)) || 0 } catch { kbMemo = 0 }
+  }
+  const h = typeof window !== 'undefined' ? window.innerHeight : 800
+  return kbMemo > 120 && kbMemo < h * 0.75 ? kbMemo : 0
+}
+
+// env(safe-area-inset-top/bottom) in px, measured once from a probe (and again on rotation).
+let insets = null
+function readInsets() {
+  if (typeof document === 'undefined') return { top: 0, bottom: 0 }
+  const el = document.createElement('div')
+  el.style.cssText = 'position:fixed;visibility:hidden;pointer-events:none;top:0;left:0;padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom)'
+  document.body.appendChild(el)
+  const cs = getComputedStyle(el)
+  const out = { top: parseFloat(cs.paddingTop) || 0, bottom: parseFloat(cs.paddingBottom) || 0 }
+  el.remove()
+  return out
+}
+function useSafeInsets() {
+  const [v, setV] = useState(() => insets || (insets = readInsets()))
+  useEffect(() => {
+    const on = () => { insets = readInsets(); setV(insets) }
+    window.addEventListener('orientationchange', on)
+    return () => window.removeEventListener('orientationchange', on)
+  }, [])
+  return v
+}
+
+const GLIDE_MS = 260
+const GLIDE = `transform ${GLIDE_MS}ms cubic-bezier(0.32, 0.72, 0, 1)`
+
+/**
+ * THE CHAT GLIDES WITH THE KEYBOARD (13 Oct 2026).
+ *
+ * Ethan: "when the keyboard moves up and the text box moves up, that animation should be much smoother. currently its
+ * juttery." The overlay's height used to follow every reading of the viewport: on focus it first DROPPED to the bottom
+ * edge (the tab bar leaves before any keyboard is measured), then snapped up in steps as polled readings came in.
+ *
+ * Now the height is computed in px from one target, and a keyboard-caused change of it is played on the compositor:
+ * `moverRef` (everything under the chat header: the thread and the composer) slides on `transform` while the layout
+ * changes once, at whichever end leaves no gap. Shrinking (keyboard up): slide the mover up by the difference, then snap
+ * the height and drop the transform in the same task. Growing (keyboard down): snap the height first and start the mover
+ * that far up, then slide it to rest. The scroller is moved by the same amount at the snap, so not a pixel of the thread
+ * moves on that frame. The header sits above the mover (`relative z-10` + opaque) so the thread slides under it.
+ *
+ * While a keyboard is expected but not measured yet, the chat holds where it is (no drop); with a keyboard remembered on
+ * this phone it goes straight to that height, so it rises WITH the keyboard. Changes that are not the keyboard (the app
+ * header coming and going) still snap, as they always have.
+ */
+export function useChatOverlayHeight({ enabled, chromeHidden, overlayRef, moverRef, scrollerRef }) {
+  const { height: vpHeight, keyboardOpen, keyboard } = useVisualViewport()
+  const safe = useSafeInsets()
+  const remembered = rememberedKeyboard()
+
+  // Expecting a keyboard that has not been measured yet: from the focus, until it is measured or a second passes (a
+  // hardware keyboard never brings one).
+  const [waiting, setWaiting] = useState(false)
+  const [wasOpen, setWasOpen] = useState(keyboardOpen)
+  if (wasOpen !== keyboardOpen) {
+    setWasOpen(keyboardOpen)
+    setWaiting(keyboardOpen && !(keyboard > 0))
+  }
+  if (waiting && keyboard > 0) setWaiting(false)
+  useEffect(() => {
+    if (!waiting) return undefined
+    const t = setTimeout(() => setWaiting(false), 1000)
+    return () => clearTimeout(t)
+  }, [waiting])
+
+  const innerH = typeof window !== 'undefined' ? window.innerHeight : vpHeight
+  // Keyboard on its way out: Safari still reports the small viewport for a moment after the field lets go. A gap that
+  // large is no toolbar (those are under 130px), so the screen is the full height.
+  const base = !keyboardOpen && innerH - vpHeight > 150 ? innerH : vpHeight
+  const closedH = base - (chromeHidden ? 0 : 64 + safe.top) - 72 - safe.bottom
+  let target
+  if (!keyboardOpen) target = closedH
+  else if (waiting) target = remembered ? Math.max(240, innerH - remembered) : closedH + (chromeHidden ? 0 : 64 + safe.top)
+  else target = vpHeight
+  target = Math.round(target)
+
+  const [shown, setShown] = useState(target)
+  const shownRef = useRef(target)
+  const glide = useRef({ timer: 0, closedAt: 0, open: keyboardOpen })
+
+  useLayoutEffect(() => {
+    const g = glide.current
+    const keyboardChange = g.open !== keyboardOpen || keyboardOpen || Date.now() - g.closedAt < 800
+    if (g.open && !keyboardOpen) g.closedAt = Date.now()
+    g.open = keyboardOpen
+    const mover = moverRef.current
+    const overlay = overlayRef.current
+    // Whatever was in flight lands where it was going.
+    if (g.timer) {
+      clearTimeout(g.timer)
+      g.timer = 0
+      g.land?.()
+    }
+    if (target === shownRef.current) return
+    const reduce = typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+    const snap = () => { shownRef.current = target; setShown(target) }
+    if (!enabled || !mover || !overlay || !keyboardChange || reduce) { snap(); return }
+    const d = shownRef.current - target
+    const scroller = scrollerRef.current
+    if (d > 0) {
+      // Up: slide first, then the layout, in one task.
+      mover.style.transition = GLIDE
+      mover.style.transform = `translate3d(0, ${-d}px, 0)`
+      g.land = () => {
+        g.land = null
+        overlay.style.height = `${target}px`
+        mover.style.transition = 'none'
+        mover.style.transform = ''
+        if (scroller) scroller.scrollTop += d
+        snap()
+      }
+      g.timer = setTimeout(() => { g.timer = 0; g.land?.() }, GLIDE_MS)
+    } else {
+      // Down: the layout first, then slide to rest.
+      const up = -d
+      overlay.style.height = `${target}px`
+      mover.style.transition = 'none'
+      mover.style.transform = `translate3d(0, ${-up}px, 0)`
+      if (scroller) scroller.scrollTop -= up
+      void mover.offsetHeight
+      mover.style.transition = GLIDE
+      mover.style.transform = 'translate3d(0, 0, 0)'
+      snap()
+      g.land = () => { g.land = null; mover.style.transition = ''; mover.style.transform = '' }
+      g.timer = setTimeout(() => { g.timer = 0; g.land?.() }, GLIDE_MS)
+    }
+  }, [target, keyboardOpen, enabled, moverRef, overlayRef, scrollerRef])
+
+  useEffect(() => () => clearTimeout(glide.current.timer), [])
+
+  return { kbOpen: keyboardOpen, height: shown }
 }

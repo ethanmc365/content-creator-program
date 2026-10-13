@@ -48,7 +48,7 @@ import { textBeforeCaret } from '../lib/richEditor'
 import { loadDraft, saveDraft, clearDraft } from '../lib/drafts'
 import SeenBy from '../components/SeenBy'
 import { Avatar, EmptyState } from '../components/ui'
-import { useVisualViewport, useIsMobile, useViewportPin, useNoFocusPan } from '../lib/useKeyboardInset'
+import { useChatOverlayHeight, useIsMobile, useViewportPin, useNoFocusPan } from '../lib/useKeyboardInset'
 import { cx, formatMessageTime, messageTimeTitle } from '../lib/utils'
 import { SOFT_SPRING } from '../lib/motion'
 import MessageActions from '../components/chat/MessageActions'
@@ -333,8 +333,9 @@ export default function NetworkChat() {
   const mentionLenRef = useRef(0)
   const atBottomRef = useRef(true)
 
-  const { height: vpHeight, keyboardOpen: kbOpen } = useVisualViewport()
   const overlayRef = useRef(null)
+  // Everything under the chat header; it glides with the keyboard (useChatOverlayHeight).
+  const moverRef = useRef(null)
   const isMobile = useIsMobile()
   useViewportPin(overlayRef, isMobile)
   // No pan when the message box takes focus, so the header stays where it is (see useNoFocusPan).
@@ -432,13 +433,13 @@ export default function NetworkChat() {
   // `chromeHidden` and `kbOpen` do the same thing to the top edge for different
   // reasons - one because the header slid away, one because the keyboard
   // replaced everything - so they share a branch.
+  const { kbOpen, height: overlayH } = useChatOverlayHeight({ enabled: isMobile, chromeHidden, overlayRef, moverRef, scrollerRef })
   const topGone = kbOpen || chromeHidden
   const mobileStyle = isMobile
     ? {
         top: topGone ? 0 : 'calc(4rem + env(safe-area-inset-top))',
-        height: kbOpen
-          ? `${vpHeight}px`
-          : `calc(${vpHeight}px - ${chromeHidden ? '0rem' : '4rem - env(safe-area-inset-top)'} - 4.5rem - env(safe-area-inset-bottom))`,
+        // One px height for both states, glided on keyboard changes (useChatOverlayHeight).
+        height: `${overlayH}px`,
         // `transform` is written frame by frame by useViewportPin (12 Oct 2026), not here.
         // THE OVERLAY SNAPS. ONLY THE HEADER ANIMATES. (1 Sep 2026.)
         //
@@ -754,7 +755,7 @@ export default function NetworkChat() {
   }, [loading, active?.key, community?.id])
   // Reflow when the keyboard opens: the scroller just got shorter, so the
   // message the user was reading has to stay at the bottom.
-  useEffect(() => { pin() }, [kbOpen, vpHeight, pin])
+  useEffect(() => { pin() }, [kbOpen, overlayH, pin])
 
   // The titles behind any poll / game / resource cards in this room. One query
   // per kind, only for the kinds actually present, and only when the set of ids
@@ -1289,7 +1290,7 @@ export default function NetworkChat() {
           animating for the same reason the overlay does. */}
       <div
         aria-hidden
-        className="shrink-0 lg:hidden"
+        className="relative z-10 shrink-0 bg-white lg:hidden"
         // THE NOTCH AND NOTHING MORE (12 Oct 2026). It had a 12px floor, which
         // on top of the header's own padding read as "extra white space above"
         // General (Ethan). The inset alone clears the status bar.
@@ -1315,7 +1316,8 @@ export default function NetworkChat() {
           back to your rooms, the room's name with where it is (tap it and every room you are in opens in a sheet,
           the ones with something new first), and search. Nothing here brings the app header back - that still only
           happens on the way out of the room (1 Sep 2026). */}
-      <div className="flex shrink-0 items-center gap-1 border-b border-gray-100 px-1 py-1 lg:hidden">
+      {/* Above the mover (relative z-10, opaque): the thread slides under it as the keyboard comes and goes. */}
+      <div className="relative z-10 flex shrink-0 items-center gap-1 border-b border-gray-100 bg-white px-1 py-1 lg:hidden">
         <Link
           to="/rooms"
           aria-label={tr('All rooms')}
@@ -1444,6 +1446,7 @@ export default function NetworkChat() {
           skeleton -> conversation rather than skeleton -> nothing -> flash. It
           is bottom-aligned, because a chat fills upwards from the composer and
           a placeholder that starts at the top is a different screen. */}
+      <div ref={moverRef} className="flex min-h-0 flex-1 flex-col">
       <div className="relative flex min-h-0 flex-1 flex-col">
       <div
         ref={scrollerRef}
@@ -1978,6 +1981,7 @@ export default function NetworkChat() {
         </ChatComposer>
         </>
       )}
+      </div>
     </div>
   )
 
