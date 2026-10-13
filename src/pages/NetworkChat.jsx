@@ -48,7 +48,7 @@ import { textBeforeCaret } from '../lib/richEditor'
 import { loadDraft, saveDraft, clearDraft } from '../lib/drafts'
 import SeenBy from '../components/SeenBy'
 import { Avatar, EmptyState } from '../components/ui'
-import { useVisualViewport, useIsMobile, useViewportPin, useKeyboardPrepare, expectedKeyboard } from '../lib/useKeyboardInset'
+import { useVisualViewport, useIsMobile, useViewportPin, useNoFocusPan } from '../lib/useKeyboardInset'
 import { cx, formatMessageTime, messageTimeTitle } from '../lib/utils'
 import { SOFT_SPRING } from '../lib/motion'
 import MessageActions from '../components/chat/MessageActions'
@@ -333,16 +333,12 @@ export default function NetworkChat() {
   const mentionLenRef = useRef(0)
   const atBottomRef = useRef(true)
 
-  const { height: vpHeight, keyboardOpen: kbOpen, keyboard: kbPx } = useVisualViewport()
+  const { height: vpHeight, keyboardOpen: kbOpen } = useVisualViewport()
   const overlayRef = useRef(null)
   const isMobile = useIsMobile()
   useViewportPin(overlayRef, isMobile)
-  // MAKE ROOM BEFORE THE KEYBOARD (13 Oct 2026): see useKeyboardPrepare. From the touch on the message box until the
-  // keyboard is measured, the overlay is already the height it will have with the keyboard up, so iOS has nothing to
-  // pan and the header stays where it is.
-  const [kbExpected, setKbExpected] = useKeyboardPrepare(overlayRef, isMobile)
-  const preKb = kbExpected && !(kbPx > 0)
-  useEffect(() => { if (kbExpected && kbPx > 0) setKbExpected(false) }, [kbExpected, kbPx, setKbExpected])
+  // No pan when the message box takes focus, so the header stays where it is (see useNoFocusPan).
+  useNoFocusPan(overlayRef, isMobile)
   useOverlayTouchLock(overlayRef, isMobile)
   useNoScrollChain(scrollerRef, `${slug}-${channelKey}`)
 
@@ -436,13 +432,11 @@ export default function NetworkChat() {
   // `chromeHidden` and `kbOpen` do the same thing to the top edge for different
   // reasons - one because the header slid away, one because the keyboard
   // replaced everything - so they share a branch.
-  const topGone = kbOpen || chromeHidden || preKb
+  const topGone = kbOpen || chromeHidden
   const mobileStyle = isMobile
     ? {
         top: topGone ? 0 : 'calc(4rem + env(safe-area-inset-top))',
-        height: preKb
-          ? `${Math.max(240, window.innerHeight - expectedKeyboard())}px`
-          : kbOpen
+        height: kbOpen
           ? `${vpHeight}px`
           : `calc(${vpHeight}px - ${chromeHidden ? '0rem' : '4rem - env(safe-area-inset-top)'} - 4.5rem - env(safe-area-inset-bottom))`,
         // `transform` is written frame by frame by useViewportPin (12 Oct 2026), not here.
@@ -760,7 +754,7 @@ export default function NetworkChat() {
   }, [loading, active?.key, community?.id])
   // Reflow when the keyboard opens: the scroller just got shorter, so the
   // message the user was reading has to stay at the bottom.
-  useEffect(() => { pin() }, [kbOpen, vpHeight, preKb, pin])
+  useEffect(() => { pin() }, [kbOpen, vpHeight, pin])
 
   // The titles behind any poll / game / resource cards in this room. One query
   // per kind, only for the kinds actually present, and only when the set of ids

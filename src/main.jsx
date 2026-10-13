@@ -12,6 +12,7 @@ import { clearBootLayer, releaseBootLayer, whenAppLoadersIdle } from './lib/boot
 import { getLocale, loadLocale } from './lib/i18n'
 import { loadOverrides } from './lib/translations'
 import { installPinchGuard } from './lib/pinchGuard'
+import { installNavReturn } from './lib/navReturn'
 import { installTranslationGuard } from './lib/translationGuard'
 import { goCanonical } from './lib/canonicalHost'
 import { reloadForStaleChunk } from './lib/lazyRoute'
@@ -52,6 +53,7 @@ window.addEventListener('vite:preloadError', (e) => {
 // gesture on the very first painted frame is already covered; anything inside
 // `[data-zoomable]` is left alone to do its own. See lib/pinchGuard.
 installPinchGuard()
+installNavReturn()
 
 // Point the Add to Home Screen hints at whichever icon this device picked, before
 // anything can be added. index.html ships the default, so this is a no-op until

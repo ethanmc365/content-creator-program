@@ -22,7 +22,7 @@ import { useCachedPage, writePageCache } from '../lib/pageCache'
 import { DM_CACHE_KEY, DM_PEOPLE_CACHE_KEY, fetchDmPeople, fetchInbox, isListableConversation } from '../lib/inbox'
 import { pinToBottom, isPinning, stickToBottom } from '../lib/chatScroll'
 import { formatChatTime, formatMessageTime, messageTimeTitle, otherParticipant, cx } from '../lib/utils'
-import { useVisualViewport, useIsMobile, useViewportPin, useKeyboardPrepare, expectedKeyboard } from '../lib/useKeyboardInset'
+import { useVisualViewport, useIsMobile, useViewportPin, useNoFocusPan } from '../lib/useKeyboardInset'
 import { setChatChromeHidden, readerMovedChrome, chromeGestureHandlers } from '../lib/chatChrome'
 import { useNoScrollChain, useOverlayTouchLock } from '../lib/noScrollChain'
 import { RoomSearch, ComposerSearch } from '../components/ChatSearch'
@@ -392,16 +392,12 @@ export default function Messages() {
   // hugs the keyboard, the person you're messaging stays pinned at the top, and
   // the app header + bottom tab bar collapse away while typing. Same approach as
   // the #general chat (see useVisualViewport for the iOS reasoning).
-  const { height: vpHeight, keyboardOpen: kbOpen, keyboard: kbPx } = useVisualViewport()
+  const { height: vpHeight, keyboardOpen: kbOpen } = useVisualViewport()
   const overlayRef = useRef(null)
   const isMobile = useIsMobile()
   useViewportPin(overlayRef, isMobile)
-  // MAKE ROOM BEFORE THE KEYBOARD (13 Oct 2026): see useKeyboardPrepare. From the touch on the message box until the
-  // keyboard is measured, the overlay is already the height it will have with the keyboard up, so iOS has nothing to
-  // pan and the header stays where it is.
-  const [kbExpected, setKbExpected] = useKeyboardPrepare(overlayRef, isMobile)
-  const preKb = kbExpected && !(kbPx > 0)
-  useEffect(() => { if (kbExpected && kbPx > 0) setKbExpected(false) }, [kbExpected, kbPx, setKbExpected])
+  // No pan when the message box takes focus, so the header stays where it is (see useNoFocusPan).
+  useNoFocusPan(overlayRef, isMobile)
   useOverlayTouchLock(overlayRef, isMobile)
 
   // THE APP HEADER SLIDES AWAY WHILE YOU ARE READING A DM, exactly as it does
@@ -476,13 +472,11 @@ export default function Messages() {
   // tabs are hidden until it closes.
   // `chromeHidden` and `kbOpen` do the same thing to the top edge for different
   // reasons, so they are one condition here.
-  const topGone = kbOpen || chromeHidden || preKb
+  const topGone = kbOpen || chromeHidden
   const mobileStyle = isMobile
     ? {
         top: topGone ? 0 : 'calc(4rem + env(safe-area-inset-top))',
-        height: preKb
-          ? `${Math.max(240, window.innerHeight - expectedKeyboard())}px`
-          : kbOpen
+        height: kbOpen
           ? `${vpHeight}px`
           : `calc(${vpHeight}px - ${chromeHidden ? '0rem' : '4rem - env(safe-area-inset-top)'} - 4.5rem - env(safe-area-inset-bottom))`,
         // Clamp to >= 0: on iOS a downward pull at the top makes offsetTop go
@@ -1353,7 +1347,7 @@ export default function Messages() {
   // write `scrollTop = scrollHeight`, so even when they overlap they agree.
   useEffect(() => {
     if (atBottomRef.current) scrollToBottom('auto')
-  }, [kbOpen, vpHeight, preKb, scrollToBottom])
+  }, [kbOpen, vpHeight, scrollToBottom])
 
   // Track whether the reader is pinned to the bottom of the thread.
   const onScrollMessages = useCallback(() => {

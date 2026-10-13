@@ -57,7 +57,6 @@ function readViewport(focused) {
   // chrome can never be mistaken for one again.
   const raw = Math.round(window.innerHeight - vv.height)
   const keyboard = focused && raw > 120 ? raw : 0
-  if (keyboard) rememberKeyboard(keyboard)
   return {
     height: Math.round(vv.height),
     offsetTop: Math.round(vv.offsetTop),
@@ -283,60 +282,50 @@ export function useViewportPin(ref, enabled) {
   }, [ref, enabled])
 }
 
-/**
- * THE KEYBOARD'S HEIGHT, REMEMBERED, SO THE CHAT CAN MAKE ROOM BEFORE IT ARRIVES (13 Oct 2026).
- *
- * Ethan, of the rooms and the DMs on his iPhone: "whenever I click on the message, the keyboard shows up ... there's a
- * weird animation where the whole screen jumps. That header should lock in place, the chat should move up a bit, and the
- * keyboard should come up." The jump is iOS: when a field near the bottom of the screen is focused, Safari pans the
- * whole visual viewport up to keep it above the keyboard, and the header goes with it. useViewportPin chases that pan a
- * frame at a time and can never be exactly on it. The way out is to give iOS nothing to pan: the moment a finger lands
- * on the message box (touchstart, well before the focus that brings the keyboard), the chat shrinks to the height it
- * will have with the keyboard up, so the box is already above where the keyboard lands. The height is the one measured
- * the last time a keyboard was open on this phone (a sensible guess the first time).
- *
- * iOS ONLY. Android resizes the layout viewport itself, so the same subtraction there would count the keyboard twice.
- */
-const KB_KEY = 'tryp_kb_h'
-let kbMemo = null
-function rememberKeyboard(px) {
-  if (!isIOS() || Math.abs((kbMemo || 0) - px) < 4) return
-  kbMemo = px
-  try { localStorage.setItem(KB_KEY, String(px)) } catch { /* private mode */ }
-}
 export function isIOS() {
   if (typeof navigator === 'undefined') return false
   return /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
 }
-export function expectedKeyboard() {
-  const h = typeof window !== 'undefined' ? window.innerHeight : 800
-  if (kbMemo == null) {
-    try { kbMemo = Number(localStorage.getItem(KB_KEY)) || 0 } catch { kbMemo = 0 }
-  }
-  return kbMemo > 120 && kbMemo < h * 0.75 ? kbMemo : Math.round(h * 0.42)
-}
 
 /**
- * True from the moment a finger touches an empty-of-focus text field inside `ref` until the keyboard has been measured
- * (or a second and a half has passed, or the field never took focus). Phones on iOS only; false everywhere else.
+ * GIVE iOS NOTHING TO PAN (13 Oct 2026).
+ *
+ * Ethan: "The top bar showing chat name or dm name and profile picture is still like reloading and animating when
+ * keyboard shows, rather than staying in place." When a field near the bottom of the screen takes focus, Safari pans the
+ * whole visual viewport up to keep it above the keyboard, carrying the chat header with it; useViewportPin chases that
+ * pan a frame behind. Safari decides whether to pan from where the field is AT THE MOMENT IT TAKES FOCUS, and it does
+ * not reveal a field it cannot see. So for that moment the field is transparent and lifted out of the way, and it is
+ * put back two frames later. With no pan, offsetTop stays 0, the header never moves, and the overlay simply shortens to
+ * the keyboard (useVisualViewport polls for it).
+ *
+ * Applied only to a field inside `ref` and only on iOS. Replaces the 13 Oct touchstart pre-shrink, which jumped the
+ * message bar to the middle of the screen on any stray touch and ran ahead of the keyboard on a real tap.
  */
-export function useKeyboardPrepare(ref, enabled) {
-  const [expecting, setExpecting] = useState(false)
+export function useNoFocusPan(ref, enabled) {
   useEffect(() => {
     const root = ref.current
     if (!enabled || !root || !isIOS()) return undefined
-    let timer = 0
-    const stop = () => { clearTimeout(timer); setExpecting(false) }
-    const onTouch = (e) => {
-      const t = e.target
-      const field = t?.closest?.('textarea, input:not([type="checkbox"]):not([type="radio"]):not([type="file"]), [contenteditable="true"]')
-      if (!field || field === document.activeElement || !root.contains(field)) return
-      setExpecting(true)
-      clearTimeout(timer)
-      timer = setTimeout(stop, 1500)
+    const timers = new Set()
+    const onFocus = (e) => {
+      const el = e.target
+      if (!isEditable(el) || !root.contains(el)) return
+      const { opacity, transform } = el.style
+      el.style.opacity = '0'
+      el.style.transform = 'translate3d(0, -100vh, 0)'
+      const restore = () => {
+        el.style.opacity = opacity
+        el.style.transform = transform
+      }
+      let a = 0
+      a = requestAnimationFrame(() => { a = requestAnimationFrame(restore) })
+      // Never only frames (a background tab does not run them).
+      const t = setTimeout(() => { cancelAnimationFrame(a); restore(); timers.delete(t) }, 60)
+      timers.add(t)
     }
-    root.addEventListener('touchstart', onTouch, { passive: true, capture: true })
-    return () => { clearTimeout(timer); root.removeEventListener('touchstart', onTouch, { capture: true }) }
+    root.addEventListener('focusin', onFocus, true)
+    return () => {
+      timers.forEach(clearTimeout)
+      root.removeEventListener('focusin', onFocus, true)
+    }
   }, [ref, enabled])
-  return [expecting, setExpecting]
 }

@@ -2,6 +2,7 @@ import { Children, Fragment, useCallback, useEffect, useRef, useState, useSyncEx
 import { isScrollLocked, onScrollLockChange } from '../../lib/scrollLock'
 import { RevealContext } from '../../lib/revealContext'
 import { isPageSettled, onPageSettled } from '../../lib/pageSettled'
+import { isReturnVisit } from '../../lib/navReturn'
 
 // A grid or list whose children arrive one after another as it scrolls into
 // view. THE animation of this product, extracted.
@@ -169,12 +170,14 @@ export default function Reveal({
   const locked = useSyncExternalStore(onScrollLockChange, isScrollLocked, () => false)
   const [inOverlay, setInOverlay] = useState(false)
   const held = locked && !inOverlay
-  const [shown, setShown] = useState(false)
+  // BACK TO A PAGE ALREADY SEEN (13 Oct 2026): it mounts arrived, never at opacity 0. See lib/navReturn.
+  const [returning] = useState(isReturnVisit)
+  const [shown, setShown] = useState(returning)
   // Read by the per-item measurement, which must not change its mind after the
   // container has already answered. A ref rather than the state itself so the
   // measure effect does not have to re-run (and re-measure) every time `shown`
   // flips - see the note there.
-  const shownRef = useRef(false)
+  const shownRef = useRef(returning)
   useEffect(() => { shownRef.current = shown }, [shown])
   // ---------------------------------------------------------------------
   // WHEN THE CONTAINER IS TALLER THAN THE SCREEN, EACH ITEM ANSWERS FOR ITSELF.
@@ -347,7 +350,7 @@ export default function Reveal({
   //
   // So whichever arrives first wins. The frames are the accurate signal; the
   // timer is the guarantee.
-  const [painted, setPainted] = useState(false)
+  const [painted, setPainted] = useState(returning)
   useEffect(() => {
     let a = 0
     let b = 0
@@ -667,7 +670,7 @@ export default function Reveal({
   // base delay + the last child's stagger step + the transition itself, with a
   // small margin. Keeping it forever would be the opposite mistake - a page of
   // permanently promoted layers is a page that eats memory for nothing.
-  const [done, setDone] = useState(false)
+  const [done, setDone] = useState(returning)
 
   // LOOK THROUGH A FRAGMENT.
   //
