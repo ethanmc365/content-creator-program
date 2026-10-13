@@ -16,7 +16,6 @@ import AircraftPhoto from '../components/network/AircraftPhoto'
 import { isoForCountryName } from '../lib/markets'
 import { cx } from '../lib/utils'
 import { useT } from '../lib/i18n'
-import { marketsApi } from '../api/markets'
 import { flightsApi } from '../api/flights'
 
 // THE FLIGHT LOG, ACROSS EVERYBODY.
@@ -152,7 +151,7 @@ export default function FlightCommunity() {
   // about the group rather than about a ranking inside it.
   useEffect(() => {
     let cancelled = false
-    marketsApi.communityFlightTotals().then(({ data }) => {
+    flightsApi.communityFlightTotals().then(({ data }) => {
       if (cancelled) return
       const row = Array.isArray(data) ? data[0] : data
       if (row) setTotals({ km: Number(row.total_km) || 0, n: Number(row.total_flights) || 0 })
@@ -165,11 +164,11 @@ export default function FlightCommunity() {
   useEffect(() => {
     let cancelled = false
     Promise.all([
-      marketsApi.communityAircraft(),
-      marketsApi.communityFlightRecords(),
+      flightsApi.communityAircraft(),
+      flightsApi.communityFlightRecords(),
       // How many logged flights have NO aircraft on them. See the note on the
       // wall below, and migration 167.
-      marketsApi.communityAircraftGap(),
+      flightsApi.communityAircraftGap(),
     ]).then(([a, rec, gap]) => {
       if (cancelled) return
       setFleet(a.data ?? [])
@@ -189,7 +188,7 @@ export default function FlightCommunity() {
     let cancelled = false
     setRoutes(null)
     const from = mapWin === 'year' ? `${thisYear}-01-01` : '1970-01-01'
-    marketsApi.communityRoutes({ p_from: from, p_to: today }).then(({ data }) => {
+    flightsApi.communityRoutes({ p_from: from, p_to: today }).then(({ data }) => {
       if (!cancelled) setRoutes(data ?? [])
     })
     return () => { cancelled = true }
@@ -215,15 +214,9 @@ export default function FlightCommunity() {
   useEffect(() => {
     if (topRoutes.length === 0) return undefined
     let cancelled = false
-    ;(async () => {
-      const out = {}
-      for (const r of topRoutes) {
-        const { data } = await flightsApi.routeFlyers({ p_a: r.from.iata, p_b: r.to.iata })
-        if (cancelled) return
-        if (data?.length) out[r.key] = data
-      }
-      if (!cancelled) setFlyers(out)
-    })()
+    // One request for every route (route_flyers_many, migration 410), not one per route.
+    flightsApi.routeFlyersMany({ p_routes: topRoutes.map((r) => ({ key: r.key, a: r.from.iata, b: r.to.iata })) })
+      .then(({ data }) => { if (!cancelled) setFlyers(data ?? {}) })
     return () => { cancelled = true }
   }, [topRoutes])
 

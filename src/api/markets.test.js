@@ -12,11 +12,6 @@ describe('markets api', () => {
     await api.kpiTargets()
     await api.marketJoinRequests()
     await api.askJoinRequestDetails({ x: 1 })
-    await api.communityAircraft({ x: 1 })
-    await api.communityAircraftGap({ x: 1 })
-    await api.communityFlightRecords({ x: 1 })
-    await api.communityFlightTotals({ x: 1 })
-    await api.communityRoutes({ x: 1 })
     await api.createMarket({ x: 1 })
     await api.decideJoinRequest({ x: 1 })
     await api.deleteMarket({ x: 1 })
@@ -37,11 +32,6 @@ describe('markets api', () => {
       ['from', 'kpi_targets'],
       ['from', 'market_join_requests'],
       ['rpc', 'ask_join_request_details', { x: 1 }],
-      ['rpc', 'community_aircraft', { x: 1 }],
-      ['rpc', 'community_aircraft_gap', { x: 1 }],
-      ['rpc', 'community_flight_records', { x: 1 }],
-      ['rpc', 'community_flight_totals', { x: 1 }],
-      ['rpc', 'community_routes', { x: 1 }],
       ['rpc', 'create_market', { x: 1 }],
       ['rpc', 'decide_join_request', { x: 1 }],
       ['rpc', 'delete_market', { x: 1 }],

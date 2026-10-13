@@ -108,17 +108,9 @@ export default function Flights() {
     const upcoming = stats.upcoming || []
     if (!upcoming.length) return undefined
     let cancelled = false
-    ;(async () => {
-      const out = {}
-      for (const f of upcoming.slice(0, 8)) {
-        const { data } = await flightsApi.sameFlight({
-          p_from: f.from.iata, p_to: f.to.iata, p_on: f.flown_on,
-        })
-        if (cancelled) return
-        if (data?.length) out[f.id] = data
-      }
-      if (!cancelled) setSameFlight(out)
-    })()
+    // One request for the next eight flights (same_flight_many, migration 410), not one per flight.
+    flightsApi.sameFlightMany({ p_flights: upcoming.slice(0, 8).map((f) => ({ key: f.id, from: f.from.iata, to: f.to.iata, on: f.flown_on })) })
+      .then(({ data }) => { if (!cancelled) setSameFlight(data ?? {}) })
     return () => { cancelled = true }
   }, [stats.upcoming])
 

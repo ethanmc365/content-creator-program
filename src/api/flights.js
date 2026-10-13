@@ -13,6 +13,13 @@ export const makeFlightsApi = (db = supabase) => ({
   routeCreators: (args, opts) => db.rpc('route_creators', args, opts),
   routeFlyers: (args, opts) => db.rpc('route_flyers', args, opts),
   sameFlight: (args, opts) => db.rpc('same_flight', args, opts),
+  communityAircraft: (args, opts) => db.rpc('community_aircraft', args, opts),
+  communityAircraftGap: (args, opts) => db.rpc('community_aircraft_gap', args, opts),
+  communityFlightRecords: (args, opts) => db.rpc('community_flight_records', args, opts),
+  communityFlightTotals: (args, opts) => db.rpc('community_flight_totals', args, opts),
+  communityRoutes: (args, opts) => db.rpc('community_routes', args, opts),
+  routeFlyersMany: (args, opts) => db.rpc('route_flyers_many', args, opts),
+  sameFlightMany: (args, opts) => db.rpc('same_flight_many', args, opts),
   /** A function in this area chosen at run time. */
   call: (fn, args, opts) => db.rpc(fn, args, opts),
 })

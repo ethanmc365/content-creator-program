@@ -15,6 +15,13 @@ describe('flights api', () => {
     await api.routeCreators({ x: 1 })
     await api.routeFlyers({ x: 1 })
     await api.sameFlight({ x: 1 })
+    await api.communityAircraft({ x: 1 })
+    await api.communityAircraftGap({ x: 1 })
+    await api.communityFlightRecords({ x: 1 })
+    await api.communityFlightTotals({ x: 1 })
+    await api.communityRoutes({ x: 1 })
+    await api.routeFlyersMany({ x: 1 })
+    await api.sameFlightMany({ x: 1 })
     expect(calls).toEqual([
       ['from', 'collab_interests'],
       ['from', 'collab_posts'],
@@ -25,6 +32,13 @@ describe('flights api', () => {
       ['rpc', 'route_creators', { x: 1 }],
       ['rpc', 'route_flyers', { x: 1 }],
       ['rpc', 'same_flight', { x: 1 }],
+      ['rpc', 'community_aircraft', { x: 1 }],
+      ['rpc', 'community_aircraft_gap', { x: 1 }],
+      ['rpc', 'community_flight_records', { x: 1 }],
+      ['rpc', 'community_flight_totals', { x: 1 }],
+      ['rpc', 'community_routes', { x: 1 }],
+      ['rpc', 'route_flyers_many', { x: 1 }],
+      ['rpc', 'same_flight_many', { x: 1 }],
     ])
   })
 })

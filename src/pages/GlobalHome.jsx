@@ -342,7 +342,7 @@ export default function GlobalHome() {
   const [flights, setFlights] = useState(() => lastFlights)
   useEffect(() => {
     let cancelled = false
-    marketsApi.communityFlightTotals().then(({ data }) => {
+    flightsApi.communityFlightTotals().then(({ data }) => {
       if (cancelled) return
       const row = Array.isArray(data) ? data[0] : data
       if (row) setFlights((lastFlights = { km: Number(row.total_km) || 0, n: Number(row.total_flights) || 0 }))
