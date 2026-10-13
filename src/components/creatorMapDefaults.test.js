@@ -28,7 +28,8 @@ import process from 'node:process'
 // before it commits. Those are exactly what is asserted here, and the second one
 // is what keeps this dead even if some future prop starts churning identity
 // again - a fit that has not moved is not a fit worth committing.
-const src = readFileSync(join(process.cwd(), 'src/components/CreatorMap.jsx'), 'utf8')
+// The defaults themselves live in CreatorMapParts.jsx since the file was split.
+const src = ['CreatorMap.jsx', 'CreatorMapParts.jsx'].map((f) => readFileSync(join(process.cwd(), 'src/components', f), 'utf8')).join('\n')
 
 /** The destructured parameter list of `function CreatorMap({ ... }) {`. */
 function signature() {
