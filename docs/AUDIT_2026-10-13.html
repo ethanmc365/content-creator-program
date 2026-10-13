@@ -1,0 +1,321 @@
+<title>Creator Platform Audit</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: one reading column, findings as a filterable ledger, automations as a reference table. Tryp brand orange as the only accent. */
+:root {
+  --bg: #ffffff; --surface: #f7f5f3; --line: #e8e3de; --fg: #1d1a17; --muted: #6b635b;
+  --brand: #d94407; --brand-soft: #fdeee6;
+  --crit: #b42318; --crit-bg: #fde8e6; --high: #b54708; --high-bg: #fef0e1;
+  --med: #8a6d00; --med-bg: #fdf6d8; --low: #475467; --low-bg: #eef1f4;
+  --ok: #067647; --ok-bg: #e3f6ec; --open: #6b635b; --open-bg: #f1ede9;
+  --display: "Poppins", system-ui, sans-serif; --body: "Poppins", system-ui, sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #151311; --surface: #1e1b18; --line: #34302b; --fg: #f1ece6; --muted: #a59c92;
+  --brand: #f5853f; --brand-soft: #3a2416;
+  --crit: #ff8a7a; --crit-bg: #3d1a16; --high: #ffb066; --high-bg: #3a2614;
+  --med: #e8c95a; --med-bg: #332b10; --low: #b6c0cc; --low-bg: #262b31;
+  --ok: #6fd6a2; --ok-bg: #12301f; --open: #c2b8ad; --open-bg: #2a2622; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #151311; --surface: #1e1b18; --line: #34302b; --fg: #f1ece6; --muted: #a59c92;
+  --brand: #f5853f; --brand-soft: #3a2416;
+  --crit: #ff8a7a; --crit-bg: #3d1a16; --high: #ffb066; --high-bg: #3a2614;
+  --med: #e8c95a; --med-bg: #332b10; --low: #b6c0cc; --low-bg: #262b31;
+  --ok: #6fd6a2; --ok-bg: #12301f; --open: #c2b8ad; --open-bg: #2a2622; color-scheme: dark }
+* { box-sizing: border-box }
+body { background: var(--bg); color: var(--fg); font: 15px/1.6 var(--body); margin: 0; padding-inline: 16px; padding-block: 40px 80px }
+main { max-width: 980px; margin: 0 auto; display: grid; gap: 48px }
+h1, h2, h3 { font-family: var(--display); text-wrap: balance; margin: 0 }
+h1 { font-size: clamp(28px, 4vw, 38px); font-weight: 700; letter-spacing: -0.02em; line-height: 1.15 }
+h2 { font-size: 22px; font-weight: 700; letter-spacing: -0.01em; padding-bottom: 10px; border-bottom: 2px solid var(--brand) }
+h3 { font-size: 16px; font-weight: 600 }
+p { margin: 0; max-width: 70ch }
+code { font-family: var(--mono); font-size: 0.86em; background: var(--surface); border: 1px solid var(--line); border-radius: 4px; padding: 0 4px; overflow-wrap: anywhere }
+a { color: var(--brand) }
+section { display: grid; gap: 18px; min-width: 0 }
+.eyebrow { font-size: 12px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--brand) }
+.lede { color: var(--muted); font-size: 16px }
+header { display: grid; gap: 12px }
+.meta { display: flex; flex-wrap: wrap; gap: 8px 20px; color: var(--muted); font-size: 13px }
+.tally { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px }
+.tally div { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; display: grid; gap: 2px }
+.tally b { font-size: 26px; font-variant-numeric: tabular-nums; line-height: 1.1 }
+.tally span { font-size: 13px; color: var(--muted) }
+.pill { display: inline-block; font-size: 11px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; border-radius: 999px; padding: 2px 9px; white-space: nowrap }
+.CRITICAL { color: var(--crit); background: var(--crit-bg) } .HIGH { color: var(--high); background: var(--high-bg) }
+.MEDIUM { color: var(--med); background: var(--med-bg) } .LOW { color: var(--low); background: var(--low-bg) }
+.Fixed { color: var(--ok); background: var(--ok-bg) } .Open { color: var(--open); background: var(--open-bg) }
+.filters { display: flex; flex-wrap: wrap; gap: 8px }
+.filters button { font: 500 13px var(--body); color: var(--fg); background: var(--bg); border: 1px solid var(--line); border-radius: 999px; padding: 6px 14px; cursor: pointer }
+.filters button[aria-pressed="true"] { background: var(--brand); border-color: var(--brand); color: #fff }
+.filters button:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px }
+.finding { border: 1px solid var(--line); border-radius: 10px; padding: 16px 18px; display: grid; gap: 8px; min-width: 0 }
+.finding .top { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px }
+.finding .id { font-family: var(--mono); font-size: 12px; color: var(--muted) }
+.finding h3 { flex: 1 1 260px }
+.finding p { color: var(--fg) }
+.finding .fix { color: var(--muted); font-size: 14px }
+.finding .fix b { color: var(--fg); font-weight: 600 }
+.list { display: grid; gap: 10px }
+.scroll { overflow-x: auto; border: 1px solid var(--line); border-radius: 10px }
+table { border-collapse: collapse; width: 100%; min-width: 860px; font-size: 13.5px }
+th, td { text-align: left; vertical-align: top; padding: 10px 12px; border-bottom: 1px solid var(--line) }
+th { background: var(--surface); font-weight: 600; font-size: 12px; letter-spacing: 0.03em; text-transform: uppercase; color: var(--muted); position: sticky; top: 0 }
+tr:last-child td { border-bottom: 0 }
+td.sched { font-family: var(--mono); font-size: 12px; white-space: nowrap }
+.flow { display: grid; gap: 10px; counter-reset: step; padding: 0; margin: 0; list-style: none }
+.flow li { display: grid; grid-template-columns: 28px 1fr; gap: 10px; align-items: start; max-width: 80ch }
+.flow li::before { counter-increment: step; content: counter(step); font-weight: 700; font-size: 13px; color: var(--brand); background: var(--brand-soft); border-radius: 50%; width: 26px; height: 26px; display: grid; place-items: center }
+.qa { display: grid; grid-template-columns: minmax(0, 220px) minmax(0, 1fr); gap: 0; border: 1px solid var(--line); border-radius: 10px; overflow: hidden }
+.qa > div { padding: 12px 16px; border-bottom: 1px solid var(--line) }
+.qa > div:nth-child(odd) { background: var(--surface); font-weight: 600; font-size: 14px }
+.qa > div:nth-last-child(-n+2) { border-bottom: 0 }
+@media (max-width: 640px) { .qa { grid-template-columns: 1fr } .qa > div:nth-child(odd) { border-bottom: 0; padding-bottom: 2px } }
+.note { background: var(--brand-soft); border-radius: 10px; padding: 14px 18px; max-width: none }
+ul.plain { margin: 0; padding-left: 20px; display: grid; gap: 6px; max-width: 80ch }
+@media (prefers-reduced-motion: no-preference) { .finding { transition: opacity .15s } }
+</style>
+
+<main>
+<header>
+  <div class="eyebrow">Tryp.com Content Creator Platform</div>
+  <h1>Code, security and automation audit</h1>
+  <p class="lede">A review of the whole platform before it moves to Tryp.com infrastructure: the React app, the Supabase database, the 12 edge functions, the 30 scheduled jobs and the view scraper. Each finding has a severity and says whether it was fixed today or is still open.</p>
+  <div class="meta"><span>13 October 2026</span><span>Live build <code>35b0a94</code></span><span>Database migrations to 403</span></div>
+</header>
+
+<section aria-labelledby="sum">
+  <h2 id="sum">Where it stands</h2>
+  <div class="tally">
+    <div><b>3</b><span>Critical, all fixed</span></div>
+    <div><b>11</b><span>High, 7 fixed</span></div>
+    <div><b>13</b><span>Medium, open</span></div>
+    <div><b>7</b><span>Low, 2 fixed</span></div>
+  </div>
+  <p>The platform is in good working order. Every scheduled job is succeeding, the scraper reads all four platforms, lint is clean, 1,369 automated tests pass and the nightly database backup runs. The most serious problems found were a way for any signed-in creator to read another creator's bank details, and a gap between the code in the repository and what was actually running. Both are fixed. What remains open is mostly structural work for the move, plus a decision Tryp needs to make about how the scraper reads Facebook and Instagram.</p>
+  <p class="note"><b>Verified today, not assumed:</b> live scraper probes on TikTok, YouTube, Instagram and Facebook; every cron job's last 24 hours; database permissions before and after the security fix; a live diff of every deployed edge function against the repo; sign-up checks against every email domain current members use; and the changed screens opened in a browser, including a forced save failure.</p>
+</section>
+
+<section aria-labelledby="find">
+  <h2 id="find">Findings</h2>
+  <div class="filters" role="group" aria-label="Filter findings">
+    <button type="button" data-f="all" aria-pressed="true">All</button>
+    <button type="button" data-f="CRITICAL" aria-pressed="false">Critical</button>
+    <button type="button" data-f="HIGH" aria-pressed="false">High</button>
+    <button type="button" data-f="MEDIUM" aria-pressed="false">Medium</button>
+    <button type="button" data-f="LOW" aria-pressed="false">Low</button>
+    <button type="button" data-f="Open" aria-pressed="false">Still open</button>
+  </div>
+  <div class="list" id="findings"></div>
+</section>
+
+<section aria-labelledby="scr">
+  <h2 id="scr">The view scraper in detail</h2>
+  <p>The scraper reads the view count of every challenge entry and VIP video straight off the link the creator submitted. It replaced an admin opening each video and typing the number. It is the edge function <code>view-sync</code> (about 1,700 lines) with a Facebook module of its own.</p>
+  <div class="qa">
+    <div>What it does</div><div>Reads views for entries in running challenges and for VIP videos in the current month, writes them to <code>submissions.logged_views</code> / <code>vip_videos.logged_views</code>, keeps every reading in <code>view_snapshots</code> / <code>vip_view_readings</code>, and queues a points recalculation.</div>
+    <div>Triggers</div><div>Cron <code>view-sync</code> hourly at :07 (re-reads anything older than the 6-hour interval); cron <code>vip-sync</code> hourly at :37 (2-hour interval); database trigger <code>read_new_entry</code> the moment an entry is saved; the admin "Sync now" button; the Testing Centre probe (read-only); <code>vip_close_due</code> forces final reads at month end.</div>
+    <div>Inputs and outputs</div><div>In: the entry's URL, cached platform video id, the creator's Instagram handle. Out: view count, exact or rounded, posted date, thumbnail, error code (<code>blocked</code>, <code>no_count_in_page</code>, <code>not_a_video</code>, ...). Run progress in <code>app_settings.view_sync_run</code>, last run in <code>view_sync_last_run</code>.</div>
+    <div>External services</div><div>TikTok embed pages; YouTube Data API v3 (official, keyed); Instagram public reels tab and GraphQL (signed out); Facebook watch/reel pages. No platform account or cookie is used.</div>
+    <div>Rate and load</div><div>About 810 live entries, each re-read every 6 hours: roughly 135 reads an hour. Concurrency is capped per platform: 8 public reads at once, Instagram 3 with a 120 ms gap, Facebook 2 with a 600 ms gap. One run reads at most 120 entries per chunk and chains up to 40 chunks.</div>
+    <div>Duplicate-run safety</div><div>A run flag (<code>view_sync_running()</code>, 15-minute expiry) turns away a second sweep. The flag is read then written, so an admin press and the cron landing in the same second could still start two runs (finding M1); the effect is entries read twice, not wrong numbers. A forced run never re-reads an entry it already read. A new-entry read now runs quietly beside a sweep instead of being refused.</div>
+    <div>Overwrite safety</div><div>A number typed by an admin (<code>views_source = 'manual'</code>) is never overwritten. After a challenge's deadline the sweep stops, so the judged numbers are the deadline numbers.</div>
+    <div>Failure visibility</div><div>Per entry: the error code shows on the results page Sync panel. Instagram: <code>check_instagram_reads</code> raises a system error if every Instagram read in 6 hours failed. New today: <code>ops:views</code> alerts the admin desk and notifies the owner if nothing has been read for 8 hours during a live challenge, or half of the last sweep failed.</div>
+  </div>
+  <h3>Execution flow</h3>
+  <ol class="flow">
+    <li>pg_cron calls <code>run_view_sync()</code>. It returns early if view sync is disabled, a run is already going, or no challenge is running; otherwise it POSTs to the edge function with the shared webhook secret.</li>
+    <li>The function authenticates the caller: webhook secret for cron and internal calls, an admin JWT for the button and probes.</li>
+    <li>It selects up to 120 entries that are due (never read, older than the interval, or never read successfully and last tried over 45 minutes ago), oldest first, and counts the total for the progress bar.</li>
+    <li>It answers 202 at once and does the work in the background, because pg_net gives up after 5 seconds.</li>
+    <li>Entries are split into public, Instagram and Facebook lanes and read in parallel within each lane's limit. TikTok, Instagram and Facebook reads that meet a block are retried from other Supabase regions.</li>
+    <li>Each result is written to the entry and appended to the snapshot table; the points recalculation queue picks up the change within a minute.</li>
+    <li>If entries are still due, it calls itself with a continuation; otherwise it records the finished run.</li>
+  </ol>
+  <h3>Responsible collection</h3>
+  <ul class="plain">
+    <li>YouTube uses the official Data API. TikTok, Instagram and Facebook are read as logged-out web pages, which those platforms' terms of service do not permit for automated collection, and the scraper does not consult robots.txt.</li>
+    <li>Facebook pages are requested with Google's and Bing's crawler user-agents, and blocked reads are retried from other regions. This works, but it presents the reader as a search engine and steps around a block. Tryp should decide whether it is comfortable with that (finding H8).</li>
+    <li>In its favour: it reads only links creators submitted themselves for a paid programme, collects only the public view count, date and thumbnail, uses no account or cookie (the Instagram session was removed after a warning in August), and runs at a polite rate.</li>
+    <li>Safer long-term route: creators connect their own accounts (Instagram Graph API, TikTok Display API, Facebook Graph API), which gives exact counts with the creator's permission and no scraping.</li>
+  </ul>
+</section>
+
+<section aria-labelledby="auto">
+  <h2 id="auto">Every automation</h2>
+  <p>All 30 scheduled jobs succeeded in the last 24 hours. "Repeat-safe" says what stops a job sending the same thing twice if it ran again.</p>
+  <div class="scroll"><table id="autotable">
+    <thead><tr><th>Job</th><th>When</th><th>What it does</th><th>Writes / calls</th><th>Repeat-safe</th><th>Failure visible to</th></tr></thead>
+    <tbody></tbody>
+  </table></div>
+  <h3>Edge functions</h3>
+  <div class="scroll"><table id="edgetable">
+    <thead><tr><th>Function</th><th>Called by</th><th>What it does</th><th>Who may call it</th><th>Notes</th></tr></thead>
+    <tbody></tbody>
+  </table></div>
+</section>
+
+<section aria-labelledby="move">
+  <h2 id="move">Before the move to Tryp.com</h2>
+  <ul class="plain">
+    <li>Follow <code>docs/MOVING_TO_TRYP_INFRASTRUCTURE.md</code>: transfer the Supabase, Vercel and GitHub projects into Tryp-owned organisations first (no code change), then decide on self-hosting.</li>
+    <li>Run <code>scripts/edge-drift.sh</code> and <code>scripts/schema-snapshot.mjs</code> immediately before and after the move. Both are read-only and say whether the repo and the live system agree.</li>
+    <li>Back up Storage (about 512 MB of photos and videos); today only the database is backed up.</li>
+    <li>Update the hard-coded project URL in <code>public/sw.js</code> (push receipts) and the CSP in <code>vercel.json</code> when the Supabase URL changes.</li>
+    <li>Contact the two members whose emails are on typo domains (<code>gnail.com</code>, <code>gmsil.com</code>); their prize and password emails are going to whoever owns those domains.</li>
+  </ul>
+</section>
+</main>
+
+<script>
+const F = [
+  ["C1","CRITICAL","Fixed","Any signed-in creator could read another creator's bank details",
+   "<code>invoice_terms(reward_id)</code> was callable through the API by every signed-in user and returned the payment snapshot (IBAN, account number, address) of whoever owned the reward. Migration 375 had locked the underlying <code>payment_snapshot</code> but missed this wrapper.",
+   "Migration 403 removed API access to it and 12 other internal functions. Every legitimate caller is a trigger, cron job or privileged function, checked one by one before applying, and the cron jobs kept succeeding afterwards."],
+  ["C2","CRITICAL","Fixed","The repository's upload function was weaker than the live one",
+   "Production's <code>upload</code> blocked SVG and HTML files, capped size at 60 MB and let group-chat members post photos. The repo copy had none of that, so the next deploy from source would have reopened script-carrying uploads and broken group DM photos.",
+   "The live version is now the repo version and was redeployed from it. New <code>scripts/edge-drift.sh</code> diffs every deployed function against the repo; it reports no drift."],
+  ["C3","CRITICAL","Fixed","Entry feedback never loaded on big challenges",
+   "On the 626-entry Global Challenge the app sent every entry id in one URL (about 24 KB), which the database API refused, so feedback silently showed nothing. It was failing for real users all day.",
+   "New <code>fetchIn()</code> helper reads long id lists in batches of 150. Verified on that challenge: 5 successful requests instead of 1 failure."],
+  ["H1","HIGH","Fixed","Failed saves looked like success",
+   "63 database writes ignored the error the database returned. Supabase does not throw on a refused write, so accepting a connection, RSVPing, voting, changing settings, removing an entry or suspending a creator could fail with no message.",
+   "New <code>saved()</code> helper shows a translated \"That did not save\" message. Applied to the 35 writes a person acts on; settings toggles flip back. The other 28 mark things as read (L2)."],
+  ["H2","HIGH","Fixed","Internal functions open to any creator",
+   "Beyond C1: <code>clear_system_error</code> let anyone silence an outage alert; referral rewards, invoice snapshots, participation marks and five cron jobs (including one that sends voucher notifications) could be triggered by hand.",
+   "Locked in migration 403. 32 other unreferenced functions still need a review of their internal checks (M4)."],
+  ["H3","HIGH","Fixed","New entries waited up to an hour for views",
+   "An entry saved while the hourly sweep was running was turned away (409), so it showed no views until the next hour.",
+   "New-entry reads now run beside a sweep without claiming the run lock or overwriting its progress bar."],
+  ["H4","HIGH","Fixed","A failed first read waited 6 hours",
+   "Facebook answers about 1 request in 10 with a consent page. An entry whose first read hit one showed no views for the whole 6-hour interval.",
+   "Entries never read successfully are retried every hourly tick, at most once per hour, and never for permanent errors such as photo posts."],
+  ["H5","HIGH","Fixed","Nothing watched the scraper",
+   "If reads stopped or a platform blocked them all, the only sign was a leaderboard that stopped moving.",
+   "Migration 402 adds an <code>ops:views</code> check to the 5-minute health monitor: admin desk alert and one notification to the owner."],
+  ["H6","HIGH","Fixed","Milestone editor could duplicate requirements",
+   "Saving a milestone deletes its requirements and inserts the form's set. If the delete failed, the insert still ran and every requirement doubled.",
+   "The insert now runs only after a successful delete."],
+  ["H7","HIGH","Fixed","Sign-up accepted fake and mistyped addresses",
+   "A check for disposable domains and domains with no mail server was written on 7 Sep but never deployed. Typos of big providers also slip through mail-server checks because squatters register them; two current members signed up on <code>gnail.com</code> and <code>gmsil.com</code>.",
+   "Deployed, plus a \"Did you mean gmail.com?\" list. Tested against every domain current members use: no real address is refused. <b>Open:</b> contact the two typo accounts."],
+  ["H8","HIGH","Open","Scraping against platform terms",
+   "Facebook, Instagram and TikTok are read as logged-out pages, which their terms do not allow for automated collection. Facebook reads present themselves as Google/Bing crawlers and hop regions when blocked.",
+   "<b>Recommend:</b> a decision from Tryp. Low-risk path: keep YouTube's API, move to creator-authorised platform APIs, and drop crawler impersonation even if Facebook reads become less reliable."],
+  ["H9","HIGH","Open","Uploaded files are not backed up",
+   "The database has a nightly dump kept 30 days as a GitHub artifact (anyone with repo access can download personal data). Storage, about 512 MB of photos, chat media and thumbnails, has no backup.",
+   "<b>Recommend:</b> a nightly Storage sync to Tryp-owned object storage, and backups stored outside GitHub."],
+  ["H10","HIGH","Open","Edge functions are deployed by hand",
+   "Nothing deploys functions from the repo, which is how C2 and the undeployed sign-up check happened.",
+   "<b>Recommend:</b> a CI job that deploys changed functions from <code>main</code>, or at least runs <code>edge-drift.sh</code> on every push."],
+  ["H11","HIGH","Open","Everything runs in personal accounts",
+   "GitHub, Vercel and Supabase are owned by one person's accounts; the deploy credential is a personal token.",
+   "<b>Recommend:</b> transfer to Tryp organisations as the first step of the move."],
+  ["M1","MEDIUM","Open","Two sweeps can overlap",
+   "The scraper's run lock is read then written, not claimed atomically.",
+   "<b>Recommend:</b> an atomic claim (a conditional update or advisory lock in one RPC)."],
+  ["M2","MEDIUM","Open","Push receipts can double count",
+   "<code>push-track</code> checks for an existing delivered/clicked row and then inserts, with no unique index.",
+   "<b>Recommend:</b> a unique index on <code>(notification_id, event)</code> and <code>on conflict do nothing</code>."],
+  ["M3","MEDIUM","Open","Policy and index advisories",
+   "86 tables have several permissive row-level policies for the same action (each is evaluated); 185 indexes show as unused, but 118 were only added today.",
+   "<b>Recommend:</b> merge policies on the busiest tables; re-check index usage after 30 days before dropping any."],
+  ["M4","MEDIUM","Open","About 300 privileged functions rely on their own checks",
+   "By design, signed-in users can call most SECURITY DEFINER functions, and each must check its caller. 32 have no caller in the app and no obvious check but are read-only helpers.",
+   "<b>Recommend:</b> review each, and lock any the app does not call."],
+  ["M5","MEDIUM","Open","Data access is spread across the app",
+   "Pages of 1,500 to 3,000 lines own their own queries; Supabase is called directly from about 210 files.",
+   "<b>Recommend:</b> a <code>src/api/</code> layer per feature, starting with challenges, VIP and money."],
+  ["M6","MEDIUM","Open","Comments are long dated narratives",
+   "About 24% of source lines are comments, many recording conversations and dates rather than what the code does.",
+   "<b>Recommend:</b> condense to the rule and the reason when a file is next touched; history lives in git."],
+  ["M7","MEDIUM","Open","Edge function tests do not run in CI",
+   "The Facebook parser has a Deno test suite, but CI only runs the web app's tests.",
+   "<b>Recommend:</b> add <code>deno test</code> for <code>supabase/functions</code> to CI."],
+  ["M8","MEDIUM","Open","Runtime import from a third-party host",
+   "<code>thumb-cache</code> imports an image library from deno.land/x at run time (version pinned).",
+   "<b>Recommend:</b> vendor it or use an npm specifier with a lockfile."],
+  ["M9","MEDIUM","Open","Heavy first load",
+   "The main bundle is 280 KB gzipped and about 48 files are preloaded, including map and chart code.",
+   "<b>Recommend:</b> load maps only on the pages that show them."],
+  ["M10","MEDIUM","Open","pg_net is installed in the public schema","Supabase advisor warning.","<b>Recommend:</b> move it to the <code>extensions</code> schema during the move."],
+  ["M11","MEDIUM","Open","Project URL hard-coded in the service worker","<code>public/sw.js</code> posts push receipts to a fixed Supabase URL.","<b>Recommend:</b> change it as part of the URL switch (it is in the move runbook)."],
+  ["M12","MEDIUM","Open","Sign-up errors are English only","Messages from <code>auth-gate</code> are not translated for Spanish, Portuguese, German or Romanian sign-ups.","<b>Recommend:</b> return an error code and translate it in the app."],
+  ["M13","MEDIUM","Open","Auth has a fixed 5 database connections","A larger instance will not help sign-in under load until this is raised.","<b>Recommend:</b> switch to a percentage setting at the next compute change."],
+  ["L1","LOW","Fixed","Two icon buttons had no label","Portfolio \"add tool\" and the room reorder handle were unnamed for screen readers.","Labelled and translated."],
+  ["L2","LOW","Open","28 low-stakes writes still unchecked","Read markers, \"seen\" flags and fire-and-forget logging.","Leave, or move them to <code>saved()</code> when touched."],
+  ["L3","LOW","Open","Flight pages read one route at a time","Up to 8 small requests in sequence on Flights and the flight community page.","Kept deliberate to spare the 12-connection pool; batch into one RPC if it matters."],
+  ["L4","LOW","Open","Cron history kept for 2 days","Weekly jobs (audit-log purge, VIP digest) have no visible history most of the week.","Keep 8 days."],
+  ["L5","LOW","Open","About 20 helpers used only by tests","Small, tested pure functions with no caller in the app.","Delete with their tests when the area is next touched."],
+  ["L6","LOW","Fixed","Dead code and stale files","4 unused files, 55 unused exports, old setup and seed files, 20 dated docs.","Removed or archived in the earlier pass today."],
+  ["L7","LOW","Open","Inactivity alert computes twice","<code>notify_inactive_creators</code> evaluates activity once to notify and again to mark, so a creator active in between could be marked without an alert.","Use one CTE for both."],
+];
+const box = document.getElementById('findings');
+box.innerHTML = F.map(([id, sev, st, title, what, fix]) => `
+  <article class="finding" data-sev="${sev}" data-st="${st}">
+    <div class="top"><span class="id">${id}</span><h3>${title}</h3><span class="pill ${sev}">${sev.toLowerCase()}</span><span class="pill ${st}">${st}</span></div>
+    <p>${what}</p><p class="fix">${fix}</p>
+  </article>`).join('');
+document.querySelectorAll('.filters button').forEach((b) => b.addEventListener('click', () => {
+  document.querySelectorAll('.filters button').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+  const f = b.dataset.f;
+  box.querySelectorAll('.finding').forEach((el) => { el.hidden = !(f === 'all' || el.dataset.sev === f || el.dataset.st === f) });
+}));
+
+const A = [
+  ["view-sync","07 * * * *","Reads challenge entry views (see above)","submissions, view_snapshots; edge fn view-sync","Run lock; stale filter","Sync panel; ops:views alert"],
+  ["vip-sync","37 * * * *","Reads VIP video views every 2 h","vip_videos, vip_view_readings","Run lock","VIP tools; ops:views"],
+  ["recalc-queued-points","* * * * *","Recomputes points for challenges whose views changed","point_awards, results","Advisory lock per challenge","cron-health"],
+  ["reconcile-leaderboards","*/5 * * * *","Rebuilds stale leaderboard caches","results","Rebuild is idempotent","cron-health"],
+  ["reconcile-milestones","*/30 * * * *","Catches up creator milestone progress","milestone progress","Idempotent","cron-health"],
+  ["publish-scheduled-challenges","*/5 * * * *","Opens challenges at their scheduled time","challenges","Status change","cron-health"],
+  ["post-scheduled-announcements","* * * * *","Posts announcements at their scheduled time","messages","Marks each posted","cron-health"],
+  ["event-reminders","*/5 * * * *","Sends reminders creators set on events","event_reminders, notifications","sent_at set in the same statement","cron-health"],
+  ["challenge-reminders","0 9 * * *","Reminds entrants of a challenge deadline","notifications","Not-exists check per day","cron-health"],
+  ["daily-puzzle-reminder","0 9 * * *","Daily puzzle nudge","notifications","Not-exists check","cron-health"],
+  ["daily-streak-reminder","0 17 * * *","Streak-at-risk nudge","notifications","Not-exists check","cron-health"],
+  ["daily-birthday-cards","0 7 * * *","Posts birthday cards in chat","messages","Not-exists check","cron-health"],
+  ["inactive-creator-alerts","0 8 * * *","Tells admins a creator has gone quiet for 30 days","notifications, profiles","inactive_alerted_at","cron-health"],
+  ["voucher-nudges","0 10 * * *","Reminds creators of unused vouchers","notifications","Not-exists check","cron-health"],
+  ["auto-settle-invoices","40 6 * * *","Marks long-sent invoices as settled","invoices","Status change","cron-health"],
+  ["archive-ended-challenges","10 0 * * *","Archives finished challenges","challenges","Status change","cron-health"],
+  ["vip-close","*/10 * * * *","Final reads, statements, auto-approval and month close for VIP programmes","vip_months, vip_statements, rewards, invoices, notifications","Month status machine (open, closing, closed)","Managers notified; bad statements stay drafts"],
+  ["vip-award-perks","53 * * * *","Awards VIP perks when earned","rewards, notifications","on conflict","cron-health"],
+  ["vip-milestones","30 9 * * *","Congratulates VIPs on view milestones","notifications","milestone_notified","cron-health"],
+  ["vip-nudges","15 9 * * *","Reminds VIPs to post","notifications","Not-exists check","cron-health"],
+  ["vip-requirements","20 9 * * *","Warns VIPs behind on the monthly requirement","notifications","Not-exists check","cron-health"],
+  ["vip-rate-reviews","15 8 * * *","Reminds managers of a deal review date","notifications","Date match, once a day","cron-health"],
+  ["vip-weekly-digest","5 8 * * 1","Weekly VIP summary","notifications","Not-exists check","cron-health"],
+  ["ops-health-check","*/5 * * * *","Database health and scraper watch","ops_health_samples, client_errors","Alerts deduplicated","Admin desk; owner notified"],
+  ["ops-snapshot-stats","55 * * * *","Hourly heaviest-query snapshot","ops_stat_snapshots","Append only","Admin analytics"],
+  ["cron-health","*/5 * * * *","Checks every job's last run, pings an external heartbeat","client_errors; healthchecks URL","Alerts deduplicated","Admin desk; external heartbeat"],
+  ["purge-deleted-creators","0 3 * * *","Deletes accounts 30 days after a deletion request","profiles, auth users","Deletes only past the grace period","cron-health"],
+  ["purge-sandbox-sessions","20 4 * * *","Clears demo-account sessions","auth sessions","Idempotent","cron-health"],
+  ["purge-audit-log","30 3 * * 0","Trims old audit log rows","audit_log","Idempotent","cron-health"],
+  ["purge-cron-history","40 3 * * *","Keeps 2 days of cron history","cron.job_run_details","Idempotent","None needed"],
+  ["trigger: read_new_entry","on entry insert","Reads a new entry's views at once","edge fn view-sync","Quiet read beside sweeps","Entry error code"],
+  ["trigger: dispatch_notifications","on notification insert","Sends push for new notifications","edge fn notify-dispatch","One call per insert statement","push_events; desk alerts on queue backlog"],
+  ["trigger: media cleanup","on photo / message / DM / feedback delete","Deletes the stored files of deleted items","edge fn media-cleanup","Deleting twice is harmless","Function logs"],
+];
+document.querySelector('#autotable tbody').innerHTML = A.map(([n, s, w, t, r, v]) =>
+  `<tr><td><code>${n}</code></td><td class="sched">${s}</td><td>${w}</td><td>${t}</td><td>${r}</td><td>${v}</td></tr>`).join('');
+
+const E = [
+  ["view-sync","cron, trigger, admin button, probe","Reads view counts","Webhook secret or admin","Region failover for blocked reads"],
+  ["notify-dispatch","notification trigger","Web push for new notifications","Webhook secret","Email sending is off"],
+  ["auth-gate","login and sign-up screens","Rate-limited login, sign-up, password reset in front of Supabase Auth","Public by design (captcha, per-IP and global limits)","Now checks sign-up email domains"],
+  ["upload","chat, profile, gallery","Validated uploads to Storage","Signed-in user; path ownership checked","Type allow-list, 60 MB cap"],
+  ["thumb-cache","boards, video tracker","Stores video thumbnails once","Signed-in user; video must exist","Host allow-lists"],
+  ["media-cleanup","delete triggers","Removes files of deleted content","Webhook secret",""],
+  ["impersonate","admin \"View as creator\"","Opens the sandbox creator or VIP session","Admin only","Sandbox targets only"],
+  ["send-invoice","admin invoices","Sends an invoice PDF","Admin",""],
+  ["geocode","profile, flights","Place lookups","Signed-in user","Nominatim blocks edge IPs; fallbacks in place"],
+  ["translate-text","chat translate","Server translation fallback","Signed-in user","Browser translation is primary"],
+  ["calendar-feed","calendar apps","Personal ICS feed","Secret token per user",""],
+  ["push-track","service worker","Records push delivered / clicked","Public; needs a notification id","See M2"],
+];
+document.querySelector('#edgetable tbody').innerHTML = E.map(([n, c, w, a, x]) =>
+  `<tr><td><code>${n}</code></td><td>${c}</td><td>${w}</td><td>${a}</td><td>${x}</td></tr>`).join('');
+</script>
