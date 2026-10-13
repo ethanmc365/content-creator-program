@@ -41,12 +41,15 @@ export const STATUS_HEX = {
 }
 
 // The same statuses drawn ON the orange hero card, where each has to read against #d94407..#f5853f.
+// NEVER WHITE (13 Oct 2026). Ethan: "I don't like how we have that white colour. It should never be white. The yellow
+// colour is okay, but it should be green." On track was drawn white, so a quarter going well read as an empty bar. Met
+// and on track are now both greens (met the deeper one), against a darker track.
 export const STATUS_HEX_ON_BRAND = {
-  met: '#6ee7b7',
-  on_track: '#ffffff',
+  met: '#10b981',
+  on_track: '#6ee7b7',
   behind: '#fde68a',
-  missed: '#fecaca',
-  upcoming: 'rgba(255,255,255,0.45)',
+  missed: '#fca5a5',
+  upcoming: 'rgba(26,26,26,0.18)',
 }
 
 export const STATUS_ORDER = ['met', 'on_track', 'behind', 'missed', 'upcoming']

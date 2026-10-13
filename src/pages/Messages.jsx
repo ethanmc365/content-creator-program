@@ -22,7 +22,7 @@ import { useCachedPage, writePageCache } from '../lib/pageCache'
 import { DM_CACHE_KEY, DM_PEOPLE_CACHE_KEY, fetchDmPeople, fetchInbox, isListableConversation } from '../lib/inbox'
 import { pinToBottom, isPinning, stickToBottom } from '../lib/chatScroll'
 import { formatChatTime, formatMessageTime, messageTimeTitle, otherParticipant, cx } from '../lib/utils'
-import { useVisualViewport, useIsMobile, useViewportPin } from '../lib/useKeyboardInset'
+import { useVisualViewport, useIsMobile, useViewportPin, useKeyboardPrepare, expectedKeyboard } from '../lib/useKeyboardInset'
 import { setChatChromeHidden, readerMovedChrome, chromeGestureHandlers } from '../lib/chatChrome'
 import { useNoScrollChain, useOverlayTouchLock } from '../lib/noScrollChain'
 import { RoomSearch, ComposerSearch } from '../components/ChatSearch'
@@ -217,6 +217,12 @@ export default function Messages() {
   // "what did Jacob say about the Lisbon shoot" - so they are two controls.
   const [threadSearch, setThreadSearch] = useState('')
   const [threadSearchOpen, setThreadSearchOpen] = useState(false)
+  // THE HEADER'S X CLOSES THE SEARCH (13 Oct 2026). Ethan: with the keyboard up, "that X in the top right, when I press
+  // it, nothing happens". On a phone the press blurs the search field first, an empty field closes itself on blur, and
+  // the click that follows toggled it straight back open. The X now only ever closes, and a click within half a second of
+  // the field closing itself is that same press, not a request to open it again.
+  const searchClosedAt = useRef(0)
+  const closeThreadSearch = useCallback(() => { searchClosedAt.current = Date.now(); setThreadSearchOpen(false); setThreadSearch('') }, [])
   useEffect(() => { setThreadSearchOpen(false); setThreadSearch('') }, [conversationId])
 
   // ---- The outbox -------------------------------------------------------
@@ -386,10 +392,16 @@ export default function Messages() {
   // hugs the keyboard, the person you're messaging stays pinned at the top, and
   // the app header + bottom tab bar collapse away while typing. Same approach as
   // the #general chat (see useVisualViewport for the iOS reasoning).
-  const { height: vpHeight, keyboardOpen: kbOpen } = useVisualViewport()
+  const { height: vpHeight, keyboardOpen: kbOpen, keyboard: kbPx } = useVisualViewport()
   const overlayRef = useRef(null)
   const isMobile = useIsMobile()
   useViewportPin(overlayRef, isMobile)
+  // MAKE ROOM BEFORE THE KEYBOARD (13 Oct 2026): see useKeyboardPrepare. From the touch on the message box until the
+  // keyboard is measured, the overlay is already the height it will have with the keyboard up, so iOS has nothing to
+  // pan and the header stays where it is.
+  const [kbExpected, setKbExpected] = useKeyboardPrepare(overlayRef, isMobile)
+  const preKb = kbExpected && !(kbPx > 0)
+  useEffect(() => { if (kbExpected && kbPx > 0) setKbExpected(false) }, [kbExpected, kbPx, setKbExpected])
   useOverlayTouchLock(overlayRef, isMobile)
 
   // THE APP HEADER SLIDES AWAY WHILE YOU ARE READING A DM, exactly as it does
@@ -464,11 +476,13 @@ export default function Messages() {
   // tabs are hidden until it closes.
   // `chromeHidden` and `kbOpen` do the same thing to the top edge for different
   // reasons, so they are one condition here.
-  const topGone = kbOpen || chromeHidden
+  const topGone = kbOpen || chromeHidden || preKb
   const mobileStyle = isMobile
     ? {
         top: topGone ? 0 : 'calc(4rem + env(safe-area-inset-top))',
-        height: kbOpen
+        height: preKb
+          ? `${Math.max(240, window.innerHeight - expectedKeyboard())}px`
+          : kbOpen
           ? `${vpHeight}px`
           : `calc(${vpHeight}px - ${chromeHidden ? '0rem' : '4rem - env(safe-area-inset-top)'} - 4.5rem - env(safe-area-inset-bottom))`,
         // Clamp to >= 0: on iOS a downward pull at the top makes offsetTop go
@@ -1339,7 +1353,7 @@ export default function Messages() {
   // write `scrollTop = scrollHeight`, so even when they overlap they agree.
   useEffect(() => {
     if (atBottomRef.current) scrollToBottom('auto')
-  }, [kbOpen, vpHeight, scrollToBottom])
+  }, [kbOpen, vpHeight, preKb, scrollToBottom])
 
   // Track whether the reader is pinned to the bottom of the thread.
   const onScrollMessages = useCallback(() => {
@@ -1362,10 +1376,15 @@ export default function Messages() {
     // ARE LOOKING FOR SOMETHING ELSE, so the chrome comes back there and goes
     // away everywhere else. Same rule as the rooms.
     // Only for a scroll the reader made - see lib/chatChrome (the translate shake).
+    // Same hysteresis as the rooms (13 Oct 2026): back only at the very top moving up, away only after a real scroll down.
+    const top = el.scrollTop
+    const dy = top - lastTopRef.current
+    lastTopRef.current = top
     if (!readerMovedChrome()) return
-    if (el.scrollTop < 12) showChrome()
-    else hideChrome()
+    if (top <= 2 && dy <= 0) showChrome()
+    else if (top > 40 && dy > 2) hideChrome()
   }, [showChrome, hideChrome])
+  const lastTopRef = useRef(0)
 
   const jumpToLatest = useCallback(() => {
     setAtBottom(true)
@@ -2236,7 +2255,7 @@ export default function Messages() {
                   <button
                     type="button"
                     onPointerDown={(e) => e.preventDefault()}
-                    onClick={() => { setThreadSearchOpen((v) => !v); if (threadSearchOpen) setThreadSearch('') }}
+                    onClick={() => { if (threadSearchOpen) closeThreadSearch(); else if (Date.now() - searchClosedAt.current > 500) setThreadSearchOpen(true) }}
                     aria-label={threadSearchOpen ? tr('Close search') : tr('Search this conversation')}
                     aria-expanded={threadSearchOpen}
                     className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-smoke transition-transform duration-200 active:scale-90"
@@ -2363,7 +2382,7 @@ export default function Messages() {
                         // therefore paints over an earlier row's popover
                         // whatever z-index the popover carries - which is why
                         // the emoji panel opened underneath the next message.
-                        showActions && 'relative z-20',
+                        showActions && 'relative z-30',
                       )}
                       style={entering ? { animationDelay: `${Math.min(i, 12) * 24}ms` } : undefined}
                     >
@@ -2657,7 +2676,7 @@ export default function Messages() {
               <div ref={composerRef} className={cx('shrink-0 border-t border-gray-100', isMobile && threadSearchOpen ? 'px-3 py-2.5' : 'px-5 py-4')}>
                 {isMobile && threadSearchOpen ? (
                   <ComposerSearch value={threadSearch} onChange={setThreadSearch} count={visibleThread.length} total={thread.length}
-                    placeholder="Search this conversation" onClose={() => { setThreadSearchOpen(false); setThreadSearch('') }} />
+                    placeholder="Search this conversation" onClose={closeThreadSearch} />
                 ) : dmLocked ? (
                   <div className="rounded-card bg-cloud px-4 py-3 text-center text-sm text-smoke">
                     Message sent. You can send one message until {active?.other?.name?.split(' ')[0]} replies, which connects you.

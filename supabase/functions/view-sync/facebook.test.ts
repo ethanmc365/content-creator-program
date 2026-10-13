@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   FB_REGIONS, facebookCountFor, facebookCoverFrom, facebookIdCandidates, facebookIdFrom,
-  facebookTitleCount, isFacebookWall, pluginVideoId, regionOrder, facebookPostedAt,
+  facebookTitleCount, isFacebookWall, pluginVideoId, regionOrder, facebookPostedAt, facebookAssociatedVideoId, facebookPostFrom,
 } from './facebook.ts'
 
 const ID = '1445672320874711'
@@ -129,5 +129,54 @@ describe('facebookPostedAt', () => {
   })
   it('says nothing rather than guessing', () => {
     expect(facebookPostedAt('"videoId":"999","publish_time":1791644807', id)).toBeNull()
+  })
+})
+
+// 13 Oct 2026: a video shared from a personal profile lands on story.php, whose canonical is a /posts/ URL. The post id
+// is not a video id; the video is the one in the post's own associated_video block (beside feedback:<post id>).
+describe('facebookAssociatedVideoId', () => {
+  const POST = '1095490453382179'
+  const VID = '1336792105057199'
+  const fb = btoa(`feedback:${POST}`)
+  const page = `<link rel="canonical" href="https://www.facebook.com/100087637022931/posts/as%C3%AD-de-simple/${POST}/" />` +
+    `"associated_video":{"id":"777777777777777"},"play_count":5000,"id":"other"` +
+    `"associated_video":{"broadcast_is_ama_enabled":false,"id":"${VID}"},"comment_list_renderer":{}` +
+    `"associated_video":{"is_live_streaming":false,"id":"${VID}"},"video_view_count":19,"play_count":70,"id":"${fb}"}`
+
+  it('takes the video of the post the page is about', () => {
+    expect(facebookAssociatedVideoId(page)).toBe(VID)
+    expect(facebookIdCandidates(page)[0]).toBe(VID)
+    expect(facebookCountFor(page, VID)).toBe(70)
+  })
+
+  it('falls back to the id named most often', () => {
+    const html = `"associated_video":{"id":"${VID}"},x "associated_video":{"id":"${VID}"},y "associated_video":{"id":"777777777777777"}`
+    expect(facebookAssociatedVideoId(html)).toBe(VID)
+  })
+
+  it('is null on a page with no video', () => {
+    expect(facebookAssociatedVideoId('<html></html>')).toBeNull()
+  })
+})
+
+describe('facebookPostFrom', () => {
+  it('reads the post and owner off a story.php redirect', () => {
+    expect(facebookPostFrom('https://www.facebook.com/story.php?story_fbid=1095490453382179&id=100087637022931&rdid=x&share_url=y'))
+      .toEqual({ post: '1095490453382179', owner: '100087637022931' })
+  })
+  it('reads them out of an encoded login next=', () => {
+    expect(facebookPostFrom('https://www.facebook.com/login/?next=https%3A%2F%2Fwww.facebook.com%2Fstory.php%3Fstory_fbid%3D1095490453382179%26id%3D100087637022931'))
+      .toEqual({ post: '1095490453382179', owner: '100087637022931' })
+  })
+  it('reads a /posts/ URL with a slug', () => {
+    expect(facebookPostFrom('https://www.facebook.com/100087637022931/posts/as%C3%AD-de-simple/1095490453382179/'))
+      .toEqual({ post: '1095490453382179', owner: '100087637022931' })
+  })
+  it('is null for a reel or a pfbid story', () => {
+    expect(facebookPostFrom('https://www.facebook.com/reel/1336792105057199/')).toBeNull()
+    expect(facebookPostFrom('https://m.facebook.com/story.php?story_fbid=pfbid02eZ&id=100002021784159')).toBeNull()
+  })
+  it('the post player names its video', () => {
+    expect(pluginVideoId('{"video_id":"1336792105057199","x":1}')).toBe('1336792105057199')
   })
 })

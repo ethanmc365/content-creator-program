@@ -28,7 +28,7 @@ import { createClient } from 'npm:@supabase/supabase-js@2'
 import { createRemoteJWKSet, jwtVerify } from 'npm:jose@5'
 import { corsHeaders } from '../_shared/cors.ts'
 import {
-  FB_CRAWLER_UAS, facebookCountFor, facebookCoverFrom, facebookIdCandidates, facebookIdFrom,
+  FB_CRAWLER_UAS, facebookCountFor, facebookCoverFrom, facebookIdCandidates, facebookIdFrom, facebookPostFrom,
   facebookTitleCount, isFacebookWall, pluginVideoId, regionOrder, facebookPostedAt,
 } from './facebook.ts'
 
@@ -495,6 +495,26 @@ async function resolveFacebookShareOnce(url: string): Promise<{ html: string; ur
   return null
 }
 
+// Where a /share/ link sends a crawler, read off the redirect itself (never followed), as a post and its owner.
+async function facebookShareTarget(url: string): Promise<{ post: string; owner: string } | null> {
+  if (!/facebook\.com\/share\//.test(url)) return null
+  for (const ua of FB_CRAWLER_UAS) {
+    const ctrl = new AbortController()
+    const timer = setTimeout(() => ctrl.abort(), FETCH_TIMEOUT_MS)
+    try {
+      const res = await fetch(url, { headers: { 'User-Agent': ua, 'Accept-Language': 'en-GB,en;q=0.9' }, redirect: 'manual', signal: ctrl.signal })
+      await res.body?.cancel()
+      const found = facebookPostFrom(res.headers.get('location') ?? '')
+      if (found) return found
+    } catch {
+      // try the next agent
+    } finally {
+      clearTimeout(timer)
+    }
+  }
+  return null
+}
+
 type FbLocal = Resolved & { walled?: boolean; region?: string | null }
 
 // Every route that can turn a link into a video id, cheapest first. Returns as
@@ -512,6 +532,17 @@ async function facebookResolveIds(url: string): Promise<{ ids: string[]; walled:
     `https://www.facebook.com/plugins/video.php?href=${encodeURIComponent(url)}&show_text=false&width=500`, UA)
   if (plugin) add(pluginVideoId(plugin.html))
   if (ids.length) return { ids, walled }
+
+  // A POST FROM A PERSONAL PROFILE (13 Oct 2026). Its share link redirects to story.php, a login wall from every
+  // region, so two VIP videos sat "blocked" for days. The redirect names the post and its owner before any wall, and
+  // the embed plugin for that post names the video - as it does for an ordinary browser agent.
+  const post = facebookPostFrom(url) ?? await facebookShareTarget(url)
+  if (post) {
+    const href = `https://www.facebook.com/${post.owner}/posts/${post.post}/`
+    const viaPost = await fbFetch(`https://www.facebook.com/plugins/video.php?href=${encodeURIComponent(href)}&show_text=false&width=500`, UA)
+    if (viaPost) add(pluginVideoId(viaPost.html))
+    if (ids.length) return { ids, walled }
+  }
 
   // A crawler is REDIRECTED from a share link straight to /reel/<id>/.
   for (const ua of FB_CRAWLER_UAS) {
@@ -1400,8 +1431,17 @@ async function countStale(challengeId: string | undefined, intervalHours: number
 // touches a challenge entry.
 const VIP_COLS = 'id, video_url, platform, logged_views, platform_video_id, profile_id, posted_at, views_source, screen_text'
 
+// A VIP VIDEO STOPS BEING READ WHEN ITS MONTH IS OVER (13 Oct 2026). A video earns in the month it was posted and in no
+// other (vip_video_counted), so reading it after that month's final reading only costs requests. Ethan: "it should
+// always stop counting after the new month begins". The cutoff is the start of the current UTC month, held back six
+// hours into the new month (the final reading of the old one) and fourteen more for the markets east of UTC.
+export function vipReadCutoff(now = Date.now()): string {
+  const d = new Date(now - 6 * 3600_000)
+  return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1) - 14 * 3600_000).toISOString()
+}
+
 async function vipStaleRows(intervalHours: number, force: boolean, runStartedAt?: string): Promise<Row[]> {
-  let q = supabase.from('vip_videos').select(VIP_COLS).eq('status', 'tracking')
+  let q = supabase.from('vip_videos').select(VIP_COLS).eq('status', 'tracking').gte('submitted_at', vipReadCutoff())
   if (!force) {
     const staleBefore = new Date(Date.now() - intervalHours * 3600_000).toISOString()
     q = q.or(`views_synced_at.is.null,views_synced_at.lt.${staleBefore}`)
@@ -1413,7 +1453,7 @@ async function vipStaleRows(intervalHours: number, force: boolean, runStartedAt?
 }
 
 async function countVipStale(intervalHours: number, force: boolean): Promise<number> {
-  let q = supabase.from('vip_videos').select('id', { count: 'exact', head: true }).eq('status', 'tracking')
+  let q = supabase.from('vip_videos').select('id', { count: 'exact', head: true }).eq('status', 'tracking').gte('submitted_at', vipReadCutoff())
   if (!force) {
     const staleBefore = new Date(Date.now() - intervalHours * 3600_000).toISOString()
     q = q.or(`views_synced_at.is.null,views_synced_at.lt.${staleBefore}`)

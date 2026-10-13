@@ -14,13 +14,19 @@ import Icon from './Icon'
 //  * Creators tap an option to vote (one vote each; tapping again changes it).
 //  * Admins can close a poll to lock the result.
 //
-// WHO VOTED FOR WHAT (5 Oct 2026). Ethan: "I'm unable to see who actually voted for what ... clicking on the actual card
-// shows who's voted for it, outside the buttons." Pressing the CARD (anywhere that is not an option) opens the voters, grouped
-// by option, with a face and a name each. It is shown only to somebody who has already voted - an admin always sees it, and a
+// WHO VOTED FOR WHAT (5 Oct 2026). The "N votes" row under the options opens the voters, grouped by option, with a face
+// and a name each. (13 Oct 2026: it is the ONLY way in now. Pressing the card used to open them too, and Ethan wants a
+// press on the card to do what a press on any message does - bring up react and reply - so the press now falls through
+// to the message.) It is shown only to somebody who has already voted - an admin always sees it, and a
 // closed poll shows it to everyone - because an option button is a vote, and a poll that reveals everybody's answer before you
 // have given yours is a poll you copy. The little "Who voted" row is the same control for a keyboard.
 //
-// THE LOOK. A picked option is SOLID BRAND with white on it - the vibrant gradient, never the pale tint it used to be (Ethan:
+// THE LOOK (13 Oct 2026, again). Your pick is the whole row in the brand gradient with white on it, its share drawn in
+// white; the leader keeps an orange bar and its "Leading" mark wherever your vote went, so you can still see what is
+// winning. Before 13 Oct the pick was a white row with an orange outline (Ethan: "rather than it just turning a bit
+// darker orange, I want the actual nice gradient orange").
+//
+// EARLIER: A picked option is SOLID BRAND with white on it - the vibrant gradient, never the pale tint it used to be (Ethan:
 // "I don't like the way it's currently that light-coloured orange when you select it") - and the unpicked ones are quiet grey
 // bars that grow with their share, so the only orange on the card is the answer you gave.
 export default function PollCard({ pollId }) {
@@ -98,12 +104,6 @@ export default function PollCard({ pollId }) {
     load()
   }
 
-  // A press on the card that is not on a control: show or hide the voters.
-  function onCardPress(e) {
-    if (e.target.closest('button, a')) return
-    if (canSee && total > 0) setShowVoters((v) => !v)
-  }
-
   if (!poll) return null
 
   // Defensive: strip any leading emoji/symbol + space so a poll question never
@@ -126,13 +126,7 @@ export default function PollCard({ pollId }) {
     //
     // A component that brings its own background must bring its own foreground.
     // Anything that reads as body text is explicit from here down.
-    <div
-      onClick={onCardPress}
-      className={cx(
-        'mt-1 w-full max-w-[24rem] rounded-2xl border border-gray-100 bg-white p-4 text-left text-ink shadow-card sm:p-5',
-        canSee && total > 0 && 'cursor-pointer',
-      )}
-    >
+    <div className="w-full rounded-2xl border border-gray-100 bg-white p-3.5 text-left text-ink shadow-card sm:p-5">
       <div className="mb-3.5 flex items-start gap-2.5">
         <Icon name="poll" className="mt-1 h-5 w-5 shrink-0 text-brand" />
         <div className="min-w-0 flex-1">
@@ -159,8 +153,12 @@ export default function PollCard({ pollId }) {
               disabled={closed || busy}
               aria-pressed={mine}
               className={cx(
-                'relative w-full rounded-xl border bg-white px-3.5 pb-2.5 pt-2 text-left text-sm transition-all duration-200 disabled:cursor-default',
-                mine ? 'border-brand shadow-[0_6px_16px_-10px_rgba(217,68,7,0.7)]' : 'border-gray-200 hoverable:hover:-translate-y-px hoverable:hover:border-brand/50 hoverable:hover:shadow-card',
+                'relative w-full overflow-hidden rounded-xl border px-3.5 pb-2.5 pt-2 text-left text-sm transition-all duration-300 disabled:cursor-default',
+                mine
+                  ? 'border-transparent bg-gradient-to-r from-brand to-brand-light text-white shadow-[0_8px_20px_-10px_rgba(217,68,7,0.85)]'
+                  : leading && total > 0
+                    ? 'border-brand/35 bg-white hoverable:hover:-translate-y-px hoverable:hover:shadow-card'
+                    : 'border-gray-200 bg-white hoverable:hover:-translate-y-px hoverable:hover:border-brand/50 hoverable:hover:shadow-card',
               )}
             >
               <span className="flex items-center justify-between gap-3">
@@ -168,31 +166,34 @@ export default function PollCard({ pollId }) {
                   <span
                     aria-hidden
                     className={cx('flex shrink-0 items-center justify-center rounded-full border transition-colors duration-200',
-                      mine ? 'border-brand bg-brand text-white' : 'border-gray-300 bg-white')}
+                      mine ? 'border-white bg-white text-brand' : 'border-gray-300 bg-white')}
                     style={{ height: 18, width: 18 }}
                   >
                     {mine && (
-                      <svg viewBox="0 0 12 12" className="h-2.5 w-2.5 animate-pop-in" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M2.5 6.4l2.3 2.3L9.5 3.6" /></svg>
+                      <svg viewBox="0 0 12 12" className="h-2.5 w-2.5 animate-pop-in" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M2.5 6.4l2.3 2.3L9.5 3.6" /></svg>
                     )}
                   </span>
-                  <span className="min-w-0 truncate font-semibold text-ink">{o.label}</span>
-                  {leading && total > 0 && (
-                    <span className="inline-flex shrink-0 items-center gap-0.5 text-[10px] font-bold uppercase tracking-wide text-brand">
-                      <Icon name="trophy" className="h-3 w-3" />{tr('Leading')}
-                    </span>
-                  )}
+                  <span className={cx('min-w-0 truncate font-semibold', mine ? 'text-white' : 'text-ink')}>{o.label}</span>
                 </span>
-                <span className="shrink-0 text-right tabular-nums">
-                  <span className={cx('text-[13px] font-bold', mine || leading ? 'text-brand' : 'text-ink')}>{pct}%</span>
-                  <span className="ml-1 text-[11px] text-smoke">{count === 1 ? tr('1 vote') : tr('{n} votes', { n: count })}</span>
-                </span>
+                <span className={cx('shrink-0 text-[13px] font-bold tabular-nums', mine ? 'text-white' : leading && total > 0 ? 'text-brand' : 'text-ink')}>{pct}%</span>
               </span>
-              <span aria-hidden className="mt-2 block h-1.5 overflow-hidden rounded-full bg-cloud">
+              <span aria-hidden className={cx('mt-2 block h-1.5 overflow-hidden rounded-full', mine ? 'bg-white/30' : 'bg-cloud')}>
                 <span
                   className={cx('block h-full rounded-full transition-[width] duration-700 ease-[cubic-bezier(0.22,1,0.36,1)]',
-                    mine ? 'bg-gradient-to-r from-brand to-brand-light' : leading ? 'bg-brand-light/70' : 'bg-gray-300')}
+                    mine ? 'bg-white' : leading ? 'bg-gradient-to-r from-brand-light to-brand' : 'bg-gray-300')}
                   style={{ width: `${pct}%` }}
                 />
+              </span>
+              {/* The count and the leader's mark on a line of their own under the bar, so a narrow poll (it sits inside
+                  the sender's bubble on a phone) never runs them into the option's name. */}
+              <span className={cx('mt-1.5 flex items-center justify-between gap-2 text-[11px] leading-none', mine ? 'text-white/85' : 'text-smoke')}>
+                <span>{count === 1 ? tr('1 vote') : tr('{n} votes', { n: count })}</span>
+                {leading && total > 0 && (
+                  <span className={cx('inline-flex shrink-0 items-center gap-0.5 rounded-full font-bold uppercase tracking-wide text-[10px]',
+                    mine ? 'bg-white/25 px-1.5 py-0.5 text-white' : 'text-brand')}>
+                    <Icon name="trophy" className="h-3 w-3" />{tr('Leading')}
+                  </span>
+                )}
               </span>
             </button>
           )
@@ -212,7 +213,7 @@ export default function PollCard({ pollId }) {
                 {faces.map((p) => <Avatar key={p.id} src={p.photo_url} name={p.name} size="xs" className="!h-5 !w-5 !text-[9px] !ring-2 !ring-white" />)}
               </span>
             )}
-            <span>{total} {total === 1 ? tr('vote') : tr('votes')}</span>
+            <span className="whitespace-nowrap">{total} {total === 1 ? tr('vote') : tr('votes')}</span>
             <Icon name="chevronRight" className={cx('h-3.5 w-3.5 transition-transform duration-200', showVoters ? '-rotate-90' : 'rotate-90')} />
           </button>
         ) : (

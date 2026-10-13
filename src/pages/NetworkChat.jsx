@@ -48,7 +48,7 @@ import { textBeforeCaret } from '../lib/richEditor'
 import { loadDraft, saveDraft, clearDraft } from '../lib/drafts'
 import SeenBy from '../components/SeenBy'
 import { Avatar, EmptyState } from '../components/ui'
-import { useVisualViewport, useIsMobile, useViewportPin } from '../lib/useKeyboardInset'
+import { useVisualViewport, useIsMobile, useViewportPin, useKeyboardPrepare, expectedKeyboard } from '../lib/useKeyboardInset'
 import { cx, formatMessageTime, messageTimeTitle } from '../lib/utils'
 import { SOFT_SPRING } from '../lib/motion'
 import MessageActions from '../components/chat/MessageActions'
@@ -240,6 +240,12 @@ const cardOnly = (m) => !m.body?.trim() && !m.image_url && !m.video_url && !m.re
 /** A live leaderboard with words: one white bubble holding both (13 Oct 2026). */
 const boardBubble = (m) => !!m.leaderboard_challenge_id && !m.image_url && !m.video_url
 
+/** A POLL IS A MESSAGE TOO (13 Oct 2026). Ethan: pressing a poll anywhere but its options should bring up react and
+ *  reply, "and there should still be the orange bubble around it, as in I actually sent the message". So a poll gets the
+ *  same framed bubble as a shared leaderboard: the sender's colour round the white card, and the frame opens the bar. */
+const pollBubble = (m) => !!m.poll_id && !m.image_url && !m.video_url && !m.leaderboard_challenge_id
+const framed = (m) => boardBubble(m) || pollBubble(m)
+
 function AttachedCard({ message }) {
   const spec = CARD_KINDS.find((c) => message[c.idKey])
   if (!spec) return null
@@ -327,10 +333,16 @@ export default function NetworkChat() {
   const mentionLenRef = useRef(0)
   const atBottomRef = useRef(true)
 
-  const { height: vpHeight, keyboardOpen: kbOpen } = useVisualViewport()
+  const { height: vpHeight, keyboardOpen: kbOpen, keyboard: kbPx } = useVisualViewport()
   const overlayRef = useRef(null)
   const isMobile = useIsMobile()
   useViewportPin(overlayRef, isMobile)
+  // MAKE ROOM BEFORE THE KEYBOARD (13 Oct 2026): see useKeyboardPrepare. From the touch on the message box until the
+  // keyboard is measured, the overlay is already the height it will have with the keyboard up, so iOS has nothing to
+  // pan and the header stays where it is.
+  const [kbExpected, setKbExpected] = useKeyboardPrepare(overlayRef, isMobile)
+  const preKb = kbExpected && !(kbPx > 0)
+  useEffect(() => { if (kbExpected && kbPx > 0) setKbExpected(false) }, [kbExpected, kbPx, setKbExpected])
   useOverlayTouchLock(overlayRef, isMobile)
   useNoScrollChain(scrollerRef, `${slug}-${channelKey}`)
 
@@ -392,6 +404,9 @@ export default function NetworkChat() {
   // would also scroll every ancestor - including the fixed overlay and the
   // document behind it - to satisfy the block axis it was never asked about.
   const [stripSearch, setStripSearch] = useState(false)
+  // The header's X only ever closes the search; see closeThreadSearch in Messages for the blur race this avoids.
+  const stripClosedAt = useRef(0)
+  const closeStripSearch = useCallback(() => { stripClosedAt.current = Date.now(); setStripSearch(false); setSearch('') }, [])
   // The room switcher sheet (components/chat/RoomSwitcherSheet), opened from the phone's room header.
   const [switcher, setSwitcher] = useState(false)
   const closeSwitcher = useCallback(() => setSwitcher(false), [])
@@ -421,11 +436,13 @@ export default function NetworkChat() {
   // `chromeHidden` and `kbOpen` do the same thing to the top edge for different
   // reasons - one because the header slid away, one because the keyboard
   // replaced everything - so they share a branch.
-  const topGone = kbOpen || chromeHidden
+  const topGone = kbOpen || chromeHidden || preKb
   const mobileStyle = isMobile
     ? {
         top: topGone ? 0 : 'calc(4rem + env(safe-area-inset-top))',
-        height: kbOpen
+        height: preKb
+          ? `${Math.max(240, window.innerHeight - expectedKeyboard())}px`
+          : kbOpen
           ? `${vpHeight}px`
           : `calc(${vpHeight}px - ${chromeHidden ? '0rem' : '4rem - env(safe-area-inset-top)'} - 4.5rem - env(safe-area-inset-bottom))`,
         // `transform` is written frame by frame by useViewportPin (12 Oct 2026), not here.
@@ -743,7 +760,7 @@ export default function NetworkChat() {
   }, [loading, active?.key, community?.id])
   // Reflow when the keyboard opens: the scroller just got shorter, so the
   // message the user was reading has to stay at the bottom.
-  useEffect(() => { pin() }, [kbOpen, vpHeight, pin])
+  useEffect(() => { pin() }, [kbOpen, vpHeight, preKb, pin])
 
   // The titles behind any poll / game / resource cards in this room. One query
   // per kind, only for the kinds actually present, and only when the set of ids
@@ -958,6 +975,35 @@ export default function NetworkChat() {
     })
   }, [members, reads, user?.id])
 
+  // CLOSING A SEARCH PUTS YOU BACK WHERE YOU WERE (13 Oct 2026). Ethan: pressing the X on the room's search "seems to
+  // reload the entire page ... it should just bring it back to wherever I was". Every message the search had hidden
+  // mounted again with its entrance animation, all at once, and the list landed somewhere else. So the frame a search is
+  // cleared mounts them still (`quietMount`), and the scroller goes back to the distance from the bottom it had before
+  // the search began (kept by the scroll listener below while no search is typed).
+  const [searchWas, setSearchWas] = useState(search)
+  const [quietMount, setQuietMount] = useState(false)
+  if (searchWas !== search) {
+    setSearchWas(search)
+    setQuietMount(!search.trim() && !!searchWas.trim())
+  }
+  const fromBottomRef = useRef(0)
+  const lastTopRef = useRef(0)
+  const searchingRef = useRef(false)
+  useEffect(() => { searchingRef.current = !!search.trim() }, [search])
+  useEffect(() => {
+    const el = scrollerRef.current
+    if (!el) return undefined
+    const onScroll = () => { if (!searchingRef.current) fromBottomRef.current = Math.max(0, el.scrollHeight - el.scrollTop - el.clientHeight) }
+    el.addEventListener('scroll', onScroll, { passive: true })
+    return () => el.removeEventListener('scroll', onScroll)
+  }, [channelKey, slug, hasMessages])
+  useLayoutEffect(() => {
+    if (!quietMount) return
+    const el = scrollerRef.current
+    if (el) el.scrollTo({ top: Math.max(0, el.scrollHeight - el.clientHeight - fromBottomRef.current), behavior: 'instant' })
+    setQuietMount(false)
+  }, [quietMount])
+
   // Search filters what is already in memory. A room holds 200 messages; a
   // server round trip for this would be slower and would not work offline.
   const visible = useMemo(() => {
@@ -1035,9 +1081,16 @@ export default function NetworkChat() {
     // Reading hides the chrome; running out of messages at the top brings it
     // back, because that is the moment you are looking for something else.
     // Only for a scroll the reader made - see lib/chatChrome (the translate shake).
-    if (!readerMovedChrome()) return
-    if (el.scrollTop < 12) showChrome()
-    else hideChrome()
+    if (!readerMovedChrome()) { lastTopRef.current = el.scrollTop; return }
+    // HYSTERESIS (13 Oct 2026). Ethan: scrolling up, "I don't get to the top ... and the header jumps up. Everything
+    // sort of jitters there". It flipped on a single 12px line: the header coming in changes the overlay's height, the
+    // list moves under the finger, the line is crossed again, and it flips back. Now it comes back only at the very top
+    // while moving up, and goes away only after a real scroll down (40px past the top, moving down).
+    const top = el.scrollTop
+    const dy = top - lastTopRef.current
+    lastTopRef.current = top
+    if (top <= 2 && dy <= 0) showChrome()
+    else if (top > 40 && dy > 2) hideChrome()
   }
 
   // DELETE, WHICH THE ROOMS SIMPLY DID NOT HAVE.
@@ -1318,7 +1371,7 @@ export default function NetworkChat() {
           type="button"
           // Keeps the composer focused until the search field takes over, so the keyboard stays up.
           onPointerDown={(e) => e.preventDefault()}
-          onClick={() => { setStripSearch((v) => !v); if (stripSearch) setSearch('') }}
+          onClick={() => { if (stripSearch) closeStripSearch(); else if (Date.now() - stripClosedAt.current > 500) setStripSearch(true) }}
           aria-label={stripSearch ? 'Close search' : `Search ${active?.label || 'this room'}`}
           aria-expanded={stripSearch}
           className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-smoke transition-colors active:bg-cloud"
@@ -1466,9 +1519,13 @@ export default function NetworkChat() {
               <motion.div
                 key={m.id}
                 id={`msg-${m.id}`}
-                initial={introducing && visible.length - 1 - i > 14 ? false : { opacity: 0, y: introducing ? 14 : 6, scale: introducing ? 0.985 : 1 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                transition={introducing ? { ...SOFT_SPRING, delay: Math.max(0, 14 - (visible.length - 1 - i)) * 0.035 } : SOFT_SPRING}
+                // A LIGHTER ENTRANCE (13 Oct 2026). Ethan: switching from General to Worldwide and scrolling "is a little bit
+                // laggy". A room opened with fourteen rows on a spring that took most of a second to settle (and scaled,
+                // which re-rasters every bubble each frame), so the first scroll fought it. Now eight rows, a 320ms
+                // ease-out, transform and opacity only.
+                initial={quietMount || (introducing && visible.length - 1 - i > 8) ? false : { opacity: 0, y: introducing ? 10 : 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={introducing ? { duration: 0.32, ease: [0.22, 1, 0.36, 1], delay: Math.max(0, 8 - (visible.length - 1 - i)) * 0.03 } : { duration: 0.24, ease: [0.22, 1, 0.36, 1] }}
                 // PRESS THE BUBBLE TO OPEN ITS ACTIONS. AT EVERY WIDTH.
                 // This used to be `if (!isMobile) return`, with a laptop given
                 // a hover state instead - two behaviours for one control, and
@@ -1495,7 +1552,9 @@ export default function NetworkChat() {
                 // stacking context and a later message paints over an earlier
                 // one's popover whatever z-index the popover has.
                 className={cx(
-                  'group/msg relative flex gap-2.5 hover:z-20 focus-within:z-20',
+                  // 13 Oct 2026: hover only where there is a mouse. On a phone a tapped row kept :hover (and :focus-within) and so
+                  // the same z-20 as a row with its bar open, and a later such row painted over the open row's pop-up.
+                  'group/msg relative flex gap-2.5 hoverable:hover:z-20',
                   // YOUR OWN MESSAGES SIT ON THE RIGHT.
                   //
                   // THE REPORTED BUG: "whenever I send a message in any of
@@ -1515,7 +1574,7 @@ export default function NetworkChat() {
                   // Quiet, not alarming: a queued message is a message, just
                   // one the world has not seen yet.
                   m.pending && 'opacity-60',
-                  actionsFor === m.id && 'z-20',
+                  actionsFor === m.id && '!z-30',
                 )}
               >
                 {/* THE FACE COLUMN, AND ONLY WHERE A FACE CAN GO.
@@ -1550,7 +1609,8 @@ export default function NetworkChat() {
                     the face down with it. It is passed as `lead` now and shares
                     a row with the bubble alone. Same change in the DMs. */}
 
-                <div className={cx('flex w-full min-w-0 max-w-[82%] flex-col sm:max-w-[68%]', mine && 'items-end')}>
+                {/* A framed poll or board uses the whole row on a phone: at 82% a poll was so narrow its options truncated. */}
+                <div className={cx('flex w-full min-w-0 flex-col sm:max-w-[68%]', framed(m) && editingId !== m.id ? 'max-w-full' : 'max-w-[82%]', mine && 'items-end')}>
                   {/* THE META LINE IS INSIDE MessageActions, and that is the
                       point. The pill hangs off the TOP of whatever this wraps;
                       wrapping the bubble alone put it exactly where "You ·
@@ -1676,14 +1736,14 @@ export default function NetworkChat() {
                         // `w-fit`, so while the editor is inside it the width
                         // would otherwise be decided by the editor's own
                         // min-width - see components/MessageEditor.
-                        editingId === m.id ? 'w-full' : boardBubble(m) ? 'w-full sm:w-[29rem]' : 'w-fit',
+                        editingId === m.id ? 'w-full' : boardBubble(m) ? 'w-full sm:w-[29rem]' : pollBubble(m) ? 'w-full max-w-[26rem]' : 'w-fit',
                         'max-w-full rounded-2xl text-sm leading-relaxed',
                         // A SHARED LEADERBOARD IS A MESSAGE AGAIN (13 Oct 2026). Ethan: "I still prefer it when it was in an
                         // actual text bubble because then people could react to it ... can't you reverse that, but just
                         // improve it more?" The words and the live board share ONE bubble, so pressing anywhere on it opens
                         // the reactions bar like any message - but a white one, never the orange that he did not want
                         // round a leaderboard, sitting on the sender's side rather than across the middle of the room.
-                        boardBubble(m) && editingId !== m.id
+                        framed(m) && editingId !== m.id
                           // YOUR OWN COLOUR, AND A FRAME TO PRESS (13 Oct 2026). Ethan: "it's not showing the orange
                           // background like my actual message shows ... make the background a little bit bigger so it's
                           // clickable". The bubble is the sender's normal bubble (orange for you, grey for others) with
@@ -1751,9 +1811,9 @@ export default function NetworkChat() {
                             return copy
                           })}
                         />
-                      ) : cardOnly(m) ? (
+                      ) : cardOnly(m) && !framed(m) ? (
                         <AttachedCard message={m} />
-                      ) : boardBubble(m) ? (
+                      ) : framed(m) ? (
                         <>
                           {m.body && (
                             <div className="whitespace-pre-wrap break-words px-1 pb-2.5 pt-0.5">
@@ -1792,7 +1852,7 @@ export default function NetworkChat() {
                     {/* THE CARD SITS UNDER THE BUBBLE, NEVER IN IT (12 Oct 2026). Ethan: "I don't like that the leaderboard
                         appears on an orange card." A results share carries a sentence, so the board was drawn inside the
                         team's own orange bubble. Now the words are the bubble and the card is its own white thing below. */}
-                    {CARD_KINDS.some((c) => m[c.idKey]) && !cardOnly(m) && !boardBubble(m) && (
+                    {CARD_KINDS.some((c) => m[c.idKey]) && !cardOnly(m) && !framed(m) && (
                       <div className={cx('mt-1.5 flex w-full', mine && 'justify-end')}>
                         <AttachedCard message={m} />
                       </div>
@@ -1833,7 +1893,7 @@ export default function NetworkChat() {
       {stripSearch ? (
         <div className="shrink-0 border-t border-gray-100 px-3 py-2.5 lg:hidden">
           <ComposerSearch value={search} onChange={setSearch} count={visible.length} total={messages.length}
-            placeholder="Search this room" onClose={() => { setStripSearch(false); setSearch('') }} />
+            placeholder="Search this room" onClose={closeStripSearch} />
         </div>
       ) : !canPost ? (
         <div className="shrink-0 border-t border-gray-100 p-3">

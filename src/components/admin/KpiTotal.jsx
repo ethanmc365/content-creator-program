@@ -112,7 +112,7 @@ export default function KpiTotal({ scopes, period: wanted, byMonth, currency, on
               {started && <HeroStat value={support.length} label={tr('Need support')} />}
               {!started && <HeroStat value={startsIn} label={startsIn === 1 ? tr('Day to go') : tr('Days to go')} />}
             </div>
-            <div className="mt-5 h-2.5 overflow-hidden rounded-full bg-white/20" role="img" aria-label={tr('How the goals are doing')}>
+            <div className="mt-5 h-2.5 overflow-hidden rounded-full bg-black/15" role="img" aria-label={tr('How the goals are doing')}>
               {started
                 ? <span className="kpi-fill block h-full w-full rounded-full" style={{ background: statusGradient(counts, STATUS_HEX_ON_BRAND) }} />
                 : <span className="block h-full w-full rounded-full border border-dashed border-white/50" />}

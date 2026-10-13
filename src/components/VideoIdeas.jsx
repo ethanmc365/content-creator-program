@@ -8,7 +8,7 @@ import Icon from './Icon'
 import VideoThumb from './VideoThumb'
 import VideoEmbedModal from './VideoEmbedModal'
 import SocialMark from './SocialMark'
-import { Avatar, Skeleton } from './ui'
+import { Avatar, Skeleton, Spinner } from './ui'
 import { CountUp } from './network/Motion'
 import HookButton from './HookButton'
 import DealFinder from './DealFinder'
@@ -114,17 +114,41 @@ export default function VideoIdeasBoard({ compact = false }) {
   const [playingId, setPlayingId] = useState(null)
   const playing = (rows || []).find((r) => r.id === playingId) || null
   const setPlaying = (v) => setPlayingId(v ? v.id : null)
-  async function typeHook(v) {
-    const next = await promptText(tr('The words on this video, as they appear on screen. Creators see them on the card, in their own language.'), {
-      title: v.screen_text ? tr('Edit the hook') : tr('Type the hook'), defaultValue: v.screen_text || '', confirmLabel: tr('Save'),
+  // READ OFF THE PICTURE FIRST (13 Oct 2026). Ethan: Jacob's Paris Christmas markets post and Noa's "End goal." never got
+  // a hook - both are photo posts, whose words are drawn into the image, so the scraper has nothing to read. With no hook
+  // yet, the editor first reads the cover in this browser (lib/ocrHook, nothing runs on the server) and opens with what it
+  // found, for the team member to check and save. `reading` is the card being read, for its spinner.
+  const [reading, setReading] = useState(null)
+  async function typeHook(v, { auto = false } = {}) {
+    let found = null
+    if (!v.screen_text && v.thumbnail_url) {
+      setReading(v.id)
+      try {
+        const { readHookFromImage } = await import('../lib/ocrHook')
+        found = (await readHookFromImage(v.thumbnail_url, v.screen_lang || 'en')).text
+      } catch { /* reading is a convenience; typing still works */ }
+      setReading(null)
+    }
+    const next = await promptText(found
+      ? tr('Read off the picture. Check the words (fix any letter it got wrong) and save.')
+      : tr('The words on this video, as they appear on screen. Creators see them on the card, in their own language.'), {
+      title: v.screen_text ? tr('Edit the hook') : tr('Type the hook'), defaultValue: v.screen_text || found || '', confirmLabel: tr('Save'),
       placeholder: tr('For example: 3 places in Lisbon nobody tells you about'),
     })
-    if (next === null) return
+    if (next === null) return auto ? 'skip' : undefined
     const text = next.trim().slice(0, 600) || null
     const { error } = await supabase.rpc('set_video_hook', { p_video: v.id, p_is_vip: !!v.is_vip, p_text: text })
-    if (error) { notice(error.message); return }
+    if (error) { notice(error.message); return undefined }
     setTyped((m) => ({ ...m, [v.id]: text }))
     toastSuccess(text ? tr('Hook saved.') : tr('Hook removed.'))
+    return 'saved'
+  }
+  const missing = useMemo(() => (rows || []).filter((r) => !r.screen_text && r.thumbnail_url), [rows])
+  // Every card with no hook, one after the other, each read and shown for a check. Cancel skips one.
+  async function readMissing() {
+    for (const v of missing) {
+      if (await typeHook(v, { auto: true }) === undefined) break
+    }
   }
   const shelves = useMemo(() => shelvesFor(rows, tr), [rows, tr])
   const total = (rows || []).reduce((n, r) => n + (Number(r.views) || 0), 0)
@@ -148,7 +172,15 @@ export default function VideoIdeasBoard({ compact = false }) {
         </div>
       ) : (
         <>
-          {shelves.map((s, i) => <Shelf key={s.key} shelf={s} index={i} onPlay={setPlaying} hooks={hooks} lead={i === 0} />)}
+          {isAdmin && missing.length > 0 && (
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-card border border-gray-100 bg-white px-4 py-3 shadow-card animate-rise">
+              <p className="text-sm text-ink"><Icon name="quote" className="mr-1.5 inline h-4 w-4 text-brand" />{missing.length === 1 ? tr('1 video has no hook yet.') : tr('{n} videos have no hook yet.', { n: missing.length })} <span className="text-smoke">{tr('Usually a photo post, with the words in the picture.')}</span></p>
+              <button type="button" onClick={readMissing} disabled={!!reading} className="btn-primary !py-2 text-sm disabled:opacity-60">
+                {reading ? <Spinner className="h-4 w-4" /> : <Icon name="eye" className="h-4 w-4" />}{tr('Read them off the pictures')}
+              </button>
+            </div>
+          )}
+          {shelves.map((s, i) => <Shelf key={s.key} shelf={s} index={i} onPlay={setPlaying} hooks={hooks} lead={i === 0} onAddHook={isAdmin ? typeHook : null} reading={reading} />)}
         </>
       )}
       {playing && (
@@ -205,7 +237,7 @@ function IdeasHero({ count, total, compact }) {
   )
 }
 
-function Shelf({ shelf, index, onPlay, hooks, lead = false }) {
+function Shelf({ shelf, index, onPlay, hooks, lead = false, onAddHook = null, reading = null }) {
   const tr = useT()
   // NO ARROWS (9 Oct 2026): "we can just scroll on mobile with our finger or on desktop with the trackpad." The row scrolls
   // sideways with snap points and a soft fade on the right edge says there is more.
@@ -239,7 +271,7 @@ function Shelf({ shelf, index, onPlay, hooks, lead = false }) {
       </div>
       <div className="relative">
         <div className="scrollbar-none -mx-4 flex snap-x snap-mandatory gap-4 overflow-x-auto scroll-px-4 px-4 pb-3 pt-1 sm:-mx-6 sm:scroll-px-6 sm:px-6">
-          {shelf.rows.map((v, i) => <IdeaCard key={v.id} v={v} rank={shelf.key === 'top' ? i + 1 : null} delay={i} onPlay={() => onPlay(v)} hook={v.screen_text ? hooks.pick(v.screen_text) : null} />)}
+          {shelf.rows.map((v, i) => <IdeaCard key={v.id} v={v} rank={shelf.key === 'top' ? i + 1 : null} delay={i} onPlay={() => onPlay(v)} hook={v.screen_text ? hooks.pick(v.screen_text) : null} onAddHook={onAddHook && !v.screen_text ? () => onAddHook(v) : null} reading={reading === v.id} />)}
         </div>
         <span aria-hidden className="pointer-events-none absolute inset-y-0 -right-4 w-8 ideas-fade sm:-right-6 sm:w-10" />
       </div>
@@ -296,7 +328,7 @@ function HookBlock({ hook, onPlay }) {
   )
 }
 
-function IdeaCard({ v, rank, delay, onPlay, hook }) {
+function IdeaCard({ v, rank, delay, onPlay, hook, onAddHook = null, reading = false }) {
   const tr = useT()
   return (
     <article
@@ -325,6 +357,12 @@ function IdeaCard({ v, rank, delay, onPlay, hook }) {
           hook." White block with a hairline and a brand quote rule; a copy
           button that is always there, and holding the block copies too. */}
       {hook && <HookBlock hook={hook} onPlay={onPlay} />}
+      {/* The team's way in when the hook is missing: read it off the picture, then check and save. */}
+      {!hook && onAddHook && (
+        <button type="button" onClick={onAddHook} disabled={reading} className="mx-3 mt-2.5 flex w-[calc(100%-1.5rem)] items-center justify-center gap-1.5 rounded-xl border border-dashed border-brand/40 py-2 text-[12px] font-bold text-brand transition-colors hoverable:hover:bg-brand-tint/40 disabled:opacity-60">
+          {reading ? <Spinner className="h-3.5 w-3.5" /> : <Icon name="plus" className="h-3.5 w-3.5" />}{reading ? tr('Reading the picture…') : tr('Add the hook')}
+        </button>
+      )}
       <div className="flex items-center gap-2 px-3 py-2.5">
         {v.creator_id ? (
           <Link to={`/profile/${v.creator_id}`} className="flex min-w-0 flex-1 items-center gap-2">

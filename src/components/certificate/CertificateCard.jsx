@@ -921,6 +921,13 @@ function mrzLine(text, len = 44) {
   return (clean + '<'.repeat(len)).slice(0, len)
 }
 
+// The data column is 1000 - margins - photo - gap = 620px wide. Poppins at 15px averages about 0.56em a character.
+const PASSPORT_BODY_W = 620
+export function passportBodySize(body, max = 15) {
+  const longest = Math.max(1, ...String(body || '').split('\n').map((l) => l.length))
+  return Math.max(11, Math.min(max, Math.floor((PASSPORT_BODY_W / (longest * 0.56)) * 10) / 10))
+}
+
 function Passport({ s, c, o }) {
   const onPaper = s.light ? '#1A1A1A' : s.ink
   const faint = s.light ? '#8E9099' : s.faint
@@ -984,8 +991,12 @@ function Passport({ s, c, o }) {
             {c.name}
           </p>
         </div>
+        {/* TWO LINES IN EVERY LANGUAGE (13 Oct 2026). Ethan: on the Spanish passport the line under the name "is going on
+            two or three lines"; Portuguese and Romanian too. The text is two lines by design (a break in the middle), and
+            each translated line was longer than the 430px box, so it wrapped into three. The box is now the whole data
+            column, and a line that would still not fit sets the size down instead of wrapping. */}
         <div style={{ marginTop: 16 }}>
-          <Body s={s} width={430} size={15} color={s.light ? '#5E6068' : s.muted}>{c.body}</Body>
+          <Body s={s} width={PASSPORT_BODY_W} size={passportBodySize(c.body)} color={s.light ? '#5E6068' : s.muted}>{c.body}</Body>
         </div>
         <div style={{ marginTop: 34, display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 24 }}>
           <Fact s={s} label="Award" value={c.kind.label} color={onPaper} labelColor={faint} />

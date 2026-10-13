@@ -32,7 +32,7 @@ export function Stat({ label, value, hint, tone }) {
 /** What an unreadable video means, in words the team can act on. */
 export function readErrorText(code, tr) {
   switch (code) {
-    case 'blocked': return tr('The platform would not show our reader this video. It is tried again on every read. A Facebook video posted from a personal profile never states its views publicly, so type them if you need them counted.')
+    case 'blocked': return tr('The platform would not show our reader this video just now. It is tried again on every read, from another place each time.')
     case 'removed': return tr('The platform says this video was deleted or made private.')
     case 'not_a_video': return tr('That link is not a video (a photo or text post has no views).')
     case 'no_video_id': return tr('That link does not lead to a video.')
@@ -60,8 +60,6 @@ export function VipOverviewTab({ programme }) {
   const [videos, setVideos] = useState(null)
   const [err, setErr] = useState('')
   const [syncing, setSyncing] = useState(false)
-  const [dq, setDq] = useState(null) // the video being taken out of the count, while its reason is typed
-  const [reason, setReason] = useState('')
   const [pickProfile, setPickProfile] = useState(null) // a suggested creator being moved to VIP
   const [teamIds, setTeamIds] = useState(() => new Set()) // migration 365: Tryp.com team creators, counted apart
   const [who, setWho] = useState('vip') // 9 Oct 2026: one board, a switch for VIP creators / the Tryp.com team / everyone
@@ -80,7 +78,7 @@ export function VipOverviewTab({ programme }) {
     try {
       const [o, v, t] = await Promise.all([
         vipRpc('vip_admin_overview', { p_programme: programme.id }),
-        vipRpc('vip_admin_videos', { p_programme: programme.id, p_limit: 60 }),
+        vipRpc('vip_admin_videos', { p_programme: programme.id, p_limit: 1000 }),
         supabase.from('vip_members').select('profile_id').eq('programme_id', programme.id).eq('is_team', true),
       ])
       // An official programme is all official creators; the "team" split only ever meant something inside a VIP one.
@@ -98,8 +96,7 @@ export function VipOverviewTab({ programme }) {
     } catch (e) { notice(e.message) } finally { setSyncing(false) }
   }
 
-  // A video the platform will not state a count for (a Facebook post from a personal profile is the usual one) can be
-  // typed by the team. A later automatic reading that succeeds still wins; a failure leaves the typed number alone.
+  // A video the platform will not state a count for can be typed by the team. A later automatic reading that succeeds still wins; a failure leaves the typed number alone.
   async function typeViews(v) {
     const raw = await promptText(tr('How many views does it have right now? Look at the video on {p}.', { p: v.platform || '' }), { title: tr('Type the views'), placeholder: '12000', confirmLabel: tr('Save') })
     if (raw === null) return
@@ -230,14 +227,57 @@ export function VipOverviewTab({ programme }) {
         )
       })()}
 
-      <section>
-        <h2 className="mb-3 text-[11px] font-bold uppercase tracking-wide text-gray-400">{tr('Videos')}</h2>
-        {videos === null ? <Skeleton className="h-40 w-full rounded-card" /> : videos.length === 0 ? (
-          <p className="rounded-card border border-dashed border-gray-200 px-6 py-8 text-center text-sm text-smoke">{tr('No videos yet.')}</p>
-        ) : (
+      <AllVideos videos={videos} onTypeViews={typeViews} onCountAgain={(v) => setStatus(v, 'tracking')} />
+
+      <ActivityFeed programme={programme} limit={10} />
+
+      {pickProfile && <AddVipModal open onClose={() => setPickProfile(null)} programme={programme} profile={pickProfile} onAdded={load} />}
+
+    </div>
+  )
+}
+
+/**
+ * EVERY VIP VIDEO, IN ONE PLACE (13 Oct 2026). Ethan: "there seems to be no way for an admin to easily see all the
+ * videos". The programme's videos, newest first, with a search, a platform filter and "Needs a look" (the ones the reader
+ * could not read). Twelve show until "Show all" is pressed.
+ *
+ * "STOP COUNTING" IS GONE (same day): a video earns only in the month it was posted (vip_video_counted) and the reader
+ * leaves it alone once that month is over (migration 397), so there is nothing for the team to switch off by hand. A
+ * video already taken out keeps its "Count it again".
+ */
+function AllVideos({ videos, onTypeViews, onCountAgain }) {
+  const tr = useKindT()
+  const [q, setQ] = useState('')
+  const [platform, setPlatform] = useState('all')
+  const [all, setAll] = useState(false)
+  const list = useMemo(() => (videos || [])
+    .filter((v) => platform === 'all' || (platform === 'attention' ? v.error && v.status === 'tracking' : v.platform === platform))
+    .filter((v) => !q.trim() || `${v.name} ${v.caption || ''}`.toLowerCase().includes(q.trim().toLowerCase())), [videos, platform, q])
+  const platforms = useMemo(() => [...new Set((videos || []).map((v) => v.platform).filter(Boolean))].sort(), [videos])
+  const attention = (videos || []).filter((v) => v.error && v.status === 'tracking').length
+  const shown = all ? list : list.slice(0, 12)
+  return (
+    <section>
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+        <h2 className="text-[15px] font-bold text-ink">{tr('All videos')}{videos ? <span className="ml-1.5 text-sm font-semibold text-smoke">{videos.length}</span> : null}</h2>
+        {videos?.length > 0 && <input value={q} onChange={(e) => setQ(e.target.value)} placeholder={tr('Search a creator')} className="input !w-full !py-2 text-sm sm:!w-56" />}
+      </div>
+      {videos?.length > 0 && (
+        <div className="-mx-4 mb-3 flex gap-1.5 overflow-x-auto px-4 [scrollbar-width:none] sm:mx-0 sm:px-0 [&::-webkit-scrollbar]:hidden">
+          {[['all', tr('Every platform')], ...platforms.map((p) => [p, p]), ...(attention ? [['attention', `${tr('Needs a look')} ${attention}`]] : [])].map(([k, l]) => (
+            <button key={k} type="button" onClick={() => { setPlatform(k); setAll(false) }} aria-pressed={platform === k}
+              className={cx('shrink-0 whitespace-nowrap rounded-full px-3 py-1.5 text-[12.5px] font-bold transition-all duration-200', platform === k ? 'bg-brand text-white shadow-card' : 'bg-cloud text-ink hoverable:hover:-translate-y-px')}>{l}</button>
+          ))}
+        </div>
+      )}
+      {videos === null ? <Skeleton className="h-40 w-full rounded-card" /> : list.length === 0 ? (
+        <p className="rounded-card border border-dashed border-gray-200 px-6 py-8 text-center text-sm text-smoke">{videos.length ? tr('No videos match.') : tr('No videos yet.')}</p>
+      ) : (
+        <>
           <ul className="grid grid-cols-2 gap-3.5 sm:grid-cols-3 lg:grid-cols-4">
-            {videos.map((v) => (
-              <li key={v.id} className={cx('group flex flex-col overflow-hidden rounded-card border bg-white shadow-card transition-all duration-300 hoverable:hover:-translate-y-1 hoverable:hover:shadow-lift', v.status === 'disqualified' ? 'border-red-100 opacity-75' : 'border-gray-100')}>
+            {shown.map((v, i) => (
+              <li key={v.id} style={{ animationDelay: `${Math.min(i, 12) * 30}ms` }} className={cx('group flex flex-col overflow-hidden rounded-card border bg-white shadow-card transition-all duration-300 animate-rise hoverable:hover:-translate-y-1 hoverable:hover:shadow-lift', v.status === 'disqualified' ? 'border-red-100 opacity-75' : 'border-gray-100')}>
                 <a href={v.url} target="_blank" rel="noopener noreferrer" aria-label={tr('Open on the platform')} className="relative block">
                   <VideoThumb url={v.url} platform={v.platform} thumbnailUrl={v.thumb} />
                   <span className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-ink/80 to-transparent px-3 pb-2.5 pt-8 text-white">
@@ -253,29 +293,26 @@ export function VipOverviewTab({ programme }) {
                   {v.error && v.status === 'tracking' && (
                     <div className="rounded-lg bg-amber-50 px-2.5 py-2">
                       <p className="text-[11px] leading-snug text-amber-800">{readErrorText(v.error, tr)}</p>
-                      <button type="button" onClick={() => typeViews(v)} className="mt-1 text-[11px] font-bold text-brand hover:underline">{tr('Type the views myself')}</button>
+                      <button type="button" onClick={() => onTypeViews(v)} className="mt-1 text-[11px] font-bold text-brand hover:underline">{tr('Type the views myself')}</button>
                     </div>
                   )}
-                  <button type="button" onClick={() => (v.status === 'tracking' ? (setReason(''), setDq(v)) : setStatus(v, 'tracking'))} className="mt-auto self-start rounded-lg px-2 py-1 text-[11px] font-semibold text-smoke transition-colors hoverable:hover:bg-cloud hoverable:hover:text-ink">
-                    {v.status === 'tracking' ? tr('Stop counting') : tr('Count it again')}
-                  </button>
+                  {v.status === 'disqualified' && (
+                    <button type="button" onClick={() => onCountAgain(v)} className="mt-auto self-start rounded-lg px-2 py-1 text-[11px] font-semibold text-smoke transition-colors hoverable:hover:bg-cloud hoverable:hover:text-ink">{tr('Count it again')}</button>
+                  )}
                 </div>
               </li>
             ))}
           </ul>
-        )}
-      </section>
-
-      <ActivityFeed programme={programme} limit={10} />
-
-      {pickProfile && <AddVipModal open onClose={() => setPickProfile(null)} programme={programme} profile={pickProfile} onAdded={load} />}
-
-      <Modal open={!!dq} onClose={() => setDq(null)} title={tr('Stop counting this video')}>
-        <p className="text-sm text-smoke">{tr('Its views stop counting towards the month. The creator can see the reason, so say it kindly.')}</p>
-        <textarea autoFocus className="input mt-3 min-h-[5rem] resize-none" value={reason} onChange={(e) => setReason(e.target.value)} placeholder={tr('For example: posted before the month began, or not on their own account')} />
-        <button type="button" onClick={() => { setStatus(dq, 'disqualified', reason.trim() || null); setDq(null) }} className="btn-primary mt-4 w-full justify-center">{tr('Stop counting it')}</button>
-      </Modal>
-    </div>
+          {list.length > 12 && (
+            <div className="mt-4 flex justify-center">
+              <button type="button" onClick={() => setAll((a) => !a)} className="btn-secondary !py-2 text-sm">
+                <Icon name={all ? 'chevronUp' : 'chevronDown'} className="h-4 w-4" />{all ? tr('Show fewer') : tr('Show all {n} videos', { n: list.length })}
+              </button>
+            </div>
+          )}
+        </>
+      )}
+    </section>
   )
 }
 

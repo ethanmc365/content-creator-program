@@ -992,7 +992,11 @@ export default function AppLayout() {
         aria-hidden={keyboardOpen}
         aria-label={tr("Mobile")}
       >
-        <div className="mx-auto flex max-w-lg items-center justify-around px-0.5 pb-1.5 pt-2">
+        {/* EXACTLY 4.5rem (13 Oct 2026). Every phone layout over this bar (the DM list, the rooms, the chat overlays) leaves
+            4.5rem + the safe area for it, and the bar itself came out 66px, so each of them stopped 6px above its top line:
+            Ethan saw DM rows "cutting out just before it reaches the line above the footer". The bar is now the height
+            everything else already assumes (the 1px border included). */}
+        <div className="mx-auto flex h-[calc(4.5rem-1px)] max-w-lg items-center justify-around px-0.5 pb-1 pt-1.5">
           {tabs.map((tab) => (
             <NavLink
               key={tab.to}

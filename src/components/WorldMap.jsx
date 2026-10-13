@@ -6,6 +6,7 @@ import { useIsDark } from '../lib/theme'
 import { sameCountry } from '../lib/countryFacts'
 import { flagForCountry } from '../lib/flags'
 import CountryPanel from './CountryPanel'
+import DraggablePanel from './DraggablePanel'
 import { lockScroll } from '../lib/scrollLock'
 import { thumbUrl } from '../lib/avatarUrl'
 import { useT } from '../lib/i18n'
@@ -208,7 +209,6 @@ function WorldMap({ selected = [], onToggle, selectable = false, chips = false, 
 
   const countryPanel = owner && country ? (
     <CountryPanel
-      className="max-w-sm"
       country={country}
       variant="personal"
       owner={owner}
@@ -261,9 +261,13 @@ function WorldMap({ selected = [], onToggle, selectable = false, chips = false, 
         {/* 12 Oct 2026: on the creator spotlight it covered the "11 countries" badge at the top, so a map with a header
             over it puts the card at the BOTTOM (`tooltipAt`). Every country now has its flag (lib/flags), and a travel
             map says whether this one was visited. Keyed by country, so it pops in fresh as you move across the map. */}
+        {/* CENTRED (13 Oct 2026). Ethan: the country card "is not centred". It was centred with -translate-x-1/2 on the
+            same element as animate-pop-in, and the pop-in's own transform (a scale) replaced the translate for the whole
+            animation and after it, so the card sat half its width to the right. The row now centres it with flex and
+            only the card itself pops. */}
         {tooltip && (
-          <div key={tooltip} className={cx('pointer-events-none absolute left-1/2 z-10 max-w-[calc(100%-1.5rem)] -translate-x-1/2 animate-pop-in', tooltipAt === 'bottom' ? 'bottom-3' : 'top-3')}>
-            <span className="inline-flex max-w-full items-center gap-2 rounded-full border border-gray-100 bg-white py-1.5 pl-2.5 pr-3.5 text-[13px] font-semibold text-ink shadow-lift">
+          <div className={cx('pointer-events-none absolute inset-x-3 z-10 flex justify-center', tooltipAt === 'bottom' ? 'bottom-3' : 'top-3')}>
+            <span key={tooltip} className="inline-flex animate-pop-in max-w-full items-center gap-2 rounded-full border border-gray-100 bg-white py-1.5 pl-2.5 pr-3.5 text-[13px] font-semibold text-ink shadow-lift">
               <span aria-hidden className="flex h-7 w-7 shrink-0 items-center justify-center text-[20px] leading-none">{flagForCountry(tooltip) || '🌍'}</span>
               <span className="min-w-0 truncate">{place.country(tooltip)}</span>
               {!selectable && selectedSet.has(tooltip) && (
@@ -509,9 +513,15 @@ function WorldMap({ selected = [], onToggle, selectable = false, chips = false, 
         {/* Desktop: over the map. Phones get it UNDER the map instead - see
             below - because the map box is only about 180px tall at 375px and an
             overlay there covers the thing it is describing. */}
+        {/* IN THE MIDDLE, AND DRAGGABLE IN FULL SCREEN (13 Oct 2026). Ethan: the pop-up "should also be centred", and in
+            full screen it should move like the one on the community map does. Same frame and DraggablePanel as
+            CreatorMap: centred over the map, a definite box (top-14 / bottom-3) so a tall card scrolls inside it, and
+            in full screen it is shown at every width and can be dragged out of the way. */}
         {countryPanel && (
-          <div className="pointer-events-none absolute inset-3 z-20 hidden flex-col items-start justify-end sm:flex">
-            {countryPanel}
+          <div className={cx('pointer-events-none absolute inset-x-3 bottom-3 top-14 z-20 flex-col items-center justify-center', full ? 'flex' : 'hidden sm:flex')}>
+            <DraggablePanel enabled={full} resetKey={full} className={cx('pointer-events-auto flex min-h-0 w-full flex-col', full ? 'max-w-md [--map-panel-max-h:32rem]' : 'max-w-sm')}>
+              {countryPanel}
+            </DraggablePanel>
           </div>
         )}
     </div>
@@ -595,7 +605,7 @@ function WorldMap({ selected = [], onToggle, selectable = false, chips = false, 
         )
       ) : mapBox}
 
-      {countryPanel && <div className="mt-3 sm:hidden">{countryPanel}</div>}
+      {countryPanel && !full && <div className="mx-auto mt-3 max-w-sm sm:hidden">{countryPanel}</div>}
     </div>
   )
 }

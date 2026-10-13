@@ -260,11 +260,10 @@ function PlaceCard({ place, rooms, lastByChannel, unreadKeys, isNetwork, handleP
       </div>
       <div className="divide-y divide-gray-100/80">
         {rooms.map((r, i) => (
-          <div key={r.id}>
-            {/* THE SPLIT: one quiet grey line where the everyday rooms end and the VIP rooms begin. */}
-            {r.visibility === 'vip' && i > 0 && rooms[i - 1].visibility !== 'vip' && (
-              <div role="separator" aria-hidden className="mx-2 my-1.5 h-px bg-gray-200" />
-            )}
+          // THE SPLIT: one quiet grey line where the everyday rooms end and the VIP rooms begin. It is the row's own
+          // divider, a shade darker with a little room above it (13 Oct 2026: it used to be a separate line drawn under
+          // the divider, so Worldwide showed two lines between Staff and VIP announcements).
+          <div key={r.id} className={cx(r.visibility === 'vip' && i > 0 && rooms[i - 1].visibility !== 'vip' && 'mt-2 !border-gray-200')}>
             <RoomRow
               to={`${base}/${r.key}`}
               room={r}

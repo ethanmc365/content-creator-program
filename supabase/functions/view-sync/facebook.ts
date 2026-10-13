@@ -104,7 +104,23 @@ export function isFacebookWall(finalUrl: string, html: string): boolean {
 // The embed plugin links the post's video as `/reel/<id>/?ref=embed_video` or
 // `/<page>/videos/<id>/?ref=embed_video`.
 export function pluginVideoId(html: string): string | null {
-  return html.match(/\/(?:reel|videos)\/(\d{6,})\/?\?ref=embed_video/)?.[1] ?? null
+  return html.match(/\/(?:reel|videos)\/(\d{6,})\/?\?ref=embed_video/)?.[1]
+    // The player for a POST (13 Oct 2026) names its video only in its config: `"video_id":"<id>"`.
+    ?? html.match(/"video_id":"(\d{6,})"/)?.[1] ?? null
+}
+
+// THE POST BEHIND A SHARE LINK (13 Oct 2026). A video shared from a personal profile redirects to
+// `story.php?story_fbid=<post>&id=<owner>`, and from a datacenter that page is a login wall. The redirect itself is not:
+// its Location (or any URL that carries the same pair, such as a login page's `next=`) names the post and its owner,
+// and the embed plugin for `/<owner>/posts/<post>/` names the post's video. Null when the link names no such pair.
+export function facebookPostFrom(raw: string): { post: string; owner: string } | null {
+  let u = raw
+  for (let i = 0; i < 2; i++) { try { u = decodeURIComponent(u) } catch { break } }
+  const post = u.match(/story_fbid=(\d{6,})/)?.[1]
+  const owner = u.match(/[?&]id=(\d{6,})/)?.[1]
+  if (post && owner) return { post, owner }
+  const m = u.match(/facebook\.com\/(\d{6,})\/posts\/(?:[^/?#]*\/)?(\d{6,})/)
+  return m ? { post: m[2], owner: m[1] } : null
 }
 
 // Candidate ids inside a resolved page. Authoritative first: canonical and
@@ -116,6 +132,12 @@ export function facebookIdCandidates(html: string): string[] {
   const push = (v?: string | null) => {
     if (v && !found.includes(v)) found.push(v)
   }
+  // A POST, NOT A REEL (13 Oct 2026). A video shared from a personal profile (`/share/v/`, and some `/share/r/`) lands
+  // a crawler on `story.php?story_fbid=<post id>`, whose canonical is `/<user>/posts/<post id>/`. The post id is not a
+  // video id - reading `/reel/<post id>/` gets Facebook's blank page - so two VIP videos of Julia Flores sat "blocked"
+  // while the community's reels read fine. The video the post carries is named in its `associated_video` blocks, and
+  // `/reel/<that id>/` states the count like any reel. Taken first, because it describes THIS post.
+  push(facebookAssociatedVideoId(html))
   push(html.match(/rel="canonical"\s+href="[^"]*\/(?:videos|reel|video)\/(\d{6,})/)?.[1])
   push(html.match(/property="og:url"\s+content="[^"]*\/(?:videos|reel|video)\/(\d{6,})/)?.[1])
   push(html.match(/params:\{video_id:"(\d{6,})"\}/)?.[1])
@@ -124,6 +146,24 @@ export function facebookIdCandidates(html: string): string[] {
   push(html.match(/"videoID"\s*:\s*"(\d{6,})"/)?.[1])
   push(html.match(/\/(?:videos|reel)\/(\d{6,})/)?.[1])
   return found
+}
+
+// The video a post page is about. The post's own `associated_video` block sits beside its feedback id, which is
+// base64 of "feedback:<post id>", so when the page names its post that block wins; otherwise the id named most often
+// (recommended videos are named once each, the page's own video several times).
+export function facebookAssociatedVideoId(html: string): string | null {
+  const ids = [...html.matchAll(/"associated_video":\{[^{}]*"id":"(\d{6,})"\}/g)].map((m) => m[1])
+  if (!ids.length) return null
+  const post = html.match(/rel="canonical"\s+href="[^"]*\/posts\/(?:[^"/]*\/)?(\d{6,})/)?.[1]
+    ?? html.match(/story_fbid=(\d{6,})/)?.[1]
+  if (post) {
+    const fb = btoa(`feedback:${post}`)
+    const own = html.match(new RegExp(`"associated_video":\\{[^{}]*"id":"(\\d{6,})"\\}[^{}]{0,1200}?"id":"${fb.replace(/[+/=]/g, '\\$&')}"`))?.[1]
+    if (own) return own
+  }
+  const n = new Map<string, number>()
+  for (const id of ids) n.set(id, (n.get(id) ?? 0) + 1)
+  return [...n.entries()].sort((x, y) => y[1] - x[1])[0][0]
 }
 
 // WHEN IT WAS POSTED (11 Oct 2026). The reel page states the video's own `publish_time` (Unix seconds) beside its

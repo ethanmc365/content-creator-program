@@ -498,7 +498,7 @@ export default function AdminKpis() {
                     {/* NOT STARTED READS AS NOT STARTED (30 Sep 2026): a dashed empty track, never a
                         full white bar that looks like "all on track" for a quarter nobody has begun. */}
                     {started ? (
-                      <div className="h-2.5 overflow-hidden rounded-full bg-white/25" role="img" aria-label={tr('How the goals are doing')}>
+                      <div className="h-2.5 overflow-hidden rounded-full bg-black/15" role="img" aria-label={tr('How the goals are doing')}>
                         <div className="kpi-fill h-full rounded-full" style={{ background: spreadGradient(statuses) }} />
                       </div>
                     ) : (

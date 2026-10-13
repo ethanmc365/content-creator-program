@@ -34,7 +34,7 @@ export function typedSignatureSvg(name) {
  *  (an SVG shown as an <img> cannot load a web font); a drawn one is its strokes. */
 export function SignatureImage({ svg, method, name, className, textClass = 'text-[34px]' }) {
   useSignatureFont()
-  if (method === 'typed' && name) return <span className={cx('block truncate leading-none text-ink', textClass, className)} style={{ fontFamily: SIGNATURE_FONT }}>{name}</span>
+  if (method === 'typed' && name) return <span className={cx('block truncate pb-[0.18em] pt-[0.06em] leading-[1.25] text-ink', textClass, className)} style={{ fontFamily: SIGNATURE_FONT }}>{name}</span>
   if (!svg) return null
   return <img alt="" className={cx('block h-auto', className)} src={`data:image/svg+xml;utf8,${encodeURIComponent(svg)}`} />
 }
@@ -99,8 +99,10 @@ export default function SignaturePad({ defaultName = '', onChange }) {
       </div>
       <div className="relative overflow-hidden rounded-2xl border-2 border-dashed border-gray-200 bg-white">
         {mode === 'type' ? (
+          // DESCENDERS (13 Oct 2026): truncate clips at the line box, and with leading-none the tails of g, j, y and p
+          // hung below it and were cut off. A taller line and a little bottom padding keep the whole name inside.
           <div className="flex h-36 items-center px-5">
-            <span className={cx('signature-ink truncate text-[44px] leading-none text-ink transition-opacity duration-300', name.trim() ? 'opacity-100' : 'opacity-25')} style={{ fontFamily: SIGNATURE_FONT }}>
+            <span className={cx('signature-ink max-w-full truncate pb-[0.22em] pt-[0.08em] text-[44px] leading-[1.3] text-ink transition-opacity duration-300', name.trim() ? 'opacity-100' : 'opacity-25')} style={{ fontFamily: SIGNATURE_FONT }}>
               {name.trim() || tr('Your name')}
             </span>
           </div>

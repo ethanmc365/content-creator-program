@@ -191,7 +191,7 @@ export function VipKpiTab({ programme, programmes = [], isAdmin = false }) {
             ) : (
               <>
                 <p className="relative mt-1.5 text-3xl font-bold tabular-nums">{tr('{a} of {b} goals on track', { a: good, b: goals.length })}</p>
-                <div className="relative mt-4 h-2.5 overflow-hidden rounded-full bg-white/25">
+                <div className="relative mt-4 h-2.5 overflow-hidden rounded-full bg-black/15">
                   <div className="h-full rounded-full transition-[width] duration-700 ease-out" style={{ width: '100%', background: statusGradient(counts, STATUS_HEX_ON_BRAND) }} />
                 </div>
                 <p className="relative mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs font-semibold text-white/90">

@@ -140,25 +140,21 @@ export default function AdminAgreements() {
     <div className="page max-w-6xl">
       <PageHeader back="/admin" title="Agreements" />
 
-      {/* THE DOCUMENTS (12 Oct 2026 redesign): one card each, a swipeable row on a phone. */}
-      <div role="tablist" aria-label="Documents" className="-mx-4 mb-3 flex snap-x snap-mandatory scroll-px-4 gap-3 overflow-x-auto px-4 pb-4 pt-1 [scrollbar-width:none] sm:mx-0 sm:grid sm:grid-cols-3 sm:overflow-visible sm:px-0 [&::-webkit-scrollbar]:hidden">
+      {/* THE DOCUMENTS (13 Oct 2026, smaller again): one slim pill each, in a single row that swipes on a phone. The pill
+          says which document, and a dot says whether it is live. */}
+      <div role="tablist" aria-label="Documents" className="-mx-4 mb-4 flex gap-2 overflow-x-auto px-4 pb-1 pt-0.5 [scrollbar-width:none] sm:mx-0 sm:px-0 [&::-webkit-scrollbar]:hidden">
         {docCards.map((c, i) => {
           const picked = tab === c.value
           return (
             <button key={c.value} type="button" role="tab" aria-selected={picked} onClick={() => { setTab(c.value); setOpenId(null) }}
-              style={{ animationDelay: `${i * 60}ms` }}
-              className={cx('animate-rise relative w-[78%] shrink-0 snap-start overflow-hidden rounded-[22px] border p-4 text-left transition-all duration-300 sm:w-auto',
-                picked ? 'border-brand bg-brand text-white shadow-lift' : 'border-gray-100 bg-white text-ink shadow-card hoverable:hover:-translate-y-0.5 hoverable:hover:shadow-lift')}>
-              <span className="flex items-center justify-between gap-2">
-                <Icon name={c.icon} className={cx('h-5 w-5', picked ? 'text-white' : 'text-brand')} />
-                <span className={cx('inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[11px] font-bold',
-                  picked ? 'bg-white/20 text-white' : c.on ? 'bg-brand-tint text-brand' : 'bg-cloud text-smoke')}>
-                  {c.on && <span className={cx('h-1.5 w-1.5 rounded-full', picked ? 'bg-white' : 'bg-brand')} />}
-                  {c.on ? `Live · v${c.on.version}` : c.draft ? 'Draft' : 'Off'}
-                </span>
+              style={{ animationDelay: `${i * 50}ms` }} title={c.who}
+              className={cx('animate-rise inline-flex shrink-0 items-center gap-2 whitespace-nowrap rounded-full border py-2 pl-3 pr-3.5 text-[13px] font-bold transition-all duration-200',
+                picked ? 'border-brand bg-brand text-white shadow-card' : 'border-gray-100 bg-white text-ink shadow-card hoverable:hover:-translate-y-px')}>
+              <Icon name={c.icon} className={cx('h-4 w-4', picked ? 'text-white' : 'text-brand')} />
+              {c.label}
+              <span className={cx('rounded-full px-1.5 py-px text-[10.5px] font-bold', picked ? 'bg-white/20 text-white' : c.on ? 'bg-brand-tint text-brand' : 'bg-cloud text-smoke')}>
+                {c.on ? `v${c.on.version}` : c.draft ? 'Draft' : 'Off'}
               </span>
-              <span className="mt-3 block text-[15px] font-bold leading-tight">{c.label}</span>
-              <span className={cx('mt-0.5 block text-[12px]', picked ? 'text-white/80' : 'text-smoke')}>{c.who}</span>
             </button>
           )
         })}
@@ -166,11 +162,11 @@ export default function AdminAgreements() {
 
       <div key={`${tab}-${market}`} className="animate-tab-in">
         {(tab === 'vip' || (tab === 'official' && officials.length > 1)) && (
-          <div className="-mx-4 mb-5 overflow-x-auto px-4 [scrollbar-width:none] sm:mx-0 sm:px-0 [&::-webkit-scrollbar]:hidden">
-            <div className="flex w-max items-center gap-1.5 rounded-full border border-gray-100 bg-white p-1 shadow-card">
+          <div className="-mx-4 mb-4 overflow-x-auto px-4 [scrollbar-width:none] sm:mx-0 sm:px-0 [&::-webkit-scrollbar]:hidden">
+            <div className="flex w-max items-center gap-1 rounded-full bg-cloud/70 p-1">
               {(tab === 'official' ? officials : [{ id: '', name: 'Every VIP market' }, ...vipProgrammes]).map((p) => (
                 <button key={p.id || 'all'} type="button" onClick={() => { setMarket(p.id); setOpenId(null) }} aria-pressed={market === p.id}
-                  className={cx('whitespace-nowrap rounded-full px-3.5 py-1.5 text-[13px] font-semibold transition-all duration-200', market === p.id ? 'bg-brand text-white shadow-card' : 'text-smoke hoverable:hover:text-ink')}>
+                  className={cx('whitespace-nowrap rounded-full px-3 py-1 text-[12.5px] font-semibold transition-all duration-200', market === p.id ? 'bg-brand text-white shadow-card' : 'text-smoke hoverable:hover:text-ink')}>
                   {p.name}
                 </button>
               ))}
@@ -203,7 +199,7 @@ export default function AdminAgreements() {
                 <div className="-mx-4 flex gap-2 overflow-x-auto px-4 [scrollbar-width:none] lg:mx-0 lg:flex-col lg:overflow-visible lg:px-0 [&::-webkit-scrollbar]:hidden">
                   {list.map((d) => (
                     <button key={d.id} type="button" onClick={() => setOpenId(d.id)}
-                      className={cx('flex shrink-0 items-center gap-3 rounded-2xl border px-4 py-3 text-left transition-all duration-200 lg:w-full', d.id === selected.id ? 'border-brand bg-brand text-white shadow-card' : 'border-gray-100 bg-white hoverable:hover:-translate-y-0.5')}>
+                      className={cx('flex shrink-0 items-center gap-3 rounded-2xl border px-3.5 py-2.5 text-left transition-all duration-200 lg:w-full', d.id === selected.id ? 'border-brand bg-brand text-white shadow-card' : 'border-gray-100 bg-white hoverable:hover:-translate-y-0.5')}>
                       <span className="text-sm font-black tabular-nums">v{d.version}</span>
                       <span className="min-w-0 flex-1">
                         <span className="block max-w-[11rem] truncate text-sm font-semibold lg:max-w-none">{d.title}</span>
@@ -266,28 +262,23 @@ function PlaceholderGuide({ programme, audience, official = false, bare = false 
 }
 
 function PublishedView({ doc, onPreview }) {
-  const [open, setOpen] = useState(false)
   return (
     <section className="rounded-[22px] border border-gray-100 bg-white p-5 shadow-card sm:p-6 animate-rise">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-brand">Published · v{doc.version}{doc.requires_signature ? ' · signature' : ' · tick to accept'}</p>
-          <h2 className="mt-1 text-xl font-bold text-ink">{doc.title}</h2>
-          <p className="mt-1 text-sm text-smoke">{sampleFill(doc.summary)}</p>
-        </div>
-        <PreviewButtons doc={doc} onPreview={(minor) => onPreview(minor)} />
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="rounded-full bg-brand-tint px-2.5 py-0.5 text-[11px] font-bold text-brand">Published · v{doc.version}</span>
+        <span className="rounded-full bg-cloud px-2.5 py-0.5 text-[11px] font-bold text-smoke">{doc.requires_signature ? 'Signature' : 'Tick to accept'}</span>
+        {doc.published_at && <span className="text-[11px] text-smoke">since {when(doc.published_at)}</span>}
       </div>
-      <button type="button" onClick={() => setOpen((o) => !o)} className="mt-4 inline-flex items-center gap-1.5 text-sm font-bold text-brand">
-        <Icon name={open ? 'chevronUp' : 'chevronDown'} className="h-4 w-4" />{open ? 'Hide the text' : 'Read the text'}
-      </button>
-      {open && <div className="mt-2 animate-rise"><AgreementDoc body={sampleFill(doc.body)} /></div>}
+      <h2 className="mt-2 text-xl font-bold leading-tight text-ink">{doc.title}</h2>
+      <p className="mt-1 text-[13.5px] leading-relaxed text-smoke">{sampleFill(doc.summary)}</p>
+      <div className="mt-3"><PreviewButtons doc={doc} onPreview={(minor) => onPreview(minor)} /></div>
       <Translations doc={doc} />
       <p className="mt-4 break-all font-mono text-[10px] text-gray-400">SHA-256 {doc.body_sha256}</p>
     </section>
   )
 }
 
-const LANG_NAMES = { es: 'Spanish', pt: 'Portuguese', de: 'German', ro: 'Romanian' }
+const LANG_NAMES = { en: 'English', es: 'Spanish', pt: 'Portuguese', de: 'German', ro: 'Romanian' }
 
 /**
  * THE SAME DOCUMENT IN THE OTHER APP LANGUAGES (12 Oct 2026, migration 388). A creator reads, accepts and gets a signed
@@ -304,25 +295,30 @@ function Translations({ doc, draft = false }) {
     return () => { alive = false }
   }, [doc.id])
   if (!rows) return null
-  const shown = rows.find((r) => r.locale === open)
+  // 13 Oct 2026: "these could all be just buttons on one line". Read the text in any language from one row: English is
+  // the document itself, each other button its translation. Pressing the open one closes it. A draft's own text is the
+  // editor above, so its row only offers the translations.
+  const langs = [...(draft ? [] : [{ locale: 'en', body: doc.body }]), ...rows.map((r) => ({ locale: r.locale, body: r.body }))]
+  const shown = langs.find((r) => r.locale === open)
   return (
-    <div className="mt-4 rounded-2xl bg-cloud/60 px-4 py-3">
-      <p className="text-sm font-semibold text-ink">
-        <Icon name="globe" className="mr-1.5 inline h-4 w-4 text-brand" />
-        {rows.length ? `Translated into ${rows.map((r) => LANG_NAMES[r.locale]).join(', ')}` : 'Not translated yet: everyone reads it in English'}
-      </p>
-      {draft && rows.length > 0 && <p className="mt-1 text-[13px] text-smoke">If you change the English draft, ask for the translations to be updated before publishing.</p>}
-      {rows.length > 0 && (
-        <div className="mt-2 flex flex-wrap gap-2">
-          {rows.map((r) => (
-            <button key={r.locale} type="button" onClick={() => setOpen(open === r.locale ? null : r.locale)}
-              className={cx('rounded-full px-3 py-1.5 text-[13px] font-bold transition-transform duration-200 hoverable:hover:-translate-y-px', open === r.locale ? 'bg-brand text-white' : 'bg-white text-ink')}>
-              {LANG_NAMES[r.locale]}
-            </button>
-          ))}
-        </div>
-      )}
-      {shown && <div className="mt-3 animate-rise"><AgreementDoc body={sampleFill(shown.body)} /></div>}
+    <div className="mt-4">
+      <div className="flex items-center gap-2">
+        <span className="shrink-0 text-[11px] font-bold uppercase tracking-[0.12em] text-gray-400">{draft ? 'Translations' : 'Read'}</span>
+        {langs.length > 0 ? (
+          <div className="-my-1 flex min-w-0 gap-1.5 overflow-x-auto py-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            {langs.map((r) => (
+              <button key={r.locale} type="button" onClick={() => setOpen(open === r.locale ? null : r.locale)} aria-pressed={open === r.locale}
+                className={cx('inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full px-3 py-1.5 text-[12.5px] font-bold transition-all duration-200 hoverable:hover:-translate-y-px',
+                  open === r.locale ? 'bg-brand text-white shadow-card' : 'bg-cloud text-ink')}>
+                {LANG_NAMES[r.locale]}
+                <Icon name={open === r.locale ? 'chevronUp' : 'chevronDown'} className="h-3 w-3 opacity-70" />
+              </button>
+            ))}
+          </div>
+        ) : <span className="text-[12.5px] text-smoke">Not translated yet: everyone reads it in English</span>}
+      </div>
+      {draft && rows.length > 0 && <p className="mt-1.5 text-[12px] text-smoke">If you change the English draft, ask for the translations to be updated before publishing.</p>}
+      {shown && <div key={shown.locale} className="mt-3 animate-rise"><AgreementDoc body={sampleFill(shown.body)} /></div>}
     </div>
   )
 }
@@ -331,9 +327,9 @@ function Translations({ doc, draft = false }) {
 function PreviewButtons({ doc, onPreview, label = 'Preview as a creator' }) {
   return (
     <div className="flex flex-wrap gap-2">
-      <button type="button" onClick={() => onPreview(false)} className="btn-secondary !py-2 text-sm"><Icon name="eye" className="h-4 w-4" />{label}</button>
+      <button type="button" onClick={() => onPreview(false)} className="btn-secondary !px-3.5 !py-1.5 text-[13px]"><Icon name="eye" className="h-4 w-4" />{label}</button>
       {/* 9 Oct 2026: "it should say Preview Under 18 as well". Since 12 Oct the parent step is live for the members who were already in aged 16 or 17. */}
-      {doc.audience !== 'vip' && <button type="button" onClick={() => onPreview(true)} className="btn-secondary !py-2 text-sm" title="What a member aged 16 or 17 (one of the few who joined before the community became 18+) sees: they add a parent or guardian, who confirms on a link"><Icon name="eye" className="h-4 w-4" />Preview Under 18</button>}
+      {doc.audience !== 'vip' && <button type="button" onClick={() => onPreview(true)} className="btn-secondary !px-3.5 !py-1.5 text-[13px]" title="What a member aged 16 or 17 (one of the few who joined before the community became 18+) sees: they add a parent or guardian, who confirms on a link"><Icon name="eye" className="h-4 w-4" />Preview Under 18</button>}
     </div>
   )
 }
@@ -347,30 +343,23 @@ function StatusBanner({ audience, official = false, live, draft, market, sharedL
   const who = official ? `every official creator in ${String(market || '').replace(/^Tryp\.com Official /, '') || 'this market'}` : audience === 'vip' ? (market ? `VIPs in ${market}` : 'every VIP') : 'every creator'
   if (!live && !draft && sharedLive) return null
   const on = !!live
+  // 13 Oct 2026: "the New version button takes up a lot of space". One slim strip: a dot, one line, small buttons.
   return (
-    <section className={cx('mb-5 overflow-hidden rounded-[22px] border shadow-card animate-rise', on ? 'border-gray-100 bg-white' : 'border-brand/30 bg-white')}>
-      <div className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center">
-        <div className="flex min-w-0 flex-1 items-center gap-4">
-        <span className={cx('relative flex h-11 w-11 shrink-0 items-center justify-center rounded-full', on ? 'bg-brand text-white' : 'bg-cloud text-brand')}>
-          {on && <span aria-hidden className="absolute inset-0 animate-ping rounded-full bg-brand/30 [animation-duration:2.4s]" />}
-          <Icon name={on ? 'check' : 'shield'} className="relative h-5 w-5" />
-        </span>
-        <div className="min-w-0 flex-1">
-          <p className="text-[15px] font-bold text-ink">
-            {on ? `On: v${live.version} is live` : 'Not switched on yet'}
-          </p>
-          <p className="text-[13px] leading-snug text-smoke">
-            {on
-              ? `${who[0].toUpperCase()}${who.slice(1)} ${live.requires_signature ? 'signs' : 'accepts'} it before using the app.${draft ? ` v${draft.version} is a draft waiting to replace it.` : ''}`
-              : `Nobody is being asked yet. Publish v${draft?.version ?? 1} and ${who} will have to ${draft?.requires_signature ? 'sign' : 'accept'} it the next time they open the app, before anything else.`}
-          </p>
-        </div>
-        </div>
-        <div className="flex flex-wrap gap-2 sm:shrink-0 sm:justify-end">
-          {canStart && <button type="button" onClick={onStart} className="btn-secondary !py-2.5 text-sm"><Icon name="plus" className="h-4 w-4" />{startLabel}</button>}
-          {draft && <button type="button" onClick={() => onPreview(draft, false)} className="btn-secondary !py-2.5 text-sm"><Icon name="eye" className="h-4 w-4" />Preview v{draft.version}</button>}
-          {draft && <button type="button" onClick={() => { onOpen(draft); onPublish() }} className="btn-primary !py-2.5 text-sm"><Icon name="megaphone" className="h-4 w-4" />{on ? `Publish v${draft.version}` : `Switch on: publish v${draft.version}`}</button>}
-        </div>
+    <section className={cx('mb-4 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-2xl border bg-white px-4 py-2.5 shadow-card animate-rise', on ? 'border-gray-100' : 'border-brand/30')}>
+      <span className="relative flex h-2.5 w-2.5 shrink-0">
+        {on && <span aria-hidden className="absolute inset-0 animate-ping rounded-full bg-brand/40 [animation-duration:2.4s]" />}
+        <span className={cx('relative h-2.5 w-2.5 rounded-full', on ? 'bg-brand' : 'bg-gray-300')} />
+      </span>
+      <p className="min-w-0 flex-1 text-[13px] leading-snug text-smoke">
+        <strong className="font-bold text-ink">{on ? `v${live.version} is live.` : 'Not switched on yet.'}</strong>{' '}
+        {on
+          ? `${who[0].toUpperCase()}${who.slice(1)} ${live.requires_signature ? 'signs' : 'accepts'} it before using the app.${draft ? ` v${draft.version} is a draft waiting to replace it.` : ''}`
+          : `Nobody is being asked yet. Publish v${draft?.version ?? 1} and ${who} will have to ${draft?.requires_signature ? 'sign' : 'accept'} it next time they open the app.`}
+      </p>
+      <div className="flex shrink-0 flex-wrap gap-1.5">
+        {canStart && <button type="button" onClick={onStart} className="inline-flex items-center gap-1 rounded-full bg-cloud px-3 py-1.5 text-[12.5px] font-bold text-ink transition-transform duration-200 hoverable:hover:-translate-y-px"><Icon name="plus" className="h-3.5 w-3.5 text-brand" />{startLabel}</button>}
+        {draft && <button type="button" onClick={() => onPreview(draft, false)} className="inline-flex items-center gap-1 rounded-full bg-cloud px-3 py-1.5 text-[12.5px] font-bold text-ink transition-transform duration-200 hoverable:hover:-translate-y-px"><Icon name="eye" className="h-3.5 w-3.5 text-brand" />Preview v{draft.version}</button>}
+        {draft && <button type="button" onClick={() => { onOpen(draft); onPublish() }} className="inline-flex items-center gap-1 rounded-full bg-brand px-3 py-1.5 text-[12.5px] font-bold text-white shadow-card transition-transform duration-200 hoverable:hover:-translate-y-px"><Icon name="megaphone" className="h-3.5 w-3.5" />{on ? `Publish v${draft.version}` : `Switch on: publish v${draft.version}`}</button>}
       </div>
     </section>
   )
