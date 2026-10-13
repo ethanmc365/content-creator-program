@@ -289,6 +289,28 @@ export function isIOS() {
 }
 
 /**
+ * THE CARET STAYS OUT OF THE MOVEMENT (13 Oct 2026).
+ *
+ * Ethan: "the blue text bar, the bar that flashes, kind of glitches and doesn't go with the smooth animation". iOS draws
+ * the caret natively, on top of the page, and it does not follow a CSS transform: while the thread glides it stays put
+ * (or sits where useNoFocusPan briefly lifted the field) and then jumps. So while the chat is moving it is transparent
+ * (`[data-kb-moving]` in index.css), and it reappears where the box has come to rest. `ms` is the longest the hold can
+ * last if nothing releases it.
+ */
+function holdCaret(el, ms) {
+  if (!el) return
+  clearTimeout(el.__caretTimer)
+  el.setAttribute('data-kb-moving', '')
+  el.__caretTimer = setTimeout(() => el.removeAttribute('data-kb-moving'), ms)
+}
+function releaseCaret(el) {
+  if (!el) return
+  clearTimeout(el.__caretTimer)
+  // A frame after the layout lands, so the caret is drawn at its final place.
+  el.__caretTimer = setTimeout(() => el.removeAttribute('data-kb-moving'), 40)
+}
+
+/**
  * GIVE iOS NOTHING TO PAN (13 Oct 2026).
  *
  * Ethan: "The top bar showing chat name or dm name and profile picture is still like reloading and animating when
@@ -310,6 +332,8 @@ export function useNoFocusPan(ref, enabled) {
     const onFocus = (e) => {
       const el = e.target
       if (!isEditable(el) || !root.contains(el)) return
+      // Until the chat has finished moving for the keyboard (useChatOverlayHeight releases it), or 1.2s if it never does.
+      holdCaret(root, 1200)
       const { opacity, transform } = el.style
       el.style.opacity = '0'
       el.style.transform = 'translate3d(0, -100vh, 0)'
@@ -393,7 +417,10 @@ const GLIDE = `transform ${GLIDE_MS}ms cubic-bezier(0.32, 0.72, 0, 1)`
  * this phone it goes straight to that height, so it rises WITH the keyboard. Changes that are not the keyboard (the app
  * header coming and going) still snap, as they always have.
  */
-export function useChatOverlayHeight({ enabled, chromeHidden, overlayRef, moverRef, scrollerRef }) {
+// `tuck`: px of the composer's bottom padding to let run behind the top of the keyboard, so the bar sits snug on the keys
+// (Ethan, 13 Oct: "a slight bit of extra space below the message bar and keyboard ... cut that out"). Done with the
+// height rather than the padding so nothing inside the chat moves at the moment of the tap.
+export function useChatOverlayHeight({ enabled, chromeHidden, overlayRef, moverRef, scrollerRef, tuck = 0 }) {
   const { height: vpHeight, keyboardOpen, keyboard } = useVisualViewport()
   const safe = useSafeInsets()
   const remembered = rememberedKeyboard()
@@ -420,10 +447,11 @@ export function useChatOverlayHeight({ enabled, chromeHidden, overlayRef, moverR
   const closedH = base - (chromeHidden ? 0 : 64 + safe.top) - 72 - safe.bottom
   let target
   if (!keyboardOpen) target = closedH
-  else if (waiting) target = remembered ? Math.max(240, innerH - remembered) : closedH + (chromeHidden ? 0 : 64 + safe.top)
-  else target = vpHeight
+  else if (waiting) target = remembered ? Math.max(240, innerH - remembered + tuck) : closedH + (chromeHidden ? 0 : 64 + safe.top)
+  else target = vpHeight + (keyboard > 0 ? tuck : 0)
   target = Math.round(target)
 
+  const waitingRef = useRef(waiting)
   const [shown, setShown] = useState(target)
   const shownRef = useRef(target)
   const glide = useRef({ timer: 0, closedAt: 0, open: keyboardOpen })
@@ -435,16 +463,26 @@ export function useChatOverlayHeight({ enabled, chromeHidden, overlayRef, moverR
     g.open = keyboardOpen
     const mover = moverRef.current
     const overlay = overlayRef.current
+    waitingRef.current = waiting
+    // Already gliding to exactly this height (a remembered keyboard, now confirmed by Safari): let it finish; its
+    // landing reads waitingRef and lets the caret back.
+    if (g.timer && g.to === target) return
     // Whatever was in flight lands where it was going.
     if (g.timer) {
       clearTimeout(g.timer)
       g.timer = 0
       g.land?.()
     }
-    if (target === shownRef.current) return
+    if (target === shownRef.current) {
+      // Focus held the caret for a move that turned out not to be needed (keyboard already the remembered height).
+      if (keyboardOpen && !waiting) releaseCaret(overlay)
+      return
+    }
     const reduce = typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
     const snap = () => { shownRef.current = target; setShown(target) }
-    if (!enabled || !mover || !overlay || !keyboardChange || reduce) { snap(); return }
+    if (!enabled || !mover || !overlay || !keyboardChange || reduce) { snap(); releaseCaret(overlay); return }
+    holdCaret(overlay, GLIDE_MS + 600)
+    g.to = target
     const d = shownRef.current - target
     const scroller = scrollerRef.current
     if (d > 0) {
@@ -458,6 +496,8 @@ export function useChatOverlayHeight({ enabled, chromeHidden, overlayRef, moverR
         mover.style.transform = ''
         if (scroller) scroller.scrollTop += d
         snap()
+        // Still waiting on Safari's own measurement: keep holding, the next target lands it.
+        if (!waitingRef.current) releaseCaret(overlay)
       }
       g.timer = setTimeout(() => { g.timer = 0; g.land?.() }, GLIDE_MS)
     } else {
@@ -471,10 +511,10 @@ export function useChatOverlayHeight({ enabled, chromeHidden, overlayRef, moverR
       mover.style.transition = GLIDE
       mover.style.transform = 'translate3d(0, 0, 0)'
       snap()
-      g.land = () => { g.land = null; mover.style.transition = ''; mover.style.transform = '' }
+      g.land = () => { g.land = null; mover.style.transition = ''; mover.style.transform = ''; if (!waitingRef.current) releaseCaret(overlay) }
       g.timer = setTimeout(() => { g.timer = 0; g.land?.() }, GLIDE_MS)
     }
-  }, [target, keyboardOpen, enabled, moverRef, overlayRef, scrollerRef])
+  }, [target, keyboardOpen, waiting, enabled, moverRef, overlayRef, scrollerRef])
 
   useEffect(() => () => clearTimeout(glide.current.timer), [])
 

@@ -433,7 +433,7 @@ export default function NetworkChat() {
   // `chromeHidden` and `kbOpen` do the same thing to the top edge for different
   // reasons - one because the header slid away, one because the keyboard
   // replaced everything - so they share a branch.
-  const { kbOpen, height: overlayH } = useChatOverlayHeight({ enabled: isMobile, chromeHidden, overlayRef, moverRef, scrollerRef })
+  const { kbOpen, height: overlayH } = useChatOverlayHeight({ enabled: isMobile, chromeHidden, overlayRef, moverRef, scrollerRef, tuck: 2 })
   const topGone = kbOpen || chromeHidden
   const mobileStyle = isMobile
     ? {

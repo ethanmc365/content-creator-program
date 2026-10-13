@@ -3648,3 +3648,11 @@ html[data-nav-return] header.glass-bar {
   transition-duration: 0s !important;
   transition-delay: 0s !important;
 }
+
+/* The caret is native on iOS and does not follow a CSS transform, so it is hidden while a chat glides for the keyboard
+   (lib/useKeyboardInset holdCaret). */
+[data-kb-moving] [contenteditable],
+[data-kb-moving] textarea,
+[data-kb-moving] input {
+  caret-color: transparent !important;
+}

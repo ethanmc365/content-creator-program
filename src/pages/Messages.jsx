@@ -476,7 +476,7 @@ export default function Messages() {
   // tabs are hidden until it closes.
   // `chromeHidden` and `kbOpen` do the same thing to the top edge for different
   // reasons, so they are one condition here.
-  const { kbOpen, height: overlayH } = useChatOverlayHeight({ enabled: isMobile, chromeHidden, overlayRef, moverRef, scrollerRef })
+  const { kbOpen, height: overlayH } = useChatOverlayHeight({ enabled: isMobile, chromeHidden, overlayRef, moverRef, scrollerRef, tuck: 10 })
   const topGone = kbOpen || chromeHidden
   const mobileStyle = isMobile
     ? {
