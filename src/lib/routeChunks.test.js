@@ -10,9 +10,18 @@ describe('chunkForPath', () => {
   it('leaves the pages that are already in the bundle alone', () => {
     // Eagerly imported in App.jsx. A prefetch here would be a miss on every
     // pointer that crossed the tab bar.
-    for (const p of ['/challenges', '/notifications', '/dashboard', '/rewards']) {
+    for (const p of ['/challenges']) {
       expect(chunkForPath(p), p).toBeNull()
     }
+  })
+
+  it('prefetches the creator pages that moved out of the entry', () => {
+    expect(chunkForPath('/notifications')).toBe(chunk.Notifications)
+    expect(chunkForPath('/dashboard')).toBe(chunk.Dashboard)
+    expect(chunkForPath('/rewards')).toBe(chunk.Rewards)
+    expect(chunkForPath('/jobs')).toBe(chunk.Jobs)
+    expect(chunkForPath('/refer')).toBe(chunk.Refer)
+    expect(chunkForPath('/feedback')).toBe(chunk.Feedback)
   })
 
   it('splits the big creator pages out of the entry and still prefetches them (5 Oct 2026)', () => {

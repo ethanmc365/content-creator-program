@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, Suspense } from 'react'
 import { PrizeText } from '../../lib/prizeText'
 import { Link } from 'react-router-dom'
 import { motion } from 'motion/react'
@@ -15,7 +15,9 @@ import { useT } from '../../lib/i18n'
 import { isHiddenTestRow } from '../../lib/testData'
 import { useAuth } from '../../context/AuthContext'
 import { prizeForGroup } from '../../lib/challengeGroups'
-import MarketMap from '../MarketMap'
+import { lazyRoute } from '../../lib/lazyRoute'
+// Decoration behind the card (absolutely positioned): it arrives after the card and keeps d3 out of the entry chunk.
+const MarketMap = lazyRoute(() => import('../MarketMap'))
 import { challengesApi } from '../../api/challenges'
 
 // The live challenge, wherever it is shown inside a market.
@@ -242,7 +244,7 @@ export default function LiveChallengeCard({
         {/* THE MARKET'S OWN COUNTRY, highlighted on a zoomed map behind the words (see MarketMap). It replaces the flag
             that sat in the pill: the same fact, drawn where it can be seen. */}
         {!isGlobal && codes?.length > 0 && (
-          <MarketMap codes={codes} className="absolute inset-0 h-full w-full opacity-90 [mask-image:linear-gradient(to_right,transparent_0%,rgba(0,0,0,0.35)_22%,black_55%)]" />
+          <Suspense fallback={null}><MarketMap codes={codes} className="absolute inset-0 h-full w-full opacity-90 [mask-image:linear-gradient(to_right,transparent_0%,rgba(0,0,0,0.35)_22%,black_55%)]" /></Suspense>
         )}
         {/* TWO COLUMNS FROM `lg`, ONE STACK BELOW IT - the same shape the
             /challenges card uses, and for the same reason: the words and the

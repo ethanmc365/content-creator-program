@@ -43,6 +43,13 @@ export const chunk = {
   // Edit profile) - were imported eagerly, so every cold start paid for all of them before a single pixel. They are
   // fetched on intent (a finger or pointer touching a link) and on idle, exactly as the tabs are, so the cost moves out
   // of the first paint rather than into a loading screen.
+  // Pages a creator rarely opens first, split out of the entry.
+  Rewards: () => import('../pages/Rewards'),
+  Notifications: () => import('../pages/Notifications'),
+  Dashboard: () => import('../pages/Dashboard'),
+  Jobs: () => import('../pages/Jobs'),
+  Refer: () => import('../pages/Refer'),
+  Feedback: () => import('../pages/Feedback'),
   Onboarding: () => import('../pages/Onboarding'),
   EditProfile: () => import('../pages/EditProfile'),
   Directory: () => import('../pages/Directory'),
@@ -111,6 +118,12 @@ export const chunk = {
 // Path -> chunk, most specific first. Only the split routes are listed; a path
 // that matches nothing here is already in the main bundle and needs no help.
 const ROUTES = [
+  [/^\/rewards/, 'Rewards'],
+  [/^\/notifications/, 'Notifications'],
+  [/^\/dashboard/, 'Dashboard'],
+  [/^\/jobs/, 'Jobs'],
+  [/^\/refer/, 'Refer'],
+  [/^\/feedback/, 'Feedback'],
   [/^\/onboarding/, 'Onboarding'],
   [/^\/profile\/edit/, 'EditProfile'],
   [/^\/creators/, 'Directory'],

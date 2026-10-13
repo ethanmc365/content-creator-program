@@ -1,11 +1,13 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, Suspense } from 'react'
 import { Link, Navigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useDemoMode } from '../lib/demoMode'
 import { Avatar } from '../components/ui'
 import Icon from '../components/Icon'
 import LanguagePicker from '../components/LanguagePicker'
-import CreatorMap from '../components/CreatorMap'
+import { lazyRoute } from '../lib/lazyRoute'
+// The map (d3, the country atlas) loads after the page, not with it: it sits below the hero and waits for its data anyway.
+const CreatorMap = lazyRoute(() => import('../components/CreatorMap'))
 import { useBootCleared } from '../lib/bootLoader'
 import { cx, formatViews } from '../lib/utils'
 import { useT } from '../lib/i18n'
@@ -502,6 +504,7 @@ export default function Landing() {
               eighty pixels of empty sky get added to whatever is set here on a desktop. */}
           {mapData.creators.length > 0 && (
             <div className="mt-1 w-full sm:mt-1">
+              <Suspense fallback={<div className="aspect-[2/1] w-full rounded-card bg-cloud/50" />}>
               <CreatorMap
                 creators={mapData.creators}
                 trips={mapData.trips}
@@ -511,6 +514,7 @@ export default function Landing() {
                 flush
                 onCreatorClick={setMiniProfile}
               />
+              </Suspense>
             </div>
           )}
 

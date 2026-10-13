@@ -1,6 +1,5 @@
 import { Suspense, useEffect } from 'react'
 import { Routes, Route, Navigate, useLocation, useParams } from 'react-router-dom'
-import { warmMapAtlas } from './lib/mapCountries'
 import { lazyRoute, preloadWhenIdle } from './lib/lazyRoute'
 import { chunk } from './lib/routeChunks'
 import { installLinkPrefetch } from './lib/prefetchLinks'
@@ -23,8 +22,8 @@ import NotForVip from './components/NotForVip'
 
 // Public pages
 import Landing from './pages/Landing'
-import Preview from './pages/dev/Preview'
-import CertBench from './pages/dev/CertBench'
+const Preview = lazyRoute(() => import('./pages/dev/Preview'))
+const CertBench = lazyRoute(() => import('./pages/dev/CertBench'))
 import Login from './pages/auth/Login'
 import Signup from './pages/auth/Signup'
 import ForgotPassword from './pages/auth/ForgotPassword'
@@ -37,12 +36,12 @@ import GuardianConsent from './pages/legal/GuardianConsent'
 // Creator pages
 import Profile from './pages/Profile'
 import Challenges from './pages/Challenges'
-import Rewards from './pages/Rewards'
-import Notifications from './pages/Notifications'
-import Dashboard from './pages/Dashboard'
-import Jobs from './pages/Jobs'
-import Refer from './pages/Refer'
-import Feedback from './pages/Feedback'
+const Rewards = lazyRoute(chunk.Rewards)
+const Notifications = lazyRoute(chunk.Notifications)
+const Dashboard = lazyRoute(chunk.Dashboard)
+const Jobs = lazyRoute(chunk.Jobs)
+const Refer = lazyRoute(chunk.Refer)
+const Feedback = lazyRoute(chunk.Feedback)
 
 // Heavier / rarely-visited pages are code-split so they don't ship in the
 // initial bundle. Game + Leaderboard pull in extra weight; the whole admin area
@@ -173,7 +172,8 @@ export default function App() {
   // bytes already; this is what turns them into the parsed FeatureCollection
   // every map holds, so the map that appears when you scroll to it has nothing
   // left to do. See lib/mapCountries.
-  useEffect(() => { warmMapAtlas() }, [])
+  // A dynamic import, so the map libraries it parses with stay out of the entry chunk.
+  useEffect(() => { import('./lib/mapCountries').then((m) => m.warmMapAtlas()).catch(() => {}) }, [])
   // THE TWO TABS THAT SUSPEND, FETCHED BEFORE ANYBODY PRESSES THEM.
   //
   // Of the five bottom tabs only Worldwide and Rooms are code-split, and those are exactly the two the team named when

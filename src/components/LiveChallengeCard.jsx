@@ -6,13 +6,16 @@ import { Avatar } from './ui'
 import ParticipationBar from './network/ParticipationBar'
 import { cx, formatDate, formatViews } from '../lib/utils'
 import { ordinalFor, rankInk } from '../lib/podiumTiers'
-import { useState } from 'react'
+import { useState, Suspense } from 'react'
 import { useT } from '../lib/i18n'
 import { prizeForGroup } from '../lib/challengeGroups'
 import { briefExcerpt } from '../lib/briefExcerpt'
-import SpinningEarth from './SpinningEarth'
+import { lazyRoute } from '../lib/lazyRoute'
+// The globe and the market map are decoration behind the card (absolutely positioned), so they arrive after it and
+// keep d3 and the country atlas out of the entry chunk.
+const SpinningEarth = lazyRoute(() => import('./SpinningEarth'))
 import GlowRing from './network/GlowRing'
-import MarketMap from './MarketMap'
+const MarketMap = lazyRoute(() => import('./MarketMap'))
 
 // THE CARD FOR A CHALLENGE THAT IS ACTUALLY RUNNING.
 //
@@ -249,12 +252,12 @@ export default function LiveChallengeCard({ challenge: c, global: isGlobal, entr
           // THE WHOLE EARTH ON A DESKTOP. It was 36rem pushed 7rem above a card about 27rem tall, so a third of it was
           // always off the card. From `lg` it is sized to the card's own height and centred in it, between the words and
           // the leaderboard. The phone keeps its corner.
-          <SpinningEarth className="absolute -right-20 -top-24 h-[19rem] w-[19rem] opacity-90 sm:-right-10 sm:h-[26rem] sm:w-[26rem] lg:left-[54%] lg:right-auto lg:top-1/2 lg:h-[94%] lg:w-auto lg:-translate-x-1/2 lg:-translate-y-1/2" />
+          <Suspense fallback={null}><SpinningEarth className="absolute -right-20 -top-24 h-[19rem] w-[19rem] opacity-90 sm:-right-10 sm:h-[26rem] sm:w-[26rem] lg:left-[54%] lg:right-auto lg:top-1/2 lg:h-[94%] lg:w-auto lg:-translate-x-1/2 lg:-translate-y-1/2" /></Suspense>
         )}
         {/* A MARKET'S CHALLENGE CARRIES ITS OWN COUNTRY, highlighted on a zoomed map (see MarketMap); the global card has
             the turning Earth. The card stays the lighter gradient, so the two are never mistaken for each other. */}
         {!isGlobal && codes?.length > 0 && (
-          <MarketMap codes={codes} className="absolute inset-0 h-full w-full opacity-90 [mask-image:linear-gradient(to_right,transparent_0%,rgba(0,0,0,0.35)_22%,black_55%)]" />
+          <Suspense fallback={null}><MarketMap codes={codes} className="absolute inset-0 h-full w-full opacity-90 [mask-image:linear-gradient(to_right,transparent_0%,rgba(0,0,0,0.35)_22%,black_55%)]" /></Suspense>
         )}
         {/* One slow pass of light across the card when it arrives. It reads as
             the card being lit rather than as a thing that moves, which is the

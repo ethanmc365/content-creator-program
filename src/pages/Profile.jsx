@@ -1,8 +1,10 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, Suspense } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { roleBadgeTitle } from '../lib/roles'
 import { useAuth } from '../context/AuthContext'
-import WorldMap from '../components/WorldMap'
+import { lazyRoute } from '../lib/lazyRoute'
+// The travel map (d3, the country atlas) loads after the profile, not with every page of the app.
+const WorldMap = lazyRoute(() => import('../components/WorldMap'))
 import PhotoBoard from '../components/PhotoBoard'
 import PhotoLightbox from '../components/PhotoLightbox'
 import VideoThumb from '../components/VideoThumb'
@@ -22,12 +24,12 @@ import SocialMark, { brandForUrl } from '../components/SocialMark'
 import { socialHref, linkHref } from '../lib/socialLinks'
 import { Avatar, Badge, Skeleton, EmptyState } from '../components/ui'
 import Icon from '../components/Icon'
-import CreatorPeek from '../components/admin/CreatorPeek'
+// Admin-only, and it pulls the VIP admin screens and the map with it: loaded the first time an admin opens it.
+const CreatorPeek = lazyRoute(() => import('../components/admin/CreatorPeek'))
 import { OnlineDot, LastOnline } from '../components/PresenceBadge'
 import RecapTeaser, { recapTeaserWindow } from '../components/wrapped/RecapTeaser'
 import ProfilePortfolio from '../components/portfolio/ProfilePortfolio'
 import { format } from 'date-fns'
-import { loadMapCentroids } from '../lib/mapCountries'
 import { formatDate, formatViews, postedOn, ageFromDob, cx } from '../lib/utils'
 import { useT } from '../lib/i18n'
 import TranslateText from '../components/TranslateText'
@@ -68,6 +70,9 @@ export default function Profile() {
   const [reporting, setReporting] = useState(false)
   // The admin record sheet, opened from the creator's name. See CreatorPeek.
   const [peek, setPeek] = useState(false)
+  // Mounted from the first open on, so closing still animates; never loaded for anyone who does not open it.
+  const [peekSeen, setPeekSeen] = useState(false)
+  useEffect(() => { if (peek) setPeekSeen(true) }, [peek])
   const [bucketOpen, setBucketOpen] = useState(false)
   // Which of the two layouts to MOUNT. `lg` is 1024px, matching the grid the
   // desktop version uses, so the swap happens exactly where the two-column
@@ -206,7 +211,8 @@ export default function Profile() {
   // A trip wins when there is one, because "where are they now" is the question
   // and today's answer is the trip.
   const [centroids, setCentroids] = useState(null)
-  useEffect(() => { loadMapCentroids().then(setCentroids).catch(() => {}) }, [])
+  // A dynamic import keeps the map libraries out of the entry chunk.
+  useEffect(() => { import('../lib/mapCountries').then((m) => m.loadMapCentroids()).then(setCentroids).catch(() => {}) }, [])
 
   const here = useMemo(() => {
     if (!creator) return null
@@ -390,7 +396,9 @@ export default function Profile() {
           {/* THE LIST OF EVERY COUNTRY UNDER THE MAP IS GONE. Somebody with forty countries got forty grey chips, which
               is six rows of text restating what the map above had just drawn - and none of them did anything. The map is
               the list; the heading is the count. */}
-          <WorldMap selected={creator.countries_visited || []} owner={creator} here={here} />
+          <Suspense fallback={<div className="aspect-[2/1] w-full rounded-card bg-cloud/50" />}>
+            <WorldMap selected={creator.countries_visited || []} owner={creator} here={here} />
+          </Suspense>
         </section>
         </>
       )
@@ -1080,7 +1088,7 @@ export default function Profile() {
       {/* Admins only, and never on your own profile. It portals to the body
           like ReportCreator above, so it costs this page's layout nothing. */}
       {isAdmin && !isMe && (
-        <CreatorPeek creator={creator} open={peek} onClose={() => setPeek(false)} />
+        (peek || peekSeen) && <Suspense fallback={null}><CreatorPeek creator={creator} open={peek} onClose={() => setPeek(false)} /></Suspense>
       )}
 
       {/* The header photograph, big and still round. Same reasoning as the
