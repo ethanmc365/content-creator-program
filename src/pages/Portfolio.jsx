@@ -16,6 +16,7 @@ import KitStrip, { YearTeaser } from '../components/portfolio/KitStrip'
 import { portfolioFilename, portfolioPdf } from '../lib/portfolioPdf'
 import { useMediaQuery } from '../lib/useKeyboardInset'
 import { safeUrl } from '../lib/safeUrl'
+import { vipApi } from '../api/vip'
 
 // MY PORTFOLIO.
 //
@@ -86,7 +87,7 @@ export default function Portfolio() {
         .eq('profile_id', viewingId)
         .order('awarded_at', { ascending: false }),
       // A VIP's work lives in vip_videos (they do not enter challenges). An error reads as an empty list.
-      supabase.from('vip_videos')
+      vipApi.videos()
         .select('id, platform, video_url, thumbnail_url, caption, logged_views, submitted_at, programme:programme_id(name)')
         .eq('profile_id', viewingId).eq('status', 'tracking')
         .order('logged_views', { ascending: false }),

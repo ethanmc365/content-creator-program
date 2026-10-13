@@ -10,6 +10,7 @@ import { useDemoMode } from '../../lib/demoMode'
 import { LOCALES, loadLocale, setLocale, useT } from '../../lib/i18n'
 import { loadOverrides } from '../../lib/translations'
 import GoogleButton from '../../components/GoogleButton'
+import { vipApi } from '../../api/vip'
 
 // Public creator signup. New accounts are creators by default - // admins are promoted later (see README → "Making an account an admin").
 // `?demo=1`, for an admin only, renders this page inertly inside the Testing
@@ -58,7 +59,7 @@ export default function Signup() {
   useEffect(() => {
     if (!vipToken) return undefined
     let alive = true
-    supabase.rpc('vip_invite_check', { p_token: vipToken }).then(async ({ data }) => {
+    vipApi.inviteCheck({ p_token: vipToken }).then(async ({ data }) => {
       const row = Array.isArray(data) ? data[0] : data
       if (!alive) return
       setVipInvite(row?.valid ? row : { valid: false })
@@ -129,7 +130,7 @@ export default function Signup() {
   // The signed-in visitor chose to join with the account they are already using.
   async function joinWithThisAccount() {
     setClaiming(true)
-    await supabase.rpc('claim_vip_invite', { p_token: vipToken })
+    await vipApi.claimVipInvite({ p_token: vipToken })
     try { localStorage.removeItem('tryp_vip_invite') } catch { /* nothing to do */ }
     navigate('/vip', { replace: true })
   }

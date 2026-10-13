@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react'
 import { Link, Navigate, useSearchParams } from 'react-router-dom'
-import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import YearInReview from '../components/wrapped/YearInReview'
 import { buildVipCards, VipShareCard } from '../components/wrapped/vipStory'
@@ -8,6 +7,7 @@ import { Card, Eyebrow, Line } from '../components/wrapped/cards'
 import Icon from '../components/Icon'
 import { Spinner } from '../components/ui'
 import { monthLabel, vipRpc, useKindT } from '../lib/vip'
+import { vipApi } from '../api/vip'
 
 // THE VIP MONTH RECAP PAGE (30 Sep 2026, migration 299 `vip_my_recap`). The same story runner as the Year in Review
 // and the challenge recap, told about a month of views. `?m=2026-08` picks a month; with none, the latest closed
@@ -29,7 +29,7 @@ export function VipRecapPanel({ m, onPick }) {
 
   useEffect(() => {
     let alive = true
-    supabase.from('vip_months').select('year, month, status').order('year', { ascending: false }).order('month', { ascending: false }).limit(12)
+    vipApi.months().select('year, month, status').order('year', { ascending: false }).order('month', { ascending: false }).limit(12)
       .then(({ data }) => { if (alive) setMonths(data || []) })
     return () => { alive = false }
   }, [])

@@ -5,6 +5,7 @@ import { Modal, Spinner } from '../ui'
 import Icon from '../Icon'
 import { cx } from '../../lib/utils'
 import { notice } from '../../lib/confirm'
+import { notifications } from '../../api/notifications'
 
 // SEND EVERYONE A PUSH ABOUT THIS CHALLENGE, from the challenge.
 //
@@ -121,8 +122,8 @@ export default function ChallengePush({ challenge, open, onClose }) {
       p_link: link,
     }
     const { error } = toMarket
-      ? await supabase.rpc('notify_community', { p_community: marketId, ...args })
-      : await supabase.rpc('notify_all', args)
+      ? await notifications.notifyMarket(marketId, args)
+      : await notifications.notifyEveryone(args)
     setSending(false)
     if (error) {
       notice(error.message, { title: 'That did not send' })

@@ -15,6 +15,7 @@ import { ageFromDob, cx, timeAgo, formatDate } from '../../lib/utils'
 import { copyToClipboard, emailList } from '../../lib/clipboard'
 import { socialHref, linkHref } from '../../lib/socialLinks'
 import { flagFromIso } from '../../lib/flags'
+import { vipApi } from '../../api/vip'
 
 // SIGNUP REVIEW, REBUILT 4 SEP 2026.
 //
@@ -234,7 +235,7 @@ export default function AdminApplications() {
   useEffect(() => { load() }, [])
   useEffect(() => {
     if (!apps?.some((a) => a.is_vip && !a.team_application) || vipOptions) return
-    supabase.rpc('vip_programme_options').then(({ data }) => setVipOptions(data || []))
+    vipApi.programmeOptions().then(({ data }) => setVipOptions(data || []))
   }, [apps, vipOptions])
   const vipDefault = (a) => {
     const opts = vipOptions || []
@@ -245,7 +246,7 @@ export default function AdminApplications() {
   async function approveVip(a) {
     const opt = (vipOptions || []).find((o) => o.id === vipChoice(a))
     if (!opt) { flash('Pick a VIP market first.'); return false }
-    const { error } = await supabase.rpc('admin_approve_vip_application', { target: a.id, p_programme: opt.id })
+    const { error } = await vipApi.adminApproveVipApplication({ target: a.id, p_programme: opt.id })
     return error ? error.message : true
   }
 

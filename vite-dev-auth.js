@@ -38,12 +38,14 @@ const REPO_ROOT = path.dirname(fileURLToPath(import.meta.url))
 // USAGE
 //   http://localhost:5173/__dev-login            -> qa-creator
 //   http://localhost:5173/__dev-login?as=admin   -> qa-admin
+//   http://localhost:5173/__dev-login?as=vip     -> qa-vip (a VIP creator)
 //   http://localhost:5173/__dev-login?to=/rooms  -> and land somewhere specific
 
 const QA_DOMAIN = '@trypcreators.test'
 const ACCOUNTS = {
   creator: `qa-creator${QA_DOMAIN}`,
   admin: `qa-admin${QA_DOMAIN}`,
+  vip: `qa-vip${QA_DOMAIN}`,
 }
 
 function readEnvFile(file) {

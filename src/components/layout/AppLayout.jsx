@@ -37,6 +37,7 @@ import { useT } from '../../lib/i18n'
 import { JoinMarketHost, openJoinMarket } from '../network/JoinMarket'
 import { applyMotion, getStoredMotion, setShellActive, syncTheme } from '../../lib/theme'
 import LoadTrouble from '../LoadTrouble'
+import { notifications } from '../../api/notifications'
 
 // The signed-in app shell. One shared set of icon tabs powers BOTH the
 // desktop top bar and the mobile bottom bar, so they look identical.
@@ -508,7 +509,7 @@ export default function AppLayout() {
     // A beat after arrival, so a bounce through a route does not clear it and
     // so this never races the page's own first paint.
     const t = setTimeout(() => {
-      supabase.rpc('mark_notifications_read_for_path', { p: pathname }).then(() => {}, () => {})
+      notifications.markReadForPath(pathname).then(() => {}, () => {})
     }, 700)
     return () => clearTimeout(t)
   }, [user, pathname])

@@ -15,6 +15,7 @@ import { cx, dateTag } from '../../lib/utils'
 import { copyToClipboard } from '../../lib/clipboard'
 import { guardianUrl } from '../../components/agreements/GuardianShare'
 import { guardianEmail, guardianEmailLang } from '../../lib/guardianEmail'
+import { vipApi } from '../../api/vip'
 
 // ADMIN > AGREEMENTS (7 Oct 2026).
 //
@@ -73,7 +74,7 @@ export default function AdminAgreements() {
   }, [])
   useEffect(() => { load() }, [load])
   useEffect(() => {
-    supabase.from('vip_programmes').select('id, name, active, kind').eq('active', true).order('name').then(({ data }) => setProgrammes(data || []))
+    vipApi.programmes().select('id, name, active, kind').eq('active', true).order('name').then(({ data }) => setProgrammes(data || []))
   }, [])
   const officials = programmes.filter((p) => p.kind === 'official')
   const vipProgrammes = programmes.filter((p) => p.kind !== 'official')

@@ -3,6 +3,7 @@ import { supabase } from './supabase'
 import { onResume } from './resume'
 import { showLocalNotification, closeNotificationsForPath } from './push'
 import { toast } from './toast'
+import { notifications } from '../api/notifications'
 
 // THE NOTIFICATION CENTRE, IN ONE PLACE.
 //
@@ -206,11 +207,7 @@ export function useNotifications({ userId, pathname, pushPrefs, limit = 40, live
   useEffect(() => { pathRef.current = pathname }, [pathname])
 
   const load = useCallback(async () => {
-    const { data } = await supabase
-      .from('notifications')
-      .select('*')
-      .order('created_at', { ascending: false })
-      .limit(HOLD)
+    const { data } = await notifications.listMine(HOLD)
     setRows(data ?? [])
   }, [])
 
@@ -240,12 +237,12 @@ export function useNotifications({ userId, pathname, pushPrefs, limit = 40, live
 
   const markRead = useCallback(async (id) => {
     setRows((prev) => prev?.map((x) => (x.id === id ? { ...x, read: true } : x)) ?? prev)
-    await supabase.from('notifications').update({ read: true }).eq('id', id)
+    await notifications.markRead(id)
   }, [])
 
   const markAllRead = useCallback(async () => {
     setRows((prev) => prev?.map((x) => ({ ...x, read: true })) ?? prev)
-    await supabase.from('notifications').update({ read: true }).eq('recipient_id', userId).eq('read', false)
+    await notifications.markAllRead(userId)
   }, [userId])
 
   // ONE ROW, GONE. It leaves the list on an animation, so it is marked
@@ -262,7 +259,7 @@ export function useNotifications({ userId, pathname, pushPrefs, limit = 40, live
   // wrong on a delay - and the delay is what makes it hard to notice.
   const dismiss = useCallback(async (id) => {
     setLeaving((s) => new Set(s).add(id))
-    const { error } = await supabase.from('notifications').delete().eq('id', id)
+    const { error } = await notifications.remove(id)
     if (error) {
       setLeaving((s) => { const n = new Set(s); n.delete(id); return n })
       toast('That one would not clear. Try again in a moment.')
@@ -280,7 +277,7 @@ export function useNotifications({ userId, pathname, pushPrefs, limit = 40, live
   const clearRead = useCallback(async () => {
     const kept = all || []
     setRows(kept.filter((x) => !x.read))
-    const { error } = await supabase.from('notifications').delete().eq('recipient_id', userId).eq('read', true)
+    const { error } = await notifications.removeRead(userId)
     // Same rollback as `dismiss`, for the same reason: a batch delete that
     // fails must not leave the page claiming it worked.
     if (error) { setRows(kept); toast('Those would not clear. Try again in a moment.') }
@@ -292,7 +289,7 @@ export function useNotifications({ userId, pathname, pushPrefs, limit = 40, live
   const clearAll = useCallback(async () => {
     const kept = all || []
     setRows([])
-    const { error } = await supabase.from('notifications').delete().eq('recipient_id', userId)
+    const { error } = await notifications.removeAll(userId)
     if (error) { setRows(kept); toast('Those would not clear. Try again in a moment.') }
   }, [userId, all])
 
@@ -331,7 +328,7 @@ function openFeed(userId, prefsRef, pathRef) {
           // the spot instead of badging - they are seeing the content now.
           if (linkPathname(n.link) === pathRef.current && document.visibilityState === 'visible') {
             setRows((prev) => [{ ...n, read: true }, ...(prev || [])].slice(0, HOLD))
-            supabase.from('notifications').update({ read: true }).eq('id', n.id).then(() => {})
+            notifications.markRead(n.id).then(() => {})
             return
           }
           setRows((prev) => [n, ...(prev || [])].slice(0, HOLD))

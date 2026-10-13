@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, useSyncExternalStore } from 'react'
-import { supabase } from './supabase'
 import { getLocale, t as translate, useLocale } from './i18n'
+import { vipApi } from '../api/vip'
 
 // THE VIP PROGRAMME, AWAY FROM THE SCREENS (2 Oct 2026, migration 294).
 //
@@ -11,7 +11,7 @@ import { getLocale, t as translate, useLocale } from './i18n'
 
 /** Call a database function and throw its message (the functions write them for a person to read). */
 export async function vipRpc(fn, args) {
-  const { data, error } = await supabase.rpc(fn, args)
+  const { data, error } = await vipApi.call(fn, args)
   if (error) throw new Error(error.message)
   return data
 }
@@ -328,7 +328,7 @@ function rememberedAccess(uid) {
 let accessAsk = { uid: null, promise: null }
 function askAccess(uid) {
   if (accessAsk.uid !== uid || !accessAsk.promise) {
-    const promise = supabase.rpc('vip_has_access').then((r) => r)
+    const promise = vipApi.hasAccess().then((r) => r)
     accessAsk = { uid, promise }
     const done = () => { if (accessAsk.promise === promise) accessAsk = { uid: null, promise: null } }
     promise.then(done, done)
@@ -415,8 +415,8 @@ function readOnce(fn, args, who, key, force) {
   if (!force && hit?.pending) return hit.pending
   if (!force && hit && Date.now() - hit.at < RPC_FRESH_MS && hit.ok) return Promise.resolve(hit.result)
   const ask = who && PREVIEW_AS[fn]
-    ? supabase.rpc('vip_preview', { p_who: who, p_what: PREVIEW_AS[fn], p_days: args?.p_days ?? 30 })
-    : supabase.rpc(fn, args)
+    ? vipApi.preview({ p_who: who, p_what: PREVIEW_AS[fn], p_days: args?.p_days ?? 30 })
+    : vipApi.call(fn, args)
   const pending = Promise.resolve(ask).then((result) => {
     rpcMemo.set(id, { at: Date.now(), ok: !result.error, result, data: result.error ? hit?.data : result.data })
     return result
@@ -504,7 +504,7 @@ export function useVipCommunities(profileId) {
   useEffect(() => {
     if (!profileId) return undefined
     let alive = true
-    supabase.from('vip_programmes').select('id, name, community:community_id(slug, country_codes)').eq('active', true).order('name')
+    vipApi.programmes().select('id, name, community:community_id(slug, country_codes)').eq('active', true).order('name')
       .then(({ data }) => { if (alive) setRows(data || []) })
     return () => { alive = false }
   }, [profileId])

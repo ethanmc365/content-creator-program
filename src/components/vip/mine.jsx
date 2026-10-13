@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react'
-import { supabase } from '../../lib/supabase'
 import Icon from '../Icon'
 import { CountUp, VIP_COUNT_MS } from '../network/Motion'
 import { TargetBar } from './parts'
 import { TrendCard } from './adminC'
 import { cx, formatDate } from '../../lib/utils'
 import { metricAmount, money, nf, useOptionalRpc, useKindT } from '../../lib/vip'
+import { vipApi } from '../../api/vip'
 
 // THE VIP'S OWN SIDE, ADDED IN THE SECOND PASS (30 Sep 2026, migration 298): what the team has said, and how they are doing.
 
@@ -15,7 +15,7 @@ export function VipAnnouncements({ programmeId }) {
   const [rows, setRows] = useState([])
   useEffect(() => {
     let alive = true
-    supabase.from('vip_announcements').select('*').eq('programme_id', programmeId)
+    vipApi.announcements().select('*').eq('programme_id', programmeId)
       .or(`expires_at.is.null,expires_at.gt.${new Date().toISOString()}`)
       .order('pinned', { ascending: false }).order('created_at', { ascending: false }).limit(3)
       .then(({ data, error }) => { if (alive && !error) setRows(data || []) })

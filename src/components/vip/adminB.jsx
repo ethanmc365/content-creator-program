@@ -14,6 +14,7 @@ import { CopyLinkChip } from './parts'
 import VideoThumb from '../VideoThumb'
 import { HowItWorks, VipContentTab } from './adminD'
 import { safeUrl } from '../../lib/safeUrl'
+import { vipApi } from '../../api/vip'
 
 // THE TEAM'S SIDE OF THE VIP PROGRAMME, PART TWO: the rules, the close, the goals, the numbers (2 Oct 2026).
 
@@ -93,8 +94,8 @@ function RuleModal({ rule, programme, month, onClose, onSaved, onLadder }) {
     if (r.kind === 'milestone' && !(row.conditions.threshold > 0)) { notice(tr('Say what total earns it.')); return }
     setBusy(true)
     const { error } = editing
-      ? await supabase.from('vip_bonus_rules').update(row).eq('id', rule.id)
-      : await supabase.from('vip_bonus_rules').insert({ ...row, created_by: profile?.id })
+      ? await vipApi.bonusRules().update(row).eq('id', rule.id)
+      : await vipApi.bonusRules().insert({ ...row, created_by: profile?.id })
     setBusy(false)
     if (error) { notice(error.message); return }
     toastSuccess(tr('Saved'))
@@ -296,7 +297,7 @@ function MilestoneLadder({ programme, onClose, onSaved }) {
     setBusy(true)
     const meta = MILESTONE_METRICS.find((m) => m.key === metric) || MILESTONE_METRICS[0]
     const label = (n) => `${nf(n)} ${tr(meta.noun)}`
-    const { error } = await supabase.from('vip_bonus_rules').insert(good.map((g) => ({
+    const { error } = await vipApi.bonusRules().insert(good.map((g) => ({
       programme_id: programme.id, label: label(g.at), kind: 'milestone', scope: 'creator', reward, amount: g.amount, places: [],
       conditions: { metric, threshold: g.at }, active: true, created_by: profile?.id,
     })))
@@ -385,7 +386,7 @@ function MonthlyBonuses({ programme }) {
 
   const load = useCallback(async () => {
     const [r, o, c] = await Promise.all([
-      supabase.from('vip_bonus_rules').select('*').eq('programme_id', programme.id).order('created_at'),
+      vipApi.bonusRules().select('*').eq('programme_id', programme.id).order('created_at'),
       vipRpc('vip_admin_overview', { p_programme: programme.id }).catch(() => null),
       vipRpc('vip_claims_review', { p_programme: programme.id }).catch(() => []),
     ])
@@ -393,10 +394,10 @@ function MonthlyBonuses({ programme }) {
   }, [programme.id])
   useEffect(() => { setRules(null); load() }, [load])
 
-  async function toggle(rule) { setRules((rs) => rs.map((x) => (x.id === rule.id ? { ...x, active: !x.active } : x))); await saved(supabase.from('vip_bonus_rules').update({ active: !rule.active }).eq('id', rule.id)); load() }
+  async function toggle(rule) { setRules((rs) => rs.map((x) => (x.id === rule.id ? { ...x, active: !x.active } : x))); await saved(vipApi.bonusRules().update({ active: !rule.active }).eq('id', rule.id)); load() }
   async function remove(rule) {
     if (!await confirm(tr('Delete "{n}"? Statements already made are not changed.', { n: rule.label }), { confirmLabel: tr('Delete'), danger: true })) return
-    await saved(supabase.from('vip_bonus_rules').delete().eq('id', rule.id)); load()
+    await saved(vipApi.bonusRules().delete().eq('id', rule.id)); load()
   }
   const runsLabel = (rule) => {
     const w = whenOf(rule, month)
@@ -828,7 +829,7 @@ export function VipSettingsTab({ programme, onSaved }) {
       tiers: f.tiers.filter((t) => Number(t.from_views) > 0 && Number(t.cpm) >= 0).map((t) => ({ from_views: Number(t.from_views), cpm: Number(t.cpm) })).sort((a, b) => a.from_views - b.from_views),
       tagline: f.tagline.trim() || null, welcome_message: f.welcome_message.trim() || null,
     }
-    const { error } = await supabase.from('vip_programmes').update(row).eq('id', programme.id)
+    const { error } = await vipApi.programmes().update(row).eq('id', programme.id)
     setBusy(false)
     if (error) { notice(error.message); return }
     toastSuccess(tr('Saved. Changes apply from now on; months already closed are not touched.'))

@@ -10,6 +10,7 @@ import PeoplePicker from '../../components/network/PeoplePicker'
 import { Avatar, EmptyState, Modal, PageHeader, Skeleton, Spinner, Toggle } from '../../components/ui'
 import { LEAD_TITLE_SHORT, TITLE_PRESETS, permissionLabel } from '../../lib/roles'
 import { cx } from '../../lib/utils'
+import { vipApi } from '../../api/vip'
 
 const MARKET_FLAG = { uk: '🇬🇧', spain: '🇪🇸', portugal: '🇵🇹', germany: '🇩🇪', romania: '🇷🇴', nordics: '🇸🇪' }
 
@@ -135,7 +136,7 @@ function VipAccessModal({ person, programmes, grants, onClose, onChanged }) {
   async function flip(p) {
     setBusy(p.id)
     const on = has(p.id)
-    const { error } = await supabase.rpc(on ? 'vip_remove_manager' : 'vip_add_manager', { p_profile: person.id, p_programme: p.id })
+    const { error } = await vipApi.call(on ? 'vip_remove_manager' : 'vip_add_manager', { p_profile: person.id, p_programme: p.id })
     setBusy('')
     if (error) { notice(error.message); return }
     toast(on ? `${person.name} no longer has ${p.name}.` : `${person.name} can now see and run ${p.name}.`)
@@ -145,7 +146,7 @@ function VipAccessModal({ person, programmes, grants, onClose, onChanged }) {
     setBusy('all')
     for (const p of programmes) {
       if (has(p.id) === on) continue
-      const { error } = await supabase.rpc(on ? 'vip_add_manager' : 'vip_remove_manager', { p_profile: person.id, p_programme: p.id })
+      const { error } = await vipApi.call(on ? 'vip_add_manager' : 'vip_remove_manager', { p_profile: person.id, p_programme: p.id })
       if (error) { notice(error.message); break }
     }
     setBusy('')
@@ -202,8 +203,8 @@ export default function AdminTeam() {
   const loadVip = useCallback(async () => {
     if (!viewerIsLead) return
     const [{ data: progs }, { data: grants }] = await Promise.all([
-      supabase.from('vip_programmes').select('id, name, active').order('name'),
-      supabase.rpc('vip_managers_list'),
+      vipApi.programmes().select('id, name, active').order('name'),
+      vipApi.managersList(),
     ])
     setVipProgrammes(progs || [])
     setVipGrants(grants || [])

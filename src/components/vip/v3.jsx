@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
 import { Modal, SaveButton, Skeleton, Spinner, useSavedFlash } from '../ui'
 import Icon from '../Icon'
@@ -20,6 +19,7 @@ import { toastSuccess } from '../../lib/toast'
 import { cx, formatDate } from '../../lib/utils'
 import { BRIEF_METRICS, PERK_KINDS, money, monthLabel, nf, prizesByPlace, safeAccent, unitLabel, useOptionalRpc, useVipPreview, vipRpc, useKindT } from '../../lib/vip'
 import { ordinalFor } from '../../lib/podiumTiers'
+import { vipApi } from '../../api/vip'
 
 // THE VIP'S SIDE, THIRD PASS (30 Sep 2026, migration 299): this month's challenge, how the markets compare, perks and
 // trips to unlock, the content library, the VIP map and the creator's own settings. Every block asks politely
@@ -37,7 +37,7 @@ export function VipChallengeCard({ overview }) {
     let alive = true
     // This programme's challenges, plus (for a VIP market) the ones set for every VIP market. The team can read every
     // programme's briefs, so the page asks for its own rather than trusting what comes back (migration 376).
-    let q = supabase.from('vip_briefs').select('*').eq('year', year).eq('month', month)
+    let q = vipApi.briefs().select('*').eq('year', year).eq('month', month)
     q = official ? q.eq('programme_id', pid) : q.or(`programme_id.is.null,programme_id.eq.${pid}`)
     q.order('programme_id', { ascending: true, nullsFirst: true })
       .then(({ data, error }) => { if (alive) setRows(error ? [] : data || []) })
@@ -66,7 +66,7 @@ function BriefCard({ brief, overview }) {
   useEffect(() => {
     if (!pid) return undefined
     let alive = true
-    const q = supabase.from('vip_bonus_rules').select('*').eq('active', true)
+    const q = vipApi.bonusRules().select('*').eq('active', true)
     ;(overview.programme?.kind === 'official' ? q.eq('programme_id', pid) : q.or(`programme_id.eq.${pid},audience.eq.all`)).then(({ data }) => { if (alive) setRules(data || []) })
     return () => { alive = false }
   }, [pid, overview.programme?.kind])
@@ -265,7 +265,7 @@ export function VipLibrary({ programmeId }) {
   const [openId, setOpenId] = useState(null)
   useEffect(() => {
     let alive = true
-    supabase.from('vip_guides').select('*').eq('active', true).order('sort').order('title')
+    vipApi.guides().select('*').eq('active', true).order('sort').order('title')
       .then(({ data, error }) => { if (alive) setGuides(error ? [] : data || []) })
     return () => { alive = false }
   }, [programmeId])
@@ -390,7 +390,7 @@ export function VipMySettings({ overview, onSaved }) {
   const [saved, flash] = useSavedFlash()
 
   const load = useCallback(async () => {
-    const { data, error } = await supabase.from('vip_members').select('headline, own_goal_views').eq('profile_id', who || user.id).maybeSingle()
+    const { data, error } = await vipApi.members().select('headline, own_goal_views').eq('profile_id', who || user.id).maybeSingle()
     if (error || !data) { setRow(null); return }
     setRow(data)
     setGoal(data.own_goal_views ? String(data.own_goal_views) : '')

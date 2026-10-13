@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
-import { supabase } from '../../../lib/supabase'
 import { useAuth } from '../../../context/AuthContext'
 import { Skeleton } from '../../../components/ui'
 import { VipAnalyticsTab } from '../../../components/vip/analytics'
+import { vipApi } from '../../../api/vip'
 
 // THE VIP, INSIDE THE MAIN ANALYTICS (4 Oct 2026). Ethan: "for the general analytics, I want the same: the ability to see analytics for
 // everything and then toggles for VIP Spain ... overall from all the markets, and also for the specific markets." It is the VIP programme's
@@ -12,7 +12,7 @@ export default function VipAnalytics() {
   const [programmes, setProgrammes] = useState(null)
   useEffect(() => {
     let alive = true
-    supabase.from('vip_programmes').select('*, community:community_id(name, slug, country_codes)').eq('active', true).order('name')
+    vipApi.programmes().select('*, community:community_id(name, slug, country_codes)').eq('active', true).order('name')
       .then(({ data }) => { if (alive) setProgrammes(data || []) })
     return () => { alive = false }
   }, [])

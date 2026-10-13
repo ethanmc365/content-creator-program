@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { supabase } from '../../lib/supabase'
 import { Select, Skeleton, Spinner } from '../ui'
 import Icon from '../Icon'
 import Segmented from '../network/Segmented'
@@ -11,6 +10,7 @@ import { toastSuccess } from '../../lib/toast'
 import { cx, formatDate } from '../../lib/utils'
 import { flagFromIso } from '../../lib/flags'
 import { monthLabel, vipRpc, useKindT } from '../../lib/vip'
+import { vipApi } from '../../api/vip'
 
 // WHAT THE TEAM SAYS TO ITS VIPS (rebuilt 4 Oct 2026).
 //
@@ -66,7 +66,7 @@ export function AnnouncementsTab({ programme, programmes = [], isOwner = false }
   const target = programmes.find((p) => p.id === audience) || programme
 
   const load = useCallback(async () => {
-    const { data: rows, error } = await supabase.from('vip_announcements').select('*').eq('programme_id', programme.id)
+    const { data: rows, error } = await vipApi.announcements().select('*').eq('programme_id', programme.id)
       .order('created_at', { ascending: false }).limit(30)
     if (error) { setMissing(/does not exist|schema cache/i.test(error.message)); setList([]) } else setList(rows || [])
   }, [programme.id])

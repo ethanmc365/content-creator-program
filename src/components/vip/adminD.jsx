@@ -13,6 +13,7 @@ import { MonthField } from '../DateTimeFields'
 import { cx, formatDate } from '../../lib/utils'
 import { BRIEF_METRICS, PERK_KINDS, PERK_METRICS, curSym, money, monthLabel, nf, unitLabel, useOptionalRpc, vipJoinLink, vipRpc, useKindT } from '../../lib/vip'
 import { safeUrl } from '../../lib/safeUrl'
+import { vipApi } from '../../api/vip'
 
 // THE TEAM'S SIDE OF THE VIP PROGRAMME, PART FOUR (30 Sep 2026, migration 299): every market side by side, the one
 // sign-up link and what happens to the people who use it, monthly challenges, perks and trips, and the guides.
@@ -86,10 +87,10 @@ export function VipMarketsTab({ programme, isOwner, onChanged }) {
   const tr = useKindT()
   const [programmes, setProgrammes] = useState([])
   useEffect(() => {
-    supabase.from('vip_programmes').select('id, name, is_default, active').eq('active', true).order('name').then(({ data }) => setProgrammes(data || []))
+    vipApi.programmes().select('id, name, is_default, active').eq('active', true).order('name').then(({ data }) => setProgrammes(data || []))
   }, [programme.id])
   async function makeDefault(id) {
-    try { await vipRpc('vip_set_default_programme', { p_programme: id }); toastSuccess(tr('Saved')); onChanged?.() ; const { data } = await supabase.from('vip_programmes').select('id, name, is_default, active').eq('active', true).order('name'); setProgrammes(data || []) } catch (e) { notice(e.message) }
+    try { await vipRpc('vip_set_default_programme', { p_programme: id }); toastSuccess(tr('Saved')); onChanged?.() ; const { data } = await vipApi.programmes().select('id, name, is_default, active').eq('active', true).order('name'); setProgrammes(data || []) } catch (e) { notice(e.message) }
   }
   return (
     <div className="space-y-8">
@@ -182,7 +183,7 @@ function ScopeField({ value, onChange, programme, isOwner, disabled }) {
   useEffect(() => {
     if (!isOwner) return undefined
     let alive = true
-    supabase.from('vip_programmes').select('id, name, is_default, community:community_id(country_codes)').eq('active', true).order('name').then(({ data }) => { if (alive) setAll(data || []) })
+    vipApi.programmes().select('id, name, is_default, community:community_id(country_codes)').eq('active', true).order('name').then(({ data }) => { if (alive) setAll(data || []) })
     return () => { alive = false }
   }, [isOwner])
   const markets = isOwner && all.length ? all : [{ id: programme.id, name: programme.name, is_default: programme.is_default, community: programme.community }]
@@ -284,7 +285,7 @@ function BriefForm({ programme, isOwner, brief, onClose, onSaved }) {
   useEffect(() => {
     if (defaultId) return undefined
     let alive = true
-    supabase.from('vip_programmes').select('id').eq('is_default', true).maybeSingle().then(({ data }) => { if (alive && data) setDefaultId(data.id) })
+    vipApi.programmes().select('id').eq('is_default', true).maybeSingle().then(({ data }) => { if (alive && data) setDefaultId(data.id) })
     return () => { alive = false }
   }, [defaultId])
   const everyone = scope === ''
@@ -292,7 +293,7 @@ function BriefForm({ programme, isOwner, brief, onClose, onSaved }) {
   useEffect(() => {
     let alive = true
     setPrizeRule(undefined)
-    supabase.from('vip_bonus_rules').select('*').eq('programme_id', ruleProgramme).eq('kind', 'top_n').eq('note', 'brief').eq('for_year', yy).eq('for_month', mm).eq('audience', everyone ? 'all' : 'market').maybeSingle()
+    vipApi.bonusRules().select('*').eq('programme_id', ruleProgramme).eq('kind', 'top_n').eq('note', 'brief').eq('for_year', yy).eq('for_month', mm).eq('audience', everyone ? 'all' : 'market').maybeSingle()
       .then(({ data }) => {
         if (!alive) return
         setPrizeRule(data || null)
@@ -303,10 +304,10 @@ function BriefForm({ programme, isOwner, brief, onClose, onSaved }) {
   const sym = curSym(programme.currency)
   async function savePrizes(label) {
     const list = places.map((a, i) => ({ place: i + 1, amount: Number(a) || 0, reward: prizeKind })).filter((p) => p.amount > 0)
-    if (prizeRule && list.length === 0) { await supabase.from('vip_bonus_rules').delete().eq('id', prizeRule.id); return }
+    if (prizeRule && list.length === 0) { await vipApi.bonusRules().delete().eq('id', prizeRule.id); return }
     if (list.length === 0) return
     const row = { programme_id: ruleProgramme, audience: everyone ? 'all' : 'market', kind: 'top_n', label, scope: everyone ? 'global' : 'market', reward: prizeKind, amount: 0, places: list, conditions: {}, for_year: yy, for_month: mm, note: 'brief', active: true }
-    const { error } = prizeRule ? await supabase.from('vip_bonus_rules').update(row).eq('id', prizeRule.id) : await supabase.from('vip_bonus_rules').insert(row)
+    const { error } = prizeRule ? await vipApi.bonusRules().update(row).eq('id', prizeRule.id) : await vipApi.bonusRules().insert(row)
     if (error) throw error
   }
   async function save() {
@@ -322,7 +323,7 @@ function BriefForm({ programme, isOwner, brief, onClose, onSaved }) {
         await vipRpc('vip_move_content', { p_table: 'vip_briefs', p_id: brief.id, p_programme: scopeId(scope) })
         // The prizes follow the challenge: the old ones (kept where it used to reach) go, and savePrizes writes them where it reaches now.
         const oldProgramme = was === '' ? defaultId : was
-        if (oldProgramme) await supabase.from('vip_bonus_rules').delete().eq('programme_id', oldProgramme).eq('kind', 'top_n').eq('note', 'brief').eq('for_year', yy).eq('for_month', mm).eq('audience', was === '' ? 'all' : 'market')
+        if (oldProgramme) await vipApi.bonusRules().delete().eq('programme_id', oldProgramme).eq('kind', 'top_n').eq('note', 'brief').eq('for_year', yy).eq('for_month', mm).eq('audience', was === '' ? 'all' : 'market')
       }
       await savePrizes(tr('Prizes: {t}', { t: title.trim() || monthLabel(yy, mm) }))
       toastSuccess(brief.id ? tr('Saved') : tr('Posted. Every VIP in scope has been notified.'))

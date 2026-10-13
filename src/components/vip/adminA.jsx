@@ -16,6 +16,7 @@ import { ActivityFeed, AttentionCard, SuggestionsCard, TrendCard } from './admin
 import { VipLinkCard } from './adminD'
 import { DateField } from '../DateTimeFields'
 import { safeUrl } from '../../lib/safeUrl'
+import { vipApi } from '../../api/vip'
 
 // THE TEAM'S SIDE OF THE VIP PROGRAMME, PART ONE: who is in, and how this month is going (2 Oct 2026).
 
@@ -70,7 +71,7 @@ export function VipOverviewTab({ programme }) {
   useEffect(() => {
     if (programme.kind !== 'official') return undefined
     let alive = true
-    supabase.from('vip_members').select('profile_id, monthly_fee, fee_min_videos, invoice_outside, status').eq('programme_id', programme.id)
+    vipApi.members().select('profile_id, monthly_fee, fee_min_videos, invoice_outside, status').eq('programme_id', programme.id)
       .then(({ data: d }) => { if (alive) setDeals(d || []) })
     return () => { alive = false }
   }, [programme.id, programme.kind])
@@ -80,7 +81,7 @@ export function VipOverviewTab({ programme }) {
       const [o, v, t] = await Promise.all([
         vipRpc('vip_admin_overview', { p_programme: programme.id }),
         vipRpc('vip_admin_videos', { p_programme: programme.id, p_limit: 1000 }),
-        supabase.from('vip_members').select('profile_id').eq('programme_id', programme.id).eq('is_team', true),
+        vipApi.members().select('profile_id').eq('programme_id', programme.id).eq('is_team', true),
       ])
       // An official programme is all official creators; the "team" split only ever meant something inside a VIP one.
       setData(o); setVideos(v); setTeamIds(programme.kind === 'official' ? new Set() : new Set((t.data || []).map((x) => x.profile_id))); setErr('')
@@ -712,7 +713,7 @@ export function VipMembersTab({ programme }) {
     { confirmLabel: next ? tr('Make official') : tr('Move to VIP') })
     if (!ok) return
     setTeamBusy(m.profile_id)
-    const { error } = await supabase.rpc('vip_set_team', { p_profile: m.profile_id, p_programme: programme.id, p_team: next })
+    const { error } = await vipApi.setTeam({ p_profile: m.profile_id, p_programme: programme.id, p_team: next })
     setTeamBusy(null)
     if (error) { notice(error.message); return }
     toastSuccess(next ? tr('{n} is now an official Tryp.com creator.', { n: m.name }) : tr('{n} is back with the VIP creators.', { n: m.name }))
@@ -722,13 +723,13 @@ export function VipMembersTab({ programme }) {
     const [o, r] = await Promise.all([
       vipRpc('vip_admin_overview', { p_programme: programme.id }).catch(() => null),
       // Everything the settings sheet edits that the overview does not carry (migration 311 columns included).
-      supabase.from('vip_members').select('profile_id, rate_review_on, tiers, monthly_fee, fee_min_videos, bonuses_on, headline, show_on_map, notes, is_team, invoice_outside').eq('programme_id', programme.id),
+      vipApi.members().select('profile_id, rate_review_on, tiers, monthly_fee, fee_min_videos, bonuses_on, headline, show_on_map, notes, is_team, invoice_outside').eq('programme_id', programme.id),
     ])
     setData(o)
     setReviews(Object.fromEntries((r.data || []).map((x) => [x.profile_id, x])))
     // THE PEOPLE WHO RUN IT (8 Oct 2026, migration 365): "it's not showing correctly who's in the team ... I don't
     // even see Marta". vip_managers is owner-only to read; vip_team_people names them to anybody with VIP access.
-    const { data: tp } = await supabase.rpc('vip_team_people')
+    const { data: tp } = await vipApi.teamPeople()
     const ids = [...new Set((tp || []).filter((x) => x.kind === 'staff' && x.programme_id === programme.id).map((x) => x.profile_id))]
     const { data: pf } = ids.length ? await supabase.from('profiles').select('id, name, photo_url, role_title').in('id', ids) : { data: [] }
     setStaff((pf || []).sort((x, y) => (x.name || '').localeCompare(y.name || '')))
@@ -857,7 +858,7 @@ export function useMonths(programmeId) {
   const [months, setMonths] = useState(null)
   useEffect(() => {
     let alive = true
-    supabase.from('vip_months').select('*').eq('programme_id', programmeId).order('starts_at', { ascending: false }).limit(24)
+    vipApi.months().select('*').eq('programme_id', programmeId).order('starts_at', { ascending: false }).limit(24)
       .then(({ data }) => { if (alive) setMonths(data || []) })
     return () => { alive = false }
   }, [programmeId])
@@ -888,10 +889,10 @@ export function VipMoveBlock({ creator, onChanged }) {
       // ALL AT ONCE (13 Oct 2026). Ethan: the VIP block "appears late". It asked vip_can_manage once per programme, one
       // after another, so the block arrived a beat after everything else on the sheet; now every question goes together.
       const [{ data }, { data: row }] = await Promise.all([
-        supabase.from('vip_programmes').select('*').eq('active', true).order('name'),
-        prof?.is_vip ? supabase.from('vip_members').select('programme_id, status').eq('profile_id', creator.id).maybeSingle() : Promise.resolve({ data: null }),
+        vipApi.programmes().select('*').eq('active', true).order('name'),
+        prof?.is_vip ? vipApi.members().select('programme_id, status').eq('profile_id', creator.id).maybeSingle() : Promise.resolve({ data: null }),
       ])
-      const oks = await Promise.all((data || []).map((p) => supabase.rpc('vip_can_manage', { p_programme: p.id }).then((r) => !!r.data)))
+      const oks = await Promise.all((data || []).map((p) => vipApi.canManage({ p_programme: p.id }).then((r) => !!r.data)))
       // VIP communities first, then the official programmes, each by name.
       const mine = (data || []).filter((_, i) => oks[i]).sort((a, b) => (a.kind === 'official') - (b.kind === 'official') || a.name.localeCompare(b.name))
       if (alive) { setIsVip(!!prof?.is_vip); setProgrammes(mine); setMember(row || null) }
@@ -974,8 +975,8 @@ function VipTeamAccess({ person, owner }) {
   const [busy, setBusy] = useState('')
   const load = useCallback(async () => {
     const [{ data: progs }, list] = await Promise.all([
-      supabase.from('vip_programmes').select('id, name, active').order('name'),
-      supabase.rpc('vip_managers_list'),
+      vipApi.programmes().select('id, name, active').order('name'),
+      vipApi.managersList(),
     ])
     setRows(progs || [])
     setCanEdit(!list.error)
@@ -986,7 +987,7 @@ function VipTeamAccess({ person, owner }) {
   async function flip(p) {
     const on = grants.includes(p.id)
     setBusy(p.id)
-    const { error } = await supabase.rpc(on ? 'vip_remove_manager' : 'vip_add_manager', { p_profile: person.id, p_programme: p.id })
+    const { error } = await vipApi.call(on ? 'vip_remove_manager' : 'vip_add_manager', { p_profile: person.id, p_programme: p.id })
     setBusy('')
     if (error) { notice(error.message); return }
     toastSuccess(on ? tr('{n} no longer has {p}.', { n: person.name, p: p.name }) : tr('{n} can now see and run {p}.', { n: person.name, p: p.name }))

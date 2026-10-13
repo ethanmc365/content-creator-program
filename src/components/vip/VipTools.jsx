@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { ProgrammeKindContext, useKindT } from '../../lib/vip'
 import { useSearchParams } from 'react-router-dom'
-import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
 import { EmptyState, Skeleton } from '../ui'
 import Icon from '../Icon'
@@ -18,6 +17,7 @@ import { VipKpiTab } from './kpis'
 import { VipPreviewTab } from './preview'
 import { VipCertificatesTab } from './certificates'
 import { VipRequirementsTab, VipRulesCard, VipSheetTab, VipWalletsTab } from './teamTools'
+import { vipApi } from '../../api/vip'
 
 // THE VIP TOOLS, INSIDE THE VIP PAGE (2 Oct 2026).
 //
@@ -52,9 +52,9 @@ const offered = (k, p, isOwner) => (k !== 'access' || isOwner) && !(p?.kind === 
 let programmesCache = null
 let programmesInflight = null
 async function fetchProgrammes(isOwner) {
-  const { data } = await supabase.from('vip_programmes').select('*, community:community_id(name, slug, country_codes)').order('name')
+  const { data } = await vipApi.programmes().select('*, community:community_id(name, slug, country_codes)').order('name')
   const shown = (data || []).filter((p) => p.active || isOwner)
-  const oks = await Promise.all(shown.map((p) => supabase.rpc('vip_can_manage', { p_programme: p.id }).then((r) => !!r.data)))
+  const oks = await Promise.all(shown.map((p) => vipApi.canManage({ p_programme: p.id }).then((r) => !!r.data)))
   return shown.map((p, i) => ({ ...p, can_manage: oks[i] }))
 }
 /** Load the markets in the background, for the VIP page to call before anybody presses "VIP tools". */

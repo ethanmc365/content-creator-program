@@ -28,6 +28,7 @@ import { ProgrammeKindContext, VipPreviewContext, daysLeft, isOfficial, money, m
 import { cx } from '../lib/utils'
 import { useIsMobile } from '../lib/useKeyboardInset'
 import ReaderText from '../components/ReaderText'
+import { vipApi } from '../api/vip'
 
 // THE VIP PAGE (2 Oct 2026, migration 294).
 //
@@ -179,11 +180,11 @@ export default function VipHub() {
       // What runs in this market, plus whatever is for EVERY VIP creator (set on VIP Worldwide).
       // An official programme runs only its own bonuses; the ones set for every VIP are not theirs (migration 376).
       official
-        ? supabase.from('vip_bonus_rules').select('*').eq('programme_id', programmeId).eq('active', true).order('created_at')
-        : supabase.from('vip_bonus_rules').select('*').or(`programme_id.eq.${programmeId},audience.eq.all`).eq('active', true).order('created_at'),
+        ? vipApi.bonusRules().select('*').eq('programme_id', programmeId).eq('active', true).order('created_at')
+        : vipApi.bonusRules().select('*').or(`programme_id.eq.${programmeId},audience.eq.all`).eq('active', true).order('created_at'),
       supabase.from('communities').select('country_codes').eq('id', communityId).maybeSingle(),
-      supabase.from('vip_programmes').select('tagline').eq('id', programmeId).maybeSingle(),
-      isStaff || sample ? none : supabase.from('vip_members').select('headline').eq('profile_id', previewWho || user.id).maybeSingle(),
+      vipApi.programmes().select('tagline').eq('id', programmeId).maybeSingle(),
+      isStaff || sample ? none : vipApi.members().select('headline').eq('profile_id', previewWho || user.id).maybeSingle(),
     ])
     setLook({ tagline: pr.data?.tagline || null, headline: me.data?.headline || null })
     setBoard(bd || [])
@@ -549,7 +550,7 @@ function PayStrip({ member, programme, stats, month, cur, staff = false }) {
   useEffect(() => {
     if (!staff || !official) return undefined
     let alive = true
-    supabase.from('vip_members').select('profile_id, cpm, monthly_fee, fee_min_videos, monthly_cap, invoice_outside, profiles:profile_id(name, photo_url)')
+    vipApi.members().select('profile_id, cpm, monthly_fee, fee_min_videos, monthly_cap, invoice_outside, profiles:profile_id(name, photo_url)')
       .eq('programme_id', programme.id).eq('status', 'active')
       .then(({ data }) => { if (alive) setDeals((data || []).sort((a, b) => (Number(b.monthly_fee) || 0) - (Number(a.monthly_fee) || 0) || (a.profiles?.name || '').localeCompare(b.profiles?.name || ''))) })
     return () => { alive = false }

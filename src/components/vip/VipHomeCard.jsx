@@ -1,12 +1,12 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { supabase } from '../../lib/supabase'
 import Reveal from '../network/Reveal'
 import Icon from '../Icon'
 import { CountUp, VIP_COUNT_MS } from '../network/Motion'
 import { daysLeft, money, monthLabel, nf, useVipOverview, useKindT } from '../../lib/vip'
 import { useAuth } from '../../context/AuthContext'
 import { cx, formatViews } from '../../lib/utils'
+import { vipApi } from '../../api/vip'
 
 // A VIP's own month on their Worldwide page (2 Oct 2026): what it has earned so far and a way in, under the
 // community card.
@@ -88,7 +88,7 @@ export function VipRailCard({ overview }) {
   useEffect(() => {
     if (!y) return undefined
     let alive = true
-    supabase.from('vip_briefs').select('id, title, theme').eq('year', y).eq('month', m).order('programme_id', { ascending: false, nullsFirst: false }).limit(1)
+    vipApi.briefs().select('id, title, theme').eq('year', y).eq('month', m).order('programme_id', { ascending: false, nullsFirst: false }).limit(1)
       .then(({ data }) => { if (alive) setBrief(data?.[0] || null) })
     return () => { alive = false }
   }, [y, m])

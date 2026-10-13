@@ -2,10 +2,10 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import Icon from '../Icon'
 import { Toggle } from '../ui'
-import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
 import { notice } from '../../lib/confirm'
 import { vipRpc, useKindT } from '../../lib/vip'
+import { vipApi } from '../../api/vip'
 
 // Its own file so Settings does not load the VIP page (and its map) to draw one switch.
 /** Settings > Account, for a VIP: whether other VIPs see them on the VIP map. Draws nothing for anybody else. */
@@ -17,7 +17,7 @@ export default function VipMapSetting({ publicOn = true }) {
   useEffect(() => {
     if (!user?.id || !profile?.is_vip) return undefined
     let alive = true
-    supabase.from('vip_members').select('show_on_map').eq('profile_id', user.id).maybeSingle()
+    vipApi.members().select('show_on_map').eq('profile_id', user.id).maybeSingle()
       .then(({ data: row }) => { if (alive) setMe(row || null) })
     return () => { alive = false }
   }, [user?.id, profile?.is_vip])

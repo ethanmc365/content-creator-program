@@ -16,6 +16,7 @@ import {
   AUDIENCES, QUESTION_TYPES, SURVEY_STARTERS, TIMINGS, blankSurvey, cleanSurvey, fromStarter, hasOptions, newQuestion,
   responsesByDay, summarise, surveyProblem,
 } from '../../lib/surveys'
+import { vipApi } from '../../api/vip'
 
 // SURVEYS (30 Sep 2026, migration 291; rebuilt 1 Oct 2026, migration 293).
 //
@@ -59,7 +60,7 @@ export default function AdminSurveys() {
       supabase.from('survey_responses').select('survey_id, declined'),
       supabase.from('communities').select('id, name, kind').is('retired_at', null).eq('kind', 'chapter').order('name'),
       supabase.from('challenges').select('id, title, start_date, end_date, status').neq('status', 'draft').order('start_date', { ascending: false }).limit(40),
-      supabase.from('vip_programmes').select('community_id, name').eq('active', true).order('name'),
+      vipApi.programmes().select('community_id, name').eq('active', true).order('name'),
     ])
     setRows(s || [])
     const n = {}

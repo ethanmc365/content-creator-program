@@ -25,6 +25,7 @@ import { clearVipCache } from '../lib/vip'
 import LanguagePicker from '../components/LanguagePicker'
 import ReaderText from '../components/ReaderText'
 import CitySuggestion from '../components/CitySuggestion'
+import { vipApi } from '../api/vip'
 
 // FIRST LOGIN: BUILDING A PROFILE THE TEAM CAN ACTUALLY REVIEW.
 //
@@ -486,7 +487,7 @@ export default function Onboarding() {
     if (!token) return
     // An account that finished its profile long ago is not signing up: a token left on the device is not theirs to spend.
     if (auth.profile.onboarded) { try { localStorage.removeItem('tryp_vip_invite') } catch { /* nothing to do */ } return }
-    supabase.rpc('claim_vip_invite', { p_token: token }).then(({ data }) => {
+    vipApi.claimVipInvite({ p_token: token }).then(({ data }) => {
       if (data === true) { setVipApplication(true); clearVipCache(); refreshProfile?.() }
       try { localStorage.removeItem('tryp_vip_invite') } catch { /* nothing to do */ }
     })
@@ -499,7 +500,7 @@ export default function Onboarding() {
   useEffect(() => {
     if (!vipApplication || demo) return undefined
     let alive = true
-    supabase.rpc('vip_home_for', { p_country_code: draft.country_code || null })
+    vipApi.homeFor({ p_country_code: draft.country_code || null })
       .then(({ data }) => { if (alive) setVipHome(data || null) })
     return () => { alive = false }
   }, [vipApplication, demo, draft.country_code])
@@ -756,7 +757,7 @@ export default function Onboarding() {
     // stuck on a spinner is not.
     if (vipApplication) {
       // A VIP joins their VIP market, never a community market by country.
-      const { error: vipErr } = await supabase.rpc('vip_settle_home')
+      const { error: vipErr } = await vipApi.settleHome()
       if (vipErr) console.warn('Could not settle the VIP market at onboarding:', vipErr.message)
       clearVipCache()
     } else if (market.market?.slug) {

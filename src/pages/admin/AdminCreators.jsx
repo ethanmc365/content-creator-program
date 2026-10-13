@@ -18,6 +18,7 @@ import { isOnlineAt } from '../../lib/presence'
 import { isHiddenTestRow } from '../../lib/testData'
 import { VipMoveBlock } from '../../components/vip/adminA'
 import { CreatorMarketsBlock } from '../../components/admin/CreatorMarkets'
+import { vipApi } from '../../api/vip'
 
 // Creator management: the full list with emails (admin-only RPC), plus all
 // account actions - password reset, mute, suspend, promote to admin, DM.
@@ -126,8 +127,8 @@ export default function AdminCreators() {
     setMarketOf(byCreator)
     // Readable only to people with VIP access; for anybody else both come back empty and VIPs is `is_vip` alone.
     const [{ data: vm }, { data: tp }] = await Promise.all([
-      supabase.from('vip_members').select('profile_id, status, vip_programmes(name)').neq('status', 'left'),
-      supabase.rpc('vip_team_people'),
+      vipApi.members().select('profile_id, status, vip_programmes(name)').neq('status', 'left'),
+      vipApi.teamPeople(),
     ])
     const vips = {}
     const team = {}

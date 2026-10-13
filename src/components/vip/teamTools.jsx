@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { supabase } from '../../lib/supabase'
 import { Avatar, Modal, Select, Skeleton, Spinner, Toggle } from '../ui'
 import Icon from '../Icon'
 import Segmented from '../network/Segmented'
@@ -9,6 +8,7 @@ import { confirm, notice, promptText } from '../../lib/confirm'
 import { toastSuccess } from '../../lib/toast'
 import { cx, downloadCsv, formatDate } from '../../lib/utils'
 import { curSym, money, monthLabel, nf, perK, vipRpc, useKindT } from '../../lib/vip'
+import { vipApi } from '../../api/vip'
 
 // THE TEAM'S VIP TOOLS FOR MONEY AND MEMBERSHIP (2 Oct 2026, migration 312).
 //
@@ -175,8 +175,8 @@ function PersonMoney({ r, data, programme, onClose, onAdjust }) {
   useEffect(() => {
     let alive = true
     Promise.all([
-      supabase.from('vip_statements').select('id, views, total, status, month:month_id(year, month, starts_at)').eq('profile_id', r.profile_id).neq('status', 'void'),
-      supabase.from('vip_ledger').select('id, kind, amount, note, created_at').eq('profile_id', r.profile_id).order('created_at', { ascending: false }).limit(30),
+      vipApi.statements().select('id, views, total, status, month:month_id(year, month, starts_at)').eq('profile_id', r.profile_id).neq('status', 'void'),
+      vipApi.ledger().select('id, kind, amount, note, created_at').eq('profile_id', r.profile_id).order('created_at', { ascending: false }).limit(30),
     ]).then(([st, lg]) => {
       if (!alive) return
       setMonths((st.data || []).filter((x) => x.month).sort((a, b) => String(b.month.starts_at).localeCompare(String(a.month.starts_at))))
@@ -731,7 +731,7 @@ function OfficialFeesCard({ programme, className, onOpen }) {
   const [deals, setDeals] = useState(null)
   useEffect(() => {
     let alive = true
-    supabase.from('vip_members').select('profile_id, monthly_fee, fee_min_videos, invoice_outside, status').eq('programme_id', programme.id)
+    vipApi.members().select('profile_id, monthly_fee, fee_min_videos, invoice_outside, status').eq('programme_id', programme.id)
       .then(({ data }) => { if (alive) setDeals(data || []) })
     return () => { alive = false }
   }, [programme.id])

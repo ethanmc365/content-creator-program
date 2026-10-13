@@ -24,6 +24,7 @@ import { listContainer, listItem, pageFade } from '../lib/motion'
 import { testFlags, isHiddenTestRow } from '../lib/testData'
 import { CreatorMarketsModal } from '../components/admin/CreatorMarkets'
 import { useT } from '../lib/i18n'
+import { vipApi } from '../api/vip'
 
 // The country manager's desk: everything one market owns, and nothing that
 // belongs to another one.
@@ -65,7 +66,7 @@ function VipSection({ chapter }) {
   const [on, setOn] = useState(false)
   useEffect(() => {
     let alive = true
-    supabase.from('vip_programmes').select('id').eq('community_id', chapter.id).eq('active', true).maybeSingle()
+    vipApi.programmes().select('id').eq('community_id', chapter.id).eq('active', true).maybeSingle()
       .then(({ data }) => { if (alive) setOn(!!data) })
     return () => { alive = false }
   }, [chapter.id])

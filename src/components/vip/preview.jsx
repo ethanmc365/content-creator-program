@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { supabase } from '../../lib/supabase'
 import { WhoSwitch } from './adminA'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
@@ -9,6 +8,7 @@ import Icon from '../Icon'
 import { notice } from '../../lib/confirm'
 import { cx } from '../../lib/utils'
 import { vipRpc, useKindT } from '../../lib/vip'
+import { vipApi } from '../../api/vip'
 
 // SEE IT AS A VIP (3 Oct 2026).
 //
@@ -33,7 +33,7 @@ export function VipPreviewTab({ programme }) {
   const [teamIds, setTeamIds] = useState(() => new Set())
   useEffect(() => {
     let alive = true
-    supabase.from('vip_members').select('profile_id').eq('programme_id', programme.id).eq('is_team', true)
+    vipApi.members().select('profile_id').eq('programme_id', programme.id).eq('is_team', true)
       .then(({ data }) => { if (alive) setTeamIds(programme.kind === 'official' ? new Set() : new Set((data || []).map((x) => x.profile_id))) })
     return () => { alive = false }
   }, [programme.id, programme.kind])

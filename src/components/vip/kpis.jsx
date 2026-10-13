@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
 import { Modal, Skeleton } from '../ui'
 import Icon from '../Icon'
@@ -10,6 +9,7 @@ import { kpiStatus } from '../../lib/kpiTracker'
 import { STATUS_HEX_ON_BRAND, statusGradient } from '../../lib/barGradient'
 import { money, monthLabel, nf, perK, vipRpc, useKindT } from '../../lib/vip'
 import VipScopeSwitch from './scope'
+import { vipApi } from '../../api/vip'
 
 // THE VIP KPIs, BUILT LIKE THE KPI PAGE (3 Oct 2026).
 //
@@ -104,7 +104,7 @@ export function VipKpiTab({ programme, programmes = [], isAdmin = false }) {
     const list = idsKey.split(',')
     const [a, t] = await Promise.all([
       Promise.all(list.map((id) => vipRpc('vip_kpi_actuals', { p_programme: id, p_year: ym.year, p_month: ym.month }).catch(() => ({})))),
-      supabase.from('vip_kpi_targets').select('*').in('programme_id', list).eq('year', ym.year).eq('month', ym.month),
+      vipApi.kpiTargets().select('*').in('programme_id', list).eq('year', ym.year).eq('month', ym.month),
     ])
     setActual(list.length > 1 ? combineActuals(a) : (a[0] || {}))
     setTargets(list.length > 1 ? combineTargets(t.data || []) : Object.fromEntries((t.data || []).map((x) => [x.metric, x])))
@@ -132,9 +132,9 @@ export function VipKpiTab({ programme, programmes = [], isAdmin = false }) {
     const metric = editing
     const n = Number(String(val).replace(/[\s,]/g, ''))
     if (val === '' || Number.isNaN(n)) {
-      if (targets[metric]) await supabase.from('vip_kpi_targets').delete().eq('id', targets[metric].id)
+      if (targets[metric]) await vipApi.kpiTargets().delete().eq('id', targets[metric].id)
     } else {
-      const { error } = await supabase.from('vip_kpi_targets').upsert({ programme_id: shown.id, year: ym.year, month: ym.month, metric, target_value: n, created_by: profile?.id }, { onConflict: 'programme_id,year,month,metric' })
+      const { error } = await vipApi.kpiTargets().upsert({ programme_id: shown.id, year: ym.year, month: ym.month, metric, target_value: n, created_by: profile?.id }, { onConflict: 'programme_id,year,month,metric' })
       if (error) { notice(error.message); return }
     }
     setEditing(null); load()

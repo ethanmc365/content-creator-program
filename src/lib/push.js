@@ -2,7 +2,7 @@
 // push using our VAPID public key. The subscription is stored in Supabase so a
 // server function can deliver background pushes later; meanwhile the app shows
 // notifications for realtime events directly through the service worker.
-import { supabase } from './supabase'
+import { notifications } from '../api/notifications'
 
 // VAPID public key (safe to ship to the client). The matching private key is
 // kept server-side for sending background pushes.
@@ -42,9 +42,8 @@ export async function enablePush(userId) {
       })
     }
     const json = sub.toJSON()
-    const { error } = await supabase.from('push_subscriptions').upsert(
+    const { error } = await notifications.savePushSubscription(
       { user_id: userId, endpoint: sub.endpoint, p256dh: json.keys.p256dh, auth: json.keys.auth },
-      { onConflict: 'endpoint' }
     )
     // The phone said yes but the server never stored where to send: that is not "on".
     return error ? 'error' : 'granted'
@@ -85,9 +84,8 @@ export async function syncPushSubscription(userId, { force = false } = {}) {
       })
     }
     const json = sub.toJSON()
-    const { error } = await supabase.from('push_subscriptions').upsert(
+    const { error } = await notifications.savePushSubscription(
       { user_id: userId, endpoint: sub.endpoint, p256dh: json.keys.p256dh, auth: json.keys.auth },
-      { onConflict: 'endpoint' },
     )
     return !error
   } catch {

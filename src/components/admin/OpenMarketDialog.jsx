@@ -3,13 +3,13 @@ import { useNavigate } from 'react-router-dom'
 import { Modal, Select, Spinner } from '../ui'
 import Icon from '../Icon'
 import FlagStack from '../network/FlagStack'
-import { supabase } from '../../lib/supabase'
 import { useCommunity } from '../../context/CommunityContext'
 import { notice } from '../../lib/confirm'
 import { toastSuccess } from '../../lib/toast'
 import { cx } from '../../lib/utils'
 import { vipRpc } from '../../lib/vip'
 import { useT } from '../../lib/i18n'
+import { vipApi } from '../../api/vip'
 
 // "OPEN ANOTHER" OPENS SOMETHING (2 Oct 2026).
 //
@@ -46,7 +46,7 @@ export default function OpenMarketDialog({ open, onClose }) {
   // Which markets already have a VIP market (one each).
   useEffect(() => {
     if (!open || kind !== 'vip' || taken) return
-    supabase.from('vip_programmes').select('community_id').then(({ data }) => setTaken(new Set((data || []).map((r) => r.community_id))))
+    vipApi.programmes().select('community_id').then(({ data }) => setTaken(new Set((data || []).map((r) => r.community_id))))
   }, [open, kind, taken])
 
   const free = (chapters || []).filter((c) => !c.retired_at && !taken?.has(c.id))

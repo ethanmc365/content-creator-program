@@ -7,6 +7,7 @@ import { confirm, notice } from '../../lib/confirm'
 import { openCompose } from '../../lib/compose'
 import MarketScope, { useScopedMarkets } from '../../components/admin/MarketScope'
 import { roleBadgeTitle } from '../../lib/roles'
+import { vipApi } from '../../api/vip'
 
 // The email page. NOTHING ON IT SENDS AN EMAIL ANY MORE (3 Sep 2026).
 //
@@ -58,7 +59,7 @@ export default function AdminEmail() {
       supabase.rpc('admin_list_emails'),
       supabase.from('email_outbox').select('*').eq('status', 'pending').order('created_at', { ascending: true }),
       supabase.rpc('email_log', { p_limit: 100 }),
-      supabase.from('vip_members').select('profile_id, programme_id, vip_programmes(id, name)').neq('status', 'left'),
+      vipApi.members().select('profile_id, programme_id, vip_programmes(id, name)').neq('status', 'left'),
     ])
     setProgOf(new Map((vipRows ?? []).filter((r) => r.vip_programmes).map((r) => [r.profile_id, r.vip_programmes])))
     const emailOf = new Map((emailRows ?? []).map((r) => [r.id, r.email]))
