@@ -23,7 +23,7 @@
 //
 // Deploy:  supabase functions deploy geocode
 
-import { createRemoteJWKSet, jwtVerify } from 'https://deno.land/x/jose@v5.9.6/index.ts'
+import { createRemoteJWKSet, jwtVerify } from 'npm:jose@5'
 import { corsHeaders } from '../_shared/cors.ts'
 
 // ---------------------------------------------------------------------------

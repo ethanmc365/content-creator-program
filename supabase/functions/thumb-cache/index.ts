@@ -464,6 +464,8 @@ async function shrink(bytes: Uint8Array, contentType: string) {
   // Under ~60KB there is nothing to win and a decode to lose.
   if (bytes.byteLength < 60_000) return { bytes, contentType }
   try {
+    // Pinned: a published deno.land/x version is immutable. The npm build of imagescript reads its WebAssembly from
+    // disk, which the bundled edge runtime does not guarantee, so this stays on the Deno build.
     const { decode } = await import('https://deno.land/x/imagescript@1.3.0/mod.ts')
     // deno-lint-ignore no-explicit-any
     const img = await decode(bytes) as any
