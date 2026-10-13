@@ -28,7 +28,7 @@ select cron.schedule('ops-snapshot-stats', '55 * * * *', 'select public.ops_snap
 select cron.schedule('post-scheduled-announcements', '* * * * *', 'select public.post_scheduled_announcements();');
 select cron.schedule('publish-scheduled-challenges', '*/5 * * * *', 'select public.publish_scheduled_challenges()');
 select cron.schedule('purge-audit-log', '30 3 * * 0', 'select public.purge_old_audit_log();');
-select cron.schedule('purge-cron-history', '40 3 * * *', 'delete from cron.job_run_details where end_time < now() - interval ''2 days''');
+select cron.schedule('purge-cron-history', '40 3 * * *', 'delete from cron.job_run_details where end_time < now() - interval ''8 days''');
 select cron.schedule('purge-deleted-creators', '0 3 * * *', 'select public.purge_deleted_creators()');
 select cron.schedule('purge-sandbox-sessions', '20 4 * * *', 'select public.purge_sandbox_sessions();');
 select cron.schedule('recalc-queued-points', '* * * * *', 'select public.recalc_queued_points();');
@@ -69,5 +69,5 @@ select cron.schedule('voucher-nudges', '0 10 * * *', 'select public.send_voucher
 --   creator-kit: public, limit 15728640, types {image/jpeg,image/png,image/webp,image/gif}
 --   dm-media: PRIVATE, limit 62914560, types {image/jpeg,image/png,image/webp,image/gif,video/mp4,video/webm,video/quicktime,video/ogg}
 --   gallery: public, limit 15728640, types {image/jpeg,image/png,image/webp,image/gif}
---   resources: public, limit 52428800, types {image/jpeg,image/png,image/webp,image/gif,image/svg+xml,video/mp4,video/quicktime,video/webm,audio/mpeg,audio/mp4,application/pdf,application/zip,text/plain,text/csv,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation}
+--   resources: public, limit 52428800, types {image/jpeg,image/png,image/webp,image/gif,video/mp4,video/quicktime,video/webm,audio/mpeg,audio/mp4,application/pdf,application/zip,text/plain,text/csv,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation}
 --   video-thumbs: public, limit 2097152, types {image/jpeg,image/png,image/webp}

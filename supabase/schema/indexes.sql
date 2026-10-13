@@ -214,6 +214,7 @@ CREATE UNIQUE INDEX profiles_one_owner ON public.profiles USING btree (platform_
 CREATE INDEX profiles_team_invite_id_fk_idx ON public.profiles USING btree (team_invite_id);
 CREATE INDEX push_events_created_idx ON public.push_events USING btree (created_at DESC);
 CREATE INDEX push_events_notification_idx ON public.push_events USING btree (notification_id, event);
+CREATE UNIQUE INDEX push_events_one_per_event ON public.push_events USING btree (notification_id, event);
 CREATE INDEX idx_push_subscriptions_user ON public.push_subscriptions USING btree (user_id);
 CREATE INDEX idx_reactions_creator ON public.reactions USING btree (creator_id);
 CREATE INDEX idx_referrals_referrer ON public.referrals USING btree (referrer_id);

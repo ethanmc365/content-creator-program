@@ -13,6 +13,7 @@ CREATE TRIGGER app_updates_touch BEFORE UPDATE ON app_updates FOR EACH ROW EXECU
 CREATE TRIGGER trg_limit_board_answers BEFORE INSERT ON board_answers FOR EACH ROW EXECUTE FUNCTION enforce_write_limit('author_id', 'created_at', '30', '600');
 CREATE TRIGGER trg_on_board_answer AFTER INSERT ON board_answers FOR EACH ROW EXECUTE FUNCTION on_board_answer();
 CREATE TRIGGER certificate_awarded_notifies AFTER INSERT ON certificate_awards FOR EACH ROW WHEN (certificates_live()) EXECUTE FUNCTION on_certificate_awarded();
+CREATE TRIGGER trg_zz_api_update_only BEFORE UPDATE ON certificate_awards FOR EACH ROW EXECUTE FUNCTION api_update_only('admin_ok', 'seen_at');
 CREATE TRIGGER trg_points_on_boost AFTER INSERT OR DELETE OR UPDATE ON challenge_boosts FOR EACH ROW EXECUTE FUNCTION trg_recalc_points_on_boost();
 CREATE TRIGGER trg_points_on_collab AFTER INSERT OR DELETE OR UPDATE OF status ON challenge_collabs FOR EACH ROW EXECUTE FUNCTION trg_recalc_points_on_collab();
 CREATE TRIGGER trg_vip_not_in_groups BEFORE INSERT ON challenge_group_members FOR EACH ROW EXECUTE FUNCTION vip_not_in_groups();
@@ -53,7 +54,10 @@ CREATE TRIGGER trg_connections_stamp_accepted BEFORE INSERT OR UPDATE OF status 
 CREATE TRIGGER trg_limit_connections BEFORE INSERT ON connections FOR EACH ROW EXECUTE FUNCTION enforce_write_limit('creator_id', 'created_at', '40', '600');
 CREATE TRIGGER trg_on_connection_accepted AFTER UPDATE ON connections FOR EACH ROW EXECUTE FUNCTION on_connection_accepted();
 CREATE TRIGGER trg_on_connection_request AFTER INSERT ON connections FOR EACH ROW EXECUTE FUNCTION on_connection_request();
+CREATE TRIGGER trg_zz_api_update_only BEFORE UPDATE ON connections FOR EACH ROW EXECUTE FUNCTION api_update_only('strict', 'status', 'accepted_at');
 CREATE TRIGGER trg_on_conversation_invite AFTER INSERT ON conversation_invites FOR EACH ROW EXECUTE FUNCTION on_conversation_invite();
+CREATE TRIGGER trg_zz_api_update_only BEFORE UPDATE ON conversation_invites FOR EACH ROW EXECUTE FUNCTION api_update_only('strict', 'status');
+CREATE TRIGGER trg_zz_api_update_only BEFORE UPDATE ON conversation_members FOR EACH ROW EXECUTE FUNCTION api_update_only('strict', 'last_read_at');
 CREATE TRIGGER trg_on_group_conversation AFTER INSERT ON conversations FOR EACH ROW EXECUTE FUNCTION on_group_conversation();
 CREATE TRIGGER trg_protect_conversation_shape BEFORE UPDATE ON conversations FOR EACH ROW EXECUTE FUNCTION protect_conversation_shape();
 CREATE TRIGGER award_milestone_certificate AFTER INSERT ON creator_milestones FOR EACH ROW EXECUTE FUNCTION on_milestone_certificate();
@@ -67,6 +71,7 @@ CREATE TRIGGER trg_on_dm_reply_connect AFTER INSERT ON direct_messages FOR EACH 
 CREATE TRIGGER trg_on_new_dm AFTER INSERT ON direct_messages FOR EACH ROW EXECUTE FUNCTION on_new_dm();
 CREATE TRIGGER trg_sandbox_cannot_dm BEFORE INSERT ON direct_messages FOR EACH ROW EXECUTE FUNCTION sandbox_cannot_speak();
 CREATE TRIGGER trg_touch_conversation AFTER INSERT ON direct_messages FOR EACH ROW EXECUTE FUNCTION touch_conversation();
+CREATE TRIGGER trg_zz_api_update_only BEFORE UPDATE ON direct_messages FOR EACH ROW EXECUTE FUNCTION api_update_only('strict', 'read');
 CREATE TRIGGER trg_on_dm_reaction AFTER INSERT ON dm_reactions FOR EACH ROW EXECUTE FUNCTION on_dm_reaction();
 CREATE TRIGGER sandbox_read_only BEFORE INSERT OR DELETE OR UPDATE ON email_outbox FOR EACH ROW EXECUTE FUNCTION sandbox_is_read_only();
 CREATE TRIGGER trg_on_event_poll_created AFTER INSERT ON event_polls FOR EACH ROW EXECUTE FUNCTION on_event_poll_created();

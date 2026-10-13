@@ -9,6 +9,7 @@ CREATE OR REPLACE FUNCTION public.notify_inactive_creators()
  SET search_path TO 'public'
 AS $function$
 begin
+  -- One evaluation: the creators marked are exactly the creators the team is told about.
   with quiet as (
     select p.id, p.name, a.last_active_at
     from public.profiles p
@@ -20,20 +21,16 @@ begin
       and a.last_active_at > 'epoch'::timestamptz
       and a.last_active_at < now() - interval '30 days'
       and (p.inactive_alerted_at is null or p.inactive_alerted_at < a.last_active_at)
+  ), marked as (
+    update public.profiles p
+       set inactive_alerted_at = now()
+      from quiet q
+     where p.id = q.id
+    returning q.id, q.name
   )
   insert into public.notifications (recipient_id, type, title, body, link)
   select adm.id, 'inactive', 'Creator has gone quiet',
-         q.name || ' has not posted, entered or opened the app in over 30 days.',
-         '/profile/' || q.id
-  from quiet q cross join public.profiles adm where adm.is_admin and adm.is_test = false;
-
-  update public.profiles p
-  set inactive_alerted_at = now()
-  from public.creator_activity() a
-  where a.id = p.id
-    and p.status = 'active' and not p.is_admin and p.is_test = false
-    and p.deletion_requested_at is null
-    and a.last_active_at > 'epoch'::timestamptz
-    and a.last_active_at < now() - interval '30 days'
-    and (p.inactive_alerted_at is null or p.inactive_alerted_at < a.last_active_at);
+         m.name || ' has not posted, entered or opened the app in over 30 days.',
+         '/profile/' || m.id
+  from marked m cross join public.profiles adm where adm.is_admin and adm.is_test = false;
 end; $function$;

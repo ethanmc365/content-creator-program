@@ -60,23 +60,39 @@ create policy "agreements: signed-in read" on public.agreements
   as permissive for select to authenticated
   using (((published_at IS NOT NULL) OR ( SELECT is_admin() AS is_admin)));
 
-create policy "app_settings: admin all" on public.app_settings
-  as permissive for all to public
-  using (( SELECT is_admin() AS gate))
-  with check (( SELECT is_admin() AS gate));
+create policy "app_settings: admin delete" on public.app_settings
+  as permissive for delete to authenticated
+  using (( SELECT is_admin() AS is_admin));
+
+create policy "app_settings: admin insert" on public.app_settings
+  as permissive for insert to authenticated
+  with check (( SELECT is_admin() AS is_admin));
+
+create policy "app_settings: admin update" on public.app_settings
+  as permissive for update to authenticated
+  using (( SELECT is_admin() AS is_admin))
+  with check (( SELECT is_admin() AS is_admin));
 
 create policy "app_settings: read public flags" on public.app_settings
   as permissive for select to authenticated
-  using ((key = ANY (ARRAY['tour_enabled'::text, 'referral_reward'::text])));
+  using (((key = ANY (ARRAY['tour_enabled'::text, 'referral_reward'::text])) OR ( SELECT is_admin() AS is_admin)));
+
+create policy "app_updates: admin delete" on public.app_updates
+  as permissive for delete to authenticated
+  using (( SELECT is_admin() AS is_admin));
+
+create policy "app_updates: admin insert" on public.app_updates
+  as permissive for insert to authenticated
+  with check (( SELECT is_admin() AS is_admin));
+
+create policy "app_updates: admin update" on public.app_updates
+  as permissive for update to authenticated
+  using (( SELECT is_admin() AS is_admin))
+  with check (( SELECT is_admin() AS is_admin));
 
 create policy "updates: read" on public.app_updates
   as permissive for select to authenticated
-  using ((published OR ( SELECT is_admin() AS gate)));
-
-create policy "updates: team writes" on public.app_updates
-  as permissive for all to authenticated
-  using (( SELECT is_admin() AS gate))
-  with check (( SELECT is_admin() AS gate));
+  using ((published OR ( SELECT is_admin() AS gate) OR ( SELECT is_admin() AS is_admin)));
 
 create policy "app decisions: admin read" on public.application_decisions
   as permissive for select to authenticated
@@ -118,45 +134,64 @@ create policy board_questions_update on public.board_questions
   using (((author_id = ( SELECT auth.uid() AS gate)) OR ( SELECT is_admin() AS gate)))
   with check (((author_id = ( SELECT auth.uid() AS gate)) OR ( SELECT is_admin() AS gate)));
 
-create policy "admins manage awards" on public.certificate_awards
-  as permissive for all to authenticated
-  using (( SELECT is_admin() AS is_admin))
+create policy "certificate_awards: admin delete" on public.certificate_awards
+  as permissive for delete to authenticated
+  using (( SELECT is_admin() AS is_admin));
+
+create policy "certificate_awards: admin insert" on public.certificate_awards
+  as permissive for insert to authenticated
   with check (( SELECT is_admin() AS is_admin));
 
 create policy "creators mark their certificates seen" on public.certificate_awards
   as permissive for update to authenticated
-  using ((profile_id = ( SELECT auth.uid() AS uid)))
-  with check ((profile_id = ( SELECT auth.uid() AS uid)));
+  using (((profile_id = ( SELECT auth.uid() AS uid)) OR ( SELECT is_admin() AS is_admin)))
+  with check (((profile_id = ( SELECT auth.uid() AS uid)) OR ( SELECT is_admin() AS is_admin)));
 
 create policy "creators read their certificates" on public.certificate_awards
   as permissive for select to public
-  using ((( SELECT is_admin() AS is_admin) OR ((profile_id = ( SELECT auth.uid() AS uid)) AND ( SELECT certificates_live() AS certificates_live))));
+  using ((( SELECT is_admin() AS is_admin) OR ((profile_id = ( SELECT auth.uid() AS uid)) AND ( SELECT certificates_live() AS certificates_live)) OR ( SELECT is_admin() AS is_admin)));
 
 create policy "admins read archived awards" on public.certificate_awards_archive
   as permissive for select to public
   using (( SELECT is_admin() AS gate));
 
-create policy "admins manage designs" on public.certificate_designs
-  as permissive for all to authenticated
+create policy "certificate_designs: admin delete" on public.certificate_designs
+  as permissive for delete to authenticated
+  using (( SELECT is_admin() AS is_admin));
+
+create policy "certificate_designs: admin insert" on public.certificate_designs
+  as permissive for insert to authenticated
+  with check (( SELECT is_admin() AS is_admin));
+
+create policy "certificate_designs: admin update" on public.certificate_designs
+  as permissive for update to authenticated
   using (( SELECT is_admin() AS is_admin))
   with check (( SELECT is_admin() AS is_admin));
 
 create policy "creators read live designs" on public.certificate_designs
   as permissive for select to authenticated
-  using ((is_active OR ( SELECT is_admin() AS is_admin)));
+  using ((is_active OR ( SELECT is_admin() AS is_admin) OR ( SELECT is_admin() AS is_admin)));
 
 create policy "admins read archived designs" on public.certificate_designs_archive
   as permissive for select to public
   using (( SELECT is_admin() AS gate));
 
-create policy "boosts: admins write" on public.challenge_boosts
-  as permissive for all to authenticated
-  using (( SELECT is_admin() AS gate))
-  with check (( SELECT is_admin() AS gate));
-
 create policy "boosts: read" on public.challenge_boosts
   as permissive for select to authenticated
-  using (true);
+  using ((true OR ( SELECT is_admin() AS is_admin)));
+
+create policy "challenge_boosts: admin delete" on public.challenge_boosts
+  as permissive for delete to authenticated
+  using (( SELECT is_admin() AS is_admin));
+
+create policy "challenge_boosts: admin insert" on public.challenge_boosts
+  as permissive for insert to authenticated
+  with check (( SELECT is_admin() AS is_admin));
+
+create policy "challenge_boosts: admin update" on public.challenge_boosts
+  as permissive for update to authenticated
+  using (( SELECT is_admin() AS is_admin))
+  with check (( SELECT is_admin() AS is_admin));
 
 create policy "collabs: admin remove" on public.challenge_collabs
   as permissive for delete to authenticated
@@ -166,32 +201,56 @@ create policy "collabs: involved read" on public.challenge_collabs
   as permissive for select to authenticated
   using (((requester_id = ( SELECT auth.uid() AS gate)) OR (partner_id = ( SELECT auth.uid() AS gate)) OR ( SELECT is_admin() AS gate)));
 
-create policy challenge_group_members_manage on public.challenge_group_members
-  as permissive for all to authenticated
-  using (( SELECT is_admin() AS gate))
-  with check (( SELECT is_admin() AS gate));
+create policy "challenge_group_members: admin delete" on public.challenge_group_members
+  as permissive for delete to authenticated
+  using (( SELECT is_admin() AS is_admin));
+
+create policy "challenge_group_members: admin insert" on public.challenge_group_members
+  as permissive for insert to authenticated
+  with check (( SELECT is_admin() AS is_admin));
+
+create policy "challenge_group_members: admin update" on public.challenge_group_members
+  as permissive for update to authenticated
+  using (( SELECT is_admin() AS is_admin))
+  with check (( SELECT is_admin() AS is_admin));
 
 create policy challenge_group_members_read on public.challenge_group_members
   as permissive for select to authenticated
-  using (true);
+  using ((true OR ( SELECT is_admin() AS is_admin)));
 
-create policy challenge_groups_manage on public.challenge_groups
-  as permissive for all to authenticated
-  using (( SELECT is_admin() AS gate))
-  with check (( SELECT is_admin() AS gate));
+create policy "challenge_groups: admin delete" on public.challenge_groups
+  as permissive for delete to authenticated
+  using (( SELECT is_admin() AS is_admin));
+
+create policy "challenge_groups: admin insert" on public.challenge_groups
+  as permissive for insert to authenticated
+  with check (( SELECT is_admin() AS is_admin));
+
+create policy "challenge_groups: admin update" on public.challenge_groups
+  as permissive for update to authenticated
+  using (( SELECT is_admin() AS is_admin))
+  with check (( SELECT is_admin() AS is_admin));
 
 create policy challenge_groups_read on public.challenge_groups
   as permissive for select to authenticated
-  using (true);
+  using ((true OR ( SELECT is_admin() AS is_admin)));
+
+create policy "challenge_history: admin delete" on public.challenge_history
+  as permissive for delete to authenticated
+  using (( SELECT is_admin() AS is_admin));
+
+create policy "challenge_history: admin insert" on public.challenge_history
+  as permissive for insert to authenticated
+  with check (( SELECT is_admin() AS is_admin));
+
+create policy "challenge_history: admin update" on public.challenge_history
+  as permissive for update to authenticated
+  using (( SELECT is_admin() AS is_admin))
+  with check (( SELECT is_admin() AS is_admin));
 
 create policy "challenge_history: admins read" on public.challenge_history
   as permissive for select to public
-  using (( SELECT is_admin() AS gate));
-
-create policy "challenge_history: admins write" on public.challenge_history
-  as permissive for all to public
-  using (( SELECT is_admin() AS gate))
-  with check (( SELECT is_admin() AS gate));
+  using ((( SELECT is_admin() AS gate) OR ( SELECT is_admin() AS is_admin)));
 
 create policy "admins delete their own templates" on public.challenge_templates
   as permissive for delete to authenticated
@@ -214,19 +273,35 @@ create policy "voucher day wins: read" on public.challenge_voucher_day_wins
   as permissive for select to authenticated
   using (true);
 
-create policy "voucher days: admins write" on public.challenge_voucher_days
-  as permissive for all to authenticated
+create policy "challenge_voucher_days: admin delete" on public.challenge_voucher_days
+  as permissive for delete to authenticated
+  using (( SELECT is_admin() AS is_admin));
+
+create policy "challenge_voucher_days: admin insert" on public.challenge_voucher_days
+  as permissive for insert to authenticated
+  with check (( SELECT is_admin() AS is_admin));
+
+create policy "challenge_voucher_days: admin update" on public.challenge_voucher_days
+  as permissive for update to authenticated
   using (( SELECT is_admin() AS is_admin))
   with check (( SELECT is_admin() AS is_admin));
 
 create policy "voucher days: read" on public.challenge_voucher_days
   as permissive for select to authenticated
-  using (true);
+  using ((true OR ( SELECT is_admin() AS is_admin)));
 
-create policy "challenges: admin manage" on public.challenges
-  as permissive for all to authenticated
-  using (( SELECT is_admin() AS gate))
-  with check (( SELECT is_admin() AS gate));
+create policy "challenges: admin delete" on public.challenges
+  as permissive for delete to authenticated
+  using (( SELECT is_admin() AS is_admin));
+
+create policy "challenges: admin insert" on public.challenges
+  as permissive for insert to authenticated
+  with check (( SELECT is_admin() AS is_admin));
+
+create policy "challenges: admin update" on public.challenges
+  as permissive for update to authenticated
+  using (( SELECT is_admin() AS is_admin))
+  with check (( SELECT is_admin() AS is_admin));
 
 create policy "challenges: not for vips" on public.challenges
   as restrictive for select to public
@@ -234,7 +309,7 @@ create policy "challenges: not for vips" on public.challenges
 
 create policy "challenges: read published" on public.challenges
   as permissive for select to public
-  using ((( SELECT is_admin() AS gate) OR (( SELECT is_member() AS gate) AND (status <> 'draft'::text) AND ((community_id IS NULL) OR (community_id IN ( SELECT my_scopes() AS my_scopes)) OR (status = 'archived'::text)))));
+  using ((( SELECT is_admin() AS gate) OR (( SELECT is_member() AS gate) AND (status <> 'draft'::text) AND ((community_id IS NULL) OR (community_id IN ( SELECT my_scopes() AS my_scopes)) OR (status = 'archived'::text))) OR ( SELECT is_admin() AS is_admin)));
 
 create policy "channel_reads: members read" on public.channel_reads
   as permissive for select to authenticated
@@ -442,28 +517,56 @@ create policy "conversations: start as yourself" on public.conversations
   as permissive for insert to public
   with check ((( SELECT can_post() AS gate) AND (((kind = 'direct'::text) AND ((participant_a = ( SELECT auth.uid() AS uid)) OR (participant_b = ( SELECT auth.uid() AS uid)))) OR ((kind = 'group'::text) AND (created_by = ( SELECT auth.uid() AS uid))))));
 
-create policy "admin notes: admins only" on public.creator_admin_notes
-  as permissive for all to authenticated
-  using (( SELECT is_admin() AS gate))
-  with check (( SELECT is_admin() AS gate));
+create policy "creator_admin_notes: admin delete" on public.creator_admin_notes
+  as permissive for delete to authenticated
+  using (( SELECT is_admin() AS is_admin));
 
-create policy "admins manage kit" on public.creator_kit_assets
-  as permissive for all to authenticated
+create policy "creator_admin_notes: admin insert" on public.creator_admin_notes
+  as permissive for insert to authenticated
+  with check (( SELECT is_admin() AS is_admin));
+
+create policy "creator_admin_notes: admin read" on public.creator_admin_notes
+  as permissive for select to authenticated
+  using (( SELECT is_admin() AS is_admin));
+
+create policy "creator_admin_notes: admin update" on public.creator_admin_notes
+  as permissive for update to authenticated
+  using (( SELECT is_admin() AS is_admin))
+  with check (( SELECT is_admin() AS is_admin));
+
+create policy "creator_kit_assets: admin delete" on public.creator_kit_assets
+  as permissive for delete to authenticated
+  using (( SELECT is_admin() AS is_admin));
+
+create policy "creator_kit_assets: admin insert" on public.creator_kit_assets
+  as permissive for insert to authenticated
+  with check (( SELECT is_admin() AS is_admin));
+
+create policy "creator_kit_assets: admin update" on public.creator_kit_assets
+  as permissive for update to authenticated
   using (( SELECT is_admin() AS is_admin))
   with check (( SELECT is_admin() AS is_admin));
 
 create policy "creators read active kit" on public.creator_kit_assets
   as permissive for select to authenticated
-  using ((is_active OR ( SELECT is_admin() AS is_admin)));
+  using ((is_active OR ( SELECT is_admin() AS is_admin) OR ( SELECT is_admin() AS is_admin)));
+
+create policy "creator_milestones: admin delete" on public.creator_milestones
+  as permissive for delete to authenticated
+  using (( SELECT is_admin() AS is_admin));
+
+create policy "creator_milestones: admin insert" on public.creator_milestones
+  as permissive for insert to authenticated
+  with check (( SELECT is_admin() AS is_admin));
+
+create policy "creator_milestones: admin update" on public.creator_milestones
+  as permissive for update to authenticated
+  using (( SELECT is_admin() AS is_admin))
+  with check (( SELECT is_admin() AS is_admin));
 
 create policy creator_milestones_read on public.creator_milestones
   as permissive for select to authenticated
-  using (true);
-
-create policy creator_milestones_write on public.creator_milestones
-  as permissive for all to authenticated
-  using (( SELECT is_admin() AS gate))
-  with check (( SELECT is_admin() AS gate));
+  using ((true OR ( SELECT is_admin() AS is_admin)));
 
 create policy "creator_photos: manage own" on public.creator_photos
   as permissive for all to authenticated
@@ -554,10 +657,22 @@ create policy "dm_reactions: remove own" on public.dm_reactions
   as permissive for delete to authenticated
   using ((creator_id = ( SELECT auth.uid() AS gate)));
 
-create policy "email_campaigns: admin only" on public.email_campaigns
-  as permissive for all to authenticated
-  using (( SELECT is_admin() AS gate))
-  with check (( SELECT is_admin() AS gate));
+create policy "email_campaigns: admin delete" on public.email_campaigns
+  as permissive for delete to authenticated
+  using (( SELECT is_admin() AS is_admin));
+
+create policy "email_campaigns: admin insert" on public.email_campaigns
+  as permissive for insert to authenticated
+  with check (( SELECT is_admin() AS is_admin));
+
+create policy "email_campaigns: admin read" on public.email_campaigns
+  as permissive for select to authenticated
+  using (( SELECT is_admin() AS is_admin));
+
+create policy "email_campaigns: admin update" on public.email_campaigns
+  as permissive for update to authenticated
+  using (( SELECT is_admin() AS is_admin))
+  with check (( SELECT is_admin() AS is_admin));
 
 create policy "email_outbox: admin delete" on public.email_outbox
   as permissive for delete to public
@@ -585,14 +700,22 @@ create policy "email_templates: admin write" on public.email_templates
   using (( SELECT is_admin() AS gate))
   with check (( SELECT is_admin() AS gate));
 
-create policy "event_poll_slots: admin write" on public.event_poll_slots
-  as permissive for all to public
-  using (( SELECT is_admin() AS gate))
-  with check (( SELECT is_admin() AS gate));
+create policy "event_poll_slots: admin delete" on public.event_poll_slots
+  as permissive for delete to authenticated
+  using (( SELECT is_admin() AS is_admin));
+
+create policy "event_poll_slots: admin insert" on public.event_poll_slots
+  as permissive for insert to authenticated
+  with check (( SELECT is_admin() AS is_admin));
+
+create policy "event_poll_slots: admin update" on public.event_poll_slots
+  as permissive for update to authenticated
+  using (( SELECT is_admin() AS is_admin))
+  with check (( SELECT is_admin() AS is_admin));
 
 create policy "event_poll_slots: members read" on public.event_poll_slots
   as permissive for select to public
-  using (( SELECT is_member() AS gate));
+  using ((( SELECT is_member() AS gate) OR ( SELECT is_admin() AS is_admin)));
 
 create policy "event_poll_votes: members read" on public.event_poll_votes
   as permissive for select to public
@@ -610,14 +733,22 @@ create policy "event_poll_votes: own update" on public.event_poll_votes
   as permissive for update to public
   using ((creator_id = ( SELECT auth.uid() AS uid)));
 
-create policy "event_polls: admin write" on public.event_polls
-  as permissive for all to public
-  using (( SELECT is_admin() AS gate))
-  with check (( SELECT is_admin() AS gate));
+create policy "event_polls: admin delete" on public.event_polls
+  as permissive for delete to authenticated
+  using (( SELECT is_admin() AS is_admin));
+
+create policy "event_polls: admin insert" on public.event_polls
+  as permissive for insert to authenticated
+  with check (( SELECT is_admin() AS is_admin));
+
+create policy "event_polls: admin update" on public.event_polls
+  as permissive for update to authenticated
+  using (( SELECT is_admin() AS is_admin))
+  with check (( SELECT is_admin() AS is_admin));
 
 create policy "event_polls: members read" on public.event_polls
   as permissive for select to public
-  using (( SELECT is_member() AS gate));
+  using ((( SELECT is_member() AS gate) OR ( SELECT is_admin() AS is_admin)));
 
 create policy "event_ratings: own insert" on public.event_ratings
   as permissive for insert to public
@@ -669,23 +800,18 @@ create policy "event_suggestions: own or admin read" on public.event_suggestions
   as permissive for select to public
   using (((creator_id = ( SELECT auth.uid() AS uid)) OR ( SELECT is_admin() AS gate)));
 
-create policy "events: admin manage" on public.events
-  as permissive for all to authenticated
-  using (( SELECT is_admin() AS gate))
-  with check (( SELECT is_admin() AS gate));
-
 create policy "events: own personal delete" on public.events
   as permissive for delete to authenticated
-  using ((owner_id = ( SELECT auth.uid() AS uid)));
+  using (((owner_id = ( SELECT auth.uid() AS uid)) OR ( SELECT is_admin() AS is_admin)));
 
 create policy "events: own personal insert" on public.events
   as permissive for insert to authenticated
-  with check (((owner_id = ( SELECT auth.uid() AS uid)) AND ( SELECT can_post() AS gate)));
+  with check ((((owner_id = ( SELECT auth.uid() AS uid)) AND ( SELECT can_post() AS gate)) OR ( SELECT is_admin() AS is_admin)));
 
 create policy "events: own personal update" on public.events
   as permissive for update to authenticated
-  using ((owner_id = ( SELECT auth.uid() AS uid)))
-  with check ((owner_id = ( SELECT auth.uid() AS uid)));
+  using (((owner_id = ( SELECT auth.uid() AS uid)) OR ( SELECT is_admin() AS is_admin)))
+  with check (((owner_id = ( SELECT auth.uid() AS uid)) OR ( SELECT is_admin() AS is_admin)));
 
 create policy "events: personal stay private" on public.events
   as restrictive for all to authenticated
@@ -694,38 +820,41 @@ create policy "events: personal stay private" on public.events
 
 create policy "events: read for members" on public.events
   as permissive for select to authenticated
-  using (( SELECT is_member() AS gate));
-
-create policy "faq_questions: admins" on public.faq_questions
-  as permissive for all to authenticated
-  using (( SELECT is_admin() AS gate))
-  with check (( SELECT is_admin() AS gate));
+  using ((( SELECT is_member() AS gate) OR ( SELECT is_admin() AS is_admin)));
 
 create policy "faq_questions: ask" on public.faq_questions
   as permissive for insert to authenticated
-  with check (((asker_id = ( SELECT auth.uid() AS uid)) AND ( SELECT can_post() AS gate) AND (status = 'open'::text) AND (answer IS NULL) AND (NOT is_public)));
+  with check ((((asker_id = ( SELECT auth.uid() AS uid)) AND ( SELECT can_post() AS gate) AND (status = 'open'::text) AND (answer IS NULL) AND (NOT is_public)) OR ( SELECT is_admin() AS is_admin)));
 
 create policy "faq_questions: asker edits open" on public.faq_questions
   as permissive for update to authenticated
-  using (((asker_id = ( SELECT auth.uid() AS uid)) AND (status = 'open'::text)))
-  with check (((asker_id = ( SELECT auth.uid() AS uid)) AND (status = 'open'::text) AND (answer IS NULL) AND (NOT is_public)));
+  using ((((asker_id = ( SELECT auth.uid() AS uid)) AND (status = 'open'::text)) OR ( SELECT is_admin() AS is_admin)))
+  with check ((((asker_id = ( SELECT auth.uid() AS uid)) AND (status = 'open'::text) AND (answer IS NULL) AND (NOT is_public)) OR ( SELECT is_admin() AS is_admin)));
 
 create policy "faq_questions: asker withdraws open" on public.faq_questions
   as permissive for delete to authenticated
-  using (((asker_id = ( SELECT auth.uid() AS uid)) AND (status = 'open'::text)));
+  using ((((asker_id = ( SELECT auth.uid() AS uid)) AND (status = 'open'::text)) OR ( SELECT is_admin() AS is_admin)));
 
 create policy "faq_questions: read" on public.faq_questions
   as permissive for select to authenticated
-  using (((asker_id = ( SELECT auth.uid() AS uid)) OR (is_public AND (status = 'answered'::text) AND ( SELECT is_member() AS gate)) OR ( SELECT is_admin() AS gate)));
+  using (((asker_id = ( SELECT auth.uid() AS uid)) OR (is_public AND (status = 'answered'::text) AND ( SELECT is_member() AS gate)) OR ( SELECT is_admin() AS gate) OR ( SELECT is_admin() AS is_admin)));
 
-create policy "faqs: admins write" on public.faqs
-  as permissive for all to authenticated
-  using (( SELECT is_admin() AS gate))
-  with check (( SELECT is_admin() AS gate));
+create policy "faqs: admin delete" on public.faqs
+  as permissive for delete to authenticated
+  using (( SELECT is_admin() AS is_admin));
+
+create policy "faqs: admin insert" on public.faqs
+  as permissive for insert to authenticated
+  with check (( SELECT is_admin() AS is_admin));
+
+create policy "faqs: admin update" on public.faqs
+  as permissive for update to authenticated
+  using (( SELECT is_admin() AS is_admin))
+  with check (( SELECT is_admin() AS is_admin));
 
 create policy "faqs: members read published" on public.faqs
   as permissive for select to authenticated
-  using (((published AND ( SELECT is_member() AS gate)) OR ( SELECT is_admin() AS gate)));
+  using (((published AND ( SELECT is_member() AS gate)) OR ( SELECT is_admin() AS gate) OR ( SELECT is_admin() AS is_admin)));
 
 create policy "feedback: admin delete" on public.feedback
   as permissive for delete to authenticated
@@ -761,14 +890,22 @@ create policy "flights: own update" on public.flights
   using ((creator_id = ( SELECT auth.uid() AS uid)))
   with check ((creator_id = ( SELECT auth.uid() AS uid)));
 
-create policy "game_events: admin manage" on public.game_events
-  as permissive for all to authenticated
-  using (( SELECT is_admin() AS gate))
-  with check (( SELECT is_admin() AS gate));
+create policy "game_events: admin delete" on public.game_events
+  as permissive for delete to authenticated
+  using (( SELECT is_admin() AS is_admin));
+
+create policy "game_events: admin insert" on public.game_events
+  as permissive for insert to authenticated
+  with check (( SELECT is_admin() AS is_admin));
+
+create policy "game_events: admin update" on public.game_events
+  as permissive for update to authenticated
+  using (( SELECT is_admin() AS is_admin))
+  with check (( SELECT is_admin() AS is_admin));
 
 create policy "game_events: read for members" on public.game_events
   as permissive for select to authenticated
-  using (( SELECT is_member() AS gate));
+  using ((( SELECT is_member() AS gate) OR ( SELECT is_admin() AS is_admin)));
 
 create policy "game_scores: admin delete" on public.game_scores
   as permissive for delete to authenticated
@@ -803,14 +940,22 @@ create policy "hooks: members read the active ones" on public.hooks
   as permissive for select to authenticated
   using (((is_active AND ( SELECT is_member() AS gate)) OR ( SELECT is_admin() AS gate)));
 
-create policy "invoices: admin all" on public.invoices
-  as permissive for all to public
-  using (( SELECT is_admin() AS gate))
-  with check (( SELECT is_admin() AS gate));
+create policy "invoices: admin delete" on public.invoices
+  as permissive for delete to authenticated
+  using (( SELECT is_admin() AS is_admin));
+
+create policy "invoices: admin insert" on public.invoices
+  as permissive for insert to authenticated
+  with check (( SELECT is_admin() AS is_admin));
+
+create policy "invoices: admin update" on public.invoices
+  as permissive for update to authenticated
+  using (( SELECT is_admin() AS is_admin))
+  with check (( SELECT is_admin() AS is_admin));
 
 create policy "invoices: own read" on public.invoices
   as permissive for select to public
-  using (((creator_id = ( SELECT auth.uid() AS uid)) AND (stage = ANY (ARRAY['sent'::text, 'paid'::text]))));
+  using ((((creator_id = ( SELECT auth.uid() AS uid)) AND (stage = ANY (ARRAY['sent'::text, 'paid'::text]))) OR ( SELECT is_admin() AS is_admin)));
 
 create policy "job_apps: admin update" on public.job_applications
   as permissive for update to public
@@ -829,14 +974,22 @@ create policy "job_apps: withdraw own or admin" on public.job_applications
   as permissive for delete to public
   using (((creator_id = ( SELECT auth.uid() AS uid)) OR ( SELECT is_admin() AS gate)));
 
-create policy "jobs: admin manage" on public.jobs
-  as permissive for all to authenticated
-  using (( SELECT is_admin() AS gate))
-  with check (( SELECT is_admin() AS gate));
+create policy "jobs: admin delete" on public.jobs
+  as permissive for delete to authenticated
+  using (( SELECT is_admin() AS is_admin));
+
+create policy "jobs: admin insert" on public.jobs
+  as permissive for insert to authenticated
+  with check (( SELECT is_admin() AS is_admin));
+
+create policy "jobs: admin update" on public.jobs
+  as permissive for update to authenticated
+  using (( SELECT is_admin() AS is_admin))
+  with check (( SELECT is_admin() AS is_admin));
 
 create policy "jobs: read open or admin" on public.jobs
   as permissive for select to authenticated
-  using (((( SELECT is_member() AS gate) AND (status = 'open'::text)) OR ( SELECT is_admin() AS gate)));
+  using (((( SELECT is_member() AS gate) AND (status = 'open'::text)) OR ( SELECT is_admin() AS gate) OR ( SELECT is_admin() AS is_admin)));
 
 create policy "kpi_targets: any admin can read" on public.kpi_targets
   as permissive for select to public
@@ -922,23 +1075,39 @@ create policy "vips see introductions and vip rooms" on public.messages
   as restrictive for select to authenticated
   using (vip_room_key_allowed(channel_key(channel), ( SELECT vip_has_access() AS vip_has_access), ( SELECT vip_my_kind() AS vip_my_kind), ( SELECT vip_hides_announcements() AS vip_hides_announcements)));
 
-create policy "criteria admin" on public.milestone_criteria
-  as permissive for all to authenticated
-  using (( SELECT is_admin() AS gate))
-  with check (( SELECT is_admin() AS gate));
-
 create policy "criteria readable" on public.milestone_criteria
   as permissive for select to authenticated
-  using (true);
+  using ((true OR ( SELECT is_admin() AS is_admin)));
+
+create policy "milestone_criteria: admin delete" on public.milestone_criteria
+  as permissive for delete to authenticated
+  using (( SELECT is_admin() AS is_admin));
+
+create policy "milestone_criteria: admin insert" on public.milestone_criteria
+  as permissive for insert to authenticated
+  with check (( SELECT is_admin() AS is_admin));
+
+create policy "milestone_criteria: admin update" on public.milestone_criteria
+  as permissive for update to authenticated
+  using (( SELECT is_admin() AS is_admin))
+  with check (( SELECT is_admin() AS is_admin));
+
+create policy "milestones: admin delete" on public.milestones
+  as permissive for delete to authenticated
+  using (( SELECT is_admin() AS is_admin));
+
+create policy "milestones: admin insert" on public.milestones
+  as permissive for insert to authenticated
+  with check (( SELECT is_admin() AS is_admin));
+
+create policy "milestones: admin update" on public.milestones
+  as permissive for update to authenticated
+  using (( SELECT is_admin() AS is_admin))
+  with check (( SELECT is_admin() AS is_admin));
 
 create policy milestones_read on public.milestones
   as permissive for select to authenticated
-  using ((is_active OR ( SELECT is_admin() AS gate)));
-
-create policy milestones_write on public.milestones
-  as permissive for all to authenticated
-  using (( SELECT is_admin() AS gate))
-  with check (( SELECT is_admin() AS gate));
+  using ((is_active OR ( SELECT is_admin() AS gate) OR ( SELECT is_admin() AS is_admin)));
 
 create policy "notifications: clear own" on public.notifications
   as permissive for delete to authenticated
@@ -973,14 +1142,22 @@ create policy point_rules_read on public.point_rules
    FROM challenges c
   WHERE ((c.id = point_rules.challenge_id) AND (c.status = 'archived'::text))))));
 
-create policy "poll_options: admin manage" on public.poll_options
-  as permissive for all to authenticated
-  using (( SELECT is_admin() AS gate))
-  with check (( SELECT is_admin() AS gate));
+create policy "poll_options: admin delete" on public.poll_options
+  as permissive for delete to authenticated
+  using (( SELECT is_admin() AS is_admin));
+
+create policy "poll_options: admin insert" on public.poll_options
+  as permissive for insert to authenticated
+  with check (( SELECT is_admin() AS is_admin));
+
+create policy "poll_options: admin update" on public.poll_options
+  as permissive for update to authenticated
+  using (( SELECT is_admin() AS is_admin))
+  with check (( SELECT is_admin() AS is_admin));
 
 create policy "poll_options: read for members" on public.poll_options
   as permissive for select to authenticated
-  using (( SELECT is_member() AS gate));
+  using ((( SELECT is_member() AS gate) OR ( SELECT is_admin() AS is_admin)));
 
 create policy "poll_votes: change own vote" on public.poll_votes
   as permissive for delete to authenticated
@@ -994,14 +1171,22 @@ create policy "poll_votes: vote as yourself" on public.poll_votes
   as permissive for insert to authenticated
   with check (((voter_id = ( SELECT auth.uid() AS uid)) AND ( SELECT can_post() AS gate)));
 
-create policy "polls: admin manage" on public.polls
-  as permissive for all to authenticated
-  using (( SELECT is_admin() AS gate))
-  with check (( SELECT is_admin() AS gate));
+create policy "polls: admin delete" on public.polls
+  as permissive for delete to authenticated
+  using (( SELECT is_admin() AS is_admin));
+
+create policy "polls: admin insert" on public.polls
+  as permissive for insert to authenticated
+  with check (( SELECT is_admin() AS is_admin));
+
+create policy "polls: admin update" on public.polls
+  as permissive for update to authenticated
+  using (( SELECT is_admin() AS is_admin))
+  with check (( SELECT is_admin() AS is_admin));
 
 create policy "polls: read for members" on public.polls
   as permissive for select to authenticated
-  using (( SELECT is_member() AS gate));
+  using ((( SELECT is_member() AS gate) OR ( SELECT is_admin() AS is_admin)));
 
 create policy "profiles: admin update any" on public.profiles
   as permissive for update to authenticated
@@ -1038,18 +1223,22 @@ create policy "reactions: remove own" on public.reactions
   as permissive for delete to authenticated
   using ((creator_id = ( SELECT auth.uid() AS uid)));
 
-create policy "referrals: admin manage" on public.referrals
-  as permissive for all to authenticated
-  using (( SELECT is_admin() AS gate))
-  with check (( SELECT is_admin() AS gate));
+create policy "referrals: admin delete" on public.referrals
+  as permissive for delete to authenticated
+  using (( SELECT is_admin() AS is_admin));
+
+create policy "referrals: admin update" on public.referrals
+  as permissive for update to authenticated
+  using (( SELECT is_admin() AS is_admin))
+  with check (( SELECT is_admin() AS is_admin));
 
 create policy "referrals: create own" on public.referrals
   as permissive for insert to authenticated
-  with check (((referrer_id = ( SELECT auth.uid() AS uid)) AND ( SELECT can_post() AS gate)));
+  with check ((((referrer_id = ( SELECT auth.uid() AS uid)) AND ( SELECT can_post() AS gate)) OR ( SELECT is_admin() AS is_admin)));
 
 create policy "referrals: read own or admin" on public.referrals
   as permissive for select to authenticated
-  using (((referrer_id = ( SELECT auth.uid() AS uid)) OR ( SELECT is_admin() AS gate)));
+  using (((referrer_id = ( SELECT auth.uid() AS uid)) OR ( SELECT is_admin() AS gate) OR ( SELECT is_admin() AS is_admin)));
 
 create policy "resource_bookmarks: own delete" on public.resource_bookmarks
   as permissive for delete to public
@@ -1063,67 +1252,111 @@ create policy "resource_bookmarks: own read" on public.resource_bookmarks
   as permissive for select to public
   using ((creator_id = ( SELECT auth.uid() AS uid)));
 
-create policy "resources: admin manage" on public.resources
-  as permissive for all to authenticated
-  using (( SELECT is_admin() AS gate))
-  with check (( SELECT is_admin() AS gate));
+create policy "resources: admin delete" on public.resources
+  as permissive for delete to authenticated
+  using (( SELECT is_admin() AS is_admin));
+
+create policy "resources: admin insert" on public.resources
+  as permissive for insert to authenticated
+  with check (( SELECT is_admin() AS is_admin));
+
+create policy "resources: admin update" on public.resources
+  as permissive for update to authenticated
+  using (( SELECT is_admin() AS is_admin))
+  with check (( SELECT is_admin() AS is_admin));
 
 create policy "resources: read for members" on public.resources
   as permissive for select to authenticated
-  using (( SELECT is_member() AS gate));
+  using ((( SELECT is_member() AS gate) OR ( SELECT is_admin() AS is_admin)));
 
-create policy "results: admin manage" on public.results
-  as permissive for all to authenticated
-  using (( SELECT is_admin() AS gate))
-  with check (( SELECT is_admin() AS gate));
+create policy "results: admin delete" on public.results
+  as permissive for delete to authenticated
+  using (( SELECT is_admin() AS is_admin));
+
+create policy "results: admin insert" on public.results
+  as permissive for insert to authenticated
+  with check (( SELECT is_admin() AS is_admin));
+
+create policy "results: admin update" on public.results
+  as permissive for update to authenticated
+  using (( SELECT is_admin() AS is_admin))
+  with check (( SELECT is_admin() AS is_admin));
 
 create policy "results: read for members" on public.results
   as permissive for select to authenticated
-  using ((( SELECT is_member() AS gate) AND (( SELECT is_admin() AS gate) OR (creator_id = ( SELECT auth.uid() AS uid)) OR (NOT (creator_id = ANY (( SELECT test_creator_ids() AS gate)::uuid[]))))));
+  using (((( SELECT is_member() AS gate) AND (( SELECT is_admin() AS gate) OR (creator_id = ( SELECT auth.uid() AS uid)) OR (NOT (creator_id = ANY (( SELECT test_creator_ids() AS gate)::uuid[]))))) OR ( SELECT is_admin() AS is_admin)));
 
-create policy "rewards: admin manage" on public.rewards
-  as permissive for all to authenticated
-  using (( SELECT is_admin() AS gate))
-  with check (( SELECT is_admin() AS gate));
+create policy "rewards: admin delete" on public.rewards
+  as permissive for delete to authenticated
+  using (( SELECT is_admin() AS is_admin));
+
+create policy "rewards: admin insert" on public.rewards
+  as permissive for insert to authenticated
+  with check (( SELECT is_admin() AS is_admin));
+
+create policy "rewards: admin update" on public.rewards
+  as permissive for update to authenticated
+  using (( SELECT is_admin() AS is_admin))
+  with check (( SELECT is_admin() AS is_admin));
 
 create policy "rewards: read own" on public.rewards
   as permissive for select to authenticated
-  using (((creator_id = ( SELECT auth.uid() AS uid)) OR ( SELECT is_admin() AS gate)));
+  using (((creator_id = ( SELECT auth.uid() AS uid)) OR ( SELECT is_admin() AS gate) OR ( SELECT is_admin() AS is_admin)));
 
-create policy "scheduled announcements: admins only" on public.scheduled_announcements
-  as permissive for all to authenticated
-  using (( SELECT is_admin() AS gate))
-  with check (( SELECT is_admin() AS gate));
+create policy "scheduled_announcements: admin delete" on public.scheduled_announcements
+  as permissive for delete to authenticated
+  using (( SELECT is_admin() AS is_admin));
 
-create policy streak_freezes_admin on public.streak_freezes
-  as permissive for all to authenticated
-  using (( SELECT is_admin() AS gate))
-  with check (( SELECT is_admin() AS gate));
+create policy "scheduled_announcements: admin insert" on public.scheduled_announcements
+  as permissive for insert to authenticated
+  with check (( SELECT is_admin() AS is_admin));
+
+create policy "scheduled_announcements: admin read" on public.scheduled_announcements
+  as permissive for select to authenticated
+  using (( SELECT is_admin() AS is_admin));
+
+create policy "scheduled_announcements: admin update" on public.scheduled_announcements
+  as permissive for update to authenticated
+  using (( SELECT is_admin() AS is_admin))
+  with check (( SELECT is_admin() AS is_admin));
+
+create policy "streak_freezes: admin delete" on public.streak_freezes
+  as permissive for delete to authenticated
+  using (( SELECT is_admin() AS is_admin));
+
+create policy "streak_freezes: admin insert" on public.streak_freezes
+  as permissive for insert to authenticated
+  with check (( SELECT is_admin() AS is_admin));
+
+create policy "streak_freezes: admin update" on public.streak_freezes
+  as permissive for update to authenticated
+  using (( SELECT is_admin() AS is_admin))
+  with check (( SELECT is_admin() AS is_admin));
 
 create policy streak_freezes_read on public.streak_freezes
   as permissive for select to authenticated
-  using (true);
+  using ((true OR ( SELECT is_admin() AS is_admin)));
 
-create policy submission_bonus_claims_admin on public.submission_bonus_claims
-  as permissive for all to authenticated
-  using (( SELECT is_admin() AS gate))
-  with check (( SELECT is_admin() AS gate));
+create policy "submission_bonus_claims: admin update" on public.submission_bonus_claims
+  as permissive for update to authenticated
+  using (( SELECT is_admin() AS is_admin))
+  with check (( SELECT is_admin() AS is_admin));
 
 create policy submission_bonus_claims_own on public.submission_bonus_claims
   as permissive for insert to authenticated
-  with check (((creator_id = ( SELECT auth.uid() AS uid)) AND (EXISTS ( SELECT 1
+  with check ((((creator_id = ( SELECT auth.uid() AS uid)) AND (EXISTS ( SELECT 1
    FROM ((submissions s
      JOIN point_rules r ON ((r.id = submission_bonus_claims.rule_id)))
      JOIN challenges c ON ((c.id = s.challenge_id)))
-  WHERE ((s.id = submission_bonus_claims.submission_id) AND (s.creator_id = ( SELECT auth.uid() AS uid)) AND (s.challenge_id = submission_bonus_claims.challenge_id) AND (r.challenge_id = s.challenge_id) AND (r.kind = 'bonus'::text) AND r.is_active AND (NULLIF(btrim(COALESCE(r.prompt, ''::text)), ''::text) IS NOT NULL) AND (c.status = 'active'::text) AND ((r.starts_at IS NULL) OR (s.submitted_at >= r.starts_at)) AND ((r.ends_at IS NULL) OR (s.submitted_at <= r.ends_at)))))));
+  WHERE ((s.id = submission_bonus_claims.submission_id) AND (s.creator_id = ( SELECT auth.uid() AS uid)) AND (s.challenge_id = submission_bonus_claims.challenge_id) AND (r.challenge_id = s.challenge_id) AND (r.kind = 'bonus'::text) AND r.is_active AND (NULLIF(btrim(COALESCE(r.prompt, ''::text)), ''::text) IS NOT NULL) AND (c.status = 'active'::text) AND ((r.starts_at IS NULL) OR (s.submitted_at >= r.starts_at)) AND ((r.ends_at IS NULL) OR (s.submitted_at <= r.ends_at)))))) OR ( SELECT is_admin() AS is_admin)));
 
 create policy submission_bonus_claims_own_delete on public.submission_bonus_claims
   as permissive for delete to authenticated
-  using (((creator_id = ( SELECT auth.uid() AS uid)) OR ( SELECT is_admin() AS gate)));
+  using (((creator_id = ( SELECT auth.uid() AS uid)) OR ( SELECT is_admin() AS gate) OR ( SELECT is_admin() AS is_admin)));
 
 create policy submission_bonus_claims_read on public.submission_bonus_claims
   as permissive for select to authenticated
-  using (true);
+  using ((true OR ( SELECT is_admin() AS is_admin)));
 
 create policy "disqualifications: admins read" on public.submission_disqualifications
   as permissive for select to authenticated
@@ -1137,27 +1370,30 @@ create policy "entry feedback: mine or team" on public.submission_feedback
   as permissive for select to public
   using ((( SELECT is_admin() AS gate) OR (EXISTS ( SELECT 1
    FROM submissions s
-  WHERE ((s.id = submission_feedback.submission_id) AND (s.creator_id = ( SELECT auth.uid() AS uid)))))));
+  WHERE ((s.id = submission_feedback.submission_id) AND (s.creator_id = ( SELECT auth.uid() AS uid))))) OR ( SELECT is_admin() AS is_admin)));
 
-create policy "entry feedback: team writes" on public.submission_feedback
-  as permissive for all to public
-  using (( SELECT is_admin() AS gate))
-  with check (( SELECT is_admin() AS gate));
+create policy "submission_feedback: admin delete" on public.submission_feedback
+  as permissive for delete to authenticated
+  using (( SELECT is_admin() AS is_admin));
 
-create policy "submissions: admin manage" on public.submissions
-  as permissive for all to authenticated
-  using (( SELECT is_admin() AS gate))
-  with check (( SELECT is_admin() AS gate));
+create policy "submission_feedback: admin insert" on public.submission_feedback
+  as permissive for insert to authenticated
+  with check (( SELECT is_admin() AS is_admin));
+
+create policy "submission_feedback: admin update" on public.submission_feedback
+  as permissive for update to authenticated
+  using (( SELECT is_admin() AS is_admin))
+  with check (( SELECT is_admin() AS is_admin));
 
 create policy "submissions: create own" on public.submissions
   as permissive for insert to authenticated
-  with check (((creator_id = ( SELECT auth.uid() AS uid)) AND ( SELECT can_post() AS gate) AND (EXISTS ( SELECT 1
+  with check ((((creator_id = ( SELECT auth.uid() AS uid)) AND ( SELECT can_post() AS gate) AND (EXISTS ( SELECT 1
    FROM challenges c
-  WHERE ((c.id = submissions.challenge_id) AND (c.status = 'active'::text))))));
+  WHERE ((c.id = submissions.challenge_id) AND (c.status = 'active'::text))))) OR ( SELECT is_admin() AS is_admin)));
 
 create policy "submissions: delete own" on public.submissions
   as permissive for delete to authenticated
-  using ((creator_id = ( SELECT auth.uid() AS uid)));
+  using (((creator_id = ( SELECT auth.uid() AS uid)) OR ( SELECT is_admin() AS is_admin)));
 
 create policy "submissions: not for vips" on public.submissions
   as restrictive for insert to public
@@ -1165,12 +1401,12 @@ create policy "submissions: not for vips" on public.submissions
 
 create policy "submissions: read for members" on public.submissions
   as permissive for select to authenticated
-  using ((( SELECT is_member() AS gate) AND (( SELECT is_admin() AS gate) OR (creator_id = ( SELECT auth.uid() AS uid)) OR (NOT (creator_id = ANY (( SELECT test_creator_ids() AS gate)::uuid[]))))));
+  using (((( SELECT is_member() AS gate) AND (( SELECT is_admin() AS gate) OR (creator_id = ( SELECT auth.uid() AS uid)) OR (NOT (creator_id = ANY (( SELECT test_creator_ids() AS gate)::uuid[]))))) OR ( SELECT is_admin() AS is_admin)));
 
 create policy "submissions: update own caption" on public.submissions
   as permissive for update to authenticated
-  using ((creator_id = ( SELECT auth.uid() AS uid)))
-  with check ((creator_id = ( SELECT auth.uid() AS uid)));
+  using (((creator_id = ( SELECT auth.uid() AS uid)) OR ( SELECT is_admin() AS is_admin)))
+  with check (((creator_id = ( SELECT auth.uid() AS uid)) OR ( SELECT is_admin() AS is_admin)));
 
 create policy "survey responses: admins delete" on public.survey_responses
   as permissive for delete to authenticated
@@ -1188,28 +1424,44 @@ create policy "survey responses: read own" on public.survey_responses
   as permissive for select to authenticated
   using ((profile_id = ( SELECT auth.uid() AS uid)));
 
-create policy "surveys: admins manage" on public.surveys
-  as permissive for all to authenticated
+create policy "surveys: admin delete" on public.surveys
+  as permissive for delete to authenticated
+  using (( SELECT is_admin() AS is_admin));
+
+create policy "surveys: admin insert" on public.surveys
+  as permissive for insert to authenticated
+  with check (( SELECT is_admin() AS is_admin));
+
+create policy "surveys: admin update" on public.surveys
+  as permissive for update to authenticated
   using (( SELECT is_admin() AS is_admin))
   with check (( SELECT is_admin() AS is_admin));
 
 create policy "surveys: creators read their live ones" on public.surveys
   as permissive for select to authenticated
-  using (survey_is_for(id, ( SELECT auth.uid() AS uid)));
+  using ((survey_is_for(id, ( SELECT auth.uid() AS uid)) OR ( SELECT is_admin() AS is_admin)));
 
 create policy "global admins manage team invites" on public.team_invites
   as permissive for all to public
   using (( SELECT is_global_admin() AS gate))
   with check (( SELECT is_global_admin() AS gate));
 
+create policy "tracked_videos: admin delete" on public.tracked_videos
+  as permissive for delete to authenticated
+  using (( SELECT is_admin() AS is_admin));
+
+create policy "tracked_videos: admin insert" on public.tracked_videos
+  as permissive for insert to authenticated
+  with check (( SELECT is_admin() AS is_admin));
+
+create policy "tracked_videos: admin update" on public.tracked_videos
+  as permissive for update to authenticated
+  using (( SELECT is_admin() AS is_admin))
+  with check (( SELECT is_admin() AS is_admin));
+
 create policy tracked_videos_read on public.tracked_videos
   as permissive for select to authenticated
-  using (( SELECT is_admin() AS gate));
-
-create policy tracked_videos_write on public.tracked_videos
-  as permissive for all to authenticated
-  using (( SELECT is_admin() AS gate))
-  with check (( SELECT is_admin() AS gate));
+  using ((( SELECT is_admin() AS gate) OR ( SELECT is_admin() AS is_admin)));
 
 create policy "translations: everyone reads" on public.translations
   as permissive for select to public
@@ -1220,14 +1472,22 @@ create policy "translations: managers of that language write" on public.translat
   using (can_edit_locale(locale))
   with check (can_edit_locale(locale));
 
-create policy "view_snapshots: admin manage" on public.view_snapshots
-  as permissive for all to authenticated
-  using (( SELECT is_admin() AS gate))
-  with check (( SELECT is_admin() AS gate));
+create policy "view_snapshots: admin delete" on public.view_snapshots
+  as permissive for delete to authenticated
+  using (( SELECT is_admin() AS is_admin));
+
+create policy "view_snapshots: admin insert" on public.view_snapshots
+  as permissive for insert to authenticated
+  with check (( SELECT is_admin() AS is_admin));
+
+create policy "view_snapshots: admin update" on public.view_snapshots
+  as permissive for update to authenticated
+  using (( SELECT is_admin() AS is_admin))
+  with check (( SELECT is_admin() AS is_admin));
 
 create policy "view_snapshots: read for signed-in users" on public.view_snapshots
   as permissive for select to authenticated
-  using (true);
+  using ((true OR ( SELECT is_admin() AS is_admin)));
 
 create policy "vip announcements: read" on public.vip_announcements
   as permissive for select to public
