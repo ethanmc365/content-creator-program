@@ -256,8 +256,9 @@ export default function AdminMilestones() {
     // "delete what is there, insert what the form says" is one round trip each
     // and cannot leave an orphan behind. Diffing would be three queries to
     // achieve the same thing and one more place for a stale row to survive.
+    // The delete is checked: if it failed, inserting would duplicate every row.
+    if (!error && id) error = (await supabase.from('milestone_criteria').delete().eq('milestone_id', id)).error
     if (!error && id) {
-      await supabase.from('milestone_criteria').delete().eq('milestone_id', id)
       const ins = await supabase.from('milestone_criteria').insert(
         m.criteria.map((c) => ({
           milestone_id: id,

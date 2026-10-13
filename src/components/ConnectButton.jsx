@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabase'
 import { sendConnectionRequest } from '../lib/connections'
 import { Modal } from './ui'
 import { useIsMobile } from '../lib/useKeyboardInset'
-import { confirm } from '../lib/confirm'
+import { confirm, saved } from '../lib/confirm'
 import { useT } from '../lib/i18n'
 
 // LinkedIn-style connect control. `relation` is { relation, rowId } | null:
@@ -66,8 +66,9 @@ export default function ConnectButton({
       setAsking(true)
       return
     } else if (rel === 'pending_received') {
-      await supabase.from('connections').update({ status: 'accepted' }).eq('id', relation.rowId)
-      onChange?.({ relation: 'connected', rowId: relation.rowId })
+      if (await saved(supabase.from('connections').update({ status: 'accepted' }).eq('id', relation.rowId))) {
+        onChange?.({ relation: 'connected', rowId: relation.rowId })
+      }
     } else if (rel === 'connected') {
       // DISCONNECTING IS A DECISION, NOT A TOGGLE (3 Sep 2026).
       //
@@ -93,13 +94,11 @@ export default function ConnectButton({
       )
       if (!ok) return
       setBusy(true)
-      await supabase.from('connections').delete().eq('id', relation.rowId)
-      onChange?.(null)
+      if (await saved(supabase.from('connections').delete().eq('id', relation.rowId))) onChange?.(null)
     } else {
       // pending_sent: cancelling your OWN request, which asks nothing of
       // anybody and is undone by pressing Connect again.
-      await supabase.from('connections').delete().eq('id', relation.rowId)
-      onChange?.(null)
+      if (await saved(supabase.from('connections').delete().eq('id', relation.rowId))) onChange?.(null)
     }
     setBusy(false)
   }

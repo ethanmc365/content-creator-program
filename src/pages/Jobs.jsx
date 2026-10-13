@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
-import { confirm } from '../lib/confirm'
+import { confirm, saved } from '../lib/confirm'
 import { Badge, EmptyState, Modal, PageHeader, SkeletonCards, Spinner } from '../components/ui'
 import Icon from '../components/Icon'
 import { cx, timeAgo } from '../lib/utils'
@@ -62,8 +62,9 @@ export default function Jobs() {
 
   async function withdraw(job) {
     if (!await confirm(`Withdraw your application for "${job.title}"?`)) return
+    const before = applied
     setApplied((m) => { const n = new Map(m); n.delete(job.id); return n })
-    await supabase.from('job_applications').delete().eq('job_id', job.id).eq('creator_id', user.id)
+    if (!await saved(supabase.from('job_applications').delete().eq('job_id', job.id).eq('creator_id', user.id))) setApplied(before)
   }
 
   // THE OFFICIAL PROGRAMME LEADS (12 Oct 2026). Ethan: "no one has actually

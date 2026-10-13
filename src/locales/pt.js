@@ -3462,6 +3462,7 @@ export default {
   'Remove this video?': 'Remover este vídeo?',
   'Rename': 'Mudar o nome',
   'Reopen': 'Reabrir',
+  'Reorder': 'Reordenar',
   'Repeat entrants': 'Participantes que repetem',
   'Repeat until': 'Repetir até',
   'Repeat your password': 'Repete a palavra-passe',

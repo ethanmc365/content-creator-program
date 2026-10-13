@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
-import { confirm } from '../lib/confirm'
+import { confirm, saved } from '../lib/confirm'
 import { useSearchParams, Link } from 'react-router-dom'
 import { ComposableMap, Geographies, Geography, ZoomableGroup } from 'react-simple-maps'
 import { loadMapFeatures } from '../lib/mapCountries'
@@ -1006,7 +1006,7 @@ function Leaderboard({ mode, region, eventId, highlightUser, daily = false, head
     if (!isAdmin) return
     if (!await confirm(`Delete ${r.profiles?.name}'s score (${r.correct}/${r.total})?`)) return
     setRows((prev) => (prev ? prev.filter((x) => x.id !== r.id) : prev))
-    await supabase.from('game_scores').delete().eq('id', r.id)
+    await saved(supabase.from('game_scores').delete().eq('id', r.id))
   }
   const startPress = (r) => { if (isAdmin) pressTimer.current = setTimeout(() => { longPressedRef.current = true; deleteScore(r) }, 550) }
   const cancelPress = () => clearTimeout(pressTimer.current)

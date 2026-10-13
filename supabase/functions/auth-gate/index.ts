@@ -196,6 +196,19 @@ const DISPOSABLE = new Set([
 
 const EMAIL_RE = /^[^\s@]+@[^\s@.]+(\.[^\s@.]+)+$/
 
+// TYPOS OF THE BIG PROVIDERS. The mail-server check below cannot catch these:
+// squatters register them WITH a mail server (gnail.com and gmsil.com both
+// answer MX, and two existing members signed up on them, so their prize and
+// password emails go to a stranger). Asking is cheap; a wrong address is not.
+const TYPOS: Record<string, string> = {
+  'gnail.com': 'gmail.com', 'gmsil.com': 'gmail.com', 'gmial.com': 'gmail.com', 'gamil.com': 'gmail.com',
+  'gmai.com': 'gmail.com', 'gmail.co': 'gmail.com', 'gmaill.com': 'gmail.com', 'gmail.con': 'gmail.com',
+  'hotmial.com': 'hotmail.com', 'hotmal.com': 'hotmail.com', 'hotmail.con': 'hotmail.com', 'hotnail.com': 'hotmail.com',
+  'outlok.com': 'outlook.com', 'outloo.com': 'outlook.com', 'outlook.con': 'outlook.com',
+  'iclod.com': 'icloud.com', 'icloud.co': 'icloud.com', 'icoud.com': 'icloud.com',
+  'yaho.com': 'yahoo.com', 'yahooo.com': 'yahoo.com', 'yahoo.con': 'yahoo.com',
+}
+
 async function hasMail(domain: string): Promise<boolean> {
   const ask = async (type: string) => {
     const r = await fetch(
@@ -222,6 +235,7 @@ async function emailProblem(raw: string): Promise<string | null> {
   const email = String(raw || '').trim().toLowerCase()
   if (!EMAIL_RE.test(email)) return 'That does not look like an email address.'
   const domain = email.split('@')[1]
+  if (TYPOS[domain]) return `Did you mean ${email.split('@')[0]}@${TYPOS[domain]}? Check the address and try again.`
   if (DISPOSABLE.has(domain)) {
     return 'Please use a permanent email address. Prizes, invoices and password resets all go to it.'
   }

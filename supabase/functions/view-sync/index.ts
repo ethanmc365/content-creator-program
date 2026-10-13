@@ -1244,7 +1244,9 @@ async function igHandles(rows: Row[]): Promise<Map<string, string>> {
   return out
 }
 
-async function syncChunk(rows: Row[], progress: Progress): Promise<Progress> {
+// `quiet` reads without touching the published run status (see the new-entry
+// read in the handler): it must not overwrite a sweep's progress bar.
+async function syncChunk(rows: Row[], progress: Progress, quiet = false): Promise<Progress> {
   const p = { ...progress }
   let sincePublish = 0
 
@@ -1327,7 +1329,7 @@ async function syncChunk(rows: Row[], progress: Progress): Promise<Progress> {
     sincePublish += 1
     // Published often enough that the button counts up smoothly, rarely enough
     // that it is not one write per entry.
-    if (sincePublish >= 10) {
+    if (sincePublish >= 10 && !quiet) {
       sincePublish = 0
       await publishRun({ running: true, ...p })
     }
@@ -1346,7 +1348,7 @@ async function syncChunk(rows: Row[], progress: Progress): Promise<Progress> {
     pool(facebook, LANE_FACEBOOK, async (row) => { await one(row); await sleep(FB_GAP_MS) }),
   ])
 
-  await publishRun({ running: true, ...p })
+  if (!quiet) await publishRun({ running: true, ...p })
   return p
 }
 
@@ -1377,6 +1379,26 @@ async function eligibleChallengeIds(): Promise<string[]> {
 
 const ROW_COLS = 'id, video_url, platform, logged_views, platform_video_id, creator_id, posted_at, screen_text, views_synced_at'
 
+// Due for a reading: never read, read longer ago than the interval, or never
+// read SUCCESSFULLY. The last group is retried on every hourly tick instead of
+// waiting out the interval: a failed first read is usually transient (Facebook
+// answers about 1 request in 10 with a consent page) and until it works the
+// entry shows no views at all. A row that has a count keeps it and waits, and
+// errors that reading again cannot fix (a photo post, a link that is not a
+// video) are not retried early either.
+//
+// RETRY_GAP keeps a failing row from being due again INSIDE the run that just
+// tried it: a sweep chains while anything is still due, so without the gap one
+// stubborn link would be re-read by every chunk up to MAX_CHUNKS_PER_CHAIN.
+const PERMANENT_ERRORS = 'not_a_video,bad_url,unsupported'
+const RETRY_GAP_MS = 45 * 60_000
+function staleFilter(intervalHours: number): string {
+  const staleBefore = new Date(Date.now() - intervalHours * 3600_000).toISOString()
+  const retryBefore = new Date(Date.now() - RETRY_GAP_MS).toISOString()
+  return `views_synced_at.is.null,views_synced_at.lt.${staleBefore},` +
+    `and(logged_views.is.null,views_sync_error.not.is.null,views_sync_error.not.in.(${PERMANENT_ERRORS}),views_synced_at.lt.${retryBefore})`
+}
+
 // STALENESS BELONGS TO THE ENTRY, not to the run. Oldest reading first, so a
 // programme too big to read in one go drains evenly instead of the same first
 // hundred being refreshed over and over.
@@ -1396,8 +1418,7 @@ async function staleRows(challengeId: string | undefined, intervalHours: number,
   // means "read these now", and a button that quietly does nothing because
   // everything was read four hours ago is a button that looks broken.
   if (!force) {
-    const staleBefore = new Date(Date.now() - intervalHours * 3600_000).toISOString()
-    q = q.or(`views_synced_at.is.null,views_synced_at.lt.${staleBefore}`)
+    q = q.or(staleFilter(intervalHours))
   } else if (runStartedAt) {
     // A FORCED RUN NEVER READS AN ENTRY TWICE (26 Sep 2026). Each chunk used to
     // take the 120 OLDEST readings, and the entries the first chunk had just
@@ -1425,8 +1446,7 @@ async function countStale(challengeId: string | undefined, intervalHours: number
     q = q.in('challenge_id', ids)
   }
   if (!force) {
-    const staleBefore = new Date(Date.now() - intervalHours * 3600_000).toISOString()
-    q = q.or(`views_synced_at.is.null,views_synced_at.lt.${staleBefore}`)
+    q = q.or(staleFilter(intervalHours))
   }
   const { count } = await q
   return count ?? 0
@@ -1450,8 +1470,7 @@ export function vipReadCutoff(now = Date.now()): string {
 async function vipStaleRows(intervalHours: number, force: boolean, runStartedAt?: string): Promise<Row[]> {
   let q = supabase.from('vip_videos').select(VIP_COLS).eq('status', 'tracking').gte('submitted_at', vipReadCutoff())
   if (!force) {
-    const staleBefore = new Date(Date.now() - intervalHours * 3600_000).toISOString()
-    q = q.or(`views_synced_at.is.null,views_synced_at.lt.${staleBefore}`)
+    q = q.or(staleFilter(intervalHours))
   } else if (runStartedAt) {
     q = q.or(`views_synced_at.is.null,views_synced_at.lt.${runStartedAt}`)
   }
@@ -1462,8 +1481,7 @@ async function vipStaleRows(intervalHours: number, force: boolean, runStartedAt?
 async function countVipStale(intervalHours: number, force: boolean): Promise<number> {
   let q = supabase.from('vip_videos').select('id', { count: 'exact', head: true }).eq('status', 'tracking').gte('submitted_at', vipReadCutoff())
   if (!force) {
-    const staleBefore = new Date(Date.now() - intervalHours * 3600_000).toISOString()
-    q = q.or(`views_synced_at.is.null,views_synced_at.lt.${staleBefore}`)
+    q = q.or(staleFilter(intervalHours))
   }
   const { count } = await q
   return count ?? 0
@@ -1578,6 +1596,23 @@ Deno.serve(async (req) => {
   }
 
   const continuation = body.continuation
+
+  // A NEW ENTRY, read the moment it is saved (trigger `read_new_entry`). It
+  // runs beside whatever else is going: it used to pass through the guard
+  // below, so an entry submitted while the hourly sweep ran got a 409 and
+  // showed no views until the next hour. It is a handful of rows, so it neither
+  // claims the run lock nor writes the progress the "Sync now" button watches.
+  if (fromCron && body.submission_ids?.length) {
+    const rows = await namedRows(body.submission_ids)
+    if (!rows.length) return json(req, { accepted: 0 })
+    const progress: Progress = {
+      started_at: new Date().toISOString(), trigger: 'scheduled',
+      total: rows.length, done: 0, updated: 0, failed: 0, chunk: 1,
+    }
+    // deno-lint-ignore no-explicit-any
+    ;(globalThis as any).EdgeRuntime?.waitUntil?.(syncChunk(rows, progress, true))
+    return json(req, { accepted: rows.length }, 202)
+  }
 
   // One chain at a time. Pressing the button twice used to start two overlapping
   // sweeps writing the same rows. A CONTINUATION is already inside a run, so it

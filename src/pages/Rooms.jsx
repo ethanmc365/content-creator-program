@@ -252,6 +252,7 @@ function PlaceCard({ place, rooms, lastByChannel, unreadKeys, isNetwork, handleP
         {handleProps && (
           <button
             type="button"
+            aria-label={tr('Reorder')}
             {...handleProps}
             className="-mr-1 flex h-7 w-7 shrink-0 cursor-grab touch-none items-center justify-center rounded-lg text-gray-300 transition-colors hover:bg-cloud hover:text-smoke active:cursor-grabbing"
           >

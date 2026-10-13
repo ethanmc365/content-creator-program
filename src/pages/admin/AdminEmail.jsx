@@ -36,11 +36,8 @@ import { roleBadgeTitle } from '../../lib/roles'
 // made it untracked - and "did we ever welcome that creator" has no answer
 // anywhere else.
 //
-// The `send-welcome` edge function is no longer called from anywhere in the
-// client. It is left deployed rather than removed for the same reason
-// `broadcast-email` was left as a 410 stub: a function that is still up but
-// unreferenced is safe, and a deleted directory that leaves a live older
-// version reachable by URL is not. Retiring it properly is a separate job.
+// The old `send-welcome` and `broadcast-email` edge functions were retired on
+// 13 Oct 2026 (deleted from Supabase and from this repo).
 
 export default function AdminEmail() {
   const [people, setPeople] = useState([])   // creators, with their address

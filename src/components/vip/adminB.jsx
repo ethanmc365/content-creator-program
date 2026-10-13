@@ -5,7 +5,7 @@ import { Avatar, Modal, Select, Skeleton, Spinner, Toggle } from '../ui'
 import Segmented from '../network/Segmented'
 import { Link } from 'react-router-dom'
 import Icon from '../Icon'
-import { confirm, notice } from '../../lib/confirm'
+import { confirm, notice, saved } from '../../lib/confirm'
 import { toastSuccess } from '../../lib/toast'
 import { cx, downloadCsv, formatDate } from '../../lib/utils'
 import { BONUS_KINDS, FLAGS, MILESTONE_METRICS, SCOPES, curSym, describeRule, money, monthLabel, nf, perK, vipRpc, useKindT } from '../../lib/vip'
@@ -392,10 +392,10 @@ function MonthlyBonuses({ programme }) {
   }, [programme.id])
   useEffect(() => { setRules(null); load() }, [load])
 
-  async function toggle(rule) { setRules((rs) => rs.map((x) => (x.id === rule.id ? { ...x, active: !x.active } : x))); await supabase.from('vip_bonus_rules').update({ active: !rule.active }).eq('id', rule.id); load() }
+  async function toggle(rule) { setRules((rs) => rs.map((x) => (x.id === rule.id ? { ...x, active: !x.active } : x))); await saved(supabase.from('vip_bonus_rules').update({ active: !rule.active }).eq('id', rule.id)); load() }
   async function remove(rule) {
     if (!await confirm(tr('Delete "{n}"? Statements already made are not changed.', { n: rule.label }), { confirmLabel: tr('Delete'), danger: true })) return
-    await supabase.from('vip_bonus_rules').delete().eq('id', rule.id); load()
+    await saved(supabase.from('vip_bonus_rules').delete().eq('id', rule.id)); load()
   }
   const runsLabel = (rule) => {
     const w = whenOf(rule, month)

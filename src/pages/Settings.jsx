@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
-import { confirm, notice } from '../lib/confirm'
+import { confirm, notice, saved } from '../lib/confirm'
 import { Panel, PageHeader, Toggle, Spinner, Select, CopyButton } from '../components/ui'
 import Icon from '../components/Icon'
 import { PICK_BASE, PICKED, UNPICKED } from '../lib/pick'
@@ -183,7 +183,7 @@ export default function Settings() {
   async function toggleMap(next) {
     setShowOnMap(next)
     setSavingMap(true)
-    await supabase.from('profiles').update({ show_on_map: next }).eq('id', user.id)
+    if (!await saved(supabase.from('profiles').update({ show_on_map: next }).eq('id', user.id))) setShowOnMap(!next)
     setSavingMap(false)
     refreshProfile()
   }

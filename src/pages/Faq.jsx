@@ -10,7 +10,7 @@ import RichToolbar from '../components/RichToolbar'
 import ImageMarkup from '../components/ImageMarkup'
 import { renderNote } from '../lib/noteMarkdown'
 import { uploadChatImage } from '../lib/chatMedia'
-import { confirm, notice } from '../lib/confirm'
+import { confirm, notice, saved } from '../lib/confirm'
 import { toastSuccess } from '../lib/toast'
 import { cx, timeAgo } from '../lib/utils'
 import { useT } from '../lib/i18n'
@@ -470,12 +470,12 @@ function InboxItem({ r, categories, onChanged }) {
     onChanged()
   }
   async function close() {
-    await supabase.from('faq_questions').update({ status: 'closed', updated_at: new Date().toISOString() }).eq('id', r.id)
+    await saved(supabase.from('faq_questions').update({ status: 'closed', updated_at: new Date().toISOString() }).eq('id', r.id))
     onChanged()
   }
   async function remove() {
     if (!await confirm(tr('Delete this question?'), { confirmLabel: tr('Delete'), danger: true })) return
-    await supabase.from('faq_questions').delete().eq('id', r.id)
+    await saved(supabase.from('faq_questions').delete().eq('id', r.id))
     onChanged()
   }
 

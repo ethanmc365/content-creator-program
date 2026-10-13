@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
+import { saved } from '../lib/confirm'
 import { useAuth } from '../context/AuthContext'
 import Icon from './Icon'
 import { cx } from '../lib/utils'
@@ -45,9 +46,9 @@ export default function EventRsvp({ eventId }) {
       return mine === status ? rest : [...rest, { user_id: user.id, status }]
     })
     if (mine === status) {
-      await supabase.from('event_rsvps').delete().eq('event_id', eventId).eq('user_id', user.id)
+      await saved(supabase.from('event_rsvps').delete().eq('event_id', eventId).eq('user_id', user.id))
     } else {
-      await supabase.from('event_rsvps').upsert({ event_id: eventId, user_id: user.id, status }, { onConflict: 'event_id,user_id' })
+      await saved(supabase.from('event_rsvps').upsert({ event_id: eventId, user_id: user.id, status }, { onConflict: 'event_id,user_id' }))
     }
     await load()
     setBusy(false)

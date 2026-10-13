@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
-import { confirm, notice } from '../lib/confirm'
+import { confirm, notice, saved } from '../lib/confirm'
 import { Avatar, Badge, Modal, Spinner } from './ui'
 import Icon from './Icon'
 import { cx, dateTag, formatDate } from '../lib/utils'
@@ -188,12 +188,12 @@ export default function EventPolls() {
 
   async function closePoll(poll) {
     if (!await confirm(poll.closed ? `Reopen "${poll.title}"?` : `Close voting on "${poll.title}"?`)) return
-    await supabase.from('event_polls').update({ closed: !poll.closed }).eq('id', poll.id)
+    await saved(supabase.from('event_polls').update({ closed: !poll.closed }).eq('id', poll.id))
     load()
   }
   async function removePoll(poll) {
     if (!await confirm(`Delete the "${poll.title}" availability poll and all its votes?`)) return
-    await supabase.from('event_polls').delete().eq('id', poll.id)
+    await saved(supabase.from('event_polls').delete().eq('id', poll.id))
     load()
   }
 

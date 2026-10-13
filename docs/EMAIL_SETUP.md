@@ -1,6 +1,17 @@
 # Email setup (Gmail SMTP)
 
-## Current status (27 Jul 2026): email cut back to two jobs
+## Current status (13 Oct 2026)
+
+The platform itself sends only **password resets** (Supabase Auth over SMTP,
+logged by `auth-gate` into `email_send_log`). Welcome emails are still queued
+in `email_outbox` and listed on `/admin/email`, but the admin now writes them
+from their own mailbox (the page opens a pre-filled Gmail / mailto draft, see
+`src/lib/compose.js`). The `send-welcome` and `broadcast-email` edge functions
+were deleted on 13 Oct 2026. Everything else is push and the in-app bell.
+
+The sections below are history.
+
+## Status on 27 Jul 2026: email cut back to two jobs
 
 The bulk-blocking problem described below was not solvable from inside the app,
 so the answer was to stop sending bulk mail. The platform now sends **only**:

@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { PrizeText } from '../lib/prizeText'
-import { confirm, notice } from '../lib/confirm'
+import { confirm, notice, saved } from '../lib/confirm'
 import { toastSuccess } from '../lib/toast'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 import ChallengeLeaderboard from '../components/ChallengeLeaderboard'
@@ -595,7 +595,7 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
 
   async function removeMySubmission(subId) {
     if (!await confirm('Remove this entry?')) return
-    await supabase.from('submissions').delete().eq('id', subId)
+    await saved(supabase.from('submissions').delete().eq('id', subId))
     load()
   }
 

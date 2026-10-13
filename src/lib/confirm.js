@@ -12,6 +12,8 @@
 // The <ConfirmHost/> mounted in App.jsx registers the real handler; until then
 // we fall back to a resolved false so nothing acts without confirmation.
 
+import { t } from './i18n'
+
 let handler = null
 
 export function _setConfirmHandler(fn) {
@@ -50,4 +52,20 @@ export function notice(message, options = {}) {
 export function promptText(message, options = {}) {
   if (!handler) return Promise.resolve(null)
   return handler(String(message), { ...options, prompt: true })
+}
+
+/**
+ * Await a Supabase write and tell the person if it failed. Resolves true when
+ * it worked. supabase-js does not throw on a refused write (RLS, a dropped
+ * connection, the read-only demo account): it resolves with `error` set, so an
+ * unchecked `await supabase.from(...).update(...)` looks like success.
+ *   if (!await saved(supabase.from('x').delete().eq('id', id))) return
+ * @param {PromiseLike<{ error: any }>} query
+ * @param {string} [message]  shown on failure; defaults to a translated "did not save"
+ */
+export async function saved(query, message) {
+  const { error } = await query
+  if (!error) return true
+  await notice(message ?? t('That did not save. Check your connection and try again.'))
+  return false
 }

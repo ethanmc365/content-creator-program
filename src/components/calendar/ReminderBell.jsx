@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { supabase } from '../../lib/supabase'
+import { saved } from '../../lib/confirm'
 import { useAuth } from '../../context/AuthContext'
 import { toast } from '../../lib/toast'
 import Icon from '../Icon'
@@ -151,8 +152,9 @@ export default function ReminderBell({ item, now, className = '', onOpenDeadline
   async function clear() {
     if (busy) return
     setBusy(true)
-    await supabase.from('event_reminders').delete().eq('user_id', user.id).eq('event_key', item.key)
+    const ok = await saved(supabase.from('event_reminders').delete().eq('user_id', user.id).eq('event_key', item.key))
     setBusy(false)
+    if (!ok) return
     setOpen(false)
     setSet(null)
     toast('Reminder removed')

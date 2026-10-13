@@ -7,7 +7,7 @@ import { Avatar, EmptyState, PageHeader, Skeleton } from '../../components/ui'
 import Icon from '../../components/Icon'
 import { SurveyCard } from '../../components/SurveyHost'
 import { CHART, FILL, axisTickSmall, tooltipStyle } from '../../components/charts/chartTheme'
-import { confirm, notice } from '../../lib/confirm'
+import { confirm, notice, saved } from '../../lib/confirm'
 import { toastSuccess } from '../../lib/toast'
 import { cx, downloadCsv, formatDate } from '../../lib/utils'
 import { useT } from '../../lib/i18n'
@@ -107,7 +107,7 @@ export default function AdminSurveys() {
 
   async function remove(survey) {
     if (!await confirm(tr('Delete "{title}" and every answer to it? This cannot be undone.', { title: survey.title }), { title: tr('Delete survey'), confirmLabel: tr('Delete'), danger: true })) return
-    await supabase.from('surveys').delete().eq('id', survey.id)
+    if (!await saved(supabase.from('surveys').delete().eq('id', survey.id))) return
     setViewing(null)
     load()
   }

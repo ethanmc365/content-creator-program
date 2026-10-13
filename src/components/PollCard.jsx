@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback, useMemo } from 'react'
 import { Link } from 'react-router-dom'
-import { confirm } from '../lib/confirm'
+import { confirm, saved } from '../lib/confirm'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { cx } from '../lib/utils'
@@ -89,10 +89,10 @@ export default function PollCard({ pollId }) {
     // Always clear this user's existing vote for the poll by (poll, voter) -
     // robust even if local state is briefly stale, so a re-vote never trips the
     // one-vote-per-person unique constraint.
-    await supabase.from('poll_votes').delete().eq('poll_id', pollId).eq('voter_id', user.id)
+    const cleared = await saved(supabase.from('poll_votes').delete().eq('poll_id', pollId).eq('voter_id', user.id))
     // Clicking the option you already had toggles your vote off; otherwise record it.
-    if (myVote?.option_id !== optionId) {
-      await supabase.from('poll_votes').insert({ poll_id: pollId, option_id: optionId, voter_id: user.id })
+    if (cleared && myVote?.option_id !== optionId) {
+      await saved(supabase.from('poll_votes').insert({ poll_id: pollId, option_id: optionId, voter_id: user.id }))
     }
     await load()
     setBusy(false)
@@ -100,7 +100,7 @@ export default function PollCard({ pollId }) {
 
   async function closePoll() {
     if (!await confirm('Close this poll? Nobody will be able to vote after this.')) return
-    await supabase.from('polls').update({ closed: true }).eq('id', pollId)
+    await saved(supabase.from('polls').update({ closed: true }).eq('id', pollId))
     load()
   }
 

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
+import { saved } from '../lib/confirm'
 import { useAuth } from '../context/AuthContext'
 import { useCommunity } from '../context/CommunityContext'
 import { loadRelationships } from '../lib/connections'
@@ -274,13 +275,13 @@ export default function Connections() {
       requests: prev.requests.filter((r) => r.id !== row.id),
       connections: [row.person, ...prev.connections],
     }))
-    await supabase.from('connections').update({ status: 'accepted' }).eq('id', row.id)
+    if (!await saved(supabase.from('connections').update({ status: 'accepted' }).eq('id', row.id))) { load(); return }
     toast(`You and ${row.person.name.split(' ')[0]} are connected.`)
   }
 
   async function decline(row) {
     setD((prev) => prev && ({ ...prev, requests: prev.requests.filter((r) => r.id !== row.id) }))
-    await supabase.from('connections').delete().eq('id', row.id)
+    if (!await saved(supabase.from('connections').delete().eq('id', row.id))) load()
   }
 
   // Dismissals are local. A suggestion you have said no to should stop coming

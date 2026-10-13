@@ -1,7 +1,7 @@
 import { createPortal } from 'react-dom'
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, useCallback } from 'react'
 import PendingLabel from '../components/PendingLabel'
-import { confirm, notice } from '../lib/confirm'
+import { confirm, notice, saved } from '../lib/confirm'
 import { loadDraft, saveDraft, clearDraft } from '../lib/drafts'
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -1021,7 +1021,7 @@ export default function Messages() {
     if (!isAdmin) return
     if (!await confirm('Delete this message for everyone?')) return
     setThread((prev) => prev.filter((x) => x.id !== m.id))
-    await supabase.from('direct_messages').delete().eq('id', m.id)
+    if (!await saved(supabase.from('direct_messages').delete().eq('id', m.id))) setThread((prev) => [...prev, m].sort((a, b) => (a.created_at < b.created_at ? -1 : 1)))
   }
 
   // Accept a pending connection request from the person I'm messaging, right in

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { confirm } from '../../lib/confirm'
+import { confirm, saved } from '../../lib/confirm'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { copyToClipboard } from '../../lib/clipboard'
 import { toastSuccess } from '../../lib/toast'
@@ -256,7 +256,7 @@ export default function AdminCreators() {
   async function setStatus(creator, status) {
     const verb = { active: 'reactivate', muted: 'mute', suspended: 'suspend' }[status]
     if (!await confirm(`Really ${verb} ${creator.name}?`)) return
-    await supabase.from('profiles').update({ status }).eq('id', creator.id)
+    if (!await saved(supabase.from('profiles').update({ status }).eq('id', creator.id))) return
     flash(`${creator.name} is now ${status}.`)
     setSelected(null)
     load()

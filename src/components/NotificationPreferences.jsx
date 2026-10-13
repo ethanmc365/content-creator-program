@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '../lib/supabase'
+import { saved } from '../lib/confirm'
 import { useAuth } from '../context/AuthContext'
 import { useUnread } from '../context/UnreadContext'
 import { Modal, Panel, Toggle } from './ui'
@@ -115,7 +116,7 @@ export function useNotificationPrefs() {
   async function togglePush(key, value) {
     const next = { ...prefs, [key]: value }
     setPrefs(next)
-    await supabase.from('profiles').update({ notif_prefs: next }).eq('id', user.id)
+    if (!await saved(supabase.from('profiles').update({ notif_prefs: next }).eq('id', user.id))) setPrefs(prefs)
     refreshProfile()
   }
 
@@ -142,19 +143,19 @@ export function useNotificationPrefs() {
     if (on) next.delete(channel); else next.add(channel)
     const merged = { ...prefs, muted_rooms: [...next] }
     setPrefs(merged)
-    await supabase.from('profiles').update({ notif_prefs: merged }).eq('id', user.id)
+    if (!await saved(supabase.from('profiles').update({ notif_prefs: merged }).eq('id', user.id))) setPrefs(prefs)
     refreshProfile()
   }
   async function toggleEmail(key, value) {
     const next = { ...emailPrefs, [key]: value }
     setEmailPrefs(next)
-    await supabase.from('profiles').update({ email_prefs: next }).eq('id', user.id)
+    if (!await saved(supabase.from('profiles').update({ email_prefs: next }).eq('id', user.id))) setEmailPrefs(emailPrefs)
     refreshProfile()
   }
   async function toggleReminderDay(d) {
     const next = reminderDays.includes(d) ? reminderDays.filter((x) => x !== d) : [...reminderDays, d].sort((a, b) => b - a)
     setReminderDays(next)
-    await supabase.from('profiles').update({ challenge_reminder_days: next }).eq('id', user.id)
+    if (!await saved(supabase.from('profiles').update({ challenge_reminder_days: next }).eq('id', user.id))) setReminderDays(reminderDays)
     refreshProfile()
   }
   async function turnOnPush() {

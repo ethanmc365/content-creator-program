@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { confirm } from '../../lib/confirm'
+import { confirm, saved } from '../../lib/confirm'
 import { supabase } from '../../lib/supabase'
 import { Avatar, Badge, EmptyState, PageHeader, Select, Skeleton } from '../../components/ui'
 import Icon from '../../components/Icon'
@@ -43,7 +43,7 @@ export default function AdminFeedback() {
 
   async function saveNote(item) {
     const admin_note = (notes[item.id] ?? '').trim()
-    await supabase.from('feedback').update({ admin_note, updated_at: new Date().toISOString() }).eq('id', item.id)
+    if (!await saved(supabase.from('feedback').update({ admin_note, updated_at: new Date().toISOString() }).eq('id', item.id))) return
     setItems((prev) => prev.map((f) => (f.id === item.id ? { ...f, admin_note } : f)))
   }
 

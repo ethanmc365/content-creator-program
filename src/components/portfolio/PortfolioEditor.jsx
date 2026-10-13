@@ -441,7 +441,7 @@ function YouBits({ portfolio, onChange, tr }) {
             placeholder={tr('e.g. iPhone 15 Pro, CapCut, DJI Mini')}
             className="input flex-1 text-[13px]"
           />
-          <button type="button" onClick={addTool} className="btn-secondary !px-3">
+          <button type="button" onClick={addTool} aria-label={tr('Add')} className="btn-secondary !px-3">
             <Icon name="plus" className="h-4 w-4" />
           </button>
         </div>

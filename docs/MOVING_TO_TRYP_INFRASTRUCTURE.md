@@ -138,8 +138,8 @@ through `public.edge_function_url(name)`. Check with
 ## 7. Edge functions
 
 ```bash
-for f in auth-gate broadcast-email calendar-feed geocode impersonate media-cleanup \
-         notify-dispatch push-track send-invoice send-welcome thumb-cache translate-text \
+for f in auth-gate calendar-feed geocode impersonate media-cleanup \
+         notify-dispatch push-track send-invoice thumb-cache translate-text \
          upload view-sync; do
   supabase functions deploy "$f" --project-ref <new-ref> --no-verify-jwt
 done

@@ -3461,6 +3461,7 @@ export default {
   'Remove this video?': 'Elimini acest videoclip?',
   'Rename': 'Redenumește',
   'Reopen': 'Redeschide',
+  'Reorder': 'Reordonează',
   'Repeat entrants': 'Participanți care revin',
   'Repeat until': 'Repetă până la',
   'Repeat your password': 'Repetă parola',

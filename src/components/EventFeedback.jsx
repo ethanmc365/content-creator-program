@@ -2,7 +2,7 @@ import { createPortal } from 'react-dom'
 import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
-import { confirm, notice } from '../lib/confirm'
+import { confirm, notice, saved } from '../lib/confirm'
 import { Avatar, Badge, Modal, Spinner } from './ui'
 import Icon from './Icon'
 import { cx, timeAgo } from '../lib/utils'
@@ -61,12 +61,12 @@ export function SuggestEvent({ open = false, onClose }) {
   }
 
   async function setStatus(s, status) {
-    await supabase.from('event_suggestions').update({ status }).eq('id', s.id)
+    await saved(supabase.from('event_suggestions').update({ status }).eq('id', s.id))
     load()
   }
   async function remove(s) {
     if (!await confirm(`Delete the suggestion "${s.title}"?`)) return
-    await supabase.from('event_suggestions').delete().eq('id', s.id)
+    await saved(supabase.from('event_suggestions').delete().eq('id', s.id))
     load()
   }
 

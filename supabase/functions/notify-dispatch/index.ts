@@ -12,8 +12,8 @@
 // now sends exactly two kinds of email, neither of them from here:
 //
 //   - password resets, sent by Supabase Auth over SMTP (see auth-gate)
-//   - a welcome email per accepted creator, queued by a database trigger for an
-//     admin to approve on /admin/email, then sent by the send-welcome function
+//   - a welcome email per accepted creator, queued by a database trigger and
+//     written by an admin from their own mailbox via /admin/email
 //
 // Notifications themselves are unaffected: the in-app bell row is always
 // written by notify_user/notify_all, and push still goes out instantly below.
