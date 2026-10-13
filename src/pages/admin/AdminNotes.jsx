@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
-import { confirm } from '../../lib/confirm'
+import { confirm, saved } from '../../lib/confirm'
 import { PageHeader, Skeleton, EmptyState } from '../../components/ui'
 import Icon from '../../components/Icon'
 import RichEditable from '../../components/RichEditable'
@@ -24,7 +24,7 @@ export default function AdminNotes() {
   const [activeId, setActiveId] = useState(null)
   const [dragId, setDragId] = useState(null)
   const [overId, setOverId] = useState(null)
-  const [saveState, setSaveState] = useState('idle') // idle | saving | saved
+  const [saveState, setSaveState] = useState('idle') // idle | saving | saved | error
   const [emojiOpen, setEmojiOpen] = useState(false)
   const saveTimer = useRef(null)
   const editorRef = useRef(null)
@@ -72,8 +72,8 @@ export default function AdminNotes() {
     setSaveState('saving')
     clearTimeout(saveTimer.current)
     saveTimer.current = setTimeout(async () => {
-      await supabase.from('admin_notes').update(patch).eq('id', activeId)
-      setSaveState('saved')
+      const { error } = await supabase.from('admin_notes').update(patch).eq('id', activeId)
+      setSaveState(error ? 'error' : 'saved')
     }, 600)
   }, [activeId])
 
@@ -88,9 +88,10 @@ export default function AdminNotes() {
 
   async function deleteNote(id) {
     if (!await confirm('Delete this note? This cannot be undone.')) return
+    const before = notes
     setNotes((prev) => prev.filter((n) => n.id !== id))
     if (activeId === id) setActiveId(null)
-    await supabase.from('admin_notes').delete().eq('id', id)
+    if (!await saved(supabase.from('admin_notes').delete().eq('id', id))) setNotes(before)
   }
 
   // Drag-to-reorder (desktop). Splice into the new position, renumber, persist.
@@ -119,7 +120,7 @@ export default function AdminNotes() {
           </button>
           <div className="flex items-center gap-3">
             <span className="text-xs text-gray-400">
-              {saveState === 'saving' ? 'Saving…' : saveState === 'saved' ? 'Saved' : ''}
+              {saveState === 'saving' ? 'Saving…' : saveState === 'saved' ? 'Saved' : saveState === 'error' ? 'Not saved, check your connection' : ''}
             </span>
 
             {/* SHARING IS A SWITCH, NOT A COPY. The note stays where it is and

@@ -5,7 +5,7 @@ import { useAuth } from '../../context/AuthContext'
 import { Avatar, Badge, EmptyState, PageHeader, Skeleton } from '../../components/ui'
 import Icon from '../../components/Icon'
 import Reveal from '../../components/network/Reveal'
-import { confirm, notice, promptText } from '../../lib/confirm'
+import { confirm, notice, promptText, saved } from '../../lib/confirm'
 import { REPORT_REASONS, REPORT_STATUS } from '../../lib/messageActions'
 import { CREATOR_REPORT_LABEL } from '../../lib/creatorReports'
 import { formatDate, cx, timeAgo } from '../../lib/utils'
@@ -314,10 +314,10 @@ function CreatorReports({ onCount }) {
     const { error } = await supabase.from('profiles').update({ status: 'muted' }).eq('id', report.reported_id)
     if (error) { setBusyId(null); await notice(`Could not mute them: ${error.message}`); return }
     const { data: { user } = {} } = await supabase.auth.getUser()
-    await supabase.from('creator_reports').update({
+    await saved(supabase.from('creator_reports').update({
       status: 'actioned', admin_note: `${name} muted.`,
       reviewed_by: user?.id ?? null, reviewed_at: new Date().toISOString(),
-    }).eq('id', report.id)
+    }).eq('id', report.id))
     setBusyId(null)
     load()
   }

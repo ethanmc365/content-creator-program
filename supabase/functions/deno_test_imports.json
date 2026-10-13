@@ -1,0 +1,1 @@
+{ "imports": { "vitest": "./vitest_shim.ts" } }

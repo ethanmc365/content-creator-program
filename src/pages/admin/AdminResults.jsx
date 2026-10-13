@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react'
-import { confirm } from '../../lib/confirm'
+import { confirm, saved } from '../../lib/confirm'
 import { useParams, Link } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { Avatar, EmptyState, Modal, PageHeader, Skeleton, Spinner, Toggle, Select } from '../../components/ui'
@@ -225,10 +225,11 @@ export default function AdminResults() {
     if (raw !== '' && (isNaN(views) || views < 0)) return
     if (views === submission.logged_views && !submission.views_sync_error) return
     setSavingId(submission.id)
-    await supabase
+    const ok = await saved(supabase
       .from('submissions')
       .update({ logged_views: views, views_source: 'manual', views_sync_error: null })
-      .eq('id', submission.id)
+      .eq('id', submission.id))
+    if (!ok) { setSavingId(null); return }
     setSubmissions((prev) =>
       prev.map((s) => (s.id === submission.id ? { ...s, logged_views: views, views_source: 'manual', views_sync_error: null } : s)),
     )

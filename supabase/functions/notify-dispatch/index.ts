@@ -126,7 +126,8 @@ Deno.serve(async (req) => {
           )
           tally.sent += 1
           ledger(n, 'sent', host)
-        } catch (e) {
+        } catch (err) {
+          const e = err as { statusCode?: number; body?: unknown; message?: string }
           // 404/410 mean the browser threw the subscription away (uninstalled the
           // PWA, cleared site data). Drop it so we stop retrying forever. The app
           // re-registers the device the next time it is opened (lib/push).

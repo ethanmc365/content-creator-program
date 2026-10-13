@@ -3821,6 +3821,7 @@ export default {
   'So you never miss a challenge going live.': 'Para nunca perderes o início de um desafio.',
   'Social links': 'Links das redes sociais',
   'Some of the creators who\'ve been busy in the community lately.': 'Alguns dos criadores que têm andado ativos na comunidade ultimamente.',
+  'Some of this page did not load.': 'Parte desta página não carregou.',
   'Somebody here has been where you are going. Ask them.': 'Alguém aqui já esteve onde vais. Pergunta-lhe.',
   'Somebody on the team will look over your profile and approve you before you get in.': 'Alguém da equipa vai ver o teu perfil e aprová-lo antes de entrares.',
   'Someone': 'Alguém',

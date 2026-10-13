@@ -1039,7 +1039,7 @@ export default function Messages() {
     const mine = reactions.find((r) => r.message_id === messageId && r.creator_id === user.id && r.emoji === emoji)
     if (mine) {
       setReactions((prev) => prev.filter((r) => r.id !== mine.id))
-      await supabase.from('dm_reactions').delete().eq('id', mine.id)
+      if (!await saved(supabase.from('dm_reactions').delete().eq('id', mine.id))) setReactions((prev) => [...prev, mine])
     } else {
       const { data } = await supabase
         .from('dm_reactions')

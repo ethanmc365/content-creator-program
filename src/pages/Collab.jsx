@@ -6,7 +6,7 @@ import { useAuth } from '../context/AuthContext'
 import { useCommunity } from '../context/CommunityContext'
 import { Avatar, Badge, EmptyState, Modal, PageHeader, Skeleton, Spinner, Select } from '../components/ui'
 import { DateField } from '../components/DateTimeFields'
-import { confirm, notice } from '../lib/confirm'
+import { confirm, notice, saved } from '../lib/confirm'
 import { toast } from '../lib/toast'
 import { cx } from '../lib/utils'
 import Icon from '../components/Icon'
@@ -650,7 +650,7 @@ export default function Collab() {
         count.set(postId, Math.max(0, (count.get(postId) || 1) - 1))
         return { ...prev, count, mine, rows: prev.rows.filter((r) => !(r.post_id === postId && r.creator_id === user.id)) }
       })
-      await supabase.from('collab_interests').delete().eq('post_id', postId).eq('creator_id', user.id)
+      if (!await saved(supabase.from('collab_interests').delete().eq('post_id', postId).eq('creator_id', user.id))) load()
       return
     }
     setInterestNote('')

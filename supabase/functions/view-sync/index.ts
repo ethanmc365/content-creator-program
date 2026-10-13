@@ -27,6 +27,8 @@
 import { createClient } from 'npm:@supabase/supabase-js@2'
 import { createRemoteJWKSet, jwtVerify } from 'npm:jose@5'
 import { corsHeaders } from '../_shared/cors.ts'
+import { type Platform, fetchHostAllowed, platformOf } from './hosts.ts'
+export { platformOf }
 import {
   FB_CRAWLER_UAS, facebookCountFor, facebookCoverFrom, facebookIdCandidates, facebookIdFrom, facebookPostFrom,
   facebookTitleCount, isFacebookWall, pluginVideoId, regionOrder, facebookPostedAt,
@@ -96,7 +98,6 @@ const IG_GAP_MS = 120
 const LANE_FACEBOOK = 2
 const FB_GAP_MS = 600
 
-export type Platform = 'TikTok' | 'Instagram' | 'YouTube' | 'Facebook'
 const SOURCE: Record<Platform, string> = {
   TikTok: 'tiktok', Instagram: 'instagram', YouTube: 'youtube', Facebook: 'facebook',
 }
@@ -152,20 +153,6 @@ async function isAdmin(userId: string): Promise<boolean> {
 
 class HttpError extends Error {
   constructor(public status: number) { super(`http ${status}`) }
-}
-
-// EVERY REQUEST AND EVERY REDIRECT HOP STAYS ON A PLATFORM HOST. The URLs here come from creators, and
-// `redirect: 'follow'` would let a platform redirect (Facebook's link shim, an app-store bounce) send this
-// server anywhere. Redirects are walked by hand and each hop is checked before it is requested.
-const API_HOSTS = /(^|\.)googleapis\.com$/i
-export function fetchHostAllowed(raw: string): boolean {
-  try {
-    const u = new URL(raw)
-    if (u.protocol !== 'https:' && u.protocol !== 'http:') return false
-    return platformOf(u.hostname) !== null || API_HOSTS.test(u.hostname)
-  } catch {
-    return false
-  }
 }
 
 async function checkedFetch(url: string, init: RequestInit): Promise<{ res: Response; url: string }> {
@@ -812,7 +799,7 @@ function igPlayCount(item: Record<string, unknown> | null | undefined): number |
 class IgShellError extends Error {}
 // Instagram ANSWERED, and the answer was "no such profile" (gone, private, or a wrong handle). Not a refusal.
 class IgNoProfileError extends Error {}
-const IG_FAILED = Symbol('instagram refused')
+const IG_FAILED: unique symbol = Symbol('instagram refused')
 
 // One POST, browser-shaped. Returns parsed JSON, or throws IgShellError when
 // Instagram answered with the app shell (see the Sec-Fetch-Site note above).
@@ -982,7 +969,7 @@ function igOwner(cache: IgCache, shortcode: string): Promise<IgOwner | null | ty
   if (hit) return hit
   // A refused request is IG_FAILED, not null: null means Instagram answered and has no such post, and treating a refusal
   // as that is how one walled server IP turned fourteen live reels into "Instagram has no post with that code".
-  const p = igFetchOwner(shortcode).catch(() => IG_FAILED)
+  const p = igFetchOwner(shortcode).catch((): typeof IG_FAILED => IG_FAILED)
   cache.owners.set(shortcode, p)
   return p
 }
@@ -1023,7 +1010,8 @@ async function instagramReadHere(
       // so the post lookup below is a SECOND request - worth it for one video
       // being added by hand, never worth it for four hundred on a cron.
       if (!meta) return { ...base, views, error: null }
-      const extra = await igOwner(cache, code)
+      const got = await igOwner(cache, code)
+      const extra = got === IG_FAILED ? null : got
       return {
         ...base,
         views,
@@ -1177,13 +1165,6 @@ async function tiktokViewsAnywhere(url: string, knownId: string | null, meta = f
 // `tiktok.com.evil.test`, and the platform branches fall back to fetching the
 // submitted URL itself - so a loose match is a request sent wherever an
 // attacker likes.
-export function platformOf(host: string): Platform | null {
-  if (/(^|\.)tiktok\.com$/i.test(host)) return 'TikTok'
-  if (/(^|\.)instagram\.com$/i.test(host)) return 'Instagram'
-  if (/(^|\.)(youtube\.com|youtu\.be|youtube-nocookie\.com)$/i.test(host)) return 'YouTube'
-  if (/(^|\.)(facebook\.com|fb\.com|fb\.watch|fb\.me)$/i.test(host)) return 'Facebook'
-  return null
-}
 
 async function resolveOne(
   url: string,

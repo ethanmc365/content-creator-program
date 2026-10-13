@@ -694,8 +694,8 @@ export default function Settings() {
     await loadLocale(code)
     setLangCode(setLocale(code))
     if (!user?.id) return
-    await supabase.from('profiles').update({ locale: code }).eq('id', user.id)
-    refreshProfile?.()
+    // The stored language decides the language of push notifications and emails.
+    if (await saved(supabase.from('profiles').update({ locale: code }).eq('id', user.id))) refreshProfile?.()
   }
 
   // JUST THE CHOICE (1 Sep 2026).

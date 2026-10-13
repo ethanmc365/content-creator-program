@@ -37,7 +37,7 @@ export default function AdminFeedback() {
   useEffect(() => { load() }, [])
 
   async function setStatus(item, status) {
-    await supabase.from('feedback').update({ status, updated_at: new Date().toISOString() }).eq('id', item.id)
+    if (!await saved(supabase.from('feedback').update({ status, updated_at: new Date().toISOString() }).eq('id', item.id))) return
     setItems((prev) => prev.map((f) => (f.id === item.id ? { ...f, status } : f)))
   }
 
@@ -51,7 +51,7 @@ export default function AdminFeedback() {
   async function deleteItem(item) {
     if (!await confirm('Delete this report for good? This can’t be undone.')) return
     setItems((prev) => prev.filter((f) => f.id !== item.id))
-    await supabase.from('feedback').delete().eq('id', item.id)
+    if (!await saved(supabase.from('feedback').delete().eq('id', item.id))) load()
   }
 
   const newCount = items.filter((f) => f.status === 'new').length

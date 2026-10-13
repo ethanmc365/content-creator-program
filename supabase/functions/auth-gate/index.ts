@@ -262,9 +262,11 @@ async function emailProblem(raw: string): Promise<string | null> {
 // stopped matching anybody past the thousandth account.
 async function logRecovery(email: string, status: number) {
   const wanted = email.trim().toLowerCase()
-  const { data: match } = await admin.rpc('admin_find_user_id_by_email', { p_email: wanted })
-    .then((r) => ({ data: r.data ? { id: r.data as string } : null }))
-    .catch(() => ({ data: null }))
+  let match: { id: string } | null = null
+  try {
+    const { data } = await admin.rpc('admin_find_user_id_by_email', { p_email: wanted })
+    if (data) match = { id: data as string }
+  } catch { /* the log row is written without a recipient */ }
   await admin.from('email_send_log').insert({
     kind: 'password_reset',
     recipient_id: match?.id ?? null,

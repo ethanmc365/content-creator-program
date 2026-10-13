@@ -219,11 +219,11 @@ function AnswersTab({ faqs, community, editing, onEditRow, onChanged }) {
     const i = list.findIndex((x) => x.id === f.id)
     const other = list[i + dir]
     if (!other) return
-    await Promise.all([
-      supabase.from('faqs').update({ position: other.position }).eq('id', f.id),
-      supabase.from('faqs').update({ position: f.position }).eq('id', other.id),
+    const done = await Promise.all([
+      saved(supabase.from('faqs').update({ position: other.position }).eq('id', f.id)),
+      saved(supabase.from('faqs').update({ position: f.position }).eq('id', other.id)),
     ])
-    onChanged()
+    if (done.every(Boolean)) onChanged()
   }
   async function remove(f) {
     if (!await confirm(tr('Delete this question and its answer?'), { confirmLabel: tr('Delete'), danger: true })) return

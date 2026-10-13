@@ -42,11 +42,12 @@ export async function enablePush(userId) {
       })
     }
     const json = sub.toJSON()
-    await supabase.from('push_subscriptions').upsert(
+    const { error } = await supabase.from('push_subscriptions').upsert(
       { user_id: userId, endpoint: sub.endpoint, p256dh: json.keys.p256dh, auth: json.keys.auth },
       { onConflict: 'endpoint' }
     )
-    return 'granted'
+    // The phone said yes but the server never stored where to send: that is not "on".
+    return error ? 'error' : 'granted'
   } catch {
     return 'error'
   }

@@ -36,6 +36,7 @@ import { usePinnedToBottom } from '../../lib/pinnedBar'
 import { useT } from '../../lib/i18n'
 import { JoinMarketHost, openJoinMarket } from '../network/JoinMarket'
 import { applyMotion, getStoredMotion, setShellActive, syncTheme } from '../../lib/theme'
+import LoadTrouble from '../LoadTrouble'
 
 // The signed-in app shell. One shared set of icon tabs powers BOTH the
 // desktop top bar and the mobile bottom bar, so they look identical.
@@ -193,6 +194,8 @@ function ChatSearchField({ target }) {
 export default function AppLayout() {
 
   const tr = useT()
+  // Bumped by LoadTrouble's "Try again": a new key remounts the page, so every load on it runs again.
+  const [retryKey, setRetryKey] = useState(0)
   const chatSearch = useChatSearchTarget()
   const chromeHidden = useChatChromeHidden()
   const lockedY = useSyncExternalStore(onScrollLockChange, lockedScrollY, () => 0)
@@ -955,9 +958,10 @@ export default function AppLayout() {
       <main className="flex-1 pb-[calc(6rem+env(safe-area-inset-bottom))] lg:pb-0">
         <PushBanner />
         <Suspense fallback={<RouteSkeleton />}>
-          <Outlet />
+          <Outlet key={retryKey} />
         </Suspense>
       </main>
+      <LoadTrouble onRetry={() => setRetryKey((k) => k + 1)} />
 
       {/* One-off "rate the event" popup after an attended event finishes */}
 

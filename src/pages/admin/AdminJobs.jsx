@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { confirm } from '../../lib/confirm'
+import { confirm, saved } from '../../lib/confirm'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
 import { Avatar, Badge, CopyButton, EmptyState, Modal, PageHeader, Select, Skeleton, Spinner } from '../../components/ui'
@@ -72,20 +72,20 @@ export default function AdminJobs() {
   }
 
   async function toggleStatus(job) {
-    await supabase.from('jobs').update({ status: job.status === 'open' ? 'closed' : 'open' }).eq('id', job.id)
+    await saved(supabase.from('jobs').update({ status: job.status === 'open' ? 'closed' : 'open' }).eq('id', job.id))
     load()
   }
 
   async function remove(job) {
     if (!await confirm(`Delete "${job.title}"? This also removes its applications.`)) return
-    await supabase.from('jobs').delete().eq('id', job.id)
+    await saved(supabase.from('jobs').delete().eq('id', job.id))
     load()
   }
 
   // Move an applicant along the pipeline (optimistic).
   async function setAppStatus(app, status) {
     setApps((list) => list.map((a) => (a.id === app.id ? { ...a, status } : a)))
-    await supabase.from('job_applications').update({ status }).eq('id', app.id)
+    await saved(supabase.from('job_applications').update({ status }).eq('id', app.id))
   }
 
   // Open the 1:1 conversation with an applicant and jump into it.

@@ -9,7 +9,7 @@ import RichToolbar from '../../components/RichToolbar'
 import AgreementSheet from '../../components/agreements/AgreementSheet'
 import { SignatureImage } from '../../components/agreements/SignaturePad'
 import AgreementDoc from '../../components/agreements/AgreementDoc'
-import { confirm, notice } from '../../lib/confirm'
+import { confirm, notice, saved } from '../../lib/confirm'
 import { toastSuccess } from '../../lib/toast'
 import { cx, dateTag } from '../../lib/utils'
 import { copyToClipboard } from '../../lib/clipboard'
@@ -395,8 +395,7 @@ function DraftEditor({ doc, hasLive, onSaved, onPreview, onPublish }) {
   }
   async function discard() {
     if (!await confirm('Delete this draft?', { confirmLabel: 'Delete', danger: true })) return
-    await supabase.from('agreements').delete().eq('id', doc.id)
-    onSaved()
+    if (await saved(supabase.from('agreements').delete().eq('id', doc.id))) onSaved()
   }
 
   return (
