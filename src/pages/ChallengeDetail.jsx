@@ -3,9 +3,7 @@ import { PrizeText } from '../lib/prizeText'
 import { confirm, notice, saved } from '../lib/confirm'
 import { toastSuccess } from '../lib/toast'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
-import ChallengeLeaderboard from '../components/ChallengeLeaderboard'
 import { SendPushButton } from '../components/admin/ChallengePush'
-import Podium from '../components/Podium'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import CountdownTimer from '../components/CountdownTimer'
@@ -14,7 +12,7 @@ import { PLATFORM_ORDER } from '../components/PlatformBadges'
 import SocialMark from '../components/SocialMark'
 import ChallengeKickers, { JoinBonusCallout, OfferRotator, VoucherDayCallout } from '../components/challenge/ChallengeKickers'
 import { useVoucherDays, voucherDayState } from '../lib/voucherDays'
-import EntryPreview, { PointParts } from '../components/challenge/EntryPreview'
+import EntryPreview from '../components/challenge/EntryPreview'
 import { dailyStreaksByCreator } from '../lib/dailyStreak'
 import SwapIn, { SLOT, SLOT_ICON } from '../components/challenge/SwapIn'
 import RecapBanner from '../components/challenge/RecapBanner'
@@ -24,7 +22,7 @@ import VideoEmbedModal from '../components/VideoEmbedModal'
 import { playsInline } from '../lib/videoPreview'
 import SubmissionSuccess from '../components/SubmissionSuccess'
 import CollapsibleRich from '../components/CollapsibleRich'
-import TranslatedText, { TLine } from '../components/TranslatedText'
+import TranslatedText from '../components/TranslatedText'
 import { useMyScopes } from '../lib/scope'
 import ScoringPanel, { usePointRules } from '../components/network/ScoringPanel'
 import BonusPointsCard, { LiveBonusCallout, OfferDetail } from '../components/network/BonusPointsCard'
@@ -34,9 +32,9 @@ import CountryBoard from '../components/challenge/CountryBoard'
 import CollabCard from '../components/challenge/CollabCard'
 import BoostCallout, { useBoost } from '../components/challenge/BoostBanner'
 import { usePrizeStandings } from '../components/admin/PrizeStandingsPanel'
-import { EntryFeedbackNote, EntryFeedbackEditor, loadFeedback } from '../components/EntryFeedback'
-import { Avatar, Badge, Modal, PageHeader, Skeleton, EmptyState, Spinner } from '../components/ui'
-import { formatDate, formatDateTimeTz, timeAgo, formatViews, formatMoney, detectPlatform, cx, challengeDeadline } from '../lib/utils'
+import { loadFeedback } from '../components/EntryFeedback'
+import { Badge, PageHeader, Skeleton, EmptyState } from '../components/ui'
+import { formatDate, timeAgo, formatViews, formatMoney, detectPlatform, cx, challengeDeadline } from '../lib/utils'
 import { groupByCreator, boardsFor, prizeForGroup } from '../lib/challengeGroups'
 import { readPageCache, writePageCache } from '../lib/pageCache'
 import { ordinalFor, podiumTier, placeNumber } from '../lib/podiumTiers'
@@ -49,6 +47,9 @@ import { challengesApi } from '../api/challenges'
 import { submissionsApi } from '../api/submissions'
 import { profilesApi } from '../api/profiles'
 import { marketsApi } from '../api/markets'
+import ChallengeDetailSubmitModal from './ChallengeDetailSubmitModal'
+import ChallengeDetailLeaderboard from './ChallengeDetailLeaderboard'
+import ChallengeDetailEntryBody from './ChallengeDetailEntryBody'
 
 
 // The platform's own key in SocialMark's table. Two spellings of one list is
@@ -1650,170 +1651,23 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
                   points={challenge.scoring === 'points' ? (entryPoints.get(s.id) ?? { total: 0 }) : null}
                   onPlay={() => openEntry(s)}
                 />
-                <div className="flex flex-1 flex-col gap-2.5 p-3">
-                  <div className="flex items-center gap-2 sm:gap-3">
-                    <Link to={`/profile/${s.profiles?.id}`} className="shrink-0">
-                      <Avatar src={s.profiles?.photo_url} name={s.profiles?.name} size="sm" />
-                    </Link>
-                    <div className="min-w-0 flex-1">
-                      <Link to={`/profile/${s.profiles?.id}`} className="block truncate text-sm font-semibold hover:text-brand">
-                        {s.profiles?.name}
-                      </Link>
-                      {/* THE DATE AND THE TIME, NOT "1 DAY AGO".
-                          Ethan: "on challenges, show the date and time a video
-                          was submitted, not just 1 day ago or about 1 month
-                          ago." A relative stamp is arithmetic the reader has to
-                          undo, and on a challenge it is the one fact that
-                          settles a deadline argument - "about 1 month ago" is
-                          not evidence of anything. Shown in the reader's own
-                          zone, with the zone named. */}
-                      <p className="truncate text-[11px] text-smoke sm:text-xs">{formatDateTimeTz(s.submitted_at)}</p>
-                    </div>
-                  </div>
-                  {/* WHAT THE POINTS WERE FOR (28 Sep 2026): "+1 views · +5 bonus". */}
-                  {challenge.scoring === 'points' && <PointParts points={entryPoints.get(s.id)} />}
-                  {s.caption && <p className="line-clamp-2 text-xs text-smoke [overflow-wrap:anywhere] sm:line-clamp-3 sm:text-sm">{s.caption}</p>}
-
-                  {/* ---- WHAT THIS ENTRY CLAIMED ----
-                      Ethan: "it should show +1 point or plus x points on the
-                      entry card, because then the admin can easily check and
-                      ensure that it's correct and no one is cheating."
-                      That is the whole answer to trusting a creator with a tick
-                      box: the claim sits beside the video on a page an admin
-                      already reads, so checking is looking rather than
-                      auditing. Everybody sees these, not just the team - a
-                      claim made in public is a claim people are careful about.
-                      An admin can take one back from /admin/challenges/:id/results. */}
-                  {(claimsBySubmission.get(s.id)?.size > 0) && (
-                    <div className="flex flex-wrap gap-1.5">
-                      {[...claimsBySubmission.get(s.id)].map((ruleId) => {
-                        const r = bonusById.get(ruleId)
-                        if (!r) return null
-                        // WAITING IS NOT THE SAME AS AWARDED, AND THE CHIP HAS
-                        // TO SAY WHICH. A gated bonus (migration 181) is claimed
-                        // the moment the creator ticks it and paid only once the
-                        // entry passes the view count. Drawn identically, an
-                        // admin reading the board could not tell a point that
-                        // has landed from one that has not - and neither could
-                        // the creator, who would reasonably report the points as
-                        // wrong. Amber and a target, green and a tick.
-                        const waiting = r.min_views > 0 && (s.logged_views ?? 0) < r.min_views
-                        return (
-                          <span key={ruleId}
-                            title={waiting
-                              ? `${r.prompt || r.label}. Awarded at ${Number(r.min_views).toLocaleString()} views`
-                              : (r.prompt || r.label)}
-                            className={cx(
-                              'inline-flex max-w-full items-center gap-1 rounded-full px-2 py-1 text-[10px] font-semibold leading-snug sm:px-2.5 sm:text-[11px]',
-                              waiting ? 'bg-amber-50 text-amber-700' : 'bg-green-50 text-green-700',
-                            )}>
-                            <Icon name={waiting ? 'clock' : 'check'} className="h-3 w-3 shrink-0" />
-                            <span className="min-w-0 truncate">+{r.points} <TLine text={r.label.replace(/^\+?\d+\s*/, '')} /></span>
-                            {waiting && ` · ${tr("at {n} views", { n: Number(r.min_views).toLocaleString() })}`}
-                            {isLive && s.creator_id === user.id && (
-                              <button type="button" onClick={() => unclaimBonus(s, r)} aria-label={tr('Remove this bonus')} title={tr('Ticked by mistake? Remove it')}
-                                className="-mr-0.5 ml-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full transition-transform duration-200 hoverable:hover:scale-125">
-                                <Icon name="close" className="h-3 w-3" />
-                              </button>
-                            )}
-                          </span>
-                        )
-                      })}
-                    </div>
-                  )}
-
-                  {/* A BONUS ADDED AFTER YOU ENTERED IS STILL CLAIMABLE.
-                      "Admins can do this at the beginning or in the middle of a
-                      challenge, it should always update correctly." A rule
-                      created on the fifteenth cannot have been offered to
-                      anybody who submitted on the third, and asking them to
-                      delete and re-post their video to claim it would be
-                      absurd. So an unclaimed bonus shows on your OWN entries
-                      while the challenge is live. */}
-                  {isLive && s.creator_id === user.id
-                    && claimableFor(s).length > 0 && (
-                    /* ONE SMALL CHIP PER BONUS (30 Sep 2026). Ethan, in Romanian: the "+5 bonus
-                       points for using the hook" card on an entry was "way, way too big". It was a
-                       boxed panel with a heading and a full-width button per bonus, and a translated
-                       prompt runs long. Now each is a single-line chip, the prompt cut to one line
-                       (the whole of it is the tooltip), in the reader's language. */
-                    <div className="flex flex-wrap items-center gap-1.5">
-                      {claimableFor(s).map((r) => (
-                        <button
-                          key={r.id}
-                          type="button"
-                          onClick={() => claimBonus(s, r)}
-                          title={r.min_views > 0
-                            ? `${r.prompt} · ${tr("The bonus lands once this video passes {n} views.", { n: Number(r.min_views).toLocaleString() })}`
-                            : r.prompt}
-                          aria-label={tr("Bonus points you can still claim")}
-                          className="inline-flex max-w-full items-center gap-1.5 rounded-full border border-dashed border-brand/40 bg-brand-tint/30 py-1 pl-1 pr-2.5 text-[11px] font-semibold text-brand transition-all duration-200 hoverable:hover:-translate-y-0.5 hoverable:hover:bg-brand-tint/60"
-                        >
-                          <span className="shrink-0 rounded-full bg-brand px-1.5 py-0.5 text-[10px] font-bold tabular-nums leading-none text-white">+{r.points}</span>
-                          <span className="min-w-0 truncate"><TLine text={r.prompt} /></span>
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                  {/* THE FOOT OF THE CARD IS ONE BLOCK, AND IT IS PINNED
-                      (10 Sep 2026).
-
-                      Ethan: "the cards are different sizes, some of them are in
-                      a different range depending on the caption they added. Fix
-                      this so the cards are always the same size - Open Link
-                      should always be at the bottom, Leave feedback for this
-                      entry just above it, and the views just above that. Then
-                      there can be extra space above if someone wrote a short
-                      caption."
-
-                      The cards were already the same HEIGHT - they are grid
-                      items and a grid stretches its row. What was different was
-                      where everything inside them sat, because only the Open
-                      Link row had `mt-auto`: the slack landed between the
-                      feedback box and the button, so on a short caption the
-                      three things at the foot were spread down the card and on
-                      a long one they were bunched. Moving the whole trio into
-                      one `mt-auto` block puts the slack ABOVE them, which is
-                      where an unused line belongs, and lines the three rows up
-                      across every card in the row.
-
-                      The views moved down here from just under the caption for
-                      the same reason - they are part of the foot, not part of
-                      the story.
-
-                      THE TEAM'S NOTE. The creator sees it on their own entry;
-                      an admin sees the editor on every entry. Nobody else sees
-                      anything, because nobody else's query returns a row. */}
-                  <div className="mt-auto flex flex-col gap-3 pt-1">
-                  {s.creator_id === user.id && <EntryFeedbackNote feedback={feedback[s.id]} />}
-                  {isAdmin && (
-                    <EntryFeedbackEditor
-                      submissionId={s.id}
-                      creatorName={s.profiles?.name?.split(' ')[0]}
-                      feedback={feedback[s.id]}
-                      onSaved={(row) => setFeedback((f) => ({ ...f, [s.id]: row }))}
-                    />
-                  )}
-
-                  <div className="flex gap-2">
-                    <a
-                      href={safeUrl(s.video_url)}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="btn inline-flex flex-1 items-center justify-center gap-1.5 bg-brand-tint !py-2 text-xs !text-brand transition-transform duration-200 hoverable:hover:-translate-y-0.5"
-                    >
-                      <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                        <path d="M10 13a5 5 0 0 0 7.07 0l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
-                        <path d="M14 11a5 5 0 0 0-7.07 0l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
-                      </svg>
-                      {tr("Open Link")}
-                    </a>
-                    {s.creator_id === user.id && isLive && (
-                      <button onClick={() => removeMySubmission(s.id)} className="btn-danger !py-2 text-xs">{tr("Remove")}</button>
-                    )}
-                  </div>
-                  </div>
-                </div>
+                <ChallengeDetailEntryBody
+                  bonusById={bonusById}
+                  challenge={challenge}
+                  claimBonus={claimBonus}
+                  claimableFor={claimableFor}
+                  claimsBySubmission={claimsBySubmission}
+                  entryPoints={entryPoints}
+                  feedback={feedback}
+                  isAdmin={isAdmin}
+                  isLive={isLive}
+                  removeMySubmission={removeMySubmission}
+                  s={s}
+                  setFeedback={setFeedback}
+                  tr={tr}
+                  unclaimBonus={unclaimBonus}
+                  user={user}
+                />
               </div>
             ))}
           </div>
@@ -1828,142 +1682,28 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
       )}
 
       {tab === 'leaderboard' && (
-        <div className="space-y-5 animate-fade-up">
-          {/* WHERE THE BOARD CAME FROM is the badge beside the tabs now
-              (`BoardStatus`); the full-width card that said it is gone. */}
-          {/* ONE TAB PER BOARD, AND IT OPENS ON YOURS.
-              A challenge with groups has more than one leaderboard and they are
-              not a ranking of each other - they are separate races for separate
-              prizes. Stacking them would make the second one look like the
-              bottom of the first. It opens on the creator's own board because
-              "how am I doing" is the question a leaderboard is opened to
-              answer; the others are one press away.
-
-              THE TAB CARRIES THE BOARD'S SIZE, so switching to another group is
-              a decision made with the number visible rather than a guess. */}
-          {boards.length > 1 && (
-            <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:flex-wrap sm:px-0">
-              {boards.map((g) => (
-                <button
-                  key={g.id ?? 'ungrouped'}
-                  type="button"
-                  onClick={() => setBoard(g.id)}
-                  aria-pressed={shownBoard === g.id}
-                  className={cx(
-                    'flex shrink-0 items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition-all duration-200',
-                    shownBoard === g.id
-                      ? 'bg-brand text-white shadow-card'
-                      : 'bg-cloud text-smoke hover:-translate-y-0.5 hover:text-ink',
-                  )}
-                >
-                  {g.name}
-                  <span className={cx('rounded-full px-1.5 py-0.5 text-[10px] font-bold tabular-nums',
-                    shownBoard === g.id ? 'bg-white/25' : 'bg-white text-smoke')}>
-                    {boardCounts.get(g.id) || 0}
-                  </span>
-                  {g.id === myGroupId && (
-                    <span className={cx('text-[10px] font-bold uppercase tracking-wider',
-                      shownBoard === g.id ? 'text-white/80' : 'text-brand')}>{tr("you")}</span>
-                  )}
-                </button>
-              ))}
-            </div>
-          )}
-
-          {/* WHAT THE BOARD ON SHOW IS PLAYING FOR. On a split challenge this is
-              the group's own pot, which is not the challenge's - reading the
-              brief's figure against another group's board is the single
-              easiest mistake this page can invite. */}
-          {boards.length > 1 && shownPrize?.prize_amount != null && (
-            <div className="flex flex-wrap items-center gap-2 rounded-card bg-cloud/50 px-4 py-3 text-sm">
-              <Icon name="trophy" className="h-4 w-4 shrink-0 text-brand" />
-              <span className="font-semibold">{boards.find((g) => g.id === shownBoard)?.name}</span>
-              <span className="text-smoke">{tr("is playing for")}</span>
-              <span className="font-bold text-brand">{formatMoney(shownPrize.prize_amount, shownPrize.prize_currency)}</span>
-              {shownPrize.winners_count ? (
-                <span className="text-smoke">
-                  {tr("across {n} places", { n: shownPrize.winners_count })}
-                </span>
-              ) : null}
-            </div>
-          )}
-
-          {/* THE BOARD ON SHOW, WHICH IS NOT ALWAYS MINE. The voucher badge on
-              a leaderboard row means "this creator earned the reward", and on
-              another group's tab that reward is that group's - so is the prize
-              on each place, which is why `boardPrizes` and not `prizes`. */}
-          {/* THE PODIUM LEADS THE BOARD, AND IT MOVES ON ITS OWN (2 Sep 2026).
-
-              Ethan: "whenever I click on the leaderboard tab I want the visual
-              podium at the top that's automatically updating, and then the rest
-              of the leaderboard as the list below."
-
-              It is built from the SAME rows the list is built from, so there is
-              nothing to keep in step: view counts are read off each entry's
-              link a few times a day and written to `submissions`, this page
-              subscribes to that table, and the podium and the list re-rank
-              together because they are one array. Places nobody has taken yet
-              are drawn as open steps carrying their prize rather than left out,
-              which is the promise the rows below already make.
-
-              THE LIST UNDER IT HOLDS EVERYBODY, FIRST PLACE INCLUDED
-              (4 Sep 2026). Ethan: "even though we have the podium, it should
-              still show everyone in the actual leaderboard below in the
-              leaderboard view, but still have the podium visual at the top."
-
-              It started at FOURTH, on the reasoning that drawing the top three
-              twice was a duplicate. That reasoning was wrong about what a
-              leaderboard IS. A board is a ranked list and a podium is a
-              PICTURE of its head; cutting the first three rows out of the list
-              to avoid repeating them leaves a table that begins at 4 with no
-              explanation, and it means the columns a creator scans for - the
-              prize on each place, the platforms, the score - are missing for
-              exactly the three places they care most about. A scoreboard shows
-              the leader in the list AND on the screen above it; nobody has ever
-              found that confusing. */}
-          <Podium
-            className="pt-2"
-            meId={user.id}
-            places={podiumPlaces}
-          />
-
-          <ChallengeLeaderboard
-            rows={boardRows}
-            prizes={boardPrizes}
-            meId={user.id}
-            participation={boardParticipation}
-            subCountByCreator={subCountByCreator}
-            platformsFor={submittedPlatforms}
-            scoreLabel={challenge.scoring === 'points' ? 'points' : 'views'}
-            streaks={streaks}
-            showStreaks={isLive}
-            showVideos
-          />
-
-          {/* A challenge with no prize breakdown at all has no places to lay
-              out, so the component draws nothing and this says why.
-
-              ONLY WHEN THE BANNER HAS NOT ALREADY SAID IT. On a challenge that
-              has no results anywhere, the banner above already reads "Nobody
-              has a logged view count yet" - printing this underneath it was the
-              same sentence twice in two boxes. It is worth saying only when
-              OTHER boards have results and this one does not, which is the
-              split-challenge case it was written for. */}
-          {boardRows.length === 0 && boardPrizes.length === 0 && results.length > 0 && (
-            <p className="rounded-card border border-dashed border-gray-200 px-5 py-6 text-center text-sm text-smoke">
-              {tr("Nobody on this board has a logged view count yet.")}
-            </p>
-          )}
-
-          {isLive && (
-            <div className="flex justify-center pt-1">
-              <button onClick={() => setShowSubmit(true)} className="btn-primary">
-                <Icon name="video" className="h-5 w-5" />
-                {myEntries.length > 0 ? tr('Add another entry') : tr('Submit your video')}
-              </button>
-            </div>
-          )}
-        </div>
+        <ChallengeDetailLeaderboard
+          boardCounts={boardCounts}
+          boardParticipation={boardParticipation}
+          boardPrizes={boardPrizes}
+          boardRows={boardRows}
+          boards={boards}
+          challenge={challenge}
+          isLive={isLive}
+          myEntries={myEntries}
+          myGroupId={myGroupId}
+          podiumPlaces={podiumPlaces}
+          results={results}
+          setBoard={setBoard}
+          setShowSubmit={setShowSubmit}
+          shownBoard={shownBoard}
+          shownPrize={shownPrize}
+          streaks={streaks}
+          subCountByCreator={subCountByCreator}
+          submittedPlatforms={submittedPlatforms}
+          tr={tr}
+          user={user}
+        />
       )}
 
       {/* ---------- Inline video player ---------- */}
@@ -1979,210 +1719,30 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
       {/* ---------- Submit modal ---------- */}
       {/* noValidate: we validate ourselves so every problem is shown in the
           branded card below, not in the browser's own popup bubble. */}
-      <Modal open={showSubmit} onClose={() => setShowSubmit(false)} title={tr("Submit your entry")}>
-        <form onSubmit={submitEntry} noValidate className="space-y-5">
-          {/* THE SUBMIT FORM, REDRAWN (26 Sep 2026). Ethan: "I would make the
-              UI of this much better ... The tick button, whenever I tick it,
-              should look like the other platform design." Numbered steps, a
-              link box with its own Paste button, and bonus rows that turn
-              solid brand when ticked - the platform's one rule for a picked
-              option - instead of the browser's own tick box. */}
-          <div>
-            <label htmlFor="video_url" className="mb-2 flex items-center gap-2 text-sm font-semibold text-ink">
-              <span className="flex h-6 w-6 items-center justify-center rounded-full bg-brand text-[11px] font-bold text-white">1</span>
-              {tr("Your video link")}
-            </label>
-            <div className={cx(
-              // `field-shell`: the BOX shows focus, not the input inside it.
-              // Without it the input drew its own 1px orange ring inside the
-              // box, the "weird orange lines" Ethan saw (28 Sep 2026).
-              'field-shell flex items-center gap-2 rounded-xl border bg-white pl-3 pr-1.5 transition-all duration-200 focus-within:border-brand focus-within:ring-4 focus-within:ring-brand/15',
-              errorField === 'url' ? 'border-red-300 ring-2 ring-red-100' : 'border-gray-200',
-            )}>
-              <Icon name="link" className="h-4 w-4 shrink-0 text-smoke" />
-              <input
-                id="video_url"
-                type="text"
-                inputMode="url"
-                autoComplete="off"
-                spellCheck={false}
-                aria-invalid={errorField === 'url'}
-                aria-describedby={submitError ? 'submit-error' : undefined}
-                className="no-ios-zoom min-w-0 flex-1 bg-transparent py-3 text-sm text-ink outline-none placeholder:text-smoke"
-                placeholder={tr("tiktok.com/@you/video/…")}
-                value={videoUrl}
-                onChange={(e) => {
-                  setVideoUrl(e.target.value)
-                  if (errorField === 'url') { setSubmitError(''); setErrorField(''); setDupInfo(null) }
-                }}
-              />
-              {!videoUrl.trim() && typeof navigator !== 'undefined' && navigator.clipboard?.readText && (
-                <button
-                  type="button"
-                  onClick={async () => {
-                    try {
-                      const text = (await navigator.clipboard.readText()).trim()
-                      if (text) setVideoUrl(text)
-                    } catch { /* permission refused: they can still type */ }
-                  }}
-                  className="shrink-0 rounded-lg bg-brand-tint px-3 py-1.5 text-xs font-bold text-brand transition-transform duration-200 active:scale-95"
-                >
-                  {tr("Paste")}
-                </button>
-              )}
-            </div>
-            {/* WHAT WE FOUND AT THE END OF THE LINK. It replaces a line that
-                said "Detected platform: TikTok" - which is a fact about our
-                parsing rather than about their video, and which they could
-                already see from the link they had just pasted. A cover and
-                their own handle is the same reassurance made of the thing they
-                actually care about: that we found the right post. */}
-            {videoUrl.trim() && !urlProblem(videoUrl) && (
-              <div className="mt-3 flex items-center gap-3 rounded-xl border border-gray-100 bg-cloud/50 p-2.5">
-                <div className="h-16 w-[3.2rem] shrink-0 overflow-hidden rounded-lg bg-white ring-1 ring-black/5">
-                  {linkMeta?.thumbnail
-                    ? <img src={linkMeta.thumbnail} alt="" referrerPolicy="no-referrer" className="h-full w-full object-cover" />
-                    : (
-                      <span className="flex h-full w-full items-center justify-center">
-                        {linkMeta?.loading
-                          ? <Spinner className="h-4 w-4" />
-                          : <Icon name="video" className="h-5 w-5 text-gray-300" />}
-                      </span>
-                    )}
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="text-xs font-semibold text-ink">
-                    {detectPlatform(normaliseUrl(videoUrl))}
-                    {linkMeta?.handle && <span className="ml-1.5 font-medium text-brand">@{linkMeta.handle}</span>}
-                  </p>
-                  <p className="mt-0.5 truncate text-xs text-smoke">
-                    {linkMeta?.loading
-                      ? tr('Reading your post…')
-                      : linkMeta?.thumbnail
-                        ? tr('Found it. Check the caption below and post your entry.')
-                        : tr('We could not read a preview. Your entry still counts.')}
-                  </p>
-                </div>
-              </div>
-            )}
-          </div>
-          <div>
-            <label htmlFor="caption" className="mb-2 flex items-center gap-2 text-sm font-semibold text-ink">
-              <span className="flex h-6 w-6 items-center justify-center rounded-full bg-brand text-[11px] font-bold text-white">2</span>
-              {tr("Caption")}
-            </label>
-            <textarea
-              id="caption"
-              rows={3}
-              aria-invalid={errorField === 'caption'}
-              aria-describedby={submitError ? 'submit-error' : undefined}
-              className={cx('input', errorField === 'caption' && '!border-red-300 !ring-2 !ring-red-100')}
-              placeholder={tr("The caption you used, or a note for the team…")}
-              value={caption}
-              onChange={(e) => {
-                setCaption(e.target.value)
-                setCaptionTouched(true)
-                if (errorField === 'caption') { setSubmitError(''); setErrorField('') }
-              }}
-            />
-          </div>
-          {/* ---- THE BONUSES THIS VIDEO MIGHT HAVE EARNED ----
-              Ethan: "there should be a check box asking them if they posted a
-              video on the certain thing to get the bonus point. Ticking the box
-              would then automatically update the points and this would mean the
-              points system is fully automated again, no manual checking."
-              Only bonuses the admin wrote a QUESTION for appear here - see
-              migration 155 and the prompt field in PointRulesEditor. A bonus
-              with no question is still awarded by an admin by hand, exactly as
-              bonuses have always worked.
-              The points are stated on every line. A tick box that does not say
-              what it is worth is a tick box people leave alone. */}
-          {openBonusRules.length > 0 && (
-            <div>
-              <p className="mb-1 flex items-center gap-2 text-sm font-semibold text-ink">
-                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-brand text-white"><Icon name="star" className="h-3.5 w-3.5" /></span>
-                {tr("Bonus points")}
-              </p>
-              <p className="mb-3 pl-8 text-xs text-smoke">
-                {tr("Tick anything this video qualifies for. The team can see what you ticked next to the video.")}
-              </p>
-              <div className="space-y-2">
-                {openBonusRules.map((r) => {
-                  const on = claiming.includes(r.id)
-                  return (
-                    <button
-                      key={r.id}
-                      type="button"
-                      role="checkbox"
-                      aria-checked={on}
-                      onClick={() => setClaiming((cur) => (on ? cur.filter((x) => x !== r.id) : [...cur, r.id]))}
-                      className={cx(
-                        'flex w-full items-start gap-3 rounded-xl border px-3.5 py-3 text-left transition-all duration-200 active:scale-[0.99]',
-                        on ? 'border-brand bg-brand text-white shadow-card' : 'border-gray-200 bg-white text-ink hoverable:hover:-translate-y-0.5 hoverable:hover:border-brand/40',
-                      )}
-                    >
-                      <span className={cx(
-                        'mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md border-2 transition-colors duration-200',
-                        on ? 'border-white bg-white text-brand' : 'border-gray-300 bg-white text-transparent',
-                      )}>
-                        <Icon name="check" className="h-3.5 w-3.5" />
-                      </span>
-                      <span className="min-w-0 flex-1 text-sm font-medium">
-                        <TLine text={r.prompt} />
-                        {r.min_views > 0 && (
-                          <span className={cx('mt-0.5 block text-[11px] font-medium', on ? 'text-white/80' : 'text-smoke')}>
-                            {tr("The bonus lands once this video passes {n} views.", { n: Number(r.min_views).toLocaleString() })}
-                          </span>
-                        )}
-                      </span>
-                      <span className={cx(
-                        'shrink-0 rounded-full px-2.5 py-0.5 text-xs font-bold',
-                        on ? 'bg-white text-brand' : 'bg-brand text-white',
-                      )}>
-                        +{r.points}
-                      </span>
-                    </button>
-                  )
-                })}
-              </div>
-            </div>
-          )}
-
-          {dupInfo && (
-            <div id="submit-error" role="alert" className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3.5 text-sm text-amber-900">
-              <div className="flex items-start gap-3">
-                <Icon name="alert" className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
-                <div>
-                  <p className="font-semibold">{tr('This video has already been submitted')}</p>
-                  <p className="mt-1 leading-relaxed text-amber-900/85">
-                    {dupInfo.same
-                      ? tr('It is already in {c}, which is this challenge.', { c: dupInfo.title || tr('this challenge') })
-                      : tr('It is already in {c}. A video can only count in one challenge.', { c: dupInfo.title || tr('another challenge') })}
-                  </p>
-                  {!dupInfo.same && (
-                    <p className="mt-1.5 leading-relaxed text-amber-900/85">
-                      {tr('Meant it for this one? Remove it from {c} first, then submit it here. If that challenge has finished, message the team.', { c: dupInfo.title || tr('the other challenge') })}
-                    </p>
-                  )}
-                </div>
-              </div>
-            </div>
-          )}
-          {submitError && (
-            <div
-              id="submit-error"
-              role="alert"
-              className="flex items-start gap-3 rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-600"
-            >
-              <Icon name="alert" className="mt-0.5 h-4 w-4 shrink-0" />
-              <span>{submitError}</span>
-            </div>
-          )}
-          <button type="submit" disabled={submitting} className="btn-primary w-full justify-center !py-3.5 text-base shadow-card">
-            {submitting ? <Spinner /> : <><Icon name="video" className="h-5 w-5" /> {tr('Enter the challenge')}</>}
-          </button>
-        </form>
-      </Modal>
+      <ChallengeDetailSubmitModal
+        caption={caption}
+        claiming={claiming}
+        dupInfo={dupInfo}
+        errorField={errorField}
+        linkMeta={linkMeta}
+        normaliseUrl={normaliseUrl}
+        openBonusRules={openBonusRules}
+        setCaption={setCaption}
+        setCaptionTouched={setCaptionTouched}
+        setClaiming={setClaiming}
+        setDupInfo={setDupInfo}
+        setErrorField={setErrorField}
+        setShowSubmit={setShowSubmit}
+        setSubmitError={setSubmitError}
+        setVideoUrl={setVideoUrl}
+        showSubmit={showSubmit}
+        submitEntry={submitEntry}
+        submitError={submitError}
+        submitting={submitting}
+        tr={tr}
+        urlProblem={urlProblem}
+        videoUrl={videoUrl}
+      />
 
       {/* ---------- Entry submitted ---------- */}
       <SubmissionSuccess
