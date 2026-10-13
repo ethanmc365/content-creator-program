@@ -148,8 +148,6 @@ done
 Set the secrets listed in the README. **Keep the same VAPID key pair**, or every
 phone's push subscription stops working until the creator re-enables
 notifications. Keep `WEBHOOK_SECRET` equal to `private.config.webhook_secret`.
-Not needed (retired): `link-preview`, `ig-probe`, `view-sync-probe`,
-`social-sync`, `tiktok-oauth`.
 
 ## 8. Auth settings (dashboard > Authentication)
 

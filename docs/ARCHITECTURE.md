@@ -152,6 +152,3 @@ The scheduled jobs (all UTC) are listed with their exact commands in
   (admin + member); merging them would save planner work at scale. About 80
   indexes show no use since the 7 Oct restart; review before dropping (some
   serve monthly jobs).
-- Three retired edge functions are still deployed (`link-preview`, `ig-probe`,
-  `view-sync-probe`) and two retired folders remain (`social-sync`,
-  `tiktok-oauth`). Nothing calls them; delete from the dashboard and the repo.
