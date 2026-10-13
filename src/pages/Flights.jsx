@@ -1,21 +1,17 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
-import { ActionRow, Avatar, Badge, EmptyState, Modal, PageHeader, Skeleton, Spinner } from '../components/ui'
-import { DateField } from '../components/DateTimeFields'
+import { ActionRow, Avatar, EmptyState, Modal, PageHeader, Skeleton } from '../components/ui'
 import Icon from '../components/Icon'
 import Reveal from '../components/network/Reveal'
 import ScanBoardingPass from '../components/network/ScanBoardingPass'
-import { CountUp } from '../components/network/Motion'
 import WhenVisible from '../components/WhenVisible'
 import FlightMap from '../components/network/FlightMap'
 import MapSkeleton from '../components/network/MapSkeleton'
 import PhotoLightbox from '../components/PhotoLightbox'
-import AircraftArt from '../components/network/AircraftArt'
 import { confirm, notice } from '../lib/confirm'
 import { toast } from '../lib/toast'
-import { airport, distanceKm, haul, homeAirport } from '../lib/airports'
-import { NO_AUTOFILL } from '../lib/noAutofill'
+import { airport, distanceKm, homeAirport } from '../lib/airports'
 import { routeAirlines, aircraftFor, anyAircraftFor, airlineByName, AIRCRAFT } from '../lib/airlines'
 import { tripsFromFlights, buildFlightStats, humanHours } from '../lib/flightStats'
 import { compressImage } from '../lib/image'
@@ -23,11 +19,13 @@ import { uploadFile } from '../lib/upload'
 import { cx, formatDate } from '../lib/utils'
 import { useT } from '../lib/i18n'
 import { flightsApi } from '../api/flights'
-import { AirportField } from './FlightsAirportField'
-import { BoardingPass } from './FlightsBoardingPass'
-import { EARTH_CIRCUMFERENCE_KM, MOON_KM, PURPOSES, PURPOSE_LABEL, BLANK_FORM, km, miles, ymd, monthLabel, routeFacts, RecordCard, LoyaltyRow } from './FlightsParts'
+import { EARTH_CIRCUMFERENCE_KM, MOON_KM, BLANK_FORM, km, ymd, monthLabel, routeFacts, RecordCard, LoyaltyRow } from './FlightsParts'
 import { YearColumn } from './FlightsYearColumn'
 import { PurposeBar } from './FlightsPurposeBar'
+import FlightsDetailModal from './FlightsDetailModal'
+import FlightsLogForm from './FlightsLogForm'
+import FlightsLog from './FlightsLog'
+import FlightsHero from './FlightsHero'
 
 export default function Flights() {
   const tr = useT()
@@ -698,98 +696,7 @@ export default function Flights() {
               of the earth drawn UNDER it as a bar you fill in. The supporting
               figures ride along its foot; everything else stays in the grids
               further down where a grid is the right shape. */}
-          <Reveal from="down">
-            <section className="relative overflow-hidden rounded-card bg-gradient-to-br from-brand to-brand-light p-6 text-white shadow-lift sm:p-8">
-              <div className="pointer-events-none absolute -right-16 -top-20 h-72 w-72 rounded-full bg-white/10 blur-2xl" />
-              <div className="relative">
-                <p className="text-[11px] font-semibold uppercase tracking-widest text-white/70">{tr("Distance flown")}</p>
-                <p className="mt-1 flex flex-wrap items-baseline gap-x-3 text-4xl font-bold tabular-nums sm:text-6xl">
-                  <CountUp value={Math.round(stats.distance)} format={(n) => Math.round(n).toLocaleString('en-GB')} />
-                  <span className="text-lg font-semibold text-white/75 sm:text-2xl">km</span>
-                  <span className="text-sm font-medium text-white/60">{miles(stats.distance)} miles</span>
-                </p>
-
-                {/* THE LAP BAR. "1.83 times around the world" is a number you
-                    have to picture; a bar that has gone round once and is most
-                    of the way round again is the picture. */}
-                <div className="mt-5 max-w-xl">
-                  <div className="flex items-baseline justify-between text-[11px] font-semibold uppercase tracking-widest text-white/70">
-                    <span>{laps < 1 ? 'Around the world' : `Lap ${Math.floor(laps) + 1}`}</span>
-                    <span className="tabular-nums">{laps.toFixed(2)}×</span>
-                  </div>
-                  <div className="mt-1.5 h-2.5 overflow-hidden rounded-full bg-white/20">
-                    {laps > 0 && (
-                      <div
-                        className="h-full rounded-full bg-white transition-[width] duration-1000 ease-out"
-                        style={{ width: `${Math.max(2, (laps % 1 || 1) * 100)}%` }}
-                      />
-                    )}
-                  </div>
-                  {/* THE EARTH FIRST, AND THE MOON ONLY ONCE YOU HAVE EARNED IT.
-                      It said "One lap is 40,075 km. You are 5% of the way to the
-                      moon" from the very first flight - which is both the wrong
-                      denominator to lead with and a genuinely discouraging one:
-                      five percent of anything reads as barely started, and the
-                      thing it is five percent of is a distance nobody is going
-                      to fly. Ethan: "I think I would say what percent you are of
-                      doing a full lap of the world first. And then once you've
-                      done a full lap of the world, it can show that you've done
-                      ten laps of the world or three laps of the world, and then
-                      also saying the sentence about the moon."
-                      So under one lap the sentence is about the lap you are on.
-                      Past one lap it says how many laps that is, and only then
-                      does the moon appear - by which point the number attached
-                      to it is worth reading. */}
-                  <p className="mt-1.5 text-[11px] text-white/60">
-                    {laps < 1 ? (
-                      <>One lap is {km(EARTH_CIRCUMFERENCE_KM)} km. You are {(laps * 100).toFixed(laps < 0.1 ? 1 : 0)}% of the way around the world.</>
-                    ) : (
-                      <>
-                        That is {laps < 2 ? 'a full lap' : `${Math.floor(laps)} laps`} of the world
-                        {laps >= 2 ? ` and ${((laps % 1) * 100).toFixed(0)}% of the next` : ''}.
-                        {' '}You are {moonPct < 1 ? moonPct.toFixed(2) : moonPct.toFixed(1)}% of the way to the moon.
-                      </>
-                    )}
-                  </p>
-                </div>
-
-                <div className="mt-6 flex flex-wrap gap-x-8 gap-y-4 border-t border-white/20 pt-4">
-                  {[
-                    { n: stats.flights, label: 'Flights' },
-                    { n: null, v: humanHours(stats.minutes), label: 'In the air' },
-                    { n: stats.countries, label: 'Countries' },
-                    { n: stats.airports, label: 'Airports' },
-                    // TIME ZONES CROSSED, LIFETIME. Not distinct zones visited,
-                    // which is a much smaller and much duller number: this is
-                    // how many hours of clock change you have flown through,
-                    // added up, which is the part that actually costs you
-                    // something. See lib/flightStats.
-                    { n: stats.zonesCrossed, label: 'Time zones', suffix: 'h' },
-                  ].map((s) => (
-                    <div key={s.label}>
-                      <p className="text-xl font-bold tabular-nums sm:text-2xl">
-                        {s.v ?? <><CountUp value={s.n} />{s.suffix || ''}</>}
-                      </p>
-                      <p className="text-[10px] font-semibold uppercase tracking-widest text-white/70">{s.label}</p>
-                    </div>
-                  ))}
-                </div>
-                {/* "Time in the air is worked out from the distance flown" is
-                    gone. Ethan: "I would remove that." It explained a method
-                    nobody asked about, under a row of numbers that are not in
-                    dispute. The clock-change caveat stays, because that one is a
-                    coverage gap rather than a method note: it says the figure
-                    above is computed over FEWER flights than the count beside
-                    it, which is a thing you would otherwise have to catch
-                    yourself. */}
-                {stats.zoneFlights < stats.flights && (
-                  <p className="mt-3 text-[11px] text-white/55">
-                    Clock changes are counted on the {stats.zoneFlights} of {stats.flights} flights where both ends name a single time zone.
-                  </p>
-                )}
-              </div>
-            </section>
-          </Reveal>
+          <FlightsHero laps={laps} moonPct={moonPct} stats={stats} tr={tr} />
 
           {/* ---- COMING UP ----
               THE FLIGHTS THAT HAVE NOT HAPPENED YET, kept visibly apart from
@@ -1130,627 +1037,52 @@ export default function Flights() {
           )}
 
           {/* ---- The log itself ---- */}
-          <Reveal from="down">
-            <section>
-              <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
-                <h2 className="text-lg font-semibold">{tr("Every flight")}</h2>
-                <p className="text-xs text-smoke">{stats.flights} logged</p>
-              </div>
-              <Reveal className="space-y-2.5" stagger={0.03}>
-                {visible.map((t) => {
-                  const f = t.out
-                  const back = t.back
-                  return (
-                  // THE WHOLE ROW OPENS THE TRIP.
-                  // It carried an Edit and a Remove button and nothing else,
-                  // so the only thing you could do to a flight you had logged
-                  // was change it or destroy it - there was no way to simply
-                  // look at one. Ethan: "clicking a logged flight should open
-                  // that trip's details." The buttons stop the press so they
-                  // still do their own jobs.
-                  <div
-                    key={t.id}
-                    role="button"
-                    tabIndex={0}
-                    onClick={() => setDetail(t)}
-                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setDetail(t) } }}
-                    className="card group flex cursor-pointer flex-wrap items-center gap-x-4 gap-y-2 !p-4 transition-all duration-200 hover:-translate-y-0.5 hover:border-brand/30 hover:shadow-lift"
-                  >
-                    {/* THE PHOTOGRAPH IS THE FIRST THING ON THE ROW, and it is
-                        big enough to be one. It was a 56px square - a thumbnail
-                        of a thumbnail, on the only part of a flight anybody
-                        wants to look at again. Ethan: "the trip photo renders
-                        tiny, clicking it should open a large view." It opens
-                        full size from the detail sheet the row leads to. */}
-                    {t.photo_url && (
-                      <img
-                        src={t.photo_url}
-                        alt=""
-                        loading="lazy"
-                        className="h-20 w-20 shrink-0 rounded-xl object-cover ring-1 ring-black/5 transition-transform duration-200 group-hover:scale-[1.03] sm:h-24 sm:w-24"
-                      />
-                    )}
-                    <div className="flex min-w-0 flex-1 items-center gap-3">
-                      <span className="flex shrink-0 items-center gap-1.5 text-sm font-bold tracking-wider text-brand">
-                        {f.from.iata}
-                        {/* THE SAME GLYPH THE COMING UP CARDS USE, IN THE
-                            LIGHTER ORANGE - and a DOUBLE-HEADED one when the
-                            trip has a return, because that arrow is now the
-                            only thing saying two legs are one trip. */}
-                        <Icon name={back ? 'reorder' : 'plane'} className="h-3.5 w-3.5 text-brand-light" />
-                        {f.to.iata}
-                      </span>
-                      <span className="min-w-0">
-                        <span className="block truncate text-sm font-medium">
-                          {f.from.city} to {f.to.city}
-                        </span>
-                        <span className="block truncate text-xs text-smoke">
-                          {/* A trip with a return is a RANGE. Two dates say
-                              "you were away from here to here", which is what
-                              a week in Madrid actually was. */}
-                          {back ? `${formatDate(f.flown_on)} – ${formatDate(back.flown_on)}` : formatDate(f.flown_on)}
-                          {f.airline ? ` · ${f.airline}` : ''}
-                          {f.flight_number ? ` ${f.flight_number}` : ''}
-                          {f.aircraft ? ` · ${f.aircraft}` : ''}
-                          {f.seat ? ` · seat ${f.seat}` : ''}
-                          {f.purpose ? ` · ${f.purpose === 'other' && f.purpose_note ? f.purpose_note : (PURPOSE_LABEL[f.purpose] || f.purpose)}` : ''}
-                        </span>
-                      </span>
-                    </div>
-                    <div className="flex shrink-0 items-center gap-3">
-                      {/* "Return" is not a badge on a second row any more, it
-                          is a property of the one row. */}
-                      {back && <Badge tone="light" className="!px-2 !py-0.5">{tr("Return")}</Badge>}
-                      <Badge tone="grey" className="!px-2 !py-0.5">{haul(f.dist)}</Badge>
-                      <span className="text-right text-xs tabular-nums text-smoke">
-                        <span className="block font-semibold text-ink">{km(t.dist)} km</span>
-                        <span className="block">{humanHours(t.mins)}</span>
-                      </span>
-                      {/* EDIT BEFORE REMOVE, and nearer to hand. Deleting is
-                          the irreversible one, so the gentler option comes
-                          first. Both stop the press reaching the row. */}
-                      <button
-                        onClick={(e) => { e.stopPropagation(); openEdit(f) }}
-                        aria-label={tr("Edit this flight")}
-                        className="rounded-lg p-1.5 text-gray-300 transition-colors hover:bg-brand-tint hover:text-brand"
-                      >
-                        <Icon name="pencil" className="h-4 w-4" />
-                      </button>
-                      <button
-                        onClick={(e) => { e.stopPropagation(); remove(f) }}
-                        aria-label={tr("Remove this flight")}
-                        className="rounded-lg p-1.5 text-gray-300 transition-colors hover:bg-red-50 hover:text-red-500"
-                      >
-                        <Icon name="trash" className="h-4 w-4" />
-                      </button>
-                    </div>
-                  </div>
-                  )
-                })}
-              </Reveal>
-              {stats.flights > 12 && (
-                <button
-                  type="button"
-                  onClick={() => setShowAll((v) => !v)}
-                  className="mt-4 flex w-full items-center justify-center gap-2 rounded-card border border-gray-100 bg-white py-3 text-sm font-semibold text-brand shadow-card transition-all hover:-translate-y-0.5 hover:shadow-lift"
-                >
-                  {showAll ? 'Show fewer' : `Show all ${stats.flights} flights`}
-                </button>
-              )}
-            </section>
-          </Reveal>
+          <FlightsLog
+            openEdit={openEdit}
+            remove={remove}
+            setDetail={setDetail}
+            setShowAll={setShowAll}
+            showAll={showAll}
+            stats={stats}
+            tr={tr}
+            visible={visible}
+          />
         </div>
       )}
 
       {/* ---- Log a flight ---- */}
-      <Modal
-        open={adding}
-        onClose={closeForm}
-        title={editing ? 'Edit this flight' : upcoming ? 'A flight coming up' : 'Log a flight'}
-        wide
-        sheet={false}
-      >
-        <form onSubmit={save} className="space-y-5">
-          {/* NOBODY IS ASKED WHETHER THEY HAVE ALREADY TAKEN THE FLIGHT.
-              There were two big radio cards at the top of this form, "I have
-              flown this" and "Coming up", and they decided whether the date
-              field would accept a future date. Ethan: "why is it asking I have
-              flown this and coming up, obviously by the dates that goes in
-              you'll be able to tell and then sort it automatically."
-              He is right, and the data model already agreed with him: there is
-              no `is_upcoming` column and there must not be one, because a
-              boolean would be wrong the morning after the flight. Upcoming IS
-              `flown_on > current_date` (migration 104). So the answer was
-              always derivable from a field the form already collects, and
-              asking for it was asking somebody to state a fact twice and then
-              contradict themselves.
-              `upcoming` is now computed from the date as it is typed - it still
-              drives what happens after saving (the offer to post to the collab
-              board) and the wording on the date labels. */}
-          {/* SCAN IT INSTEAD OF TYPING IT.
-              First, because it is the fastest path through this form and the
-              one that should be tried before anybody starts typing. It only
-              fills five fields - the airline, the aircraft, the purpose and the
-              note are still yours, because a barcode does not know why you
-              went. See components/network/ScanBoardingPass. */}
-          {!editing && (
-            <button
-              type="button"
-              onClick={() => setScanning(true)}
-              className="group flex w-full items-center gap-3 rounded-card border border-dashed border-brand/40 bg-brand-tint/25 px-4 py-3 text-left transition-all duration-200 hover:-translate-y-0.5 hover:border-brand hover:bg-brand-tint/50"
-            >
-              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand text-white transition-transform duration-200 group-hover:scale-110">
-                <Icon name="magnifier" className="h-4 w-4" />
-              </span>
-              <span className="min-w-0 flex-1">
-                <span className="block text-sm font-semibold text-ink">{tr("Scan your boarding pass")}</span>
-                <span className="block text-xs text-smoke">{tr("A photo, or a screenshot from Apple Wallet")}</span>
-              </span>
-              <Icon name="chevronRight" className="h-4 w-4 shrink-0 text-brand transition-transform duration-200 group-hover:translate-x-0.5" />
-            </button>
-          )}
-
-          {/* THE BOARDING PASS IS THE FORM'S ANSWER, AND IT IS AT THE TOP.
-              It used to be a tinted panel of facts under the two airport
-              fields. Putting it first, and building it as you type, is what
-              makes this feel like watching a flight appear rather than filling
-              in a form: everything on it comes from the two codes and the date,
-              and nothing on it is ever typed. */}
-          <BoardingPass
-            from={fromA}
-            to={toA}
-            facts={facts}
-            dateStr={form.flown_on}
-            airlineName={form.airline}
-            flightNo={form.flight_number}
-            seat={form.seat}
-            aircraftType={pickedPlane}
-          />
-
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <AirportField id="flight-from" label={tr("From")} value={form.from_iata} autoFocus
-              onChange={(v) => setForm((f) => ({ ...f, from_iata: v }))} />
-            <AirportField id="flight-to" label="To" value={form.to_iata}
-              onChange={(v) => setForm((f) => ({ ...f, to_iata: v }))} />
-          </div>
-
-          {/* A ROUND TRIP IS TWO FLIGHTS, and logging it is one tick. It saves
-              as two rows, because a return has its own date and its own
-              distance and folding it into one row would halve everybody's
-              totals.
-
-              THE TICK IS A TICK, AND NOTHING ELSE IS ASKED UNTIL IT IS ON.
-              Ethan: "it should just be a tick box, and [then] show the options
-              when you click them... currently it doesn't really make sense."
-              He is right, and the reason it did not make sense is that the box
-              was ANSWERING the question the control under it then asked. It
-              read "Also AMS back to BFS" - a claim about which way the return
-              flies - and the very next control was "which way did you fly
-              first?", which can reverse exactly that. Two controls stating
-              opposite things about the same trip is not a layout problem.
-              So the box now says "Round trip" and means only "there was a
-              flight home". Everything directional - which leg came first, and
-              the two dates it puts in order - lives in the panel that opens
-              underneath, where it can be read as one answer. */}
-          {canRoundTrip && (
-            <label
-              className={cx(
-                'flex cursor-pointer items-start gap-3 rounded-xl border px-3.5 py-3 transition-colors',
-                form.round_trip ? 'border-brand bg-brand-tint/20' : 'border-gray-200 hover:border-brand/40',
-              )}
-            >
-              <input
-                type="checkbox"
-                checked={form.round_trip}
-                onChange={(e) => setForm((f) => ({ ...f, round_trip: e.target.checked, return_on: e.target.checked ? f.return_on : '', first_leg: 'out' }))}
-                className="mt-0.5 h-4 w-4 shrink-0 accent-[#d94407]"
-              />
-              <span className="min-w-0">
-                <span className="block text-sm font-semibold text-ink">{tr("Round trip")}</span>
-                <span className="block text-[11px] leading-relaxed text-smoke">
-                  {/* A TRIP THAT ALREADY HAS ITS LEG HOME SAYS SO. The hint
-                      under the box used to describe what ticking it WOULD do,
-                      which is the wrong tense over a trip that is already a
-                      round trip - and unticking it is a delete, so it has to
-                      read like one. */}
-                  {returnLeg
-                    ? 'The flight home is logged as its own leg. Untick to remove it.'
-                    : 'Logs the flight home as its own leg, with its own date.'}
-                </span>
-              </span>
-            </label>
-          )}
-
-          {canRoundTrip && form.round_trip && (
-            <div className="rounded-xl border border-gray-200 p-4">
-              {/* WHICH WAY ROUND THE TRIP ACTUALLY WENT.
-                  Ethan: "when asking for round trip I want to select which way
-                  the round trip was. If I logged Oslo to Dublin and I want to
-                  log it as a round trip, well it would do Dublin back to Oslo,
-                  but it was actually the other way, Dublin to Oslo first."
-                  A pair of airports does not say which end you started at, and
-                  the form was assuming the pair had been typed in flying order.
-                  Half the time it has not been - people type the destination
-                  they are thinking about first.
-                  So the rule is now stated once and holds everywhere: `flown_on`
-                  is the FIRST leg's date, `return_on` is the second's, and this
-                  control decides which pair of codes goes on which. Both
-                  options are drawn in full rather than as a swap button,
-                  because "which way round" is a question you answer by reading
-                  the two answers, not by toggling something and checking what
-                  happened.
-                  IT IS ASKED BEFORE THE DATES, because it is what makes the two
-                  date labels below it mean anything. */}
-              <span className="label">{tr("Which way did you fly first?")}</span>
-              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                {[
-                  { key: 'out', a: fromA, b: toA },
-                  { key: 'back', a: toA, b: fromA },
-                ].map((opt) => {
-                  const on = form.first_leg === opt.key
-                  return (
-                    <button
-                      key={opt.key}
-                      type="button"
-                      onClick={() => setForm((f) => ({ ...f, first_leg: opt.key }))}
-                      aria-pressed={on}
-                      className={cx(
-                        'flex flex-col gap-1 rounded-xl border px-3.5 py-3 text-left transition-all duration-200 hover:-translate-y-0.5',
-                        on ? 'border-brand bg-brand-tint/30 shadow-card' : 'border-gray-200 bg-white hover:border-brand/40',
-                      )}
-                    >
-                      <span className={cx('flex items-center gap-1.5 text-sm font-bold tracking-wider', on ? 'text-brand' : 'text-ink')}>
-                        {opt.a?.iata || '···'}
-                        <Icon name="plane" className="h-3.5 w-3.5 text-brand-light" />
-                        {opt.b?.iata || '···'}
-                      </span>
-                      <span className="text-[11px] text-smoke">
-                        {opt.a && opt.b
-                          ? `${opt.a.city} to ${opt.b.city} first, then back`
-                          : 'Pick both airports first'}
-                      </span>
-                    </button>
-                  )
-                })}
-              </div>
-            </div>
-          )}
-
-          {/* THE DATES, ONE COLUMN OR TWO.
-              NO `max` ON EITHER. It existed to enforce a toggle - "I have flown
-              this" capped the field at today - and with the toggle gone a
-              capped field would make it impossible to log the flight you are
-              about to take, which is half of what this form is for. The LABELS
-              are what change, live: as soon as the date crosses today, and
-              again once a return has been asked for, so "Date flown" becomes
-              the date of a named leg rather than of an unspecified one.
-              NO HINT UNDER THE RETURN. It said "Saved as its own flight, so the
-              distance counts twice", which is an implementation detail dressed
-              as a warning - and it read as a bug being confessed to. Ethan:
-              "there's no need to show that text, it's unnecessary and ruins the
-              design." */}
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <DateField
-              id="flight-date"
-              label={canRoundTrip && form.round_trip
-                ? (upcoming ? 'Date you fly out' : 'Date you flew out')
-                : (upcoming ? 'Date you fly' : 'Date flown')}
-              value={form.flown_on}
-              onChange={(v) => setForm((f) => ({ ...f, flown_on: v }))}
-            />
-            {canRoundTrip && form.round_trip && (
-              <DateField
-                id="flight-return"
-                label={upcoming ? 'Date you fly back' : 'Date you flew back'}
-                value={form.return_on}
-                onChange={(v) => setForm((f) => ({ ...f, return_on: v }))}
-              />
-            )}
-          </div>
-          {canRoundTrip && form.round_trip && form.flown_on && form.return_on && form.return_on < form.flown_on && (
-            <p className="-mt-2 text-[11px] text-red-500">
-              {tr("The flight back is before the flight out. Check the dates.")}
-            </p>
-          )}
-
-          {/* ---- WHO FLIES IT ----
-              A SHORTLIST OF REAL CANDIDATES INSTEAD OF AN EMPTY BOX. This was a
-              text field labelled "Airline (optional)", and the honest thing to
-              say about an optional text field asking for a fact you have to
-              remember is that almost nobody fills it in - which is why the
-              "Airlines" statistic on this page read zero for everybody. */}
-          {previewKm > 0 && (
-            <div>
-              {/* NOT OPTIONAL. Ethan: "it shows the optional sign beside the
-                  airline you choose. That shouldn't be optional. You should
-                  always select the airline because that's something people
-                  likely know." The whole reason this is a shortlist of real
-                  candidates rather than an empty text box is that it is a fact
-                  everybody has and nobody could be bothered to type. */}
-              <p className="label">{tr("Airline")}</p>
-              {customAirline ? (
-                <div className="flex gap-2">
-                  <input id="flight-airline" value={form.airline} maxLength={60} autoFocus {...NO_AUTOFILL}
-                    placeholder={tr("The airline you flew")}
-                    onChange={(e) => setForm((f) => ({ ...f, airline: e.target.value }))} className="input w-full" />
-                  <button type="button" onClick={() => { setCustomAirline(false); setForm((f) => ({ ...f, airline: '' })) }}
-                    className="btn-ghost shrink-0 !px-3 !py-2 text-xs">{tr("Back to the list")}</button>
-                </div>
-              ) : (
-                <div className="flex flex-wrap gap-1.5">
-                  {shownCarriers.map(({ airline: a, why }) => {
-                    const on = form.airline === a.name
-                    return (
-                      <button
-                        key={a.iata}
-                        type="button"
-                        title={why}
-                        onClick={() => setForm((f) => ({
-                          ...f,
-                          airline: on ? '' : a.name,
-                          // Changing airline invalidates an aircraft chosen from
-                          // the previous one's fleet. Silently keeping a 787
-                          // beside "Ryanair" would be the form telling a lie it
-                          // was built to prevent.
-                          aircraft: on ? f.aircraft : '',
-                        }))}
-                        className={cx(
-                          'inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition-all duration-200 active:scale-95',
-                          on ? 'bg-brand text-white' : 'bg-cloud text-smoke hover:-translate-y-0.5 hover:text-ink',
-                        )}
-                      >
-                        <span className={cx('font-mono text-[10px]', on ? 'text-white/70' : 'text-gray-400')}>{a.iata}</span>
-                        {a.name}
-                      </button>
-                    )
-                  })}
-                  {carriers.length > 8 && !allAirlines && (
-                    <button type="button" onClick={() => setAllAirlines(true)}
-                      className="inline-flex items-center rounded-full bg-white px-3 py-1.5 text-xs font-semibold text-smoke ring-1 ring-gray-200 transition-all hover:-translate-y-0.5 hover:text-ink">
-                      {carriers.length - 8} more
-                    </button>
-                  )}
-                  <button type="button" onClick={() => { setCustomAirline(true); setForm((f) => ({ ...f, airline: '' })) }}
-                    className="inline-flex items-center rounded-full bg-white px-3 py-1.5 text-xs font-semibold text-brand ring-1 ring-brand/30 transition-all hover:-translate-y-0.5 hover:ring-brand">
-                    {tr("Other")}
-                  </button>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* ---- AIRCRAFT, WITH THE AIRCRAFT ON IT ----
-              The chips carry the type's own silhouette now. It costs nothing -
-              the drawing is the same component the collection page is built
-              from - and it turns a row of model numbers, which only a spotter
-              can tell apart, into a row of shapes anybody can. */}
-          {/* `planes.length > 0` is NOT part of this condition. It used to be,
-              which meant the whole aircraft field vanished on any route no
-              airline in the table can reach - and that is precisely the route
-              somebody was flown down on something rare. The escape below has to
-              be reachable whenever there is a route at all. */}
-          {previewKm > 0 && (
-            <div>
-              <p className="label">{tr("Aircraft")} <span className="font-normal text-smoke">(optional)</span></p>
-              {/* AND A WAY TO NAME ONE THAT IS NOT ON THE LIST.
-                  Ethan: "a button to add other aircraft in case there's a rare
-                  one someone goes on." The chips are what the airline you picked
-                  could plausibly have sent on a route this length, which is a
-                  good shortlist and a closed one - and a closed list is exactly
-                  wrong for the person who has just been on a Twin Otter to an
-                  island. The same escape the airline picker has had all along.
-                  What gets typed here appears under "Also flown" on the
-                  collection page and counts towards the number of different
-                  aircraft you have been on. */}
-              {customPlane ? (
-                <div className="flex gap-2">
-                  <input
-                    id="flight-aircraft"
-                    value={form.aircraft}
-                    maxLength={60}
-                    autoFocus
-                    {...NO_AUTOFILL}
-                    placeholder={tr("The aircraft you were on")}
-                    onChange={(e) => setForm((f) => ({ ...f, aircraft: e.target.value }))}
-                    className="input w-full"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => { setCustomPlane(false); setForm((f) => ({ ...f, aircraft: '' })) }}
-                    className="btn-ghost shrink-0 !px-3 !py-2 text-xs"
-                  >
-                    {tr("Back to the list")}
-                  </button>
-                </div>
-              ) : (
-              <div className="flex flex-wrap gap-1.5">
-                {planes.slice(0, picked ? planes.length : 10).map((p) => {
-                  const on = form.aircraft === p.name
-                  return (
-                    <button
-                      key={p.key}
-                      type="button"
-                      title={`${p.maker} · ${p.seats} seats · ${km(p.range)} km range`}
-                      onClick={() => setForm((f) => ({ ...f, aircraft: on ? '' : p.name }))}
-                      className={cx(
-                        'inline-flex items-center gap-1.5 rounded-full py-1 pl-1.5 pr-3 text-xs font-semibold transition-all duration-200 active:scale-95',
-                        on ? 'bg-brand text-white' : 'bg-cloud text-smoke hover:-translate-y-0.5 hover:text-ink',
-                      )}
-                    >
-                      <span className={cx('h-5 w-7 shrink-0', on && 'text-white')}>
-                        <AircraftArt type={p} className={on ? '[&>g]:!text-white' : undefined} />
-                      </span>
-                      {p.name}
-                    </button>
-                  )
-                })}
-                <button
-                  type="button"
-                  onClick={() => { setCustomPlane(true); setForm((f) => ({ ...f, aircraft: '' })) }}
-                  className="inline-flex items-center rounded-full bg-white px-3 py-1.5 text-xs font-semibold text-brand ring-1 ring-brand/30 transition-all hover:-translate-y-0.5 hover:ring-brand"
-                >
-                  Other
-                </button>
-              </div>
-              )}
-            </div>
-          )}
-
-          {/* OPTIONAL SAYS SO, AND THAT IS ALL IT SAYS.
-              Ethan: "not everything is necessary, such as flight number, seat,
-              the note. So if someone doesn't put them in, it should still add
-              to the log... you should have optional there as well." Two of the
-              three now carry the same "(optional)" the airline used to wear
-              wrongly - and none of them ever blocked a save, so the label was
-              simply describing what the form already did.
-              THE NOTE IS THE EXCEPTION AND IT IS DELIBERATE. Ethan: "I think the
-              note is good to have. We should keep the note as you have to put it
-              in because it's a nice little tag on the trip as a memory." It is
-              not marked optional, because marking it optional is an invitation
-              to skip the one field that turns a row of airport codes into
-              something worth reading back. It is still not enforced. */}
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-            <div>
-              <label htmlFor="flight-number" className="label">{tr("Flight no.")} <span className="font-normal text-smoke">(optional)</span></label>
-              <input id="flight-number" maxLength={10} {...NO_AUTOFILL} autoCapitalize="characters"
-                value={form.flight_number}
-                placeholder={picked ? `${picked.iata}1363` : 'TP1363'}
-                onChange={(e) => setForm((f) => ({ ...f, flight_number: e.target.value }))} className="input w-full" />
-            </div>
-            {/* SEAT. The one detail people actually remember, and the one that
-                makes a row read like a memory rather than a database entry. */}
-            <div>
-              <label htmlFor="flight-seat" className="label">{tr("Seat")} <span className="font-normal text-smoke">(optional)</span></label>
-              <input id="flight-seat" maxLength={8} value={form.seat} placeholder="14A" {...NO_AUTOFILL} autoCapitalize="characters"
-                onChange={(e) => setForm((f) => ({ ...f, seat: e.target.value.toUpperCase() }))} className="input w-full" />
-            </div>
-            <div className="col-span-2">
-              <label htmlFor="flight-note" className="label">{tr("Note")}</label>
-              <input id="flight-note" value={form.note} maxLength={140} placeholder={tr("Sunrise over the Alps")}
-                {...NO_AUTOFILL} autoCorrect="on" autoCapitalize="sentences"
-                onChange={(e) => setForm((f) => ({ ...f, note: e.target.value }))} className="input w-full" />
-            </div>
-          </div>
-
-          {/* ---- WHY YOU WENT ----
-              The one question a creator programme's flight log should be able to
-              answer and no other page can: how much of your flying is work. */}
-          <div>
-            <p className="label">{tr("What for?")} <span className="font-normal text-smoke">(optional)</span></p>
-            <div className="flex flex-wrap gap-1.5">
-              {PURPOSES.map((p) => {
-                const on = form.purpose === p.key
-                return (
-                  <button key={p.key} type="button"
-                    onClick={() => setForm((f) => ({
-                      ...f,
-                      purpose: on ? '' : p.key,
-                      // Moving off Other drops what was typed under it, so a
-                      // row can never say "Holiday" and carry a note explaining
-                      // that it was a funeral.
-                      purpose_note: on || p.key !== 'other' ? '' : f.purpose_note,
-                    }))}
-                    className={cx(
-                      'inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition-all duration-200 active:scale-95',
-                      on ? 'bg-brand text-white' : 'bg-cloud text-smoke hover:-translate-y-0.5 hover:text-ink',
-                    )}
-                  >
-                    <Icon name={p.icon} className="h-3.5 w-3.5" />
-                    {p.label}
-                  </button>
-                )
-              })}
-            </div>
-
-            {/* AND "OTHER" GETS TO SAY WHAT IT WAS.
-                Ethan: "whenever you're pressing what for, and click other, you
-                should be able to type something in, not just it appears as
-                other." A row filed under Other is the app recording that it did
-                not ask.
-                The six keys are unchanged and the chart still counts THEM - the
-                whole value of the field is that it can be counted, and a free
-                text reason column is four hundred distinct values and no chart.
-                The note rides beside the key (migration 104) and appears on the
-                row it belongs to, nowhere else.
-                It grows and shrinks rather than appearing, the same height
-                transition the board's country field uses, so the dialog does
-                not jump a row taller under the cursor. */}
-            <div
-              className={cx(
-                'grid transition-[grid-template-rows,opacity,margin] duration-300 ease-out motion-reduce:transition-none',
-                form.purpose === 'other' ? 'mt-2.5 grid-rows-[1fr] opacity-100' : 'mt-0 grid-rows-[0fr] opacity-0',
-              )}
-            >
-              <div className="overflow-hidden">
-                <input
-                  id="flight-purpose-note"
-                  aria-label={tr("What was it for?")}
-                  {...NO_AUTOFILL}
-                  autoCorrect="on"
-                  autoCapitalize="sentences"
-                  className="input w-full"
-                  maxLength={80}
-                  value={form.purpose_note}
-                  tabIndex={form.purpose === 'other' ? undefined : -1}
-                  aria-hidden={form.purpose !== 'other'}
-                  placeholder={tr("A wedding, a move, a layover you turned into a trip")}
-                  onChange={(e) => setForm((f) => ({ ...f, purpose_note: e.target.value }))}
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* ---- ONE PHOTOGRAPH ----
-              Ethan: "photos of flight/trip, one image per trip." ONE, not a
-              gallery: the travel gallery on a profile already exists and a
-              second one attached to flights would be two places to put the same
-              picture. It is also the only part of a logged flight anybody ever
-              wants to look at again, which is why it gets the front of the row
-              in the log rather than a link. */}
-          <div>
-            <p className="label">{tr("A photo from the trip")} <span className="font-normal text-smoke">(optional)</span></p>
-            {form.photo_url ? (
-              <div className="relative inline-block">
-                <img src={form.photo_url} alt="" className="h-32 w-48 rounded-xl object-cover ring-1 ring-black/5" />
-                <button
-                  type="button"
-                  onClick={() => setForm((f) => ({ ...f, photo_url: '' }))}
-                  aria-label={tr("Remove this photo")}
-                  className="absolute -right-2 -top-2 flex h-7 w-7 items-center justify-center rounded-full bg-white text-smoke shadow-card transition-transform hover:scale-110"
-                >
-                  <Icon name="close" className="h-3.5 w-3.5" />
-                </button>
-              </div>
-            ) : (
-              <label className={cx(
-                'flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-gray-200 px-4 py-6 text-center transition-colors hover:border-brand/50 hover:bg-brand-tint/20',
-                uploading && 'pointer-events-none opacity-60',
-              )}>
-                <input type="file" accept="image/*,.heic,.heif" className="hidden" onChange={pickPhoto} />
-                {uploading ? <Spinner /> : <Icon name="image" className="h-6 w-6 text-gray-300" />}
-                <span className="text-xs font-medium text-smoke">
-                  {uploading ? 'Uploading…' : 'Add one picture from this trip'}
-                </span>
-              </label>
-            )}
-          </div>
-
-          {/* THE SHARING TICK BOX HAS GONE. See BLANK_FORM: every flight
-              counts towards the community now and there is nothing to decide,
-              so there is nothing to ask. What reaches other people is unchanged
-              - the airports, the count and the distance, never a date, a seat,
-              a note or a photograph. */}
-
-          {error && <p role="alert" className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">{error}</p>}
-
-          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-            <button type="button" onClick={closeForm} className="btn-ghost w-full justify-center sm:w-auto">{tr("Cancel")}</button>
-            <button type="submit" disabled={saving} className="btn-primary w-full justify-center sm:w-auto">
-              {saving ? <Spinner /> : editing ? 'Save changes' : upcoming ? 'Add to what is coming up' : 'Add to my log'}
-            </button>
-          </div>
-        </form>
-      </Modal>
+      <FlightsLogForm
+        adding={adding}
+        allAirlines={allAirlines}
+        canRoundTrip={canRoundTrip}
+        carriers={carriers}
+        closeForm={closeForm}
+        customAirline={customAirline}
+        customPlane={customPlane}
+        editing={editing}
+        error={error}
+        facts={facts}
+        form={form}
+        fromA={fromA}
+        pickPhoto={pickPhoto}
+        picked={picked}
+        pickedPlane={pickedPlane}
+        planes={planes}
+        previewKm={previewKm}
+        returnLeg={returnLeg}
+        save={save}
+        saving={saving}
+        setAllAirlines={setAllAirlines}
+        setCustomAirline={setCustomAirline}
+        setCustomPlane={setCustomPlane}
+        setForm={setForm}
+        setScanning={setScanning}
+        shownCarriers={shownCarriers}
+        toA={toA}
+        tr={tr}
+        upcoming={upcoming}
+        uploading={uploading}
+      />
 
       <ScanBoardingPass
         open={scanning}
@@ -1783,108 +1115,15 @@ export default function Flights() {
           looking at and opens full screen from here, and a return trip shows
           BOTH legs rather than pretending to be one flight with a long
           distance. */}
-      <Modal
-        open={!!detail}
-        onClose={() => setDetail(null)}
-        title={detail ? `${detail.out.from.city} to ${detail.out.to.city}` : ''}
-      >
-        {detail && (
-          <div className="space-y-5">
-            {detail.photo_url && (
-              <button
-                type="button"
-                onClick={() => setPhoto(detail.photo_url)}
-                className="group relative block w-full overflow-hidden rounded-card"
-                aria-label={tr("Open the photo full size")}
-              >
-                <img
-                  src={detail.photo_url}
-                  alt=""
-                  className="h-56 w-full object-cover transition-transform duration-300 group-hover:scale-[1.02] sm:h-72"
-                />
-                <span className="absolute bottom-2 right-2 flex items-center gap-1.5 rounded-full bg-ink/70 px-2.5 py-1 text-[11px] font-medium text-white backdrop-blur-sm">
-                  <Icon name="expand" className="h-3.5 w-3.5" /> {tr("Full size")}
-                </span>
-              </button>
-            )}
-
-            <div className="grid grid-cols-3 gap-2 text-center">
-              <div className="rounded-xl bg-cloud px-3 py-2.5">
-                <p className="text-lg font-bold tabular-nums text-brand">{km(detail.dist)}</p>
-                <p className="text-[11px] text-smoke">{tr("km flown")}</p>
-              </div>
-              <div className="rounded-xl bg-cloud px-3 py-2.5">
-                <p className="text-lg font-bold tabular-nums text-brand">{humanHours(detail.mins)}</p>
-                <p className="text-[11px] text-smoke">{tr("in the air")}</p>
-              </div>
-              <div className="rounded-xl bg-cloud px-3 py-2.5">
-                <p className="text-lg font-bold tabular-nums text-brand">{detail.legs.length}</p>
-                <p className="text-[11px] text-smoke">{detail.legs.length === 1 ? 'leg' : 'legs'}</p>
-              </div>
-            </div>
-
-            {/* EVERY LEG, NAMED. A return trip is two flights and the detail
-                sheet is the one place that should say so plainly. */}
-            <div className="space-y-2">
-              {detail.legs.map((leg, i) => (
-                <div key={leg.id} className="rounded-xl border border-gray-100 px-4 py-3">
-                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-                    <span className="flex items-center gap-1.5 text-sm font-bold tracking-wider text-brand">
-                      {leg.from.iata}
-                      <Icon name="plane" className="h-3.5 w-3.5 text-brand-light" />
-                      {leg.to.iata}
-                    </span>
-                    {detail.legs.length > 1 && (
-                      <Badge tone="light" className="!px-2 !py-0.5">{i === 0 ? 'Out' : 'Back'}</Badge>
-                    )}
-                    <span className="ml-auto text-xs text-smoke">{formatDate(leg.flown_on)}</span>
-                  </div>
-                  <p className="mt-1 text-xs text-smoke">
-                    {leg.from.city} to {leg.to.city}
-                    {leg.airline ? ` · ${leg.airline}` : ''}
-                    {leg.flight_number ? ` ${leg.flight_number}` : ''}
-                    {leg.aircraft ? ` · ${leg.aircraft}` : ''}
-                    {leg.seat ? ` · seat ${leg.seat}` : ''}
-                  </p>
-                  <p className="mt-1 text-xs tabular-nums text-smoke">
-                    {km(leg.dist)} km · {humanHours(leg.mins)} · {haul(leg.dist)}
-                  </p>
-                </div>
-              ))}
-            </div>
-
-            {/* ONLY A TRIP THAT HAS NOT HAPPENED CAN BE POSTED (1 Sep 2026).
-
-                Ethan: "I seemed to be able to log a past flight and then click
-                edit and then it shows up a weird icon saying share to collab
-                board and I pressed it and it then shared it and it appeared as
-                a past trip. Remember only current or future trips logged on
-                flight log should get a popup saying post to collab board."
-
-                The rule was already right in ONE of the two places that offer
-                this - the post-save offer checks `upcoming` - and completely
-                absent from the other. So the button was there on a flight from
-                2019, and pressing it put "I am in Seville" on a board where
-                nobody could act on it.
-                `tripIsUpcoming` is now the one definition, read by both.
-
-                AND IT IS A REAL BUTTON. It was `btn-ghost` beside a
-                `btn-secondary`, which at this size is an orange glyph and some
-                text with no boundary at all - the "weird icon" in the report.
-                A row of two actions is two buttons that look like buttons. */}
-            <div className="flex flex-wrap gap-2">
-              <button onClick={() => { const f = detail.out; setDetail(null); openEdit(f) }} className="btn-secondary !py-2.5 text-sm">
-                <Icon name="pencil" className="h-4 w-4" /> {tr("Edit")}
-              </button>
-              {tripIsUpcoming(detail.out) && (
-                <button onClick={() => { const f = detail.out; setDetail(null); offerTrip(f) }} className="btn-secondary !py-2.5 text-sm">
-                  <Icon name="share" className="h-4 w-4" /> {tr("Post to the collab board")}
-                </button>
-              )}
-            </div>
-          </div>
-        )}
-      </Modal>
+      <FlightsDetailModal
+        detail={detail}
+        offerTrip={offerTrip}
+        openEdit={openEdit}
+        setDetail={setDetail}
+        setPhoto={setPhoto}
+        tr={tr}
+        tripIsUpcoming={tripIsUpcoming}
+      />
 
       {/* The photograph, full size. Deliberately its own layer rather than a
           bigger image inside the sheet: a trip photo is portrait as often as
