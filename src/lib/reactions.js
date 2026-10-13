@@ -36,7 +36,3 @@ export const REACTION_GROUPS = [
     emoji: ['🎬', '📸', '🎥', '🎙️', '✍️', '⭐', '🏆', '🚀', '💡', '✅', '📈', '💰'],
   },
 ]
-
-// Every emoji the picker can produce, flattened. Used to sanity-check anything
-// arriving from the database before it is rendered.
-export const ALL_REACTIONS = REACTION_GROUPS.flatMap((g) => g.emoji)

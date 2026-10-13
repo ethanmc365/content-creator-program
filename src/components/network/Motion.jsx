@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { motion, useInView, useReducedMotion } from 'motion/react'
-import { reveal, EASE } from '../../lib/motion'
+import { reveal } from '../../lib/motion'
 import { cx } from '../../lib/utils'
 import { useRevealed } from '../../lib/revealContext'
 
@@ -291,35 +291,6 @@ export function CountUp({ value, duration, className, format = (n) => n }) {
   return (
     <span ref={ref} className={cx('tabular-nums', className)}>
       {format(shown)}
-    </span>
-  )
-}
-
-/**
- * A progress ring. Used for "how complete is your profile", where a bar would
- * read as loading and a percentage alone reads as a grade.
- */
-export function ProgressRing({ value = 0, size = 44, stroke = 4, className, children }) {
-  const reduced = useReducedMotion()
-  const r = (size - stroke) / 2
-  const circumference = 2 * Math.PI * r
-  const pct = Math.max(0, Math.min(100, value))
-  return (
-    <span className={cx('relative inline-flex shrink-0 items-center justify-center', className)} style={{ width: size, height: size }}>
-      <svg width={size} height={size} className="-rotate-90" aria-hidden>
-        <circle cx={size / 2} cy={size / 2} r={r} fill="none" strokeWidth={stroke} className="stroke-gray-200" />
-        <motion.circle
-          cx={size / 2} cy={size / 2} r={r} fill="none" strokeWidth={stroke} strokeLinecap="round"
-          className="stroke-brand"
-          strokeDasharray={circumference}
-          initial={{ strokeDashoffset: reduced ? circumference * (1 - pct / 100) : circumference }}
-          animate={{ strokeDashoffset: circumference * (1 - pct / 100) }}
-          transition={{ duration: reduced ? 0 : 1, ease: EASE }}
-        />
-      </svg>
-      <span className="absolute inset-0 flex items-center justify-center text-[11px] font-bold tabular-nums">
-        {children ?? `${Math.round(pct)}%`}
-      </span>
     </span>
   )
 }

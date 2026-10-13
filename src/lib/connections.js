@@ -20,24 +20,6 @@ export async function loadRelationships(myId) {
   return map
 }
 
-// Count of accepted connections that both `myId` and `otherId` share.
-//
-// Kept alongside `mutualCreators` below rather than replaced by it: the creator
-// DIRECTORY draws a count on every card in a grid of 45, and pulling profile
-// rows for all of them to render a number would be a hundred joins to print
-// "3 mutual".
-export async function mutualConnections(myId, otherId) {
-  const [{ data: a }, { data: b }] = await Promise.all([
-    supabase.from('connections').select('creator_id, connected_creator_id').eq('status', 'accepted').or(`creator_id.eq.${myId},connected_creator_id.eq.${myId}`),
-    supabase.from('connections').select('creator_id, connected_creator_id').eq('status', 'accepted').or(`creator_id.eq.${otherId},connected_creator_id.eq.${otherId}`),
-  ])
-  const mine = new Set((a ?? []).map((r) => (r.creator_id === myId ? r.connected_creator_id : r.creator_id)))
-  const theirs = new Set((b ?? []).map((r) => (r.creator_id === otherId ? r.connected_creator_id : r.creator_id)))
-  let n = 0
-  for (const x of mine) if (theirs.has(x) && x !== myId && x !== otherId) n++
-  return n
-}
-
 // The relationship between me and one specific person (or null).
 export async function loadRelationship(myId, otherId) {
   const { data } = await supabase
@@ -111,15 +93,4 @@ export async function sendConnectionRequest(myId, targetId, note) {
       .insert({ connection_id: data.id, author_id: myId, body: body.slice(0, 300) })
   }
   return data.id
-}
-
-/** The note attached to one connection, if there is one and you may read it. */
-export async function loadConnectionNote(connectionId) {
-  if (!connectionId) return null
-  const { data } = await supabase
-    .from('connection_notes')
-    .select('body, author_id, created_at')
-    .eq('connection_id', connectionId)
-    .maybeSingle()
-  return data ?? null
 }

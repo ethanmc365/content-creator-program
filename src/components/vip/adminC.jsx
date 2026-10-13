@@ -1,7 +1,7 @@
 import { Suspense, useState } from 'react'
 import { lazyRoute } from '../../lib/lazyRoute'
 import { Link } from 'react-router-dom'
-import { Avatar, Modal, Skeleton } from '../ui'
+import { Avatar, Skeleton } from '../ui'
 import Icon from '../Icon'
 import { formatDate, formatViews } from '../../lib/utils'
 import { ATTENTION, EVENT_ICON, describeEvent, perK, useOptionalRpc, useKindT } from '../../lib/vip'
@@ -133,26 +133,5 @@ export function ActivityFeed({ programme, profileId = null, limit = 12, title, b
       <h2 className="mb-4 text-[15px] font-bold text-ink">{title || tr('Recent activity')}</h2>
       {body}
     </section>
-  )
-}
-
-/** One creator's story: their timeline, and the door to move them. */
-export function MemberStoryModal({ m, programme, onClose, onEdit, onMoveBack }) {
-  const tr = useKindT()
-  return (
-    <Modal open onClose={onClose} title={m.name}>
-      <div className="space-y-5">
-        <div className="flex flex-wrap gap-2">
-          <button type="button" onClick={onEdit} className="btn-secondary !py-2 text-xs"><Icon name="pencil" className="h-3.5 w-3.5" />{tr('Edit rate, cap and targets')}</button>
-          {m.status !== 'left' && <button type="button" onClick={onMoveBack} className="btn-secondary !py-2 text-xs"><Icon name="users" className="h-3.5 w-3.5" />{tr('Move back to the community')}</button>}
-          <Link to={`/profile/${m.profile_id}`} className="btn-secondary !py-2 text-xs" onClick={onClose}><Icon name="eye" className="h-3.5 w-3.5" />{tr('View profile')}</Link>
-        </div>
-        {m.notes && <p className="rounded-xl bg-cloud px-3.5 py-3 text-sm text-smoke"><span className="mb-0.5 block text-[10.5px] font-bold uppercase tracking-wide text-gray-400">{tr('Notes')}</span>{m.notes}</p>}
-        <div>
-          <p className="mb-3 text-[11px] font-bold uppercase tracking-wide text-gray-400">{tr('History')}</p>
-          <ActivityFeed programme={programme} profileId={m.profile_id} limit={40} bare />
-        </div>
-      </div>
-    </Modal>
   )
 }

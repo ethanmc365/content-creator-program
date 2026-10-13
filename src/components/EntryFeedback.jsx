@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { supabase } from '../lib/supabase'
+import { fetchIn } from '../lib/fetchAll'
 import { useAuth } from '../context/AuthContext'
 import { notice } from '../lib/confirm'
 import { toast } from '../lib/toast'
@@ -173,12 +174,10 @@ export function EntryReferenceCard({ entry, onDark = false }) {
 
 /** The entries a thread references, keyed by id, for the card above. */
 export async function loadEntryRefs(ids) {
-  const list = [...new Set((ids || []).filter(Boolean))]
-  if (!list.length) return {}
-  const { data } = await supabase
+  const { data } = await fetchIn((batch) => supabase
     .from('submissions')
     .select('id, video_url, platform, challenge_id, challenges:challenge_id(title)')
-    .in('id', list)
+    .in('id', batch), (ids || []).filter(Boolean))
   return Object.fromEntries((data || []).map((r) => [r.id, r]))
 }
 
@@ -189,9 +188,9 @@ export async function loadEntryRefs(ids) {
  */
 export async function loadFeedback(submissionIds) {
   if (!submissionIds?.length) return {}
-  const { data } = await supabase
+  const { data } = await fetchIn((batch) => supabase
     .from('submission_feedback')
     .select('submission_id, body, author_id, created_at')
-    .in('submission_id', submissionIds)
+    .in('submission_id', batch), submissionIds)
   return Object.fromEntries((data || []).map((r) => [r.submission_id, r]))
 }

@@ -1,14 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { motion, AnimatePresence } from 'motion/react'
+import { motion } from 'motion/react'
 import { createPortal } from 'react-dom'
 import { supabase } from '../../lib/supabase'
 import Icon from '../Icon'
-import ReactionPicker from '../ReactionPicker'
 import { Avatar } from '../ui'
-import { cx } from '../../lib/utils'
 import { matchBroadcasts } from '../../lib/broadcastMentions'
-import { SNAPPY, overlay } from '../../lib/motion'
-import { useT } from '../../lib/i18n'
+import { overlay } from '../../lib/motion'
 
 // The three things a room needs before it is a room rather than a log:
 // something to react with, a way to find what was said, and a way to point at
@@ -21,130 +18,6 @@ import { useT } from '../../lib/i18n'
 // same one the live chat uses. Reusing it means a message reacted to in a market
 // room and one reacted to in #general are the same shape of data, and there is
 // one place to change if reactions ever grow up.
-
-// `actions` are the OTHER things you can do to a message - edit yours, report
-// somebody else's - drawn in the same floating cluster as the reaction button.
-// They live here rather than in a second floating row because two overlapping
-// hover clusters over one message corner is how you end up pressing the wrong
-// one; the legacy chat and the DMs already put all of them in one pill.
-export function ReactionRow({ messageId, reactions, myId, onToggle, revealed = false, actions = [] }) {
-  const tr = useT()
-  const mine = useMemo(
-    () => new Set(reactions.filter((r) => r.creator_id === myId).map((r) => r.emoji)),
-    [reactions, myId],
-  )
-  const counts = useMemo(() => {
-    const m = new Map()
-    for (const r of reactions) m.set(r.emoji, (m.get(r.emoji) || 0) + 1)
-    return [...m.entries()]
-  }, [reactions])
-
-  const [picking, setPicking] = useState(false)
-
-  // THE PILLS SIT IN THE FLOW; THE ADD BUTTON FLOATS.
-  //
-  // They used to share one row, and because the button is only `opacity-0` when
-  // hidden it still claimed its 28px under EVERY message - a permanent empty
-  // strip between a message and whatever came after it. Opacity does not remove
-  // a box. Reactions are content and belong in the flow; the affordance for
-  // adding one is chrome and belongs over the corner of the message, which is
-  // also where every other chat product puts it.
-  //
-  // The parent must be `relative`; NetworkChat's message column is.
-  return (
-    <div className={cx('relative flex flex-wrap items-center gap-1', counts.length > 0 && 'mt-1')}>
-      <AnimatePresence initial={false}>
-        {counts.map(([emoji, n]) => (
-          <motion.button
-            key={emoji}
-            layout
-            initial={{ opacity: 0, scale: 0.6 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.6 }}
-            transition={SNAPPY}
-            onClick={() => onToggle(messageId, emoji)}
-            className={cx(
-              'flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs transition-colors',
-              mine.has(emoji)
-                ? 'border-brand bg-brand-tint text-brand'
-                : 'border-gray-200 bg-white text-smoke hover:border-brand/40',
-            )}
-          >
-            <span aria-hidden>{emoji}</span>
-            <span className="font-semibold tabular-nums">{n}</span>
-          </motion.button>
-        ))}
-      </AnimatePresence>
-
-      {/* IT SITS ON THE BOTTOM EDGE OF THE MESSAGE - AND THIS ROW IS THAT EDGE.
-          It used to straddle the TOP of the message column, beside the author's
-          name, which is the furthest point from where your eye actually
-          finishes reading. Moving it to `bottom-0` fixed that and introduced
-          the next one: the anchor was the whole message COLUMN, so it sat below
-          the reaction pills, the read receipts, everything - and the moment
-          anybody reacted, "react / reply" jumped a line down and hung level
-          with nothing. That is Ethan's report.
-          The fix is to anchor it here instead. This row starts exactly where
-          the message content ends, so its TOP edge is the message's bottom edge
-          whether there are pills in it or not - and when there are, the buttons
-          float just above them rather than being pushed under them. Still
-          absolute, so it costs no layout: an `opacity-0` row in the flow would
-          leave an invisible strip under every single message. */}
-      <div className="absolute right-0 top-0 z-10 flex -translate-y-1/2 items-center gap-1">
-        {actions.map((a) => (
-          <button
-            key={a.label}
-            onClick={a.onClick}
-            aria-label={a.label}
-            title={a.title || a.label}
-            className={cx(
-              'flex h-7 w-7 items-center justify-center rounded-full border border-gray-100 bg-white/95 text-smoke shadow-card backdrop-blur transition-all',
-              a.danger ? 'hover:border-red-300 hover:text-red-500' : 'hover:border-brand hover:text-brand',
-              'pointer-events-none opacity-0 focus-visible:pointer-events-auto focus-visible:opacity-100 group-hover/msg:pointer-events-auto group-hover/msg:opacity-100',
-              (picking || revealed) && 'pointer-events-auto opacity-100',
-            )}
-          >
-            <Icon name={a.icon} className="h-3.5 w-3.5" />
-          </button>
-        ))}
-        {/* The picker is anchored to THIS button, so it stays the last child. */}
-        <div className="relative">
-        <button
-          onClick={() => setPicking((p) => !p)}
-          aria-label={tr("Add a reaction")}
-          className={cx(
-            // `revealed` is the phone's answer to hover. Without it the only
-            // way to open this picker was `group-hover/msg`, which never fires
-            // on a touch screen - so market rooms had reactions that a phone
-            // could see and could not add.
-            'flex h-7 w-7 items-center justify-center rounded-full border border-gray-100 bg-white/95 text-smoke shadow-card backdrop-blur transition-all',
-            'pointer-events-none opacity-0 hover:border-brand hover:text-brand focus-visible:pointer-events-auto focus-visible:opacity-100 group-hover/msg:pointer-events-auto group-hover/msg:opacity-100',
-            (picking || revealed) && 'pointer-events-auto opacity-100',
-          )}
-        >
-          <Icon name="smile" className="h-3.5 w-3.5" />
-        </button>
-        {picking && (
-          <>
-            <div className="fixed inset-0 z-20" onClick={() => setPicking(false)} />
-            <ReactionPicker
-              // The button is pinned to the RIGHT edge of the message column,
-              // so a panel anchored left ran off the side of the screen.
-              align="right"
-              // The button lives on the message's bottom edge now, so the
-              // panel's natural home is above it. ReactionPicker still measures
-              // and flips when the message is near the top of the scroller.
-              prefer="above"
-              onPick={(e) => onToggle(messageId, e)}
-              onClose={() => setPicking(false)}
-            />
-          </>
-        )}
-        </div>
-      </div>
-    </div>
-  )
-}
 
 // NAMES FOR A SET OF PROFILE IDS, fetched once and cached.
 //
@@ -345,17 +218,4 @@ export function MentionMenu({ query, members, onPick, onClose, isAdmin = false }
       )}
     </>
   )
-}
-
-// Renders @Name runs in brand orange. Plain-text in, React out, so a message
-// body is never injected as HTML.
-export function withMentions(body, names) {
-  if (!names?.size) return body
-  const parts = body.split(/(@[\w' -]{2,40})/g)
-  return parts.map((p, i) => {
-    if (!p.startsWith('@')) return p
-    const clean = p.slice(1).trim().toLowerCase()
-    const hit = [...names].some((n) => clean.startsWith(n))
-    return hit ? <span key={i} className="font-semibold text-brand">{p}</span> : p
-  })
 }

@@ -53,8 +53,9 @@ supabase/
   functions/          edge functions; _shared/ holds common Deno code
   tests/*.sql         self-rolling-back rehearsals for scoring and money paths
 scripts/              schema snapshot, i18n tools, one-off backfills
-docs/                 this file, the move runbook, feature notes; files with a
-                      date in the name (HANDOVER_*, BRIEF_*) are history
+docs/                 this file, the move runbook, feature notes (STAGING,
+                      AUTOMATIC_VIEWS, EMAIL_SETUP, GOOGLE_SIGN_IN)
+docs/archive/         dated briefs and handovers from the build; history only
 ```
 
 Pages are big (several are 1,500-3,000 lines) and own their data loading. There

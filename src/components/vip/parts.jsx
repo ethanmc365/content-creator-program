@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { supabase } from '../../lib/supabase'
 import { Avatar, Spinner } from '../ui'
 import Icon from '../Icon'
 import VideoThumb from '../VideoThumb'
@@ -9,8 +8,6 @@ import { confirm, notice } from '../../lib/confirm'
 import { toastSuccess } from '../../lib/toast'
 import { platformOf } from '../../lib/videoLinks'
 import { copyToClipboard } from '../../lib/clipboard'
-import { downloadInvoicePdf } from '../../lib/invoicePdf'
-import { invoiceFromRow } from '../../lib/sendInvoice'
 import { formatDate, formatViews, cx } from '../../lib/utils'
 import { BONUS_KINDS, describeRule, money, monthLabel, nf, perK, prizesByPlace, ruleRunsIn, useOptionalRpc, useVipPreview, vipRpc, useKindT } from '../../lib/vip'
 import { CountUp, VIP_COUNT_MS } from '../network/Motion'
@@ -332,81 +329,6 @@ export function VipVideoCard({ video, cpm, currency, onRemoved, delay = 0, rules
         </button>
       )}
     </li>
-  )
-}
-
-const INVOICE_STEP = {
-  approved: 'Invoice approved',
-  sent: 'Invoice sent',
-  paid: 'Paid',
-}
-
-/** A month's statement, folded: the total on top, the working underneath, the invoice at the end. */
-export function VipStatementCard({ s, programmeCpm }) {
-  const tr = useKindT()
-  const [open, setOpen] = useState(false)
-  const [busy, setBusy] = useState(false)
-  const cash = (s.bonuses || []).filter((b) => (b.reward || 'cash') === 'cash')
-  const vouchers = (s.bonuses || []).filter((b) => b.reward === 'voucher')
-  const stage = s.paid_at ? 'paid' : s.invoice_stage
-  const downloadable = stage === 'sent' || stage === 'paid'
-
-  async function download() {
-    setBusy(true)
-    try {
-      const { data } = await supabase.from('invoices').select('*').eq('id', s.invoice_id).single()
-      if (data) await downloadInvoicePdf(invoiceFromRow(data))
-    } finally { setBusy(false) }
-  }
-
-  return (
-    <li className="overflow-hidden rounded-card border border-gray-100 bg-white shadow-card">
-      <button type="button" onClick={() => setOpen((o) => !o)} aria-expanded={open} className="flex w-full items-center gap-3 px-4 py-3.5 text-left transition-colors hoverable:hover:bg-cloud/40">
-        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-brand"><Icon name="calendar" className="h-5 w-5" /></span>
-        <span className="min-w-0 flex-1">
-          <span className="block text-[15px] font-bold text-ink">{monthLabel(s.year, s.month)}</span>
-          <span className="block text-xs text-smoke">{tr('{n} views', { n: nf(s.views) })}</span>
-        </span>
-        <span className="text-right">
-          <span className="block text-lg font-bold tabular-nums text-ink">{money(s.total, s.currency)}</span>
-          {stage && INVOICE_STEP[stage]
-            ? <span className={cx('text-[10px] font-bold uppercase tracking-wide', stage === 'paid' ? 'text-emerald-600' : 'text-brand')}>{tr(INVOICE_STEP[stage])}</span>
-            : Number(s.total) > 0 ? <span className="text-[10px] font-bold uppercase tracking-wide text-smoke">{tr('Invoice on its way')}</span>
-              : <span className="text-[10px] font-bold uppercase tracking-wide text-smoke">{tr('Carried over')}</span>}
-        </span>
-        <Icon name="chevronDown" className={cx('h-4 w-4 shrink-0 text-gray-400 transition-transform duration-200', open && 'rotate-180')} />
-      </button>
-      {open && (
-        <div className="animate-rise space-y-2 border-t border-gray-100 bg-cloud/30 px-4 py-4 text-sm">
-          <Line label={tr('{n} views at {r} per 1,000', { n: nf(s.views), r: perK(s.cpm ?? programmeCpm, s.currency) })} value={money(s.base, s.currency)} />
-          {s.cap_applied && <p className="text-xs text-smoke">{tr('Your monthly cap applied to the views pay.')}</p>}
-          {Number(s.rollover_in) > 0 && <Line label={tr('Carried over from last month')} value={money(s.rollover_in, s.currency)} />}
-          {cash.map((b, i) => <Line key={`c${i}`} label={b.label} value={`+ ${money(b.amount, s.currency)}`} good />)}
-          {vouchers.map((b, i) => <Line key={`v${i}`} label={`${b.label} (${tr('voucher')})`} value={money(b.amount, s.currency, { cents: false })} good />)}
-          {(s.adjustments || []).map((a, i) => <Line key={`a${i}`} label={a.label} value={`${Number(a.amount) >= 0 ? '+' : '-'} ${money(Math.abs(a.amount), s.currency)}`} />)}
-          {Number(s.rollover_out) > 0 && <p className="text-xs text-smoke">{tr('Below the minimum payout, so {a} carries over to next month.', { a: money(s.rollover_out, s.currency) })}</p>}
-          <div className="flex items-center justify-between border-t border-gray-200 pt-2.5">
-            <span className="font-bold text-ink">{tr('Paid to you')}</span>
-            <span className="text-base font-bold tabular-nums text-brand">{money(s.total, s.currency)}</span>
-          </div>
-          {downloadable && (
-            <button type="button" onClick={download} disabled={busy} className="btn-secondary mt-1 !py-2 text-xs">
-              {busy ? <Spinner className="h-3.5 w-3.5" /> : <Icon name="download" className="h-3.5 w-3.5" />}
-              {tr('Download the invoice')}
-            </button>
-          )}
-        </div>
-      )}
-    </li>
-  )
-}
-
-function Line({ label, value, good }) {
-  return (
-    <div className="flex items-baseline justify-between gap-3">
-      <span className="text-smoke">{label}</span>
-      <span className={cx('shrink-0 font-semibold tabular-nums', good ? 'text-emerald-700' : 'text-ink')}>{value}</span>
-    </div>
   )
 }
 

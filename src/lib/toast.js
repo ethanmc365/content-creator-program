@@ -31,4 +31,3 @@ export function toast(message, options = {}) {
 }
 
 export const toastSuccess = (m, o = {}) => toast(m, { tone: 'success', icon: 'check', ...o })
-export const toastWarn = (m, o = {}) => toast(m, { tone: 'warn', icon: 'alert', ...o })

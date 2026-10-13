@@ -2,10 +2,8 @@
 // an @trypcreators.test address (nobody can receive mail there), like the sandbox creator. Run once:
 //   node scripts/seed-qa-vip.mjs
 // Migration 305 then makes it a VIP in Spain and lets the `impersonate` function open it (target "vip").
-import { readFileSync } from 'node:fs'
 import { randomBytes } from 'node:crypto'
-const BASE = 'https://heuhqqoxyggawuckxocp.supabase.co'
-const key = readFileSync(new URL('../.env.qa', import.meta.url), 'utf8').match(/SUPABASE_SERVICE_KEY=(.+)/)[1].trim()
+import { SUPABASE_URL as BASE, SERVICE_KEY as key } from './_env.mjs'
 const H = { apikey: key, Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' }
 const email = 'qa-vip@trypcreators.test'
 const list = await fetch(`${BASE}/auth/v1/admin/users?per_page=1000`, { headers: H }).then((r) => r.json())

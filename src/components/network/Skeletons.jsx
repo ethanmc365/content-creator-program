@@ -111,25 +111,6 @@ export function CardGridSkeleton({ count = 4, cols = 'sm:grid-cols-2', height = 
   )
 }
 
-// Avatar + two lines + a trailing value: the shape of every roster, standings
-// and directory row in the network.
-export function PersonRowsSkeleton({ count = 5, avatar = 'h-9 w-9' }) {
-  return (
-    <div className="space-y-2">
-      {Array.from({ length: count }, (_, i) => (
-        <div key={i} className="flex items-center gap-3 rounded-card border border-gray-100 bg-white px-5 py-3.5">
-          <Skeleton className={cx(avatar, 'shrink-0 rounded-full')} />
-          <div className="min-w-0 flex-1 space-y-1.5">
-            <Line w="w-32" h="h-3.5" />
-            <Line w="w-24" h="h-3" />
-          </div>
-          <Line w="w-10" h="h-4" />
-        </div>
-      ))}
-    </div>
-  )
-}
-
 // A rail card: the uppercase label, then rows.
 export function RailCardSkeleton({ rows = 3 }) {
   return (
@@ -144,29 +125,6 @@ export function RailCardSkeleton({ rows = 3 }) {
         ))}
       </div>
     </section>
-  )
-}
-
-// The whole Worldwide hub, main column only. Used before the first paint of
-// data so the greeting, hero and market grid all land in the boxes they are
-// already occupying.
-export function HubSkeleton() {
-  return (
-    <div className="space-y-11">
-      <div>
-        <Skeleton className="h-10 w-48 rounded-lg" />
-        <Line w="w-80 max-w-full" className="mt-3" />
-      </div>
-      <Skeleton className="h-64 rounded-card" />
-      <div>
-        <Line w="w-40" h="h-5" className="mb-4" />
-        <CardGridSkeleton count={2} height="h-20" />
-      </div>
-      <div>
-        <Line w="w-48" h="h-5" className="mb-4" />
-        <PersonRowsSkeleton count={4} />
-      </div>
-    </div>
   )
 }
 

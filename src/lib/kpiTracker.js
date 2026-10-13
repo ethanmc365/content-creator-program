@@ -15,30 +15,6 @@
 //   3. A quarter's targets plus this quarter's live numbers - one list to
 //      render. (mergeKpiRows)
 
-/** EVERY METRIC THE PLATFORM MEASURES BY ITSELF (migration 281, `kpi_compute`).
- *
- *  unit   number | decimal | percent | views  - how the figure is printed.
- *  kind   'sum'   a running total that builds up through the period, so PACE
- *                 matters (100 videos by the end; 40 halfway is on track).
- *         'level' an average, a rate or a headcount. It is a state, not a
- *                 total: 8 videos per creator is 8 whether it is day 3 or day
- *                 80, so it is compared with the goal directly, never with a
- *                 straight-line pace.
- *  people  the metric is about people on the platform rather than about
- *          challenges, so it has no separate meaning for "global challenges
- *          only" and is not offered there.
- *  how     one sentence saying exactly how it is counted - shown in the picker
- *          and in the detail, because a KPI nobody can define gets argued about.
- *
- *  The order here is the order the picker and the page show them in. */
-export const METRIC_GROUPS = [
-  { key: 'output', label: 'Output' },
-  { key: 'reach', label: 'Reach' },
-  { key: 'participation', label: 'Participation' },
-  { key: 'recruitment', label: 'Recruitment' },
-  { key: 'community', label: 'Community' },
-]
-
 export const STANDARD_METRICS = [
   { key: 'challenges_run', label: 'Challenges run', icon: 'flag', group: 'output', unit: 'number', kind: 'sum',
     how: 'Challenges that start in the period.' },
@@ -68,14 +44,6 @@ export const STANDARD_METRICS = [
   { key: 'referrals', label: 'Referred creators', icon: 'share', group: 'recruitment', unit: 'number', kind: 'sum', people: true,
     how: 'Recruits in the period who came in through a creator\'s referral link.' },
 
-]
-
-export const CUSTOM_UNITS = [
-  { value: 'number', label: 'A number' },
-  { value: 'decimal', label: 'A decimal (like 2.5)' },
-  { value: 'percent', label: 'A percentage' },
-  { value: 'views', label: 'Views' },
-  { value: 'currency', label: 'Money' },
 ]
 
 // KPIs THAT WERE OFFERED AND ARE NOT ANY MORE (30 Sep 2026). Ethan: best single video, first-time

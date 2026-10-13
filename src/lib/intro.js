@@ -32,11 +32,6 @@
 import { isoForCountryName } from './markets'
 import { COUNTRIES } from './countries'
 
-export const INTRO_MAKES = [
-  'City guides', 'Budget travel', 'Luxury stays', 'Food', 'Hotels', 'Solo travel',
-  'Family travel', 'Adventure', 'Road trips', 'Hidden gems', 'Deals', 'Vlogs',
-]
-
 // More questions, 26 Sep 2026. Ethan: "asking more questions, getting more
 // details from them ... the more the people learn about each other, the more
 // they're likely to connect." Every one can be skipped.

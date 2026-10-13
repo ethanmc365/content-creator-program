@@ -20,9 +20,8 @@ import { useT } from '../lib/i18n'
 // loading." This guard sits ABOVE `AppLayout`, so when it drew `AppLoader` the
 // entire app - header, tab bar, page - was replaced by a white screen with a
 // flying plane and the word "Loading". Every other transition in the product
-// had already been taken off that; these two guards and ConnectGate were the
-// three that were missed, and they are the ones most likely to fire on a phone
-// that has just been woken up.
+// had already been taken off that; these guards were the last ones, and they are
+// the ones most likely to fire on a phone that has just been woken up.
 //
 // `RouteSkeleton` keeps the same contract `AppLoader` had - it draws NOTHING
 // while `index.html`'s own layer owns the screen and holds that layer up until
@@ -191,52 +190,8 @@ export function ProtectedRoute() {
     return <ReviewPending signOut={signOut} />
   }
 
-  // THE HOME-SCREEN WALL IS NOT HERE, AND THERE IS NOW ONLY ONE OF IT
-  // (10 Sep 2026).
-  //
-  // Ethan: "you said 'ship the install gate, install_gate_enabled is still off,
-  // you built the wall and nobody's behind it'. If that's the pop-up they can't
-  // get out of that makes them add it to the home screen, ensure it is shipped -
-  // every creator should be seeing that."
-  //
-  // They already are, and my own note was wrong rather than the code. There
-  // were TWO implementations of this idea: `InstallGate`, gated on
-  // `install_gate_enabled`, which never ran; and `AddToHomePrompt`, mounted in
-  // AppLayout, which needs no flag and has been walling every phone in a browser
-  // since 9 September - no close button, no scrim press, no Escape, admins
-  // included. Verified on an Android UA at 375px: the dialog is up, Escape and
-  // a scrim press leave it up, and the only controls are the two sets of steps
-  // and "I have already added it", which re-checks `isStandalone()`.
-  //
-  // `InstallGate` and the flag are DELETED rather than left switched off. A
-  // second, dead copy of a shipped feature is how a note ends up saying the
-  // opposite of what production does, which is exactly what happened here.
-
-  // THE CONNECT WALL IS RETIRED, AND IT IS WHY THE TUTORIAL "STILL DIDN'T SHOW
-  // UP WHEN A NEW USER FIRST OPENS THE APP" (4 Sep 2026).
-  //
-  // `connect_gate_done` DEFAULTS TO FALSE, so every newly approved creator was
-  // sent to `ConnectGate` and had to send three connection requests before the
-  // app shell rendered at all. `TourGate` is mounted INSIDE that shell. So the
-  // walkthrough could not be the first thing anybody saw, by construction - the
-  // auto-start logic was correct and never got the chance to run.
-  //
-  // THE REAL FAULT IS THAT THERE WERE TWO FIRST-RUN EXPERIENCES. This wall was
-  // built before the walkthrough existed and does a version of the same job -
-  // get somebody meeting people - as a hard gate with no explanation, in front
-  // of a person who has been a member for four seconds and knows nobody.
-  // Ethan: "the tutorial should automatically start immediately after someone's
-  // accepted and they first open the platform." Both cannot be first.
-  //
-  // The walkthrough wins because it explains itself, it ends on "say hello in
-  // the chat", and the empty DM pane now offers exactly the people this gate
-  // was pushing (see pages/Messages). NOTHING IS DELETED: the component, the
-  // column and the grandfathering all stay, so this is one `if` away from
-  // coming back if the connection numbers say it should.
-  //
-  // if (profile.status === 'active' && !profile.is_admin && !profile.connect_gate_done) {
-  //   return <ConnectGate />
-  // }
+  // The add-to-home-screen wall is `AddToHomePrompt` in AppLayout, not here.
+  // First-run onboarding is the guided tour (TourGate, inside AppLayout).
 
   return <Outlet />
 }

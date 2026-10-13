@@ -94,17 +94,6 @@ export async function syncPushSubscription(userId, { force = false } = {}) {
   }
 }
 
-export async function disablePush() {
-  try {
-    const reg = await navigator.serviceWorker.ready
-    const sub = await reg.pushManager.getSubscription()
-    if (sub) {
-      await supabase.from('push_subscriptions').delete().eq('endpoint', sub.endpoint)
-      await sub.unsubscribe()
-    }
-  } catch { /* ignore */ }
-}
-
 // Close any already-shown OS notifications that point at `path` (matched on the
 // pathname of their stored link). Called when the user lands on the page a
 // notification was for, so a DM/chat/challenge alert clears the moment they

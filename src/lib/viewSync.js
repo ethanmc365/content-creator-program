@@ -157,24 +157,3 @@ export const CADENCES = [
   { hours: 72, label: 'Every 3 days', short: '3 days' },
   { hours: 168, label: 'Once a week', short: 'week' },
 ]
-
-export function cadenceLabel(hours) {
-  return CADENCES.find((c) => c.hours === Number(hours))?.label ?? `Every ${hours} hours`
-}
-
-// The most recent snapshot of every submission, oldest first, for a sparkline
-// or a "grew by N since yesterday" line.
-export async function viewHistory(submissionIds) {
-  if (!submissionIds?.length) return {}
-  const { data, error } = await supabase
-    .from('view_snapshots')
-    .select('submission_id, views, source, captured_at')
-    .in('submission_id', submissionIds)
-    .order('captured_at', { ascending: true })
-  if (error) throw error
-  const bySubmission = {}
-  for (const row of data ?? []) {
-    ;(bySubmission[row.submission_id] ??= []).push(row)
-  }
-  return bySubmission
-}

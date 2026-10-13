@@ -7,7 +7,7 @@ let authValue
 vi.mock('../context/AuthContext', () => ({ useAuth: () => authValue }))
 // Avoid pulling the real Supabase client into the test. Any query chain
 // (from().select().eq()… / update()… / insert()…) resolves to empty data, so
-// components that fetch on mount (e.g. ConnectGate) render without crashing.
+// components that fetch on mount render without crashing.
 vi.mock('../lib/supabase', () => {
   const chain = new Proxy(function () {}, {
     get: (_t, prop) =>

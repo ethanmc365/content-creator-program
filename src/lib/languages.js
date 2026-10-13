@@ -1641,8 +1641,6 @@ export const LANGUAGES = [
   },
 ]
 
-export const LANGUAGE_REGIONS = ['World', 'Europe', 'Asia', 'Africa']
-
 /** Languages available for a round in this region. */
 export function languagesForRegion(region) {
   return region === 'World' ? LANGUAGES : LANGUAGES.filter((l) => l.region === region)

@@ -981,11 +981,6 @@ export default function Profile() {
           )}
         </div>
         <div className="flex shrink-0 flex-col items-stretch gap-3">
-          {/* THE SHARE CARD IS GONE. It rendered a canvas PNG of your own
-              profile to download and post elsewhere, and it was the second
-              thing on your own header competing with the one control that
-              matters here. Removed at Ethan's request; lib/shareCard.js is
-              still in the repo if it comes back. */}
           {isMe ? (
             <div className="flex gap-3">
               <Link to="/profile/edit" className="btn-primary">{tr("Edit profile")}</Link>

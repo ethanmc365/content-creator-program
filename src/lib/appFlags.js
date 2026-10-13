@@ -1,4 +1,3 @@
-import { useEffect, useState } from 'react'
 import { supabase } from './supabase'
 
 // PLATFORM-WIDE SWITCHES, READ FROM THE DATABASE.
@@ -27,25 +26,4 @@ export async function readFlag(key) {
     .catch(() => false)
   cache.set(key, p)
   return p
-}
-
-export function clearFlagCache() { cache.clear() }
-
-/**
- * A flag, as a hook.
- *
- * It starts FALSE rather than null and never renders a loading state, which is
- * the whole point: a gate that flickers into existence a beat after the app has
- * painted is worse than one that arrives a beat late. Everything guarded by
- * these is a full-screen interruption, so the safe default while we do not yet
- * know is "do not interrupt".
- */
-export function useAppFlag(key) {
-  const [on, setOn] = useState(false)
-  useEffect(() => {
-    let alive = true
-    readFlag(key).then((v) => { if (alive) setOn(!!v) })
-    return () => { alive = false }
-  }, [key])
-  return on
 }

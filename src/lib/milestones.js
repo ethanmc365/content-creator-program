@@ -79,17 +79,6 @@ export const METRICS = [
 
 export const METRIC_BY_VALUE = Object.fromEntries(METRICS.map((m) => [m.value, m]))
 
-// The hints are gone on purpose. "Merch" needs no gloss, and a form that
-// explains every one of its own labels is a form nobody reads. Only `role`
-// keeps one, because it is the only kind that changes something outside this
-// page - it puts a word beside the creator's name.
-export const REWARD_KINDS = [
-  { value: 'merch', label: 'Merch' },
-  { value: 'voucher', label: 'Voucher' },
-  { value: 'role', label: 'Role', hint: 'A title worn beside their name.' },
-  { value: 'other', label: 'Something else' },
-]
-
 // A STOP CAN GIVE SEVERAL THINGS (26 Sep 2026, migration 267). Ethan: "give a
 // new title as a reward and also a watch as a reward ... Also, add merch."
 // The title and the voucher are columns the engine pays by itself; everything

@@ -2,16 +2,15 @@
 // can stop calling Supabase's billed image-transform endpoint (see src/lib/avatarUrl.js). New uploads write their
 // own thumbnail; this only fills in the ones uploaded before. Safe to re-run (upserts).
 //
-//   SUPABASE_SERVICE_KEY is read from .env.qa (gitignored). Needs macOS `sips` for the resize.
+//   Project URL from .env, SUPABASE_SERVICE_KEY from .env.qa (both gitignored; see scripts/_env.mjs). Needs macOS `sips` for the resize.
 //   node scripts/backfill-avatar-thumbs.mjs [--dry]
-import { readFileSync, writeFileSync, mkdtempSync, readFileSync as rf } from 'node:fs'
+import { writeFileSync, mkdtempSync, readFileSync as rf } from 'node:fs'
 import { execFileSync } from 'node:child_process'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
-const REF = 'heuhqqoxyggawuckxocp'
-const BASE = `https://${REF}.supabase.co`
-const key = readFileSync(new URL('../.env.qa', import.meta.url), 'utf8').match(/SUPABASE_SERVICE_KEY=(.+)/)[1].trim()
+import { SUPABASE_URL as BASE, SERVICE_KEY as key } from './_env.mjs'
+
 const H = { apikey: key, Authorization: `Bearer ${key}` }
 const dry = process.argv.includes('--dry')
 const AVATAR = /\/storage\/v1\/object\/public\/avatars\/([^/?#]+)\/avatar-(\d+)\.[a-z0-9]+$/i

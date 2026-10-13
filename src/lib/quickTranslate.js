@@ -116,7 +116,6 @@ function queued(run) {
   return new Promise((resolve, reject) => { waiting.push({ run, resolve, reject }); pump() })
 }
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
-export const TRANSLATE_FAILED_TEXT = "This message can't be translated right now."
 
 // {placeholders} ("for winning {challenge}") must come back exactly as they went in, so they are
 // swapped for inert tokens first and put back after. If the engine ate one, it is a failure.
@@ -207,11 +206,6 @@ export async function translateNow(text, target = getLocale()) {
   memo.set(k, r)
   saveStore()
   return r
-}
-
-/** Already translated (this session or a previous one), so it can be shown with no wait. */
-export function cachedTranslation(text, target = getLocale()) {
-  return memo.get(`${target}\n${text}`) || null
 }
 
 /**

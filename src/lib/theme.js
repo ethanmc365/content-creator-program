@@ -35,14 +35,6 @@ export function useIsDark() {
   return dark
 }
 
-export function getStoredDark() {
-  try {
-    return localStorage.getItem(KEY) === '1'
-  } catch {
-    return false
-  }
-}
-
 export function storeDark(on) {
   try {
     localStorage.setItem(KEY, on ? '1' : '0')

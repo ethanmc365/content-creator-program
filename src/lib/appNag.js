@@ -100,11 +100,6 @@ export function claimNag(who) {
   }
 }
 
-/** Has anything already asked this app open? */
-export function nagClaimed() {
-  try { return !!sessionStorage.getItem(KEY) } catch { return false }
-}
-
 /** Release the claim quietly. For a prompt that claimed and then found it had
  *  nothing to say, and for tests. Does NOT wake the queue. */
 export function releaseNag(who) {

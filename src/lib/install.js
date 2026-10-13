@@ -113,8 +113,6 @@ export const isIOSOtherBrowser = () =>
 export const safariUrl = (href = typeof window === 'undefined' ? '' : window.location.href) =>
   href.replace(/^https?:\/\//i, 'x-safari-https://')
 
-export const browserName = () => (isIOS() ? 'Safari' : 'Chrome')
-
 // The install prompt on Android, captured once at startup because the event
 // fires early and only once. `App` calls `watchInstallPrompt()`.
 let deferred = null
@@ -226,11 +224,6 @@ export const SAFARI_STEPS = [
   { icon: 'check', text: 'Tap "Add", then open Tryp.com from the new icon' },
   { icon: 'trash', text: 'Delete the old Chrome shortcut if you made one' },
 ]
-
-/** The per-platform steps, written to be followed while looking at a phone. */
-export function installSteps() {
-  return isIOS() ? IOS_STEPS : ANDROID_STEPS
-}
 
 // ---------------------------------------------------------------------------
 // WHICH ASK, IF ANY, THIS PERSON SHOULD SEE RIGHT NOW.

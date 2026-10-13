@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
-import { cx, dateTag } from '../../lib/utils'
+import { cx } from '../../lib/utils'
 import Icon from '../Icon'
-import { scoringMode, ruleWindowState } from '../../lib/scoring'
+import { scoringMode } from '../../lib/scoring'
 import { useT } from '../../lib/i18n'
 
 // "How this one is won", on the challenge itself.
@@ -27,17 +27,6 @@ import { useT } from '../../lib/i18n'
 // on a split challenge, and marks the participation vouchers. This panel's copy
 // did none of that, so the two disagreed on a page where they sat two clicks
 // apart. One board, on the tab called Leaderboard.
-
-const dm = (iso) => new Date(iso).toLocaleDateString(dateTag(), { weekday: 'short', day: 'numeric', month: 'short' })
-
-// "Runs Mon 21 Sep to Sun 27 Sep" - the dates a bonus counts for (migration 256).
-export function bonusWindowLine(r, tr) {
-  const state = ruleWindowState(r)
-  if (state === 'ended') return tr('Ended {d}', { d: dm(r.ends_at) })
-  if (r.starts_at && r.ends_at) return tr('Runs {a} to {b}', { a: dm(r.starts_at), b: dm(r.ends_at) })
-  if (r.ends_at) return tr('Until {d}', { d: dm(r.ends_at) })
-  return tr('From {d}', { d: dm(r.starts_at) })
-}
 
 // THE RULES, FETCHED ONCE FOR THE WHOLE PAGE. The challenge page draws them in
 // two places now (the view milestones here, the bonuses in their own card in

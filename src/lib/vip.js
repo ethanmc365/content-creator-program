@@ -145,12 +145,6 @@ export const FLAGS = {
 // 'official' (the official Tryp.com content creators of a market, on their own contract). Same machinery, own board,
 // own bonuses, own room - so the screens only need to know which words to use.
 export const isOfficial = (p) => p?.kind === 'official'
-/** The words a page uses for a programme's people: "VIP" / "official creator". */
-export function kindWords(kind, tr) {
-  return kind === 'official'
-    ? { title: tr('Official'), people: tr('official creators'), one: tr('official creator'), Room: tr('Official creators') }
-    : { title: tr('VIP'), people: tr('VIPs'), one: tr('VIP'), Room: tr('VIP room') }
-}
 
 // THE OFFICIAL CREATORS' WORDS, EVERYWHERE A VIP SCREEN IS REUSED (11 Oct 2026). The official programme runs on the VIP
 // machinery, so its screens are the VIP screens - and they said "VIP" a hundred times ("Active VIPs", "Tell your VIPs
@@ -307,16 +301,6 @@ export function useVipOverview({ enabled = true, every = 60000 } = {}) {
 
 /** Forget what was loaded (sign-out, or after the team changes who is a VIP). */
 export function clearVipCache() { cache = null; cacheAt = 0; rpcMemo.clear(); notify() }
-
-// The terms a VIP accepts once (and again when the programme raises the version). Written as sentences so
-// each one is translated on its own; the team can replace the lot with its own text on the programme.
-export const DEFAULT_TERMS = [
-  'You are paid for the views your videos gain during each calendar month, at the rate on your VIP page. Views from before you added a video, or from before the month began, are not counted.',
-  'A video counts if it is public, posted on your own account during the month it is counted for, and mentions or tags Tryp.com as agreed with the team. Reposts of an earlier video do not count.',
-  'At the end of each month we take a final reading of your views, draft your statement and, once it is approved, your invoice.',
-  'Bought, botted or otherwise artificial views mean the videos are removed from your total, and may end your place in the programme.',
-  'You need payment details saved on your account to be paid. The programme can be paused or ended by either side at any time; months already closed are still paid.',
-]
 
 // WHO HAS THE VIP TOOLS (30 Sep 2026, migration 296). The owner and anyone on the access list; the database is
 // the judge (`vip_has_access`), this only remembers the answer for the session so the header and the admin

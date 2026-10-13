@@ -23,20 +23,6 @@ export function convert(amount, from, to, rates = FALLBACK_RATES) {
   return (Number(amount) / f) * t
 }
 
-// CPM target bands, matching how the programme has always been read:
-//   on target  at or under the challenge's own target (default 0.50)
-//   watch      up to double the target
-//   over       above that
-// A challenge that has ended with no views logged is a data gap, not a result,
-// and is called out separately so it can't quietly drag an average around.
-export const CPM_BANDS = [
-  { key: 'on_target', label: 'On target', tone: 'good' },
-  { key: 'watch', label: 'Watch', tone: 'warn' },
-  { key: 'over_target', label: 'Over target', tone: 'bad' },
-  { key: 'awaiting', label: 'Awaiting results', tone: 'neutral' },
-  { key: 'no_views', label: 'No views logged', tone: 'neutral' },
-]
-
 export function cpmBand(cpm, { target = 0.5, ended = true, hasViews = true } = {}) {
   if (!hasViews) return ended ? 'no_views' : 'awaiting'
   if (cpm == null) return ended ? 'no_views' : 'awaiting'

@@ -65,3 +65,25 @@ export async function allRows(build, opts) {
   const { data } = await fetchAll(build, opts)
   return data
 }
+
+// A LONG `in.(...)` LIST GOES IN BATCHES. The ids travel in the URL, and a
+// whole challenge board's worth (600+ uuids, ~24KB) is refused with a 400, so
+// the page silently shows nothing. 150 uuids is about 5.5KB per request.
+const IN_BATCH = 150
+
+/**
+ * `.in(column, values)` over any number of values, in parallel batches.
+ *
+ * @param {(batch: Array) => object} build  makes a FRESH query for one batch,
+ *   e.g. `(ids) => supabase.from('t').select('a, b').in('id', ids)`.
+ * @returns {Promise<{ data: Array, error: any }>}
+ */
+export async function fetchIn(build, values, { batchSize = IN_BATCH } = {}) {
+  const list = [...new Set((values || []).filter((v) => v != null))]
+  if (!list.length) return { data: [], error: null }
+  const batches = []
+  for (let i = 0; i < list.length; i += batchSize) batches.push(list.slice(i, i + batchSize))
+  const results = await Promise.all(batches.map((b) => build(b)))
+  const failed = results.find((r) => r.error)
+  return { data: results.flatMap((r) => r.data ?? []), error: failed?.error ?? null }
+}

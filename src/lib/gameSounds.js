@@ -24,7 +24,7 @@
 // Nothing here is louder than 0.18 gain, and every tone has a real attack and
 // release envelope - a raw oscillator start/stop clicks audibly.
 
-import { audio, tone, noiseBuffer, whoosh, thud, player } from './soundCore'
+import { audio, tone, noiseBuffer, whoosh, player } from './soundCore'
 
 const PREF_KEY = 'tryp-game-sound'
 
@@ -86,11 +86,6 @@ export const playCommiserate = () => play((a) => {
   tone(a, 311.13, 0.22, 0.45, 0.08, 'triangle') // Eb4
 })
 
-/** A tick for a correct move inside a puzzle (Flight Path), quieter still. */
-export const playTick = () => play((a) => {
-  tone(a, 880, 0, 0.06, 0.05)
-})
-
 /**
  * PASSING A NUMBERED STOP. Ethan asked for "a little ding like a coin in Mario
  * Kart", and the reason that sound works is that it is TWO notes a fifth apart
@@ -119,60 +114,6 @@ export const playFireWhoosh = () => play((a) => {
   // one event rather than as a hiss with a beep on top.
   tone(a, 174.61, 0.02, 0.42, 0.07, 'triangle', 392.00) // F3 -> G4
   tone(a, 349.23, 0.08, 0.34, 0.045, 'sine', 659.25)    // F4 -> E5, the shimmer
-})
-
-/**
- * FLIGHT PATH HAS LANDED. A landing-gear thud: a broadband impact with a low
- * body under it that drops in pitch, then a short tyre scuff.
- *
- * It plays on COMPLETION, before the celebrate arpeggio, so the sequence reads
- * as "landed, well done" rather than as two celebrations at once.
- */
-export const playGearThud = () => play((a) => {
-  thud(a, { at: 0, peak: 0.17, freq: 84, dur: 0.34, seed: 3390 })
-  // The scuff. Quieter, higher, and slightly late: rubber after metal.
-  whoosh(a, { at: 0.06, dur: 0.28, from: 1600, to: 380, peak: 0.045, q: 0.6, attack: 0.2, seed: 6021 })
-})
-
-/**
- * THE HINT, WHEN IT HAS TO TAKE SOMETHING BACK. A short reverse sweep - noise
- * falling rather than rising, with a tone dropping under it - because the thing
- * that just happened on screen is the contrail REELING IN, and a sound that
- * rises would be pulling against the picture.
- *
- * Deliberately gentle. This fires when you asked for help and got it; it is not
- * a wrong answer and must not feel like one. `playWrong` is a fall too, which is
- * why this one is noise-led and much softer - the ear separates them by texture.
- */
-export const playHintRewind = () => play((a) => {
-  whoosh(a, { at: 0, dur: 0.34, from: 1250, to: 320, peak: 0.05, q: 0.9, attack: 0.18, seed: 5521 })
-  tone(a, 440.00, 0.02, 0.26, 0.05, 'triangle', 293.66) // A4 -> D4
-})
-
-/**
- * THE HINT, WHEN THERE WAS NOTHING TO TAKE BACK. Two notes a fourth apart,
- * rising, quiet: "that is all correct, carry on". The whole point of the button
- * is that pressing it when you are right costs you nothing, so this is the
- * smallest sound in the game.
- */
-export const playHintClear = () => play((a) => {
-  tone(a, 587.33, 0, 0.12, 0.055, 'sine')     // D5
-  tone(a, 880.00, 0.07, 0.20, 0.05, 'sine')   // A5
-})
-
-/**
- * THE PLANE CLIMBING A MILESTONE PATH. A short ascending pass: engine noise
- * sweeping up under a rising two-note figure.
- *
- * Deliberately not the Flight Path propeller. That one is a loop that runs for
- * as long as you are flying; this is a single gesture that plays once as the
- * plane sets off along the milestone track, and it has to be over before the
- * first milestone coin lands or the two sounds fight.
- */
-export const playPlaneRise = () => play((a) => {
-  whoosh(a, { at: 0, dur: 0.66, from: 300, to: 1250, peak: 0.05, q: 1.4, attack: 0.5, seed: 4813 })
-  tone(a, 392.00, 0.04, 0.30, 0.065, 'triangle', 523.25) // G4 -> C5
-  tone(a, 523.25, 0.30, 0.36, 0.055, 'triangle', 659.25) // C5 -> E5
 })
 
 // ---------------------------------------------------------------- the engine
@@ -314,38 +255,3 @@ export function engineThrust() {
     }, 420)
   } catch { /* context torn down mid-navigation */ }
 }
-
-/** Cut the engine and release its nodes. Call it when the game unmounts. */
-export function engineStop() {
-  if (!engine) return
-  const e = engine
-  engine = null
-  clearTimeout(e.timer)
-  try {
-    const a = audio()
-    if (a) {
-      e.out.gain.cancelScheduledValues(a.currentTime)
-      e.out.gain.setValueAtTime(Math.max(e.out.gain.value, 0.0001), a.currentTime)
-      e.out.gain.exponentialRampToValueAtTime(0.0001, a.currentTime + 0.2)
-    }
-    // Stopped a beat after the fade, or the release is a click.
-    setTimeout(() => { for (const n of e.nodes) { try { n.stop() } catch { /* already stopped */ } } }, 300)
-  } catch { /* nothing to do */ }
-}
-
-/**
- * A MILESTONE RING, PASSED. Two soft sine notes a fifth apart, with a slow
- * attack and a long tail.
- *
- * WHY NOT THE COIN. The route borrowed `playCoin` for this, and a coin is a
- * square wave with a 55ms attack - a bright, hard, arcade sound designed to cut
- * through a game. Eleven of them down a page, under a slow aeroplane, read as
- * an alarm rather than as arriving somewhere. This is the same event told in
- * the register the drawing is already in: quieter than the coin by a third, no
- * upper harmonics to speak of, and long enough that consecutive rings overlap
- * into a chord instead of a rattle.
- */
-export const playRingReached = () => play((a) => {
-  tone(a, 587.33, 0, 0.42, 0.048, 'sine')      // D5
-  tone(a, 880.00, 0.07, 0.52, 0.038, 'sine')   // A5, the fifth above
-})

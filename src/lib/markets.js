@@ -61,20 +61,6 @@ export function resolveMarketForCountryName(name, markets = []) {
   return resolveMarket(isoForCountryName(name), markets)
 }
 
-// Open markets that cover this country. Returns [] rather than throwing when
-// the network tables are unreadable: a creator finishing onboarding must never
-// be blocked by a market suggestion failing to load.
-export async function suggestMarkets(countryCode) {
-  if (!countryCode) return []
-  const { data, error } = await supabase
-    .from('communities')
-    .select('id, slug, name, tagline, country_codes, currency, kind, is_active')
-    .eq('kind', 'chapter')
-    .eq('is_active', true)
-  if (error || !data) return []
-  return data.filter((c) => (c.country_codes || []).includes(countryCode))
-}
-
 // ---------------------------------------------------------------------------
 
 // THE LIST OF MARKETS, FOR PAGES THAT ARE NOT BEHIND THE PREVIEW FLAG.
@@ -111,8 +97,6 @@ export function loadMarkets() {
     })
   return cache
 }
-
-export function clearMarketCache() { cache = null }
 
 export function useMarkets() {
   const { chapters } = useCommunity()

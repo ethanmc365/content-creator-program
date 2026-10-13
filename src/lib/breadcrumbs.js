@@ -52,9 +52,6 @@ export function readTrail() {
   return trail.map((s) => `${s.kind}: ${s.label}${s.n > 1 ? ` (x${s.n})` : ''}`)
 }
 
-/** Test seam. */
-export function clearTrail() { trail.length = 0 }
-
 /**
  * The best safe name for something that was pressed.
  *

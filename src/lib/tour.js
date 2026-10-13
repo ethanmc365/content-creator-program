@@ -338,9 +338,6 @@ export const VIP_TOUR_STEPS = [
   },
 ]
 
-/** Which walk: the community one, or the VIP one. */
-export const TOUR_VARIANTS = ['community', 'vip']
-
 export function stepsFor({ network = false, vip = false } = {}) {
   // Every step applies on both shells now. The filter stays because the
   // `on: 'network'` escape hatch is worth keeping for a step that genuinely
@@ -516,15 +513,6 @@ export async function markTourComplete(userId) {
   try {
     await supabase.from('profiles').update({ tour_completed_at: new Date().toISOString() }).eq('id', userId)
   } catch { /* a failed write means they see it once more, which is survivable */ }
-}
-
-/** Clear the flag so it runs again. Used by the Settings entry. */
-export async function resetTour(userId) {
-  clearSeenLocally()
-  if (!userId) return
-  try {
-    await supabase.from('profiles').update({ tour_completed_at: null }).eq('id', userId)
-  } catch { /* the local clear is enough to make it run on this device */ }
 }
 
 /** THE MASTER SWITCH. A row update rather than a deploy. Fails closed. */

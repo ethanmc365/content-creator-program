@@ -97,20 +97,6 @@ export function rollUp(rows) {
 }
 
 /**
- * Every history row, newest first.
- *
- * `challenge_id` is carried through so a caller can drop the rows that are the
- * same contest as something the platform already holds - see `liveOverlap`.
- */
-export async function loadHistory() {
-  const { data, error } = await supabase
-    .from('challenge_history')
-    .select('*')
-    .order('starts_at', { ascending: false })
-  return { rows: data ?? [], error: error?.message ?? null }
-}
-
-/**
  * The rows that are NOT also live challenges on this platform.
  *
  * The UK challenge that ran 20 Jul to 20 Aug 2026 exists in both places - the

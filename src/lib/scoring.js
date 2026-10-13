@@ -54,23 +54,6 @@ export function scoringMode(value) {
   return SCORING_MODES.find((m) => m.value === value) || LEGACY_PRIZE
 }
 
-// Everything the database will accept, for validation before a write.
-export const ALL_SCORING_VALUES = [...SCORING_MODES.map((m) => m.value), 'prize']
-
-// Does this mode rank creators from submission view counts alone?
-// `points` does not: its leaderboard comes from the point ledger, which
-// includes awards a human made and no view count can reproduce.
-export const isViewRanked = (value) => value === 'best_video' || value === 'total_views'
-
-// Given one creator's submissions, the number this challenge ranks them on.
-export function scoreForEntries(mode, entries) {
-  const views = (entries || []).map((e) => Number(e.logged_views) || 0)
-  if (views.length === 0) return 0
-  if (mode === 'total_views') return views.reduce((a, b) => a + b, 0)
-  // best_video, and legacy prize, both rank on the strongest single entry.
-  return Math.max(...views)
-}
-
 // The default rule set a new points challenge starts with. Deliberately lives
 // in code rather than in a market's row: the market template was removed when
 // scoring moved onto the challenge, and a brand new market with no history

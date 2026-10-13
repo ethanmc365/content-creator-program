@@ -84,7 +84,6 @@ const pending = {}
 // it rather than to nothing), and the editor needs to show the manager which of
 // the two they are looking at.
 const OVERRIDES = {}
-let overridesLoaded = false
 
 /**
  * Install the runtime overrides for one language.
@@ -93,19 +92,7 @@ let overridesLoaded = false
  */
 export function setOverrides(code, rows) {
   OVERRIDES[code] = rows || {}
-  overridesLoaded = true
   for (const fn of [...subs]) fn()
-}
-
-/** What is currently overridden in one language, for the editor. */
-export function getOverrides(code) {
-  return OVERRIDES[code] || {}
-}
-
-/** Has the override layer been fetched yet? Nothing waits on this - it is for
- *  the editor, which must not offer to "reset" a string it has not seen. */
-export function overridesReady() {
-  return overridesLoaded
 }
 
 /** The bundled dictionary for a language, or null if it is not loaded yet.

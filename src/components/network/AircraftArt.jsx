@@ -290,12 +290,3 @@ export default function AircraftArt({ type, owned = true, className }) {
     </svg>
   )
 }
-
-/** The same drawing at chip size, for a row in a list. */
-export function AircraftGlyph({ type, className }) {
-  return (
-    <span className={cx('inline-block h-6 w-9 shrink-0', className)}>
-      <AircraftArt type={type} />
-    </span>
-  )
-}

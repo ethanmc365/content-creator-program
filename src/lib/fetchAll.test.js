@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { fetchAll, allRows } from './fetchAll'
+import { fetchAll, allRows, fetchIn } from './fetchAll'
 
 // A stand-in for a PostgREST builder: chainable, executes when awaited, and
 // - the point of the whole exercise - REFUSES to return more than `cap` rows,
@@ -117,5 +117,28 @@ describe('fetchAll in parallel', () => {
     expect(data).toHaveLength(5432)
     expect(new Set(data.map((r) => r.id)).size).toBe(5432)
     expect(data.map((r) => r.id)).toEqual([...Array(5432).keys()])
+  })
+})
+
+describe('fetchIn', () => {
+  it('splits a long id list into batches and joins the rows', async () => {
+    const seen = []
+    const ids = Array.from({ length: 320 }, (_, i) => `id${i}`)
+    const { data, error } = await fetchIn(async (batch) => {
+      seen.push(batch.length)
+      return { data: batch.map((id) => ({ id })), error: null }
+    }, [...ids, 'id0', null])
+    expect(error).toBeNull()
+    expect(seen).toEqual([150, 150, 20])
+    expect(data.map((r) => r.id)).toEqual(ids)
+  })
+
+  it('does not query for an empty list and reports a batch error', async () => {
+    let calls = 0
+    expect(await fetchIn(async () => { calls++; return { data: [] } }, [])).toEqual({ data: [], error: null })
+    expect(calls).toBe(0)
+    const boom = { message: 'nope' }
+    const r = await fetchIn(async (b) => (b[0] === 'b' ? { data: null, error: boom } : { data: [{ x: 1 }], error: null }), ['a', 'b'], { batchSize: 1 })
+    expect(r.error).toBe(boom)
   })
 })
