@@ -1,6 +1,5 @@
 import { createPortal } from 'react-dom'
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, useCallback } from 'react'
-import PendingLabel from '../components/PendingLabel'
 import { confirm, notice, saved } from '../lib/confirm'
 import { loadDraft, saveDraft, clearDraft } from '../lib/drafts'
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
@@ -9,35 +8,26 @@ import { useAuth } from '../context/AuthContext'
 import { uploadDmImage, uploadDmVideo, signDmImages, isSignedDmPath } from '../lib/chatMedia'
 import { loadRelationship } from '../lib/connections'
 import { openConversation } from '../lib/dm'
-import { Avatar, Badge, EmptyState, Skeleton, Spinner } from '../components/ui'
+import { Avatar, Badge, Spinner } from '../components/ui'
 import Icon from '../components/Icon'
 import { jumpThreshold, distanceFromBottom } from '../lib/scrollJump'
-import ChatMedia from '../components/ChatMedia'
 import PhotoLightbox from '../components/PhotoLightbox'
-import MessageActions from '../components/chat/MessageActions'
 import { useProfileNames } from '../components/network/ChatExtras'
 import { mediaType, saveFile, fileNameFromUrl } from '../lib/media'
-import { ChatSkeleton } from '../components/network/Skeletons'
 import { useCachedPage, writePageCache } from '../lib/pageCache'
 import { DM_CACHE_KEY, DM_PEOPLE_CACHE_KEY, fetchDmPeople, fetchInbox, isListableConversation } from '../lib/inbox'
 import { pinToBottom, isPinning, stickToBottom } from '../lib/chatScroll'
-import { formatChatTime, formatMessageTime, messageTimeTitle, otherParticipant, cx } from '../lib/utils'
+import { otherParticipant, cx } from '../lib/utils'
 import { useChatOverlayHeight, useIsMobile, useViewportPin, useNoFocusPan } from '../lib/useKeyboardInset'
-import { setChatChromeHidden, readerMovedChrome, chromeGestureHandlers } from '../lib/chatChrome'
+import { setChatChromeHidden, readerMovedChrome } from '../lib/chatChrome'
 import { useNoScrollChain, useOverlayTouchLock } from '../lib/noScrollChain'
-import { RoomSearch, ComposerSearch } from '../components/ChatSearch'
-import Reveal from '../components/network/Reveal'
-import SeenBy from '../components/SeenBy'
-import ChatComposer from '../components/ChatComposer'
-import OutboxNotice from '../components/OutboxNotice'
-import { enqueueMessage, queuedFor, subscribeOutbox, onOutboxSent, retryQueued, dropQueued } from '../lib/outbox'
-import MessageEditor from '../components/MessageEditor'
+import { RoomSearch } from '../components/ChatSearch'
+import { enqueueMessage, queuedFor, subscribeOutbox, onOutboxSent } from '../lib/outbox'
 import ReportMessage from '../components/ReportMessage'
-import { useNowTick, withinEditWindow } from '../lib/messageActions'
+import { useNowTick } from '../lib/messageActions'
 import { playSend, playSendFail, playDmArrival, playReactionPop } from '../lib/appSounds'
-import { renderMessageBody, stripMarkup } from '../lib/richText'
-import { EntryReferenceCard, loadEntryRefs } from '../components/EntryFeedback'
-import ResourceCard from '../components/ResourceCard'
+import { stripMarkup } from '../lib/richText'
+import { loadEntryRefs } from '../components/EntryFeedback'
 import { GroupAvatar, NewGroupModal, GroupSettingsModal } from '../components/GroupPanels'
 import {
   groupName, acceptInvite, declineInvite, leaveGroup,
@@ -47,6 +37,10 @@ import { useT } from '../lib/i18n'
 import { useMessageTranslations } from '../lib/quickTranslate'
 import { profilesApi } from '../api/profiles'
 import { chatApi } from '../api/chat'
+import MessagesComposer from './MessagesComposer'
+import MessagesThread from './MessagesThread'
+import MessagesInbox from './MessagesInbox'
+import MessagesEmptyThread from './MessagesEmptyThread'
 
 
 // PINNED CHATS. Three, per device, in localStorage - see the note on the
@@ -1721,291 +1715,34 @@ export default function Messages() {
           in behind it. */}
       <div className="flex min-h-0 flex-1 animate-page-in overflow-hidden bg-white sm:rounded-card sm:border sm:border-gray-100 sm:shadow-card">
         {/* ---------- Conversation list ---------- */}
-        <aside
-          className={cx(
-            'w-full shrink-0 flex-col border-r border-gray-100 sm:flex sm:w-80',
-            threadOpen ? 'hidden' : 'flex'
-          )}
-          aria-label={tr("Conversations")}
-        >
-          <div className="border-b border-gray-100 px-5 py-4">
-            <div className="flex items-center justify-between gap-2">
-              <h1 className="text-lg font-bold">{tr("Messages")}</h1>
-              {/* Starting a group is a different intent from finding a person,
-                  so it is a different control. Folding it into the search box
-                  ("type a name…") would mean the only way to discover groups
-                  exist is to already know. */}
-              <button
-                type="button"
-                onClick={() => setShowNewGroup(true)}
-                className="flex items-center gap-1.5 rounded-full border border-gray-200 px-3 py-1.5 text-xs font-semibold text-smoke transition-all duration-200 hover:-translate-y-0.5 hover:border-brand hover:text-brand"
-              >
-                <Icon name="users" className="h-3.5 w-3.5" /> {tr("New group")}
-              </button>
-            </div>
-            {/* Search doubles as the "new message" entry point: type a name to
-                filter your threads and to start a fresh one with anyone in the
-                community, instead of scrolling the inbox to find them. */}
-            <div className="relative mt-3">
-              <Icon name="magnifier" className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-smoke" />
-              <input
-                type="search"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder={tr("Search creators…")}
-                aria-label={tr("Search creators to message")}
-                className="input !py-2.5 !pl-9 !pr-9"
-              />
-              {search && (
-                <button
-                  type="button"
-                  onClick={() => setSearch('')}
-                  aria-label={tr("Clear search")}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full p-1 text-smoke hover:bg-cloud hover:text-ink"
-                >
-                  <Icon name="close" className="h-4 w-4" />
-                </button>
-              )}
-            </div>
-          </div>
-
-          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
-            {/* GROUP INVITES SIT ABOVE THE INBOX.
-                An invite is the one thing here that expires socially: a group
-                gets going in its first day or it never does. Putting it in the
-                notification list and nowhere else means it is answered by
-                whoever happens to check notifications, which is not everybody. */}
-            {invites.length > 0 && !q && (
-              <div className="border-b border-gray-100 bg-brand-tint/25 px-3 py-3">
-                <p className="px-2 pb-1.5 text-[11px] font-semibold uppercase tracking-wide text-brand">
-                  Group invite{invites.length === 1 ? '' : 's'}
-                </p>
-                <div className="space-y-1.5">
-                  {invites.map((i) => (
-                    <div key={i.id} className="flex items-center gap-2.5 rounded-xl bg-white px-3 py-2.5">
-                      <GroupAvatar conversation={i.conversations} size="sm" />
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-semibold">{i.conversations?.title || 'A group'}</p>
-                        <p className="truncate text-xs text-smoke">
-                          {i.inviter?.name?.split(' ')[0] ?? 'Someone'} invited you
-                        </p>
-                      </div>
-                      <button type="button" onClick={() => answerInvite(i, true)}
-                        className="btn-primary shrink-0 !px-3 !py-1.5 !text-xs">{tr("Join")}</button>
-                      <button type="button" onClick={() => answerInvite(i, false)} aria-label={tr("Decline invite")}
-                        className="shrink-0 rounded-full p-1.5 text-smoke transition-colors hover:bg-cloud hover:text-ink">
-                        <Icon name="close" className="h-4 w-4" />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {loadingList && (
-              <div className="space-y-4 p-5">
-                {Array.from({ length: 4 }).map((_, i) => (
-                  <div key={i} className="flex gap-3"><Skeleton className="h-10 w-10 rounded-full" /><div className="flex-1 space-y-2"><Skeleton className="h-3 w-28" /><Skeleton className="h-3 w-40" /></div></div>
-                ))}
-              </div>
-            )}
-
-            {/* Nothing in the inbox: rather than a dead end, offer the people
-                you're already connected to. Someone who hasn't connected with
-                anyone yet gets creators who are active in the community. */}
-            {!loadingList && conversations.length === 0 && !q && (
-              <div className="p-5">
-                <div className="rounded-card border border-gray-100 bg-white px-4 py-4 text-center">
-                  <span className="mx-auto flex h-11 w-11 items-center justify-center rounded-2xl bg-white text-brand" aria-hidden>
-                    <Icon name="envelope" className="h-6 w-6" />
-                  </span>
-                  <p className="mt-3 text-sm font-semibold">{tr("No messages yet")}</p>
-                  <p className="mt-1 text-xs leading-relaxed text-smoke">
-                    {myConnections.length > 0
-                      ? 'Say hi to one of your connections. A quick hello is how most collabs start.'
-                      : 'Say hi to someone new. A quick hello is how most collabs start.'}
-                  </p>
-                </div>
-
-                {/* THE SAME SIX PEOPLE THE BIG PANE OFFERS, AND THE SAME
-                    HEADING RULE (7 Sep 2026). This list used to be
-                    `emptyStatePeople` - your own connections - which meant a
-                    phone, where the big pane never renders, offered a different
-                    answer to the same question from the one a laptop gave. Two
-                    lists is how the two screens drift; `discover` is the one
-                    definition of "who should I talk to". */}
-                {!discover.loading && discoverPeople.length > 0 && (
-                  <div className="mt-4">
-                    <p className="px-3 pb-1 text-[11px] font-semibold uppercase tracking-wide text-gray-400">
-                      {discover.mode === 'new' ? tr('Connect with someone new') : tr('Say hello to someone')}
-                    </p>
-                    <div className="space-y-0.5">
-                      {discoverPeople.map((p) => personRow(p, discover.strangerIds?.has(p.id) ? 'You have not met yet' : 'Send a hello'))}
-                    </div>
-                  </div>
-                )}
-
-                <Link to="/creators" className="mt-4 block text-center text-xs font-semibold text-brand hover:underline">
-                  {tr("Browse all creators")}
-                </Link>
-              </div>
-            )}
-
-            {/* Search found nothing at all. */}
-            {!loadingList && q && shownConversations.length === 0 && searchMatches.length === 0 && (
-              <div className="p-5">
-                <EmptyState
-                  icon={<Icon name="magnifier" className="h-7 w-7" />}
-                  title={tr("No creators found")}
-                  hint={tr("Try a different name.")}
-                />
-              </div>
-            )}
-
-            {/* THE INBOX ARRIVES, AND THIS TIME IT ACTUALLY DOES.
-                Every other list in the app rises into view one row after
-                another. There was already a `Reveal` here and it did nothing,
-                which is Ethan's "all the open messages and people you've
-                messaged just flash up on the left hand side rather than
-                smoothly load and animate in from top to bottom".
-
-                WHY IT DID NOTHING. `Reveal` marks itself `is-in` the moment its
-                container is on screen - and the sidebar is at the top of the
-                page, so that happened on the FIRST frame, while the list was
-                still empty and waiting on the query. The rows arrived into a
-                container that was already `is-in`, so they were rendered with
-                the finished state applied and never had a starting frame to
-                transition FROM. An entrance animation needs the element to
-                exist before it arrives.
-
-                The `key` fixes it by remounting the container the moment the
-                list stops loading: a fresh Reveal, children present from its
-                first frame, observer fires, everything staggers in.
-
-                Tight stagger (35ms) because these are dense rows, not cards -
-                past about 45ms a list stops reading as arriving and starts
-                reading as slow. */}
-            {/* `dense`: an inbox of twenty rows carrying twenty avatars is the
-                list this variant exists for. See the prop in Reveal. */}
-            <Reveal dense key={loadingList ? 'inbox-loading' : 'inbox-ready'} className="flex flex-col" stagger={0.035}>
-            {shownConversations.map((c) => (
-              // A ROW IS A BUTTON, SO THE PIN CANNOT BE ONE INSIDE IT.
-              // Nesting a <button> in a <button> is invalid HTML and React will
-              // say so; browsers resolve it by dropping the inner one, which
-              // means the pin would render and never fire. The row is a div
-              // with a click handler and the pin is a real button on top of it.
-              <div
-                key={c.id}
-                role="button"
-                tabIndex={0}
-                onClick={() => { if (convLongPressed.current) { convLongPressed.current = false; return } navigate(`/messages/${c.id}`, { state: { fromInbox: true } }) }}
-                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); navigate(`/messages/${c.id}`, { state: { fromInbox: true } }) } }}
-                onTouchStart={(e) => startConvPress(c, e.currentTarget)} onTouchEnd={cancelConvPress} onTouchMove={cancelConvPress}
-                onMouseDown={(e) => startConvPress(c, e.currentTarget)} onMouseUp={cancelConvPress} onMouseLeave={cancelConvPress}
-                onContextMenu={(e) => { e.preventDefault(); openConvMenu(c, e.currentTarget) }}
-                className={cx(
-                  // `hoverable:` - A ROW WITH A `:hover` RULE COSTS YOU THE
-                  // FIRST TAP ON iOS. Safari treats the first tap on an element
-                  // whose appearance changes on hover as the hover, and only
-                  // the second one as the click; the row lights up grey and
-                  // nothing opens. Ethan: "on the first click on mobile it
-                  // doesn't seem to open - I clicked on Shannon's chat and it
-                  // just highlighted it in grey and didn't actually open the
-                  // chat." The same rule is why the grey then STAYS: there is
-                  // no pointer to move away.
-                  // The `hoverable` variant is `(hover: hover) and (pointer:
-                  // fine)`, so the style simply does not exist on a phone.
-                  'group/conv relative flex w-full cursor-pointer select-none items-center gap-3 px-5 py-4 text-left transition-colors hoverable:hover:bg-cloud',
-                  // A press still gives feedback on touch - it is just tied to
-                  // the finger being down rather than to a hover that never
-                  // ends.
-                  'active:bg-cloud/70',
-                  c.id === conversationId && 'bg-brand-tint/50',
-                  // ROUNDED WHEN HELD (28 Sep 2026). Ethan: "the corners are
-                  // really square ... should be rounded". The orange hold state
-                  // is a rounded tile, not a full-bleed square band.
-                  convSheet?.id === c.id && '!bg-brand-tint rounded-2xl ring-2 ring-inset ring-brand/40',
-                )}
-              >
-                {c.kind === 'group'
-                  ? <GroupAvatar conversation={c} members={c.members} />
-                  : <Avatar src={c.other?.photo_url} name={c.other?.name} size="md" />}
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2">
-                    <p className={cx('truncate text-sm font-semibold transition-colors', convSheet?.id === c.id && 'text-brand')}>
-                      {c.kind === 'group' ? groupName(c, c.members, user.id) : (c.other?.name ?? 'Creator')}
-                    </p>
-                    {c.kind === 'group'
-                      ? <Badge tone="light" className="!px-2 !py-0">{c.members?.length ?? 0}</Badge>
-                      : c.other?.is_admin && <Badge tone="light" className="!px-2 !py-0">{tr("Tryp.com")}</Badge>}
-                  </div>
-                  <p className="truncate text-xs text-smoke">{formatChatTime(c.last_message_at)}</p>
-                </div>
-                {c.unread > 0 && (
-                  <span className="flex h-5 min-w-[20px] items-center justify-center rounded-full bg-brand px-1.5 text-[10px] font-semibold text-white">
-                    {c.unread}
-                  </span>
-                )}
-
-                {/* THE PIN. Top-right, on hover - and PERMANENTLY VISIBLE once
-                    the chat is pinned, because a state you can only see by
-                    hovering is a state that does not exist on a phone. It is
-                    also the only affordance that says pinning is possible at
-                    all, so it appears on focus as well as hover. */}
-                <button
-                  type="button"
-                  onClick={(e) => togglePin(e, c)}
-                  aria-label={pinned.includes(c.id) ? 'Unpin this chat' : 'Pin this chat to the top'}
-                  title={pinned.includes(c.id) ? 'Unpin' : 'Pin to the top'}
-                  className={cx(
-                    'absolute right-2 top-2 rounded-full p-1.5 transition-all',
-                    pinned.includes(c.id)
-                      // An ALREADY pinned chat shows its pin at every width -
-                      // a state you can only see by hovering is a state that
-                      // does not exist on a phone.
-                      ? 'text-brand opacity-100'
-                      // AND THIS IS WHY THE FIRST TAP ON A DM DID NOTHING.
-                      //
-                      // Ethan: "whenever i click on a dm it just highlights it
-                      // and i have to click again for it to open, i figure the
-                      // reason for this is because the first time i click it
-                      // shows up the pin icon."
-                      //
-                      // Exactly that. The row itself was already careful to put
-                      // its hover behind `hoverable:` for this precise reason -
-                      // iOS spends the first tap on an element whose appearance
-                      // changes on hover, and only the second on the click -
-                      // but this button's `group-hover/conv:` was UNPREFIXED,
-                      // so the row still had a hover-sensitive descendant and
-                      // Safari still charged a tap for it.
-                      //
-                      // `hoverable:` is `(hover: hover) and (pointer: fine)`,
-                      // so on a phone these styles do not exist at all and the
-                      // first tap opens the chat. Pinning is reachable there by
-                      // holding the row - see the sheet below.
-                      : 'text-gray-300 opacity-0 hoverable:hover:bg-white hoverable:hover:text-brand hoverable:focus-visible:opacity-100 hoverable:group-hover/conv:opacity-100',
-                  )}
-                >
-                  <Icon name="pin" className="h-3.5 w-3.5" />
-                </button>
-              </div>
-            ))}
-            </Reveal>
-
-            {/* People matching the search that you haven't messaged before:
-                tapping one opens a brand new thread with them. */}
-            {searchMatches.length > 0 && (
-              <div className="px-2 pb-4 pt-2">
-                <p className="px-3 pb-1 text-[11px] font-semibold uppercase tracking-wide text-gray-400">
-                  {tr("Start a new chat")}
-                </p>
-                <div className="space-y-0.5">
-                  {searchMatches.map((p) => personRow(p))}
-                </div>
-              </div>
-            )}
-          </div>
-        </aside>
+        <MessagesInbox
+          answerInvite={answerInvite}
+          cancelConvPress={cancelConvPress}
+          convLongPressed={convLongPressed}
+          convSheet={convSheet}
+          conversationId={conversationId}
+          conversations={conversations}
+          discover={discover}
+          discoverPeople={discoverPeople}
+          invites={invites}
+          loadingList={loadingList}
+          myConnections={myConnections}
+          navigate={navigate}
+          openConvMenu={openConvMenu}
+          personRow={personRow}
+          pinned={pinned}
+          q={q}
+          search={search}
+          searchMatches={searchMatches}
+          setSearch={setSearch}
+          setShowNewGroup={setShowNewGroup}
+          shownConversations={shownConversations}
+          startConvPress={startConvPress}
+          threadOpen={threadOpen}
+          togglePin={togglePin}
+          tr={tr}
+          user={user}
+        />
 
         {/* ---------- Thread ---------- */}
         <section className={cx('min-w-0 flex-1 flex-col sm:flex', threadOpen ? 'flex' : 'hidden')}>
@@ -2079,132 +1816,14 @@ export default function Messages() {
                messaged, which is a genuinely different list from the rail's
                connections, so the screen no longer says the same thing twice.
                A press starts the thread. */
-            <div className="flex h-full flex-col justify-center overflow-y-auto p-8">
-              <div className="mx-auto w-full max-w-3xl">
-                {/* THE HEADING IS TITLE CASE AND IT NAMES THE LIST UNDER IT
-                    (7 Sep 2026). Ethan: "I would capitalise it... maybe say
-                    'connect with someone new' rather than 'say hello to
-                    someone', and show new people they haven't connected with.
-                    If they've connected with everyone, you can have this say
-                    'say hello to someone'."
-
-                    Both sentences are here because they are two different
-                    screens, and which one you get is decided by the same memo
-                    that picks the faces (`discover`). A heading that is a
-                    constant over a list that is not is how the pane came to
-                    invite somebody to "connect with" people they were already
-                    connected to.
-
-                    NO EXPLANATORY LINE, still (4 Sep 2026): the heading says
-                    what to do and the cards say who with. The sub-line here is
-                    the one thing neither of them can say - WHY these six. */}
-                <p className="text-center text-xl font-bold tracking-tight sm:text-2xl">
-                  {discover.mode === 'new' ? tr('Connect With Someone New') : tr('Say Hello to Someone')}
-                </p>
-
-                {/* WHILE THE QUERY IS OUT, THE PANE HOLDS ITS SHAPE AND SAYS
-                    NOTHING ELSE. Six tiles of the right size, so the heading
-                    does not jump when the faces arrive, and no sentence -
-                    because every sentence this pane can say is a claim about a
-                    list nobody has read yet. */}
-                {discover.loading ? (
-                  <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3" aria-hidden>
-                    {[0, 1, 2, 3, 4, 5].map((i) => (
-                      <div key={i} className="flex flex-col items-center gap-2 rounded-card border border-gray-100 px-3 py-5">
-                        <Skeleton className="h-14 w-14 rounded-full" />
-                        <Skeleton className="h-3.5 w-24 rounded" />
-                        <Skeleton className="h-3 w-16 rounded" />
-                        <Skeleton className="mt-0.5 h-6 w-20 rounded-full" />
-                      </div>
-                    ))}
-                  </div>
-                ) : discoverPeople.length > 0 ? (
-                  <>
-                    {/* NO SUB-LINE (8 Sep 2026). Ethan: "remove this copy -
-                        'Creators you have not met yet, and a few worth picking
-                        back up.'"
-
-                        It was three sentences behind one ternary, which made it
-                        the last thing on this pane whose WORDING depended on a
-                        count that changes as queries land - the visible half of
-                        the flash he reported in the same breath. And it was
-                        restating the heading above it and the badges below it:
-                        the cards already say "Not met" or "New here" on the
-                        people it was describing. */}
-                    {/* CARDS, NOT A BORDERED TABLE OF ROWS. The list was two
-                        columns of full-width rows inside one boxed card, which
-                        put a hairline grid across the middle of the largest
-                        empty space in the product - the same "weird lines"
-                        problem the wrapped pills had before it.
-
-                        THE FACE LEADS AND THE CARD IS A TILE (7 Sep 2026).
-                        Ethan: "improve the UI of this." Six rows of avatar +
-                        name in two columns is an address book; what this pane
-                        is for is recognising a face and pressing it. So the
-                        photo is the top of the card at 56px, the name sits
-                        under it, and three go across on a wide pane - which is
-                        also what makes six of them read as six rather than as
-                        "two creators", which is what a two-column grid of six
-                        looks like at a glance. */}
-                    <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                      {discoverPeople.map((p, i) => {
-                        const isNew = p.created_at && new Date(p.created_at).getTime() > newHereCutoff
-                        const where = [p.city, p.country].filter(Boolean).join(', ')
-                        return (
-                          <button
-                            key={p.id}
-                            type="button"
-                            onClick={() => startConversation(p.id)}
-                            disabled={starting === p.id}
-                            /* They arrive one after another rather than all at
-                               once. `animate-fade-up` is the same CSS entrance
-                               the auth card and the hero use, so this is the
-                               product's own movement and not a new one - and it
-                               is CSS because this pane is inside an eagerly
-                               routed page. */
-                            className="group animate-fade-up relative flex flex-col items-center gap-2 overflow-hidden rounded-card border border-gray-100 bg-white px-3 py-5 text-center shadow-card transition-all duration-200 hover:-translate-y-1 hover:border-brand/30 hover:shadow-lift disabled:opacity-60"
-                            style={{ animationDelay: `${0.05 + i * 0.05}s` }}
-                          >
-                            {/* THE BADGE SAYS WHICH KIND OF PERSON THIS IS, and
-                                that is what makes a topped-up list legible
-                                rather than a fudge: strangers lead, people you
-                                already know follow, and you can tell them apart
-                                without reading the heading. "New here" beats
-                                "not connected" on a card whose whole job is to
-                                be inviting, so a recent joiner gets that and
-                                everybody else you have not met gets the plainer
-                                one. */}
-                            {discover.strangerIds?.has(p.id) && (
-                              <span className="absolute right-2 top-2 rounded-full bg-brand-tint px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-brand">
-                                {isNew ? tr('New here') : tr('Not met')}
-                              </span>
-                            )}
-                            <Avatar src={p.photo_url} name={p.name} size="lg" />
-                            <span className="min-w-0 max-w-full">
-                              <span className="block truncate text-sm font-semibold">{p.name}</span>
-                              <span className="block truncate text-xs text-smoke">{where || p.bio || tr('In the community')}</span>
-                            </span>
-                            <span className="mt-0.5 inline-flex items-center gap-1.5 rounded-full bg-cloud px-3 py-1 text-[11px] font-semibold text-smoke transition-colors duration-200 group-hover:bg-brand group-hover:text-white">
-                              {starting === p.id
-                                ? <Spinner className="h-3 w-3" />
-                                : <><Icon name="envelope" className="h-3 w-3" />{tr('Message')}</>}
-                            </span>
-                          </button>
-                        )
-                      })}
-                    </div>
-                  </>
-                ) : (
-                  <p className="mx-auto mt-2 max-w-sm text-center text-sm leading-relaxed text-smoke">
-                    {tr('Open a conversation from the list, or find somebody new in the directory.')}
-                  </p>
-                )}
-
-                <Link to="/creators" className="mt-5 block text-center text-xs font-semibold text-brand hover:underline">
-                  {tr('Browse all creators')}
-                </Link>
-              </div>
-            </div>
+            <MessagesEmptyThread
+              discover={discover}
+              discoverPeople={discoverPeople}
+              newHereCutoff={newHereCutoff}
+              startConversation={startConversation}
+              starting={starting}
+              tr={tr}
+            />
           ) : (
             <>
               {/* Thread header. A press anywhere along it is "give me the app
@@ -2297,455 +1916,92 @@ export default function Messages() {
                   then filled all at once. A placeholder over the top covers the
                   gap, bottom-aligned because a thread fills upwards. Same fix
                   as the rooms. */}
-              <div className="relative flex min-h-0 flex-1 flex-col">
-              <div
-                ref={scrollerRef}
-                // The browser must not anchor this scroller: lib/chatScroll already owns
-                // where it sits, and two mechanisms moving one scroller is the jitter.
-                data-chat-scroller
-                onScroll={onScrollMessages}
-                {...chromeGestureHandlers}
-                // Tapping the thread dismisses the keyboard (WhatsApp-style); a
-                // scroll drag doesn't fire click, so scrolling history leaves it up.
-                onClick={() => { if (isMobile && kbOpen) document.activeElement?.blur?.() }}
-                // A THREAD WITH NOTHING IN IT MUST STILL OWN THE GESTURE (9 Sep 2026).
-                //
-                //    Ethan: "on mobile, scrolling on a chat with no messages or only one or two
-                //    messages causes a weird laggy glitch where the screen starts juttering."
-                //
-                //    Only on the short ones, and that is the whole clue. A scroller whose
-                //    content fits has no scroll range, so iOS does not treat the drag as
-                //    belonging to it and hands the gesture up the tree. What is up the tree on
-                //    this screen is an overlay whose `top`, `height` and `transform` are all
-                //    computed from `visualViewport` (see `mobileStyle`) - so a gesture that
-                //    reaches the page moves the visual viewport, the hook re-reads it, the
-                //    overlay re-renders into a new position, and a 300ms height transition eases
-                //    towards a target that has already changed again. That is the judder, and it
-                //    is unreachable on a full thread because a full thread absorbs the drag.
-                //
-                //    `overscroll-none` rather than `overscroll-contain`: `contain` stops the
-                //    scroll CHAINING to an ancestor but still permits the local bounce, and the
-                //    bounce is what iOS reports as viewport movement. `none` removes both.
-                //
-                //    `after:h-px` is the other half and it is not a hack, it is the precondition
-                //    `none` needs: `overscroll-behavior` only applies to a scroll CONTAINER, and
-                //    a box with no overflow is not one. One transparent pixel below the last
-                //    message is enough to make it scrollable, which is enough to make it the
-                //    owner of every drag that starts inside it. It costs nothing to the pin -
-                //    `scrollTop = scrollHeight` clamps to the same place either way.
-                className={cx(
-                  'min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-none overflow-x-hidden touch-pan-y touch-pinch-zoom px-5 py-6 after:block after:h-px after:w-full after:shrink-0 after:content-[""]',
-                  // See `settled`. Opacity only, and never a conditional
-                  // render: the rows have to be laid out for the pin to have a
-                  // scroll height to pin to.
-                  'transition-opacity duration-150',
-                  settled ? 'opacity-100' : 'opacity-0',
-                )}
-              >
-                {loadingThread && <div className="space-y-3"><Skeleton className="h-10 w-2/3" /><Skeleton className="ml-auto h-10 w-1/2" /><Skeleton className="h-10 w-3/5" /></div>}
-                {!loadingThread && visibleThread.map((m, i) => {
-                  // Only the first screenful animates. A thread of two hundred
-                  // messages animating every row on open is a page that shudders
-                  // for a second and a half; the ones above the fold carry the
-                  // arrival and the rest are simply there.
-                  const entering = i >= visibleThread.length - 12
-                  const mine = m.sender_id === user.id
-                  // WHO SAID IT. A 1:1 never needed this - there are two people
-                  // and one of them is you - but eight anonymous grey bubbles
-                  // is not a conversation. Shown once per run of consecutive
-                  // messages from the same person, and suppressed entirely
-                  // while searching, where "consecutive" is not true.
-                  const sender = isGroup && !mine ? memberById.get(m.sender_id) : null
-                  const startsRun = !threadSearch.trim()
-                    ? visibleThread[i - 1]?.sender_id !== m.sender_id
-                    : true
-                  // Private DM media resolves to a signed URL; legacy public URLs pass through.
-                  const imageSrc = m.image_url ? (isSignedDmPath(m.image_url) ? signedUrls.get(m.image_url) : m.image_url) : null
-                  const isVid = m.image_url && mediaType(m.image_url) === 'video'
-                  const summary = reactionSummary(m.id)
-                  const orig = m.reply_to ? thread.find((x) => x.id === m.reply_to) : null
-                  const showActions = actionsFor === m.id
-                  return (
-                    <div
-                      key={m.id}
-                      id={`dm-${m.id}`}
-                      data-msg
-                      className={cx(
-                        // `group/msg` is the NAMED group MessageActions hangs
-                        // its hover state on. The plain `group` stays because
-                        // other things inside the row use it; an unnamed
-                        // `group-hover:` cannot see a named group and vice
-                        // versa, which is why the pill never appeared here.
-                        'group/msg group flex gap-2',
-                        mine && 'justify-end',
-                        entering && 'animate-fade-up',
-                        // THE ROW THAT HAS SOMETHING OPEN HAS TO COME FORWARD.
-                        // `animate-fade-up` is `both`-filled, so the transform
-                        // stays applied after it ends and every animated row is
-                        // its own stacking context for good. A later row
-                        // therefore paints over an earlier row's popover
-                        // whatever z-index the popover carries - which is why
-                        // the emoji panel opened underneath the next message.
-                        showActions && 'relative z-30',
-                      )}
-                      style={entering ? { animationDelay: `${Math.min(i, 12) * 24}ms` } : undefined}
-                    >
-                      {/* THE FACE IS INSIDE MessageActions NOW (28 Sep 2026).
-                          It used to be a sibling here, `self-end` in this flex
-                          row - so the moment the action bar made space under
-                          the bubble the row grew and the face went down with
-                          it. Ethan: "it moves their profile picture down. This
-                          shouldn't move their profile picture." Passed as
-                          `lead`, it shares a row with the bubble alone and
-                          nothing opening underneath can reach it. */}
-                      <div
-                        // A queued message fades back a little: still yours,
-                        // still there, just not out in the world yet.
-                        className={cx('w-full min-w-0 max-w-[80%] sm:max-w-[65%]', m.pending && 'opacity-60')}
-                        // PRESS A MESSAGE TO OPEN ITS ACTIONS. AT EVERY WIDTH.
-                        // THE BUG THIS FIXES: this was gated on `isMobile`, and
-                        // a laptop was meant to get the actions on hover
-                        // instead - which nobody could make appear. Ethan: "a
-                        // problem with the DMs is that it's not showing at all,
-                        // whenever I'm hovering over a message". One behaviour
-                        // now, the same one the rooms use. A press that ended a
-                        // text selection is not a press.
-                        // ONLY THE BUBBLE OPENS THE BAR - same rule as the
-                        // rooms. The name line, the chips and the "Seen by"
-                        // receipt are inside this column too, and a press on
-                        // any of them used to toggle react/reply.
-                        onClick={(e) => {
-                          if (!e.target.closest?.('[data-msg-bubble]')) return
-                          if (e.target.closest('a,button,video,input')) return
-                          if (!window.getSelection?.()?.isCollapsed) return
-                          setActionsFor(showActions ? null : m.id)
-                        }}
-                      >
-                      {/* THE SAME ACTION PILL THE ROOMS USE.
-                          The DMs and the rooms had two hand-written copies of
-                          this, and both had drifted into the same three faults:
-                          the pill straddled the message so a short one was
-                          covered entirely, it was anchored to the message COLUMN
-                          so it jumped a row the moment anybody reacted, and it
-                          hung off the outer edge, which is the edge of the
-                          screen. One component now, so a fix lands in both. */}
-                      <MessageActions
-                        side={mine ? 'right' : 'left'}
-                        open={showActions}
-                        onClose={() => setActionsFor(null)}
-                        lead={isGroup && !mine ? (
-                          <Link
-                            to={`/profile/${m.sender_id}`}
-                            className="block rounded-full transition-transform hover:scale-105"
-                            title={sender?.name ? `View ${sender.name}` : 'View profile'}
-                            aria-label={sender?.name ? `View ${sender.name}` : 'View profile'}
-                          >
-                            <Avatar src={sender?.photo_url} name={sender?.name} size="xs" />
-                          </Link>
-                        ) : null}
-                        reactions={Object.entries(summary).map(([emoji, info]) => [emoji, info.count, info.mine, dmReactorNames(info), info.ids || []])}
-                        myId={user?.id}
-                        onToggleReaction={(emoji) => toggleReaction(m.id, emoji)}
-                        // SAME SLOT AS THE ROOMS. These used to sit inside
-                        // `children`, which put the timestamp and "Seen by"
-                        // ABOVE the reaction chips here and BELOW them in a
-                        // room - the same message furniture in two different
-                        // orders on two surfaces that are meant to be
-                        // identical. In the footer they are in one place, and
-                        // the pill stays out of their way on both.
-                        footer={(
-                          <>
-                            <p className={cx('mt-1 text-[10px] text-gray-400', mine && 'text-right')}>
-                              <span title={messageTimeTitle(m.created_at)}>{formatMessageTime(m.created_at)}</span>
-                              {/* A TEAM EDIT IS NOT ANNOUNCED TO CREATORS (12 Oct 2026). Ethan: "only I will see that it was
-                                  edited, but the creators won't see that the message was edited." */}
-                              {m.edited_at && (isAdmin || !(mine ? isAdmin : isGroup ? sender?.is_admin : active?.other?.is_admin)) && <span title={`Edited ${messageTimeTitle(m.edited_at)}`}> · edited</span>}
-                              {m.pending
-                                ? <PendingLabel tries={m.tries} prefix=" · " />
-                                : (mine && !isGroup && m.read && ' · Read')}
-                            </p>
-                            {m.failed && (
-                              <p className={cx('mt-0.5 text-[10px] text-smoke', mine && 'text-right')}>
-                                Not sent yet.{' '}
-                                <button type="button" onClick={() => retryQueued(m.queuedId)} className="font-semibold text-brand underline">{tr("Retry")}</button>
-                                {' · '}
-                                <button type="button" onClick={() => dropQueued(m.queuedId)} className="font-semibold underline">{tr("Discard")}</button>
-                              </p>
-                            )}
-                            {mine && isGroup && (() => {
-                              const seen = seenBy(m)
-                              return seen.length ? (
-                                <div className="mt-0.5 flex justify-end">
-                                  <SeenBy readers={seen} align="right" />
-                                </div>
-                              ) : null
-                            })()}
-                          </>
-                        )}
-                        actions={m.pending || m.failed ? [] : [
-                      ...(mt.canFor(m) && !mine
-                        ? [{ icon: 'language', label: mt.isOn(m) ? 'Show original' : 'Translate', title: mt.isOn(m) ? 'Show the original' : 'Translate this message', onClick: () => mt.toggle(m) }]
-                        : []),
-                          // MEDIA GETS TWO MORE, AND THEY LEAD - same bar, same
-                          // order as the rooms. `imageSrc` and not
-                          // `m.image_url`: a DM attachment is a PRIVATE storage
-                          // path, and only the signed URL is fetchable, so both
-                          // of these have to use the one the bubble is already
-                          // rendering.
-                          ...((m.image_url && imageSrc)
-                            ? [
-                              {
-                                icon: 'expand',
-                                label: 'Full screen',
-                                title: 'Open full screen',
-                                onClick: () => setViewing({ url: imageSrc, kind: isVid ? 'video' : 'image' }),
-                              },
-                              {
-                                icon: 'download',
-                                label: 'Save',
-                                title: isVid ? 'Save this video' : 'Save this photo',
-                                onClick: () => saveMedia(imageSrc),
-                              },
-                            ]
-                            : []),
-                          { icon: 'reply', label: 'Reply', title: 'Reply to this message', onClick: () => { setReplyTo(m); setActionsFor(null); dmComposerRef.current?.focus() } },
-                          ...(mine && withinEditWindow(m.created_at, nowTick)
-                            ? [{ icon: 'pencil', label: 'Edit message', title: 'Edit (5 minutes)', onClick: () => { setEditingId(m.id); setActionsFor(null) } }]
-                            : []),
-                          ...(mine
-                            ? [{ icon: 'trash', label: 'Delete message', title: 'Delete for everyone', danger: true, onClick: () => deleteDm(m) }]
-                            : []),
-                          // A DM is the one place a creator is most exposed and
-                          // has the least recourse: a stranger gets one message
-                          // through before you have agreed to talk at all.
-                          ...(!mine
-                            ? [{ icon: 'flag', label: 'Report message', title: 'Report to the team', danger: true, onClick: () => { setReporting(m); setActionsFor(null) } }]
-                            : []),
-                        ]}
-                      >
-                        {isGroup && !mine && startsRun && (
-                          <p className="mb-0.5 truncate pl-1 text-[11px] font-semibold text-smoke">
-                            {sender?.name ?? 'Someone'}
-                          </p>
-                        )}
-                        {/* THE BUBBLE IS SHRINK-TO-FIT, like the rooms'.
-                            It was a plain block inside a `w-full` column, so
-                            every bubble was drawn at the full 80%/65% of the
-                            thread whatever was in it: "whenever I send a short
-                            message the text box is still super long". `w-fit`
-                            takes the bubble down to its content and `max-w-full`
-                            keeps a paragraph wrapping at the column's cap;
-                            `ml-auto` puts yours back against the right edge,
-                            since a shrunk bubble no longer reaches it. */}
-                        <div
-                          data-msg-bubble
-                          className={cx(
-                          // A BUBBLE BEING EDITED TAKES THE WHOLE COLUMN. It is
-                          // `w-fit`, so while the editor is inside it the width
-                          // would otherwise be decided by the editor's own
-                          // min-width - see components/MessageEditor.
-                          editingId === m.id ? 'w-full' : 'w-fit',
-                          'max-w-full whitespace-pre-line break-words rounded-2xl text-sm leading-relaxed',
-                          m.image_url ? 'overflow-hidden p-1.5' : 'px-4 py-2.5',
-                          mine ? 'ml-auto rounded-br-md bg-brand text-white' : 'rounded-bl-md bg-cloud text-ink'
-                        )}>
-                          {/* Quoted reply */}
-                          {m.reply_to && (
-                            <button
-                              type="button"
-                              onClick={() => orig && scrollToMessage(orig.id)}
-                              className={cx(
-                                'mb-1.5 block w-full max-w-full overflow-hidden rounded-lg border-l-2 px-2.5 py-1 text-left',
-                                m.image_url && 'mx-0.5 mt-0.5',
-                                mine ? 'border-white/70 bg-white/15' : 'border-brand/60 bg-black/[0.04]'
-                              )}
-                            >
-                              <span className={cx('block truncate text-[11px] font-semibold', mine ? 'text-white' : 'text-brand')}>
-                                {orig ? (orig.sender_id === user.id ? 'You' : reactorName(orig.sender_id)) : 'Original message'}
-                              </span>
-                              {/* line-clamp, NOT truncate: nowrap made this preview's min-content
-                                  width the whole quoted line, and the shrink-to-fit bubble grew to
-                                  match, so replying to a long message ran off screen. */}
-                              <span className={cx('line-clamp-1 text-xs [overflow-wrap:anywhere]', mine ? 'text-white/80' : 'text-smoke')}>{dmPreview(orig)}</span>
-                            </button>
-                          )}
-                          {m.image_url && (
-                            imageSrc ? (
-                              // A tap opens this message's own bar, which is
-                              // where Full screen and Save now live.
-                              <ChatMedia
-                                url={imageSrc} kind={isVid ? 'video' : 'image'} alt={m.body || 'Shared image'}
-                                w={m.media_w} h={m.media_h}
-                                onTap={() => setActionsFor((cur) => (cur === m.id ? null : m.id))}
-                              />
-                            ) : (
-                              <div className="flex h-40 w-56 items-center justify-center rounded-xl bg-cloud"><Spinner /></div>
-                            )
-                          )}
-                          {/* Feedback from the team arrives with the entry it
-                              is about attached. */}
-                          {m.resource_id && (
-                            <span className={cx('block', m.image_url && 'px-2.5 pt-1.5')}>
-                              <ResourceCard resourceId={m.resource_id} />
-                            </span>
-                          )}
+              <MessagesThread
+                actionsFor={actionsFor}
+                active={active}
+                activeMembers={activeMembers}
+                bottomRef={bottomRef}
+                deleteDm={deleteDm}
+                dmComposerRef={dmComposerRef}
+                dmPreview={dmPreview}
+                dmReactorNames={dmReactorNames}
+                editingId={editingId}
+                entryRefs={entryRefs}
+                isAdmin={isAdmin}
+                isGroup={isGroup}
+                isMobile={isMobile}
+                kbOpen={kbOpen}
+                loadingThread={loadingThread}
+                memberById={memberById}
+                mt={mt}
+                nowTick={nowTick}
+                onScrollMessages={onScrollMessages}
+                reactionSummary={reactionSummary}
+                reactorName={reactorName}
+                saveMedia={saveMedia}
+                scrollToMessage={scrollToMessage}
+                scrollerRef={scrollerRef}
+                seenBy={seenBy}
+                setActionsFor={setActionsFor}
+                setEditingId={setEditingId}
+                setReplyTo={setReplyTo}
+                setReporting={setReporting}
+                setThread={setThread}
+                setViewing={setViewing}
+                settled={settled}
+                signedUrls={signedUrls}
+                thread={thread}
+                threadSearch={threadSearch}
+                toggleReaction={toggleReaction}
+                tr={tr}
+                user={user}
+                visibleThread={visibleThread}
+              />
 
-                          {m.submission_id && (
-                            <span className={cx('block', m.image_url && 'px-2.5 pt-1.5')}>
-                              <EntryReferenceCard entry={entryRefs[m.submission_id]} onDark={mine} />
-                            </span>
-                          )}
-                          {/* MARKDOWN, LIKE EVERY OTHER SURFACE. The DMs printed
-                              the raw body, so a message written with the
-                              formatting buttons - which the DMs now have -
-                              arrived as literal asterisks and hashes. */}
-                          {editingId === m.id ? (
-                            <span className={cx('block', m.image_url && 'px-2.5 py-1.5')}>
-                              <MessageEditor
-                                kind="dm"
-                                message={m}
-                                onDark={mine}
-                                onCancel={() => setEditingId(null)}
-                                onSaved={(next) => {
-                                  setThread((cur) => cur.map((x) => (x.id === next.id ? { ...x, body: next.body, edited_at: next.edited_at } : x)))
-                                  setEditingId(null)
-                                }}
-                              />
-                            </span>
-                          ) : (
-                            m.body && (
-                              <span className={cx('block', m.image_url && 'px-2.5 py-1.5')}>
-                                {renderMessageBody(mt.textFor(m), { rich: true, members: activeMembers, onDark: mine })}
-                                {mt.isOn(m) && (
-                                  <button type="button" onClick={() => mt.toggle(m)} className={cx('mt-1 inline-flex items-center gap-1 text-[11px] font-semibold', mine ? 'text-white/80' : 'text-brand')}>
-                                    <Icon name="language" className="h-3 w-3" />{tr('Translated')} · {tr('Show original')}
-                                  </button>
-                                )}
-                                {mt.isBusy(m) && <span className="mt-1 block text-[11px] text-smoke">{tr('Translating…')}</span>}
-                                {mt.isOn(m) && mt.isSame(m) && <span className={cx('mt-1 block text-[11px]', mine ? 'text-white/80' : 'text-smoke')}>{tr('Already in your language.')}</span>}
-                                {mt.isFailed(m) && <span className={cx('mt-1 block text-[11px]', mine ? 'text-white/80' : 'text-smoke')}>{tr("This message can't be translated right now.")}</span>}
-                              </span>
-                            )
-                          )}
-                        </div>
-                      </MessageActions>
-                      </div>
-                    </div>
-                  )
-                })}
-                <div ref={bottomRef} />
-              </div>
-
-              {!settled && (
-                <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden">
-                  <ChatSkeleton fill rows={6} />
-                </div>
-              )}
-              </div>
-
-              <div ref={dockRef} className="shrink-0">
-              {/* Typing indicator + jump-to-latest pill float above the composer. */}
-              <div className="relative">
-                {otherTyping && (
-                  <div className="pointer-events-none absolute -top-6 left-5 flex items-center gap-1.5 text-xs text-smoke">
-                    <span className="flex gap-0.5">
-                      <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-smoke [animation-delay:-0.2s]" />
-                      <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-smoke [animation-delay:-0.1s]" />
-                      <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-smoke" />
-                    </span>
-                    <span className="italic">
-                      {(otherTyping.name || active?.other?.name || 'Someone').split(' ')[0]} is typing…
-                    </span>
-                  </div>
-                )}
-                {farUp && (
-                  <div className="pointer-events-none absolute -top-14 inset-x-0 z-10 flex justify-center">
-                    <button
-                      type="button"
-                      onClick={jumpToLatest}
-                      className="pointer-events-auto flex items-center gap-1.5 rounded-full bg-brand px-4 py-2 text-xs font-semibold text-white shadow-lift transition-transform hover:scale-105 active:scale-95"
-                    >
-                      {newBelow > 0 ? `${newBelow} new message${newBelow === 1 ? '' : 's'}` : 'Jump to latest'}
-                      <Icon name="arrow-down" className="h-4 w-4" />
-                    </button>
-                  </div>
-                )}
-              </div>
-
-              {/* Composer */}
-              {/* `shrink-0`, matching the legacy chat. Without it the composer
-                  is the only flexible item in the column once the message list
-                  has taken its `flex-1 basis-0`, so a composer grown to six
-                  lines is the thing the browser squeezes when the keyboard
-                  takes half the screen. */}
-              <div ref={composerRef} className={cx('shrink-0 border-t border-gray-100', isMobile && threadSearchOpen ? 'px-3 py-2.5' : 'px-5 py-4')}>
-                {isMobile && threadSearchOpen ? (
-                  <ComposerSearch value={threadSearch} onChange={setThreadSearch} count={visibleThread.length} total={thread.length}
-                    placeholder="Search this conversation" onClose={closeThreadSearch} />
-                ) : dmLocked ? (
-                  <div className="rounded-card bg-cloud px-4 py-3 text-center text-sm text-smoke">
-                    Message sent. You can send one message until {active?.other?.name?.split(' ')[0]} replies, which connects you.
-                  </div>
-                ) : (
-                <>
-                <OutboxNotice scope={outboxScope} />
-                {attachError && <p className="mb-2 text-xs text-red-600">{attachError}</p>}
-                {!connected && !isAdmin && iSentCount === 0 && !theyReplied && (
-                  <p className="mb-2 text-xs text-smoke">You can send one message. If {active?.other?.name?.split(' ')[0]} replies, you’ll be connected.</p>
-                )}
-                {/* WHAT YOU ARE REPLYING TO. CHARACTER FOR CHARACTER THE ROOMS'.
-                    The two had drifted into different chips doing the same job:
-                    this one was a grey bar with a left rule and a BAN icon to
-                    cancel - a no-entry sign, which reads as "you may not do
-                    this" rather than "drop this reply". Ethan: "it shows up the
-                    reply with a circle, like a no entry icon, it should be an x
-                    to exit out of the reply, the same as it shows on the rooms."
-                    So it is the rooms' markup: tinted, a reply arrow to say what
-                    the bar is, and a close cross to leave. */}
-                {replyTo && (
-                  <div className="mb-2 flex items-center gap-2 rounded-xl border border-brand/25 bg-brand-tint/40 py-2 pl-3 pr-2">
-                    <Icon name="reply" className="h-4 w-4 shrink-0 text-brand" />
-                    <span className="min-w-0 flex-1">
-                      <span className="block text-[11px] font-semibold text-brand">
-                        Replying to {replyTo.sender_id === user.id ? 'yourself' : reactorName(replyTo.sender_id).split(' ')[0]}
-                      </span>
-                      <span className="block truncate text-xs text-smoke">{dmPreview(replyTo)}</span>
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => setReplyTo(null)}
-                      aria-label={tr("Cancel reply")}
-                      className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-smoke transition-colors hover:bg-white hover:text-ink"
-                    >
-                      <Icon name="close" className="h-4 w-4" />
-                    </button>
-                  </div>
-                )}
-                <ChatComposer
-                  ref={dmComposerRef}
-                  docId={conversationId || (draftTo ? `to-${draftTo.id}` : '')}
-                  initialMd={loadDraft(dmDraftKey(conversationId, draftTo?.id))}
-                  placeholder={isMobile
-                    ? 'Message…'
-                    : `Message ${isGroup ? activeTitle : (active?.other?.name?.split(' ')[0] ?? '')}…`}
-                  ariaLabel="Message"
-                  mentionNames={dmMentionNames}
-                  onChangeMd={onComposerChange}
-                  onBlur={stopTyping}
-                  onSend={send}
-                  canSend={!!body.trim()}
-                  sending={sending}
-                  onAttach={sendAttachment}
-                  isAdmin={isAdmin}
-                  onFocus={hideChrome}
-                  isMobile={isMobile}
-                  kbOpen={kbOpen}
-                  className="!border-t-0 !px-0 !py-0"
-                />
-                </>
-                )}
-              </div>
-              </div>
+              <MessagesComposer
+                active={active}
+                activeTitle={activeTitle}
+                attachError={attachError}
+                body={body}
+                closeThreadSearch={closeThreadSearch}
+                composerRef={composerRef}
+                connected={connected}
+                conversationId={conversationId}
+                dmComposerRef={dmComposerRef}
+                dmDraftKey={dmDraftKey}
+                dmLocked={dmLocked}
+                dmMentionNames={dmMentionNames}
+                dmPreview={dmPreview}
+                dockRef={dockRef}
+                draftTo={draftTo}
+                farUp={farUp}
+                hideChrome={hideChrome}
+                iSentCount={iSentCount}
+                isAdmin={isAdmin}
+                isGroup={isGroup}
+                isMobile={isMobile}
+                jumpToLatest={jumpToLatest}
+                kbOpen={kbOpen}
+                newBelow={newBelow}
+                onComposerChange={onComposerChange}
+                otherTyping={otherTyping}
+                outboxScope={outboxScope}
+                reactorName={reactorName}
+                replyTo={replyTo}
+                send={send}
+                sendAttachment={sendAttachment}
+                sending={sending}
+                setReplyTo={setReplyTo}
+                setThreadSearch={setThreadSearch}
+                stopTyping={stopTyping}
+                theyReplied={theyReplied}
+                thread={thread}
+                threadSearch={threadSearch}
+                threadSearchOpen={threadSearchOpen}
+                tr={tr}
+                user={user}
+                visibleThread={visibleThread}
+              />
             </>
           )}
         </section>
