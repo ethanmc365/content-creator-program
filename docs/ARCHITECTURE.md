@@ -1,6 +1,6 @@
 # Architecture
 
-A map for a developer joining the project. Current as of 13 Oct 2026. The
+A map for a developer joining the project. Current as of 14 Oct 2026. The
 README covers setup and deploys; this covers how the pieces fit and the rules
 the code depends on.
 
@@ -18,9 +18,10 @@ the code depends on.
      ├─ pg_cron jobs (reminders, view sync, VIP month close, health)
      └─ pg_net: database -> edge functions over HTTP
    Edge Functions (Deno, supabase/functions/*)
-     upload, notify-dispatch (web push + email), view-sync (reads TikTok /
-     Instagram / YouTube / Facebook view counts), send-invoice, auth-gate,
-     impersonate, geocode, thumb-cache, translate-text, calendar-feed, ...
+     auth-gate, calendar-feed, geocode, impersonate, media-cleanup,
+     notify-dispatch (web push), push-track, send-invoice, thumb-cache,
+     translate-text, upload, view-sync (reads TikTok / Instagram / YouTube /
+     Facebook view counts)
  Vercel: static hosting of dist/ + headers/CSP (vercel.json)
 ```
 
@@ -43,7 +44,11 @@ src/
                       vip/, admin/, challenge/, calendar/, games/, agreements/,
                       portfolio/, certificate/, wrapped/ (year in review), tour/,
                       layout/ (AppLayout = header, tab bar, route scroll)
-  lib/                plain modules: data helpers per feature (vip.js, markets.js,
+  api/                one module per feature that owns its Supabase tables and
+                      functions (challenges, submissions, vip, money, profiles,
+                      chat, notifications, markets, events, games, flights,
+                      agreements, certificates, content, team, settings)
+  lib/                plain modules: feature logic (vip.js, markets.js,
                       scoring.js, viewSync.js, invoice.js...), UI utilities
                       (confirm.js, toast.js, chatScroll.js...), i18n.js
   locales/            es/pt/de/ro dictionaries (English text is the key)
@@ -58,16 +63,32 @@ docs/                 this file, the move runbook, feature notes (STAGING,
 docs/archive/         dated briefs and handovers from the build; history only
 ```
 
-Pages are big (several are 1,500-3,000 lines) and own their data loading. There
-is no separate data layer: components call `supabase` directly (about 210
-files). When a query is shared it moves into `lib/<feature>.js`.
+Pages own their data loading, but they do not name tables: every query goes
+through `src/api/<feature>.js` (`vipApi.members().select(...)`,
+`moneyApi.decideInvoice({...})`). An accessor returns the same supabase-js
+builder or `{ data, error }`, so the page code reads as before; a schema rename
+or a backend move is a change in one folder. Each module has a test asserting
+which table or function every accessor names (`src/api/*.test.js`). The only
+generic table access left is Settings' data export and the offline outbox
+(`lib/outbox.js`), which by design write to whatever table an item names.
+
+The biggest pages are split into components next to them (`Messages` +
+`MessagesInbox`/`MessagesThread`/`MessagesComposer`, `ChallengeDetail` +
+`ChallengeDetailSubmitModal`/..., `CreatorMap` + `CreatorMapCanvas`/...). A
+part receives what it shows as props from the page; state and effects stay in
+the page.
 
 ## 3. Talking to Supabase
 
 - One client: `src/lib/supabase.js`. Its fetch is wrapped twice:
   `lib/netQuality` (timeouts + one retry on weak connections) and
   `lib/sharedReads` (identical GETs in flight at the same moment go out once).
-- **supabase-js does not throw on a failed write.** Always destructure `error`.
+- **supabase-js does not throw on a failed write.** Always destructure `error`,
+  or wrap a write a person acts on in `saved()` from `lib/confirm` (shows "That
+  did not save" and returns false).
+- **A failed read shows one retry bar** (`lib/loadTrouble` wraps the client's
+  fetch; `components/LoadTrouble` remounts the page). Pages do not need their
+  own error state for "it did not load".
 - **Builders are lazy**: `.rpc()` / `.from()` without `await` never sends.
 - **PostgREST returns at most 1,000 rows silently.** Use `lib/fetchAll` for
   whole tables (needs a unique order key).
@@ -96,7 +117,16 @@ files). When a query is shared it moves into `lib/<feature>.js`.
   money, mail and settings; `is_test` hides an account from every list.
 - New `SECURITY DEFINER` functions: an event trigger grants them to
   `authenticated` and strips `anon`. Internal ones are named `*_internal` or
-  listed in `owner_only_rpcs` so no API role can call them.
+  listed in `owner_only_rpcs` so no API role can call them. On 14 Oct every one
+  of them was reviewed (migration 405); 253 are callable and each checks its
+  caller or only reads public data.
+- **Own-row updates are column-guarded.** "Update your own row" policies are not
+  column-aware, so `api_update_only()` (migration 406) limits what the API roles
+  may change on direct_messages (read), conversation_members (last_read_at),
+  conversation_invites (status), certificate_awards (seen_at) and connections
+  (status, accepted_at).
+- **Links from data go through `lib/safeUrl`** before they become an href (and
+  the database refuses non-http(s) video, job and meeting links, migration 409).
 - `auth.uid()` is null under cron: client-facing functions check the caller;
   their `_internal` twins do the work unguarded and are owner-only.
 
@@ -139,17 +169,55 @@ The scheduled jobs (all UTC) are listed with their exact commands in
 - CSP is production-only (`vercel.json`): "works locally, broken live" for
   media or network calls means check the CSP first.
 
-## 7. Known debt (worth paying down, none of it urgent)
+## 7. One name per concept
 
-- **Comments read like a diary.** About a quarter of `src/` is comments, with
-  ~1,600 dated notes ("13 Oct 2026", quotes from chat). The *why* in them is
-  often valuable; the history is not. Trim when touching a file.
-- **Large files.** `CreatorMap.jsx` (3,000 lines), `Messages.jsx`, `Flights.jsx`,
-  `NetworkChat.jsx`, `ChallengeDetail.jsx` (2,200+). Split along feature seams
-  when next changed.
-- **No data layer.** Pulling queries into `lib/<feature>.js` (or `src/api/`)
-  would make a backend move or a schema rename a search in one folder.
-- **Database:** 86 tables have two permissive policies for the same action
-  (admin + member); merging them would save planner work at scale. About 80
-  indexes show no use since the 7 Oct restart; review before dropping (some
-  serve monthly jobs).
+| Concept | Database | `src/api` | What people see |
+| --- | --- | --- | --- |
+| Market | `communities` with `kind = 'chapter'` (Worldwide is `kind = 'network'`) | `marketsApi.communities()` | "market" (team), the country name (creators) |
+| Membership of a market | `community_members` | `marketsApi.communityMembers()` | "member", "home market" |
+| Room | `channels` (`key` like `general`, scoped `spain:general`) | `chatApi.channels()` | "room" |
+| Paid programme | `vip_programmes` (`kind = 'vip'` or `'official'`) | `vipApi.programmes()` | "VIP programme" / "Official creators" |
+| VIP vs official | `vip_programmes.kind`, mirrored on `profiles.vip_kind` | | "VIP" for kind vip, "official creator" for kind official |
+| Entry | `submissions` | `submissionsApi.submissions()` | "entry" / "video" |
+| Score | `results.final_views` (a cache) | `challengesApi.results()` | points or views |
+| Programme | British spelling everywhere, including invoices ("Content Creator Programme") | | |
+
+Names that look like synonyms and are not: `is_member()` means "an active
+profile", not "a member of this market"; `community` in a table name always
+means a market.
+
+## 8. Monitoring
+
+- **Admin desk** (`/admin`) shows open alerts from `client_errors`: app crashes
+  (`report_client_error`) and system faults (`report_system_error`).
+- **cron-health** (every 5 minutes) checks every scheduled job's last run,
+  raises an alert on failure and pings the external heartbeat in
+  `private.config.healthchecks_cron_url`, so a dead scheduler is noticed too.
+- **ops-health-check** (every 5 minutes): database health and the scraper watch
+  (`ops:views`: no reads for the interval + 2 h during a live challenge, or half
+  the last sweep failed). **ops-snapshot-stats** (hourly) stores the heaviest
+  queries for Admin > Analytics.
+- **Sentry** (EU) receives front-end errors with the release commit.
+- Edge function drift: `scripts/edge-drift.sh` and the CI `edge-drift` job.
+
+## 9. Known debt (worth paying down, none of it urgent)
+
+- **Big pages still hold a lot of logic.** The views were lifted out on 14 Oct,
+  but `Messages`, `CreatorMap` and `ChallengeDetail` still keep 1,700-2,200
+  lines of state and effects each. The next step is custom hooks per concern
+  (thread loading, composer, map fitting), one at a time, with the page opened
+  after each.
+- **Realtime is the biggest database cost** (~20 minutes of database time a day
+  in the change-polling query). Every published table is used; reducing it means
+  moving the busiest feeds (messages, submissions) to Realtime Broadcast.
+  Five subscriptions (`vip_perks`, `vip_guides`, `vip_briefs`, `results`,
+  `board_answers`) listen to tables that are not in the publication, so they
+  never fire; the pages re-read on focus instead.
+- **About 180 indexes show no use** since the 7 Oct restart; most were added on
+  13 Oct. Re-check after 30 days of statistics before dropping any (some serve
+  monthly jobs).
+- **The view reader scrapes TikTok, Instagram and Facebook pages**; see
+  docs/SCRAPER_OPTIONS.md for the official routes and the decision Tryp needs to
+  make.
+- **reconcile-milestones** takes ~1.5 s every 30 minutes. Skipping unchanged
+  creators would cut it, but it creates voucher rewards, so it was left as is.

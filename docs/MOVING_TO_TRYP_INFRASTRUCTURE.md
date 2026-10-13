@@ -15,7 +15,10 @@ live system; numbers below are from that day.
 
 Recommendation: **A first** (it is reversible and buys time), **B** when Tryp
 needs the data on its own servers. C is not recommended. The rest of this
-document is route B.
+document is route B, except section 11, which lists what changes in either case.
+
+A step-by-step guide to giving the new owner access (route A, done by the
+current owner) is kept outside the repo; ask Ethan for it.
 
 ## 1. What has to move
 
@@ -25,8 +28,8 @@ document is route B.
 | Postgres data | ~120 MB | `pg_dump` (data), see 4 |
 | `private` schema | `private.config` (settings + secrets) | dump, then edit the URLs, see 6 |
 | Auth users | ~270 accounts with password hashes | `auth` schema data in the dump; passwords keep working |
-| Storage files | ~530 MB, ~2,900 files in 7 buckets | object copy, see 5 |
-| Edge functions | 15 in use (`supabase/functions/`) | `supabase functions deploy`, see 7 |
+| Storage files | 532 MB, 2,972 files in 7 buckets (14 Oct) | `node scripts/backup-storage.mjs`, then upload, see 5 |
+| Edge functions | 12 (`supabase/functions/`) | `supabase functions deploy`, see 7 |
 | Scheduled jobs | ~30 pg_cron jobs | recreate from `supabase/schema/platform.sql` |
 | Realtime publication | 16 tables | in `platform.sql`; re-add with `alter publication supabase_realtime add table ...` |
 | App hosting | Vercel project + env vars + `vercel.json` headers | Vercel transfer or new project |
@@ -42,9 +45,12 @@ run the script against the new project (`PROJECT_REF=<new>`) and diff.
    `pg_dump` can connect. Use the **session pooler** or direct connection, not
    the transaction pooler.
 3. Create the new project in the **same region family** (EU) on Postgres 17,
-   with the extensions in `platform.sql` enabled: `pg_cron`, `pg_net` (in
-   schema `public` on the old project), `pg_stat_statements`, `pgcrypto`,
-   `uuid-ossp`, `supabase_vault`.
+   with the extensions in `platform.sql` enabled: `pg_cron`, `pg_net`,
+   `pg_stat_statements`, `pgcrypto`, `uuid-ossp`, `supabase_vault`. On the new
+   project create `pg_net` in the `extensions` schema (the old project has it in
+   `public`, which the advisor flags; it cannot be moved in place without
+   dropping in-flight webhook calls, and its functions live in schema `net`
+   either way, so no function needs changing).
 
 ## 3. Schema
 
@@ -100,7 +106,9 @@ Buckets: `avatars`, `gallery`, `chat-media`, `creator-kit`, `resources`,
 `video-thumbs` (public) and `dm-media` (PRIVATE). Create them with the same
 settings (`platform.sql` lists limits and allowed types), copy the policies on
 `storage.objects` (`policies.sql`, schema `storage`), then copy the objects with
-the same paths. The S3-compatible endpoint works with `rclone`/`aws s3 sync`.
+the same paths. `node scripts/backup-storage.mjs --out <folder>` downloads
+every bucket (read-only, resumable, with a manifest); upload the folder with
+`supabase storage cp -r` or the S3-compatible endpoint (`rclone`/`aws s3 sync`).
 
 **Stored URLs contain the old address.** These columns hold absolute URLs that
 start with `https://heuhqqoxyggawuckxocp.supabase.co/storage/...` (row counts on
@@ -157,16 +165,19 @@ refresh token reuse/rotation as on the old project, SMTP / email templates,
 email confirmation OFF (accounts are approved by the team instead). Google
 sign-in is NOT enabled.
 
-## 9. The app
+## 9. The app (see section 11 for the full list)
 
 - Vercel env: `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` (new values), redeploy.
 - `vercel.json`: the Content-Security-Policy names the Supabase host in
   `connect-src`, `img-src`, `media-src`. Replace it.
-- `public/sw.js`: `TRACK_URL` (push delivery receipts) names the old host; the
-  service worker cannot read Vite env. Replace it.
-- `.github/workflows/ci.yml` and `keepalive.yml` name the old URL, and so do
-  the one-off scripts `scripts/seed-*.mjs` and `backfill-avatar-thumbs.mjs`
-  (`schema-snapshot.mjs` takes `PROJECT_REF`).
+- `public/sw.js` needs nothing: the build writes `VITE_SUPABASE_URL` into
+  `dist/sw.js` (`vite-sw-env.js`).
+- GitHub: set the repository variables `VITE_SUPABASE_URL`,
+  `VITE_SUPABASE_ANON_KEY`, `SUPABASE_PROJECT_REF` and the secrets
+  `VITE_SUPABASE_ANON_KEY`, `SUPABASE_ACCESS_TOKEN`, `SUPABASE_DB_URL`. The
+  workflows default to the old project until then.
+- Scripts take `VITE_SUPABASE_URL` from `.env` and `PROJECT_REF` from the
+  environment.
 - Calendar subscriptions: creators who subscribed to their calendar feed have
   the old `.../functions/v1/calendar-feed?token=...` URL in their phone. Keep
   the old project's `calendar-feed` running for a few weeks, or tell them to
@@ -187,3 +198,27 @@ sign-in is NOT enabled.
 **Rollback:** point Vercel env back at the old project and redeploy. Anything
 written to the new project in between has to be copied back by hand, so keep
 the window short.
+
+## 11. Everything that names the project, and what to do at the switch
+
+Checked 14 Oct 2026 with `grep -rn "heuhqqoxyggawuckxocp\|supabase\.co" src public scripts supabase/functions
+vercel.json .github index.html` plus the database (`select proname from pg_proc where prosrc like '%heuhqq%'`
+returns nothing).
+
+| Where | What | At the switch |
+| --- | --- | --- |
+| Vercel env `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` | the app's project | set the new values, redeploy |
+| `vercel.json` Content-Security-Policy | `connect-src`, `img-src`, `media-src` name the project host | **edit the file** (Vercel cannot template headers) |
+| `public/sw.js` | push receipts URL | nothing: written from `VITE_SUPABASE_URL` at build |
+| GitHub variables / secrets | CI build, keepalive, drift check, backup | set the variables and secrets in section 9 |
+| `scripts/*.sh`, `scripts/*.mjs` defaults | `PROJECT_REF` default | pass `PROJECT_REF=<new>` (defaults may stay) |
+| `private.config` | `edge_functions_base`, `webhook_secret`, `youtube_api_key`, `healthchecks_cron_url` | section 6 |
+| Edge function secrets | see the README table | section 7 |
+| Stored file URLs | 12 columns hold absolute storage URLs | section 5 |
+| `src/lib/supabase.js` | `placeholder.supabase.co` | nothing (only used when env is missing) |
+| Supabase Auth | Site URL, redirect URLs, Turnstile secret, JWT expiry, SMTP | section 8 |
+| Realtime | publication `supabase_realtime` (16 tables, `platform.sql`) | re-add the tables |
+| Calendar feeds | creators' phones hold the old `calendar-feed` URL | keep the old function up for a few weeks, section 9 |
+
+Unused secrets on the old project that need not move: `MAIL_FROM`, `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`.
+
