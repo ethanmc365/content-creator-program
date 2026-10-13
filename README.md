@@ -90,6 +90,13 @@ it): `edge_functions_base`, `webhook_secret`, `youtube_api_key`,
 SUPABASE_ACCESS_TOKEN=sbp_... node scripts/schema-snapshot.mjs
 ```
 
+Edge functions are deployed by hand, so check that what is live matches the
+repo before and after deploying one (read-only, exits 1 on drift):
+
+```bash
+SUPABASE_ACCESS_TOKEN=sbp_... ./scripts/edge-drift.sh
+```
+
 New `SECURITY DEFINER` functions are re-granted by an event trigger
 (`no_new_function_is_public` -> `lock_down_definer_functions()`): signed-in users
 can call them unless the name is listed in `owner_only_rpcs`. Decide which.
