@@ -20,6 +20,7 @@ import EntryPreview from '../../components/challenge/EntryPreview'
 import { useEntryPoints } from '../../lib/entryPoints'
 import { FILL } from '../../components/charts/chartTheme'
 import { safeUrl } from '../../lib/safeUrl'
+import { moneyApi } from '../../api/money'
 
 // Deep-dive analytics for ONE challenge (admin only).
 // Reached by tapping a bar/row on the main Analytics page.
@@ -91,7 +92,7 @@ export default function AdminChallengeAnalytics() {
           supabase.from('challenge_history').select('id, community_id, title, starts_at, prize_total, total_views, creators, posts'),
           supabase.from('submissions').select('*, profiles:creator_id(id, name, photo_url, instagram_url, tiktok_url, youtube_url, facebook_url)').eq('challenge_id', id).order('logged_views', { ascending: false, nullsFirst: false }),
           supabase.from('results').select('*, profiles:creator_id(id, name, photo_url)').eq('challenge_id', id).order('rank'),
-          supabase.from('rewards').select('*').eq('challenge_id', id),
+          moneyApi.rewards().select('*').eq('challenge_id', id),
           supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('status', 'active').eq('is_admin', false).is('deletion_requested_at', null),
           supabase.from('challenge_groups').select('*').eq('challenge_id', id).order('position'),
           supabase.from('challenge_group_members').select('group_id, creator_id').eq('challenge_id', id),

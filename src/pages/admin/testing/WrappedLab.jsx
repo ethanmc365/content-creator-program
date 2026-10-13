@@ -7,6 +7,7 @@ import Icon from '../../../components/Icon'
 import { cx } from '../../../lib/utils'
 import { buildYearInReview } from '../../../lib/yearInReview'
 import YearInReview, { YearInReviewLocked } from '../../../components/wrapped/YearInReview'
+import { moneyApi } from '../../../api/money'
 
 // THE YEAR IN REVIEW, BEFORE ANY CREATOR CAN SEE IT.
 //
@@ -98,7 +99,7 @@ export default function WrappedLab() {
         allRows(() => supabase.from('flights').select('id, creator_id, from_iata, to_iata, flown_on, airline, aircraft, distance_km, return_of')),
         allRows(() => supabase.from('submissions').select('id, creator_id, challenge_id, platform, logged_views, submitted_at, thumbnail_url, video_url')),
         allRows(() => supabase.from('results').select('challenge_id, creator_id, final_views, rank')),
-        allRows(() => supabase.from('rewards').select('creator_id, amount, currency, reward_type, created_at')),
+        allRows(() => moneyApi.rewards().select('creator_id, amount, currency, reward_type, created_at')),
         allRows(() => supabase.from('challenges').select('id, title')),
         // The off-platform record: the challenges the programme ran before this
         // app existed. `challenge_id is null` is the same filter AdminAnalytics

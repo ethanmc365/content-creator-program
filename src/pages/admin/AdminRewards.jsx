@@ -20,6 +20,7 @@ import VoucherTicket from '../../components/VoucherTicket'
 import VouchersPanel from './VouchersPanel'
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { CHART, FILL, axisTick, axisTickSmall, tooltipStyle } from '../../components/charts/chartTheme'
+import { moneyApi } from '../../api/money'
 
 // A `rewardsTotal` result, printed. "≈" whenever a conversion was involved,
 // because that figure moves with the FX rate and is not the exact amount that
@@ -517,7 +518,7 @@ export default function AdminRewards() {
     const problems = validatePayee(payForm)
     if (problems.length) return notice(`Almost there:\n\n${problems.join('\n')}`)
     setSavingPay(true)
-    const { error } = await supabase.rpc('admin_set_payment_details', {
+    const { error } = await moneyApi.adminSetPaymentDetails({
       p_creator: editingPay.id,
       p_currency: payForm.currency || null,
       p_name: payForm.name || null,
@@ -552,7 +553,7 @@ export default function AdminRewards() {
       supabase.from('profiles')
         .select('id, name, photo_url, status, is_test, is_sandbox, deletion_requested_at')
         .eq('status', 'active').eq('is_admin', false).order('name'),
-      supabase.from('creator_private').select('*'),
+      moneyApi.creatorPrivate().select('*'),
     ]).then(([{ data: profs }, { data: privs }]) => {
       if (!alive) return
       const byId = new Map((privs ?? []).map((r) => [r.id, r]))
@@ -595,13 +596,13 @@ export default function AdminRewards() {
 
   const load = useCallback(async function load() {
     const [{ data: r }, { data: c }, { data: ch }, { data: inv }, { data: allInv }] = await Promise.all([
-      supabase.from('rewards')
+      moneyApi.rewards()
         .select('*, profiles:creator_id(id, name, photo_url), challenges(title), referred:referred_creator_id(id, name, photo_url)')
         .order('created_at', { ascending: false }),
       supabase.from('profiles').select('id, name').order('name'),
       supabase.from('challenges').select('id, title, status, end_date').order('created_at', { ascending: false }),
-      supabase.from('invoices').select('*').not('reward_id', 'is', null),
-      supabase.from('invoices').select('id, stage'),
+      moneyApi.invoices().select('*').not('reward_id', 'is', null),
+      moneyApi.invoices().select('id, stage'),
     ])
     setInvoiceStages(allInv ?? [])
     // WHICH PRIZES ARE ALREADY SOMEBODY ELSE'S JOB.
@@ -652,12 +653,12 @@ export default function AdminRewards() {
     let error
     if (already) {
       // Group-aware, so recoding a combined voucher recodes every part.
-      ;({ error } = await supabase.rpc('admin_set_voucher_code', {
+      ;({ error } = await moneyApi.adminSetVoucherCode({
         p_reward: distributing.id, p_code: distChat ? '' : code, p_via: distChat ? 'chat' : null,
       }))
     } else {
-      ;({ error } = await supabase
-        .from('rewards')
+      ;({ error } = await moneyApi
+        .rewards()
         .update({
           status: 'distributed', payment_notes: distNotes, distributed_at: new Date().toISOString(),
           ...(isVoucher ? { voucher_code: distChat ? null : code, issued_via: distChat ? 'chat' : null } : {}),
@@ -673,7 +674,7 @@ export default function AdminRewards() {
   async function addReward(e) {
     e.preventDefault()
     setAdding(true)
-    const { error } = await supabase.from('rewards').insert({
+    const { error } = await moneyApi.rewards().insert({
       creator_id: newReward.creator_id,
       challenge_id: newReward.challenge_id || null,
       reward_type: newReward.reward_type,

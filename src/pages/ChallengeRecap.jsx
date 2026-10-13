@@ -11,6 +11,7 @@ import { resolveThumbnail } from '../lib/videoThumbs'
 import Icon from '../components/Icon'
 import BackLink from '../components/BackLink'
 import { Spinner } from '../components/ui'
+import { moneyApi } from '../api/money'
 
 // THE END-OF-CHALLENGE RECAP PAGE (24 Sep 2026). See lib/challengeRecap for
 // the numbers and components/wrapped/challengeStory for the cards; the story
@@ -50,7 +51,7 @@ export default function ChallengeRecap() {
       // looks even bigger." Same arithmetic as the analytics page's spend
       // (lib/challengeSpend), from the same standings the payout reads.
       const [{ data: rewards }, { data: standings }] = await Promise.all([
-        supabase.from('rewards')
+        moneyApi.rewards()
           .select('amount, currency, reward_type, prize_slot, status')
           .eq('challenge_id', id).eq('creator_id', who),
         supabase.rpc('challenge_prize_standings', { p_challenge: id }),

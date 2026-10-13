@@ -10,6 +10,7 @@ import OpenMarketDialog from '../../components/admin/OpenMarketDialog'
 import { cx } from '../../lib/utils'
 import { useVipAccess } from '../../lib/vip'
 import { awaitingCode } from '../../lib/wallet'
+import { moneyApi } from '../../api/money'
 
 // The admin hub.
 //
@@ -499,23 +500,23 @@ export default function AdminPanel() {
     async function load() {
       const answers = await Promise.all([
         supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('status', 'pending').eq('onboarded', true),
-        supabase.from('invoices').select('id', { count: 'exact', head: true }).eq('stage', 'awaiting_approval'),
+        moneyApi.invoices().select('id', { count: 'exact', head: true }).eq('stage', 'awaiting_approval'),
         supabase.from('message_reports').select('id', { count: 'exact', head: true }).in('status', ['new', 'reviewing']),
         supabase.from('feedback').select('id', { count: 'exact', head: true }).eq('status', 'new'),
         supabase.from('event_suggestions').select('id', { count: 'exact', head: true }).eq('status', 'new'),
         // ROWS, NOT A COUNT (4 Oct 2026). "1 reward still to pay" sent Ethan to Cash & Invoices, where
         // nothing was owed: the one reward was a VOUCHER waiting for its code, which lives on the
         // Vouchers tab. A voucher needs a code, cash needs paying, and the desk has to say which.
-        supabase.from('rewards').select('id, reward_type, status, source, voucher_code, issued_via')
+        moneyApi.rewards().select('id, reward_type, status, source, voucher_code, issued_via')
           .or('status.eq.pending,and(reward_type.eq.voucher,status.eq.distributed)'),
-        supabase.from('invoices').select('id', { count: 'exact', head: true }).eq('stage', 'approved'),
+        moneyApi.invoices().select('id', { count: 'exact', head: true }).eq('stage', 'approved'),
         // A PRIZE NOBODY CAN PAY IS WORK, and it is work of a different kind:
         // an invoice waiting for approval needs a decision from an admin, an
         // invoice with no bank details on it needs somebody to go and ask the
         // creator. Counted here rather than with a filter because `payment` is
         // jsonb and PostgREST cannot express "name is a non-empty string" in a
         // head-only count.
-        supabase.from('invoices').select('id, payment').eq('stage', 'draft'),
+        moneyApi.invoices().select('id, payment').eq('stage', 'draft'),
         // ANYTHING BROKEN IS WORK, AND IT IS THE MOST URGENT KIND (8 Sep 2026).
         // Ethan: "any error should show up on the On your desk thing on the
         // admin panel so that I can quickly fix them. And once I click that

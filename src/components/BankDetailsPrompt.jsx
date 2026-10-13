@@ -1,12 +1,12 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { Modal } from './ui'
 import Icon from './Icon'
 import { payeeFromPrivate, payeeComplete } from '../lib/invoice'
 import { claimNag, finishNag, onNagChange } from '../lib/appNag'
 import { useT } from '../lib/i18n'
+import { moneyApi } from '../api/money'
 
 // "ADD YOUR BANK DETAILS" - ASKED EVERY TIME, ENFORCED NEVER.
 //
@@ -84,8 +84,8 @@ export default function BankDetailsPrompt() {
     } catch { /* private mode: ask once per mount, which is close enough */ }
 
     let alive = true
-    supabase
-      .from('creator_private')
+    moneyApi
+      .creatorPrivate()
       .select('pay_currency, pay_name, pay_bank, pay_sort_code, pay_account_number, pay_iban, pay_bic, pay_address')
       .eq('id', user.id)
       .maybeSingle()

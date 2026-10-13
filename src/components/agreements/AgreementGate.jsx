@@ -7,6 +7,7 @@ import { setAgreementHold } from '../../lib/appNag'
 import AgreementSheet from './AgreementSheet'
 import DobSheet from './DobSheet'
 import { useLocale } from '../../lib/i18n'
+import { moneyApi } from '../../api/money'
 
 // Every published agreement this person has not accepted yet, one after another, the first time the app opens after
 // it is published (and again on resume, so a version published while the app sat in the background is still asked
@@ -36,7 +37,7 @@ export default function AgreementGate() {
   useEffect(() => {
     if (skip || ageKnown || profile?.status !== 'active') { setNeedsDob(false); return undefined }
     let alive = true
-    supabase.from('creator_private').select('dob').eq('id', user.id).maybeSingle()
+    moneyApi.creatorPrivate().select('dob').eq('id', user.id).maybeSingle()
       .then(({ data, error }) => { if (alive) setNeedsDob(!error && !data?.dob) }, () => { if (alive) setNeedsDob(false) })
     return () => { alive = false }
   }, [skip, ageKnown, profile?.status, user?.id])

@@ -1,5 +1,4 @@
 import { useMemo, useState } from 'react'
-import { supabase } from '../../lib/supabase'
 import { Avatar, Badge, CopyButton, EmptyState, Modal, Spinner } from '../../components/ui'
 import Icon from '../../components/Icon'
 import VoucherTicket from '../../components/VoucherTicket'
@@ -7,6 +6,7 @@ import { cx, formatDate, formatMoney } from '../../lib/utils'
 import { notice, confirm } from '../../lib/confirm'
 import { ticketsOf } from '../../lib/wallet'
 import { rewardsTotal } from '../../lib/programme'
+import { moneyApi } from '../../api/money'
 
 // EVERY VOUCHER, IN ONE PLACE, WITH THE THINGS A TEAM ACTUALLY DOES TO ONE.
 //
@@ -114,13 +114,13 @@ export default function VouchersPanel({ rewards, loading, onChanged, onHandOver 
     return true
   }
 
-  const markUsed = (t, used) => run(t.id, () => supabase.rpc('admin_set_voucher_used', { p_reward: t.id, p_used: used }))
+  const markUsed = (t, used) => run(t.id, () => moneyApi.adminSetVoucherUsed({ p_reward: t.id, p_used: used }))
   const split = async (t) => {
     const ok = await confirm(
       'Split this back into separate vouchers? The combined code is removed from each part, so each will need its own code again.',
       { confirmLabel: 'Split them' },
     )
-    if (ok) run(t.id, () => supabase.rpc('admin_split_vouchers', { p_reward: t.id }))
+    if (ok) run(t.id, () => moneyApi.adminSplitVouchers({ p_reward: t.id }))
   }
 
   const selected = [...picked].map((id) => tickets.find((t) => t.id === id)).filter(Boolean)
@@ -189,7 +189,7 @@ export default function VouchersPanel({ rewards, loading, onChanged, onHandOver 
         ticket={editing}
         onClose={() => setEditing(null)}
         onSave={async (code) => {
-          const ok = await run(editing.id, () => supabase.rpc('admin_set_voucher_code', {
+          const ok = await run(editing.id, () => moneyApi.adminSetVoucherCode({
             p_reward: editing.id, p_code: code, p_via: null,
           }))
           if (ok) setEditing(null)
@@ -199,7 +199,7 @@ export default function VouchersPanel({ rewards, loading, onChanged, onHandOver 
         data={combining}
         onClose={() => setCombining(null)}
         onSave={async (code, note) => {
-          const ok = await run('combine', () => supabase.rpc('admin_combine_vouchers', {
+          const ok = await run('combine', () => moneyApi.adminCombineVouchers({
             p_rewards: combining.tickets.flatMap((t) => t.rewardIds), p_code: code, p_note: note || null,
           }))
           if (ok) {

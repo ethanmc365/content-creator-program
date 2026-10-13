@@ -19,6 +19,7 @@ import { isHiddenTestRow } from '../../lib/testData'
 import { VipMoveBlock } from '../../components/vip/adminA'
 import { CreatorMarketsBlock } from '../../components/admin/CreatorMarkets'
 import { vipApi } from '../../api/vip'
+import { moneyApi } from '../../api/money'
 
 // Creator management: the full list with emails (admin-only RPC), plus all
 // account actions - password reset, mute, suspend, promote to admin, DM.
@@ -223,13 +224,13 @@ export default function AdminCreators() {
       const [{ data: subs }, { count: msgs }, { data: rewards }, { data: n }, { data: p }] = await Promise.all([
         supabase.from('submissions').select('*, challenges(title)').eq('creator_id', selected.id).order('submitted_at', { ascending: false }),
         supabase.from('messages').select('id', { count: 'exact', head: true }).eq('sender_id', selected.id),
-        supabase.from('rewards').select('*').eq('creator_id', selected.id),
+        moneyApi.rewards().select('*').eq('creator_id', selected.id),
         // The note carries WHO wrote it. It was always shared between admins -
         // one row per creator, an admins-only policy - but it was labelled
         // "Private note" with no author, so it read as your own scratchpad and
         // nobody could tell whether a note was theirs or a colleague's.
         supabase.from('creator_admin_notes').select('note, updated_at, updated_by').eq('creator_id', selected.id).maybeSingle(),
-        supabase.from('creator_private').select('phone, phone_country').eq('id', selected.id).maybeSingle(),
+        moneyApi.creatorPrivate().select('phone, phone_country').eq('id', selected.id).maybeSingle(),
       ])
       setDetail({ submissions: subs ?? [], messageCount: msgs ?? 0, rewards: rewards ?? [] })
       setNote(n?.note ?? '')

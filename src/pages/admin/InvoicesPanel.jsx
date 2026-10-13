@@ -23,6 +23,7 @@ import { downloadInvoicePdf, invoiceFilename } from '../../lib/invoicePdf'
 // The on-screen invoice. Shared with the Testing Centre's invoice lab, so the
 // demo and the real composer can never draw two different invoices.
 import InvoicePreview from '../../components/InvoicePreview'
+import { moneyApi } from '../../api/money'
 
 const FN_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-invoice`
 const LAST_RECIPIENT_KEY = 'tryp_invoice_to'
@@ -229,7 +230,7 @@ export default function InvoicesPanel({ prefill, onClose, onSent }) {
     setCc(user?.email || '')
     // Reserve the next sequential invoice number (gaps from abandoned
     // composers are fine; uniqueness is what matters).
-    const { data, error } = await supabase.rpc('next_invoice_number')
+    const { data, error } = await moneyApi.nextInvoiceNumber()
     if (error) notice(`Couldn't reserve an invoice number: ${error.message}`)
     else setNumber(data)
   }
@@ -269,7 +270,7 @@ export default function InvoicesPanel({ prefill, onClose, onSent }) {
     const p = creators.find((c) => c.id === id)
     setCreatorName(p?.name || '')
     if (!id) { setPayee(EMPTY_PAYEE); setHasSaved(true); return }
-    const { data } = await supabase.from('creator_private').select('*').eq('id', id).maybeSingle()
+    const { data } = await moneyApi.creatorPrivate().select('*').eq('id', id).maybeSingle()
     const pay = payeeFromPrivate(data)
     if (!pay.name) pay.name = p?.name || ''
     // EUROS WHEN THEIR RECORD DOES NOT SAY. This used to fall back to GBP,
@@ -422,10 +423,10 @@ export default function InvoicesPanel({ prefill, onClose, onSent }) {
       }
       let id = invoiceId
       if (id) {
-        const { error } = await supabase.from('invoices').update(row).eq('id', id)
+        const { error } = await moneyApi.invoices().update(row).eq('id', id)
         if (error) throw new Error(error.message)
       } else {
-        const { data, error } = await supabase.from('invoices')
+        const { data, error } = await moneyApi.invoices()
           .insert({ ...row, created_by: user.id }).select('id').single()
         if (error) throw new Error(error.message)
         id = data.id
@@ -433,14 +434,14 @@ export default function InvoicesPanel({ prefill, onClose, onSent }) {
       // `submit_invoice` re-reads the creator's bank details and refuses if
       // they are missing, so this is also the point at which a half-filled
       // invoice is caught.
-      const { error: subErr } = await supabase.rpc('submit_invoice', { p_id: id })
+      const { error: subErr } = await moneyApi.submitInvoice({ p_id: id })
       if (subErr) throw new Error(subErr.message)
 
       // Sign it off in the same press. `decide_invoice` is the authority on
       // whether that is allowed (owners yes, a global admin on their own
       // submission no), so the answer comes from it rather than from a guess
       // here about who is logged in.
-      const { error: okErr } = await supabase.rpc('decide_invoice', { p_id: id, p_approve: true, p_note: null })
+      const { error: okErr } = await moneyApi.decideInvoice({ p_id: id, p_approve: true, p_note: null })
       if (okErr) {
         setInvoiceId(id)
         setStage('awaiting_approval')

@@ -10,6 +10,7 @@ import { cx, downloadCsv, formatMoney, formatViews } from '../../../lib/utils'
 import { REFERRAL_STAGES, referralStage, referralTerms } from '../../../lib/referrals'
 import Segmented from '../../../components/network/Segmented'
 import { FILL } from '../../../components/charts/chartTheme'
+import { moneyApi } from '../../../api/money'
 
 // REFERRALS, AS A TAB OF ITS OWN (22 Sep 2026).
 //
@@ -105,7 +106,7 @@ export default function Referrals({ market = '', memberRows = [], scopeLabel = '
         allRows(() => supabase.from('profiles')
           .select('id, name, photo_url, country, referral_clicks, is_test')
           .gt('referral_clicks', 0)),
-        allRows(() => supabase.from('rewards')
+        allRows(() => moneyApi.rewards()
           .select('id, creator_id, amount, currency, status, created_at, referred_creator_id')
           .not('referred_creator_id', 'is', null)),
         supabase.from('app_settings').select('value').eq('key', 'referral_reward').maybeSingle(),

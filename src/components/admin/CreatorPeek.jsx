@@ -8,6 +8,7 @@ import { useT } from '../../lib/i18n'
 import { VipMoveBlock } from '../vip/adminA'
 import { CreatorMarketsBlock } from './CreatorMarkets'
 import ChallengeParticipation from './ChallengeParticipation'
+import { moneyApi } from '../../api/money'
 
 // THE ADMIN RECORD, WHERE THE ADMIN ALREADY IS.
 //
@@ -52,9 +53,9 @@ export default function CreatorPeek({ creator, open, onClose }) {
         await Promise.all([
           supabase.from('submissions').select('id, video_url, platform, logged_views, submitted_at, challenges(title)')
             .eq('creator_id', id).order('submitted_at', { ascending: false }),
-          supabase.from('rewards').select('amount, currency, status').eq('creator_id', id),
+          moneyApi.rewards().select('amount, currency, status').eq('creator_id', id),
           supabase.from('creator_admin_notes').select('note, updated_at, updated_by').eq('creator_id', id).maybeSingle(),
-          supabase.from('creator_private').select('phone, phone_country').eq('id', id).maybeSingle(),
+          moneyApi.creatorPrivate().select('phone, phone_country').eq('id', id).maybeSingle(),
           // The address lives in `auth.users`, which no client may read. This is
           // the definer RPC the roster uses, asked for one row.
           supabase.rpc('admin_list_emails'),

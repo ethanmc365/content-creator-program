@@ -18,6 +18,9 @@ describe('money api', () => {
     await api.submitInvoice({ x: 1 })
     await api.voucherDayBoard({ x: 1 })
     await api.voucherDaysAward({ x: 1 })
+    await api.deleteInvoice({ x: 1 })
+    await api.nextInvoiceNumber({ x: 1 })
+    await api.adminSetPaymentDetails({ x: 1 })
     expect(calls).toEqual([
       ['from', 'creator_private'],
       ['from', 'invoices'],
@@ -31,6 +34,9 @@ describe('money api', () => {
       ['rpc', 'submit_invoice', { x: 1 }],
       ['rpc', 'voucher_day_board', { x: 1 }],
       ['rpc', 'voucher_days_award', { x: 1 }],
+      ['rpc', 'delete_invoice', { x: 1 }],
+      ['rpc', 'next_invoice_number', { x: 1 }],
+      ['rpc', 'admin_set_payment_details', { x: 1 }],
     ])
   })
 })

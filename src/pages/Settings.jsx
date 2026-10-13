@@ -23,6 +23,7 @@ import { useNotificationPrefs, CreatorNotifications, AdminNotifications } from '
 import { appSoundOn, setAppSoundOn, playDmArrival } from '../lib/appSounds'
 import { startTour } from '../components/tour/TourGate'
 import { soundOn, setSoundOn, playCoin } from '../lib/gameSounds'
+import { moneyApi } from '../api/money'
 
 // Light or dark, explicitly. A "match system" option was tried and removed:
 // following the OS colour scheme was unreliable across real devices.
@@ -125,7 +126,7 @@ export default function Settings() {
   const [paySaving, setPaySaving] = useState(false)
   const [paySaved, setPaySaved] = useState(false)
   useEffect(() => {
-    supabase.from('creator_private').select('*').eq('id', user.id).maybeSingle()
+    moneyApi.creatorPrivate().select('*').eq('id', user.id).maybeSingle()
       .then(({ data }) => { if (data) setPayee(payeeFromPrivate(data)); setPayLoaded(true) })
   }, [user.id])
 
@@ -210,7 +211,7 @@ export default function Settings() {
       if (problems.length) return notice(`Please check your payment details:\n\n${problems.join('\n')}`)
     }
     setPaySaving(true)
-    const { error } = await supabase.from('creator_private').upsert({
+    const { error } = await moneyApi.creatorPrivate().upsert({
       id: user.id,
       ...payeeToPrivate(payee),
       updated_at: new Date().toISOString(),

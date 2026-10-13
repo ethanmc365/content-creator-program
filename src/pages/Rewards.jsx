@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { supabase } from '../lib/supabase'
 import { Badge, EmptyState, PageHeader, Skeleton } from '../components/ui'
 import Icon from '../components/Icon'
 import Reveal from '../components/network/Reveal'
@@ -15,6 +14,7 @@ import { notice } from '../lib/confirm'
 import { useAuth } from '../context/AuthContext'
 import { money, useOptionalRpc, useKindT } from '../lib/vip'
 import { CountUp, VIP_COUNT_MS } from '../components/network/Motion'
+import { moneyApi } from '../api/money'
 
 // A creator's own reward history. We filter by creator_id explicitly so that
 // admins (whose RLS lets them read every reward) still see only *their own*
@@ -44,8 +44,8 @@ export default function Rewards() {
   // exists to stop. `CertificateWall`, below, is where a creator finds theirs.
 
   useEffect(() => {
-    supabase
-      .from('rewards')
+    moneyApi
+      .rewards()
       .select('*, challenges(title), milestones(title), profiles:creator_id(name), invoices(stage, sent_at, paid_at)')
       .eq('creator_id', whose)
       .order('created_at', { ascending: false })
@@ -81,7 +81,7 @@ export default function Rewards() {
 
   async function toggleUsed(reward, used) {
     setTicking(reward.id)
-    const { data, error } = await supabase.rpc('set_reward_used', { p_reward: reward.id, p_used: used })
+    const { data, error } = await moneyApi.setRewardUsed({ p_reward: reward.id, p_used: used })
     setTicking(null)
     if (error) { notice(error.message); return }
     // A combined voucher is several rows and the database ticks them together.

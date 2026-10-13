@@ -12,6 +12,7 @@ import { rewardsTotal } from '../lib/programme'
 import { useViewAs, ViewingAsBanner } from '../components/ViewingAs'
 import { useT } from '../lib/i18n'
 import { safeUrl } from '../lib/safeUrl'
+import { moneyApi } from '../api/money'
 
 // A `rewardsTotal` result, printed. "≈" whenever a conversion was involved.
 const money = (t) => `${t?.converted ? '≈ ' : ''}${formatMoney(t?.amount ?? 0, t?.currency ?? 'EUR')}`
@@ -50,7 +51,7 @@ export default function Dashboard() {
           .eq('creator_id', whose).order('logged_views', { ascending: false, nullsFirst: false }),
         supabase.from('results').select('*, challenges(title)').eq('creator_id', whose).order('created_at', { ascending: false }),
         // Filtered to this person: an admin can read every reward, and this is one creator's own page.
-        supabase.from('rewards').select('amount, status, currency').eq('creator_id', whose),
+        moneyApi.rewards().select('amount, status, currency').eq('creator_id', whose),
         supabase.from('profiles').select('instagram_url, tiktok_url, youtube_url, facebook_url, linkedin_url, other_links').eq('id', whose).maybeSingle(),
       ])
       // How many finished each challenge, so a place reads "4th of 23" and the podium knows its width.

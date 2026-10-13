@@ -15,6 +15,11 @@ export const makeMoneyApi = (db = supabase) => ({
   setRewardUsed: (args, opts) => db.rpc('set_reward_used', args, opts),
   submitInvoice: (args, opts) => db.rpc('submit_invoice', args, opts),
   voucherDayBoard: (args, opts) => db.rpc('voucher_day_board', args, opts),
+  deleteInvoice: (args, opts) => db.rpc('delete_invoice', args, opts),
+  nextInvoiceNumber: (args, opts) => db.rpc('next_invoice_number', args, opts),
+  adminSetPaymentDetails: (args, opts) => db.rpc('admin_set_payment_details', args, opts),
+  /** An invoice function chosen at run time (the invoice sheet's actions). */
+  call: (fn, args, opts) => db.rpc(fn, args, opts),
   voucherDaysAward: (args, opts) => db.rpc('voucher_days_award', args, opts),
 })
 

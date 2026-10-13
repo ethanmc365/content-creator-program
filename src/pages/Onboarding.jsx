@@ -26,6 +26,7 @@ import LanguagePicker from '../components/LanguagePicker'
 import ReaderText from '../components/ReaderText'
 import CitySuggestion from '../components/CitySuggestion'
 import { vipApi } from '../api/vip'
+import { moneyApi } from '../api/money'
 
 // FIRST LOGIN: BUILDING A PROFILE THE TEAM CAN ACTUALLY REVIEW.
 //
@@ -361,7 +362,7 @@ export default function Onboarding() {
     // try, pass a second argument to `.then`, or wrap it like this.
     // `src/lib/supabaseThenable.test.js` fails the build if the pattern returns.
     Promise.resolve(
-      supabase.from('creator_private').select('dob, phone, phone_country').eq('id', user.id).maybeSingle(),
+      moneyApi.creatorPrivate().select('dob, phone, phone_country').eq('id', user.id).maybeSingle(),
     )
       .catch(() => ({ data: null }))
       .then(({ data: priv }) => {
@@ -607,7 +608,7 @@ export default function Onboarding() {
     await Promise.all([
       supabase.from('profiles').update(draftColumns(draft)).eq('id', user.id),
       (contact.phone || contact.phone_country)
-        ? supabase.from('creator_private').upsert({
+        ? moneyApi.creatorPrivate().upsert({
             id: user.id,
             phone: contact.phone,
             phone_country: contact.phone_country,
@@ -726,7 +727,7 @@ export default function Onboarding() {
     const [{ error: profileErr }, { error: privateErr } = {}] = await Promise.all([
       supabase.from('profiles').update(update).eq('id', user.id),
       (contact.phone || contact.phone_country)
-        ? supabase.from('creator_private').upsert({
+        ? moneyApi.creatorPrivate().upsert({
             id: user.id,
             phone: contact.phone,
             phone_country: contact.phone_country,

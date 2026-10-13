@@ -7,6 +7,7 @@ import { confirm, notice } from '../../lib/confirm'
 import { toastSuccess } from '../../lib/toast'
 import { cx, formatMoney } from '../../lib/utils'
 import { COMMON_ZONES } from '../../lib/timezones'
+import { moneyApi } from '../../api/money'
 
 // TWO WAYS TO GET PEOPLE POSTING (12 Oct 2026, migration 383).
 //
@@ -124,7 +125,7 @@ export function VoucherDaysEditor({ challengeId, currency = 'EUR' }) {
   }
   async function awardNow() {
     setAwarding(true)
-    const { data, error } = await supabase.rpc('voucher_days_award', { p_challenge: challengeId })
+    const { data, error } = await moneyApi.voucherDaysAward({ p_challenge: challengeId })
     setAwarding(false)
     if (error) { notice(error.message); return }
     toastSuccess(data ? `${data} new reward${data === 1 ? '' : 's'} given.` : 'Everybody who qualifies already has their reward.')

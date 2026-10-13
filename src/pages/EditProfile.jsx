@@ -16,6 +16,7 @@ import { geocodeCity, tidyCountry, tidyPlace } from '../lib/geocode'
 import { PageHeader, Spinner } from '../components/ui'
 import { useT } from '../lib/i18n'
 import { useTyping } from '../lib/useTyping'
+import { moneyApi } from '../api/money'
 
 // Edit every part of your own profile on one calm page.
 //
@@ -136,8 +137,8 @@ export default function EditProfile() {
   // is exactly the audience for a date of birth.
   const [contact, setContact] = useState({ phone: '', phone_country: '' })
   useEffect(() => {
-    supabase
-      .from('creator_private')
+    moneyApi
+      .creatorPrivate()
       .select('phone, phone_country, dob')
       .eq('id', user.id)
       .maybeSingle()
@@ -205,7 +206,7 @@ export default function EditProfile() {
       // Upsert the private contact row (phone never goes in public profiles).
       // Only the phone columns are touched here; payment details are managed on
       // the Settings page and left untouched by this partial upsert.
-      supabase.from('creator_private').upsert({
+      moneyApi.creatorPrivate().upsert({
         id: user.id,
         phone: contact.phone,
         phone_country: contact.phone_country,

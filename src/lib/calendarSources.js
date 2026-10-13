@@ -1,6 +1,7 @@
 import { supabase } from './supabase'
 import { inScope } from './scope'
 import { t } from './i18n'
+import { moneyApi } from '../api/money'
 
 // EVERYTHING THAT IS ALREADY A DATE, ON THE PAGE THAT IS ABOUT DATES.
 //
@@ -100,7 +101,7 @@ export async function loadCalendar({ userId, scopeIds, vip = null }) {
     // Only invoices that have actually gone out. A draft is an internal state
     // and putting it on the creator's calendar would promise money that has not
     // been approved.
-    supabase.from('invoices')
+    moneyApi.invoices()
       .select('id, number, amount, currency, description, issue_date, sent_at, paid_at, stage')
       .eq('creator_id', userId).in('stage', ['sent', 'paid', 'approved']),
   ])

@@ -35,6 +35,7 @@ import { scopeToMarket } from '../../lib/analyticsScope'
 import { PERIODS, applyPeriod, bucketFor, bucketKey, buckets, change, inRange, periodHeadline, periodRange } from '../../lib/analyticsPeriod'
 import { convert } from '../../lib/programme'
 import { FILL } from '../../components/charts/chartTheme'
+import { moneyApi } from '../../api/money'
 
 // THE ORDER IS THE ORDER SOMEBODY READS THEM IN, AND ETHAN SET IT (8 Sep 2026).
 //
@@ -203,7 +204,7 @@ export default function AdminAnalytics() {
         // attribute a payout without the first, and cannot convert it without
         // the second. Without them every creator's spend read as zero, which
         // made every one of them look infinitely efficient.
-        allRows(() => supabase.from('rewards').select('id, amount, status, challenge_id, reward_type, creator_id, currency, source, created_at, distributed_at')),
+        allRows(() => moneyApi.rewards().select('id, amount, status, challenge_id, reward_type, creator_id, currency, source, created_at, distributed_at')),
         allRows(() => supabase.from('messages').select('id, sender_id, channel, created_at').eq('deleted', false)),
         // `challenge_id` so the market scope can follow a result to its
         // contest - see lib/analyticsScope.

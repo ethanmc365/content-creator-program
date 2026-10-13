@@ -16,6 +16,7 @@ import { copyToClipboard, emailList } from '../../lib/clipboard'
 import { socialHref, linkHref } from '../../lib/socialLinks'
 import { flagFromIso } from '../../lib/flags'
 import { vipApi } from '../../api/vip'
+import { moneyApi } from '../../api/money'
 
 // SIGNUP REVIEW, REBUILT 4 SEP 2026.
 //
@@ -222,7 +223,7 @@ export default function AdminApplications() {
     const ids = list.map((a) => a.id)
     if (ids.length) {
       const [{ data: priv }, { data: pics }] = await Promise.all([
-        supabase.from('creator_private').select('id, phone, phone_country').in('id', ids),
+        moneyApi.creatorPrivate().select('id, phone, phone_country').in('id', ids),
         supabase.from('creator_photos').select('creator_id, photo_url').in('creator_id', ids).order('sort_order'),
       ])
       setPhones(Object.fromEntries((priv ?? []).map((r) => [r.id, [r.phone_country, r.phone].filter(Boolean).join(' ')])))

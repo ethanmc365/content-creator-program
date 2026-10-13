@@ -10,9 +10,9 @@ import { partOf, savedStep, saveStep, stepAt, stepGoal, stepsFor, tourPreviewWho
 import { setTourRunning } from '../../lib/appNag'
 import { placeCard, restingPlace, union, CARD_W } from '../../lib/tourPlacement'
 import { useAuth } from '../../context/AuthContext'
-import { supabase } from '../../lib/supabase'
 import { payeeComplete, payeeFromPrivate } from '../../lib/invoice'
 import { useT } from '../../lib/i18n'
+import { moneyApi } from '../../api/money'
 
 // THE WALKTHROUGH, DRAWN AND DRIVEN.
 //
@@ -634,8 +634,8 @@ export default function TourHost({ onFinish, network = false, layout = 'desktop'
     if (!ready || goal?.kind !== 'payee' || !user?.id) return undefined
     let alive = true
     const check = async () => {
-      const { data } = await supabase
-        .from('creator_private').select('*').eq('id', user.id).maybeSingle()
+      const { data } = await moneyApi
+        .creatorPrivate().select('*').eq('id', user.id).maybeSingle()
       if (!alive || !data) return
       if (payeeComplete(payeeFromPrivate(data))) finishStep()
     }

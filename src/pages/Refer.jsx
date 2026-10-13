@@ -7,6 +7,7 @@ import Reveal from '../components/network/Reveal'
 import { cx, formatDate, formatMoney } from '../lib/utils'
 import { referralProgress, referralStage, referralTerms } from '../lib/referrals'
 import { useT } from '../lib/i18n'
+import { moneyApi } from '../api/money'
 
 // Creators refer other creators ONE way: they share their personal invite link
 // (/signup?ref=CODE), which credits them automatically.
@@ -50,7 +51,7 @@ export default function Refer() {
       supabase.from('profiles').select('id, name, photo_url, created_at, status, onboarded').eq('referred_by', user.id),
       supabase.from('profiles').select('referral_clicks').eq('id', user.id).single(),
       supabase.from('app_settings').select('value').eq('key', 'referral_reward').maybeSingle(),
-      supabase.from('rewards').select('id, amount, currency, status, created_at').eq('creator_id', user.id).eq('source', 'referral').order('created_at'),
+      moneyApi.rewards().select('id, amount, currency, status, created_at').eq('creator_id', user.id).eq('source', 'referral').order('created_at'),
     ])
     setReferrals(refs ?? [])
     setLinkClicks(me?.referral_clicks ?? 0)

@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react'
-import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
 import { Badge, Modal, Spinner } from '../ui'
 import Icon from '../Icon'
@@ -10,6 +9,7 @@ import { badEmails, invoiceRef, parseEmails } from '../../lib/invoice'
 import { downloadInvoicePdf } from '../../lib/invoicePdf'
 import { invoiceFromRow, sendInvoiceRow } from '../../lib/sendInvoice'
 import { playPaid } from '../../lib/appSounds'
+import { moneyApi } from '../../api/money'
 
 const LAST_RECIPIENT_KEY = 'tryp_invoice_to'
 
@@ -393,14 +393,14 @@ export function useInvoiceViewer({ onChanged, onEdit } = {}) {
   // Always re-read the row after anything changes it, so the buttons under the
   // document match the document.
   async function reload(id) {
-    const { data } = await supabase.from('invoices').select('*').eq('id', id).maybeSingle()
+    const { data } = await moneyApi.invoices().select('*').eq('id', id).maybeSingle()
     setRow(data ?? null)
     onChanged?.()
   }
 
   async function call(fn, args, inv) {
     setBusy(inv.id)
-    const { error } = await supabase.rpc(fn, args)
+    const { error } = await moneyApi.call(fn, args)
     setBusy(null)
     if (error) { notice(error.message); return false }
     await reload(inv.id)
@@ -458,7 +458,7 @@ export function useInvoiceViewer({ onChanged, onEdit } = {}) {
       { confirmLabel: 'Delete it', danger: true },
     )) return
     setBusy(inv.id)
-    const { error } = await supabase.rpc('delete_invoice', { p_id: inv.id })
+    const { error } = await moneyApi.deleteInvoice({ p_id: inv.id })
     setBusy(null)
     if (error) return notice(error.message)
     setRow(null)

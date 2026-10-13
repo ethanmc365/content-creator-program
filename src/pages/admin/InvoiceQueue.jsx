@@ -6,6 +6,7 @@ import { cx, formatDate, formatMoney } from '../../lib/utils'
 import { invoiceRef } from '../../lib/invoice'
 import { notice } from '../../lib/confirm'
 import { StageChip, payable, useInvoiceViewer } from '../../components/admin/InvoiceModal'
+import { moneyApi } from '../../api/money'
 
 // THE APPROVAL QUEUE. What an invoice IS, and everything you can do to one,
 // lives in components/admin/InvoiceModal - the Payouts tab opens the same
@@ -157,7 +158,7 @@ export default function InvoiceQueue({ onEdit, inMarket, onChanged }) {
 
   const load = useCallback(async () => {
     const [{ data: inv }, { data: profs }] = await Promise.all([
-      supabase.from('invoices')
+      moneyApi.invoices()
         .select('*, rewards:reward_id(challenge_id, challenges(title))')
         .order('number', { ascending: false }),
       supabase.from('profiles').select('id, name, photo_url'),
@@ -237,7 +238,7 @@ export default function InvoiceQueue({ onEdit, inMarket, onChanged }) {
     const failed = []
     for (const id of ids) {
       const inv = (rows || []).find((i) => i.id === id)
-      const { error } = await supabase.rpc('decide_invoice', { p_id: id, p_approve: true, p_note: null })
+      const { error } = await moneyApi.decideInvoice({ p_id: id, p_approve: true, p_note: null })
       if (error) failed.push(inv?.creator_name || 'One invoice')
       else ok += 1
     }
