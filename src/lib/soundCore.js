@@ -141,30 +141,6 @@ export function whoosh(a, { at = 0, dur = 0.22, from = 400, to = 1800, peak = 0.
 }
 
 /**
- * A low, short thump: a filtered noise burst plus a pitch-dropping sine. This
- * is what a landing gear touching down is, acoustically - a broadband impact
- * and a low body resonance under it.
- */
-export function thud(a, { at = 0, peak = 0.16, freq = 90, dur = 0.3, seed = 5150 } = {}) {
-  const t0 = a.currentTime + at
-  const src = a.createBufferSource()
-  src.buffer = noiseBuffer(a, 0.3, seed)
-  const lp = a.createBiquadFilter()
-  lp.type = 'lowpass'
-  lp.frequency.setValueAtTime(1400, t0)
-  lp.frequency.exponentialRampToValueAtTime(180, t0 + 0.12)
-  const g = a.createGain()
-  g.gain.setValueAtTime(peak, t0)
-  g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.16)
-  src.connect(lp).connect(g).connect(a.destination)
-  src.start(t0)
-  src.stop(t0 + 0.25)
-  // The body under the impact. It drops in pitch, which is what makes it read
-  // as weight arriving rather than as a click.
-  tone(a, freq, at, dur, peak * 0.8, 'sine', freq * 0.55)
-}
-
-/**
  * Run a set of notes, guarded. `gate` is the caller's preference check, so the
  * decision to stay quiet is always visible at the call site.
  */

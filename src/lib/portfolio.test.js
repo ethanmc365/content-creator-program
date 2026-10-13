@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { slugify, orderedVideos, statsFrom, compactViews, platformsFrom, copyFor, workMode, DEFAULT_COPY } from './portfolio'
+import { slugify, orderedVideos, statsFrom, compactViews, platformsFrom, workMode } from './portfolio'
 
 describe('slugify', () => {
   it('makes a link somebody would type', () => {
@@ -117,27 +117,6 @@ describe('platformsFrom', () => {
 
   it('ignores a blank row from the editor', () => {
     expect(platformsFrom([], [{ platform: '  ' }, {}])).toEqual([])
-  })
-})
-
-describe('copyFor', () => {
-  it('uses what the creator wrote', () => {
-    expect(copyFor({ about_title: 'Who I am' }, 'about_title')).toBe('Who I am')
-  })
-
-  // A default that reads as a placeholder guarantees a portfolio that says
-  // "Add your bio here" on the open web, because most people publish unedited.
-  it('falls back to a default that is publishable as it stands', () => {
-    expect(copyFor({}, 'about_body')).toBe(DEFAULT_COPY.about_body)
-    expect(DEFAULT_COPY.about_body).not.toMatch(/add your|lorem|placeholder|TODO/i)
-  })
-
-  it('treats whitespace as unwritten', () => {
-    expect(copyFor({ about_title: '   ' }, 'about_title')).toBe(DEFAULT_COPY.about_title)
-  })
-
-  it('is blank rather than undefined for a slot with no default', () => {
-    expect(copyFor({}, 'nonexistent')).toBe('')
   })
 })
 

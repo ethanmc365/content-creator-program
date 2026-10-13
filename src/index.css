@@ -509,7 +509,6 @@ html {
      ------------------------------------------------------------------ */
   @media (max-width: 639px) {
     .trim-4 > *:nth-child(n + 5) { display: none; }
-    .trim-6 > *:nth-child(n + 7) { display: none; }
   }
 
   /* ------------------------------------------------------------------
@@ -1631,26 +1630,16 @@ html[data-reduce-motion] *::after {
   animation-delay: calc(var(--lab-i, 0) * 60ms);
 }
 
-@keyframes podium-rise {
-  from { opacity: 0; transform: translateY(18px) scale(0.97); }
-  to   { opacity: 1; transform: none; }
-}
-
 /* The podium landing when an admin publishes the winners. Third, second, first:
    the ladder runs so the winner arrives LAST, which is the order the eye wants
    and the order every awards ceremony uses. */
-.podium-in {
-  animation: podium-rise 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
-  animation-delay: calc(var(--podium-i, 0) * 120ms);
-}
 
 @media (prefers-reduced-motion: reduce) {
   .onb-frame { transition: none; }
   .onb-screen,
   .onb-market,
   .onb-market::after,
-  .lab-in,
-  .podium-in { animation: none; }
+  .lab-in { animation: none; }
   .onb-market::after { display: none; }
 }
 
@@ -2299,20 +2288,9 @@ html[data-theme='dark'] .tour-card--sheet::before { background: #3a3a3e; }
 /* The globe turns about its own centre. `transform-box: fill-box` matters:
    without it the rotation is about the viewBox origin and the whole graphic
    swings across the card instead of spinning in place. */
-@keyframes challenge-orbit {
-  from { transform: rotate(0deg); }
-  to   { transform: rotate(360deg); }
-}
-
-.challenge-orbit {
-  transform-box: fill-box;
-  transform-origin: 50% 50%;
-  animation: challenge-orbit 140s linear infinite;
-}
 
 @media (prefers-reduced-motion: reduce) {
   .challenge-sheen { animation: none; opacity: 0; }
-  .challenge-orbit { animation: none; }
   /* The breathing glow behind "Submit your video". It is decoration on a
      static layout, so stopping it holds the button exactly where it is. */
   .animate-cta-glow { animation: none; opacity: 0.4; }
@@ -2446,25 +2424,9 @@ html[data-theme='dark'] .tour-card--sheet::before { background: #3a3a3e; }
  * the app, doing the job of the first thing anybody reads. It is a white pill on a hairline ring now, with a live dot
  * and one pass of light across it, and it arrives before the headline rather than with it.
  */
-@keyframes hero-pill-in {
-  from { opacity: 0; transform: translateY(-10px) scale(0.96); }
-  to   { opacity: 1; transform: translateY(0) scale(1); }
-}
-.hero-pill { animation: hero-pill-in 520ms cubic-bezier(0.22, 1.12, 0.36, 1) both; }
 
 /* The dot is a real live-ness signal (the community is running right now), so
    it breathes rather than blinks: a blink is an alert, a breath is a pulse. */
-@keyframes hero-dot {
-  0%, 100% { transform: scale(1); opacity: 1; }
-  50%      { transform: scale(0.72); opacity: 0.55; }
-}
-@keyframes hero-dot-ring {
-  0%   { transform: scale(0.9); opacity: 0.55; }
-  70%  { transform: scale(2.4); opacity: 0; }
-  100% { transform: scale(2.4); opacity: 0; }
-}
-.hero-dot { animation: hero-dot 2.4s ease-in-out infinite; }
-.hero-dot-ring { animation: hero-dot-ring 2.4s ease-out infinite; }
 
 /* THE BLOOM BEHIND THE HEADLINE DRIFTS.
    A static blurred ellipse is a gradient; one that moves a few percent over
@@ -2517,10 +2479,7 @@ html[data-theme='dark'] .tour-card--sheet::before { background: #3a3a3e; }
  * the reader joins it part way through, and there is nothing to gain from that.
  */
 .landing-page:not(.is-ready) .hero-word,
-.landing-page:not(.is-ready) .hero-pill,
 .landing-page:not(.is-ready) .hero-bloom,
-.landing-page:not(.is-ready) .hero-dot,
-.landing-page:not(.is-ready) .hero-dot-ring,
 .landing-page:not(.is-ready) .stat-in,
 .landing-page:not(.is-ready) .landing-sheen,
 .landing-page:not(.is-ready) .animate-fade-up {
@@ -2528,23 +2487,20 @@ html[data-theme='dark'] .tour-card--sheet::before { background: #3a3a3e; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .hero-word, .hero-pill, .stat-in {
+  .hero-word, .stat-in {
     animation: none;
     opacity: 1;
     transform: none;
     will-change: auto;
   }
-  .hero-dot, .hero-dot-ring, .hero-bloom, .landing-sheen { animation: none; }
-  .hero-dot-ring, .landing-sheen { opacity: 0; }
+  .hero-bloom, .landing-sheen { animation: none; }
+  .landing-sheen { opacity: 0; }
   .landing-lift, .landing-lift-icon { transition: none; }
   /* A reader who asked for less motion must not be able to end up on a page
      that is waiting for an animation to be released. Everything above is
      `animation: none` for them, and this makes the pause a no-op too. */
   .landing-page:not(.is-ready) .hero-word,
-  .landing-page:not(.is-ready) .hero-pill,
   .landing-page:not(.is-ready) .hero-bloom,
-  .landing-page:not(.is-ready) .hero-dot,
-  .landing-page:not(.is-ready) .hero-dot-ring,
   .landing-page:not(.is-ready) .stat-in,
   .landing-page:not(.is-ready) .landing-sheen,
   .landing-page:not(.is-ready) .animate-fade-up {
@@ -2651,19 +2607,6 @@ html[data-theme='dark'] .tour-card--sheet::before { background: #3a3a3e; }
  * THE LIVE LEADERBOARD CARD IN A ROOM. A slow band of light crosses its orange head every few seconds, so a live board
  * reads as live from across a thread. Transform only; paused for reduced motion.
  */
-.live-board-sheen {
-  background: linear-gradient(105deg, transparent 35%, rgba(255, 255, 255, 0.28) 50%, transparent 65%);
-  transform: translateX(-120%);
-  animation: live-board-sheen 5.5s cubic-bezier(0.45, 0, 0.2, 1) 0.8s infinite;
-  will-change: transform;
-}
-@keyframes live-board-sheen {
-  0% { transform: translateX(-120%); }
-  45%, 100% { transform: translateX(120%); }
-}
-@media (prefers-reduced-motion: reduce) {
-  .live-board-sheen { animation: none; opacity: 0; }
-}
 
 /* The leaderboard's status badge beside the challenge tabs slides in from the right when the Leaderboard tab opens. */
 .board-status {
@@ -2834,18 +2777,13 @@ html[data-theme='dark'] .tour-card--sheet::before { background: #3a3a3e; }
  * popup opened) rises in as one piece. Never from opacity zero: a hidden tab freezes the first keyframe, and a frozen
  * 0 is an invisible chart.
  */
-@keyframes kpi-grow-up {
-  from { transform: scaleY(0.08); }
-  to { transform: scaleY(1); }
-}
-.kpi-grow { transform-origin: center bottom; animation: kpi-grow-up 0.7s cubic-bezier(0.22, 1, 0.36, 1) both; }
 @keyframes chart-in {
   from { opacity: 0.35; transform: translateY(8px) scale(0.985); }
   to { opacity: 1; transform: none; }
 }
 .animate-chart-in { animation: chart-in 0.45s cubic-bezier(0.22, 1, 0.36, 1) both; }
 @media (prefers-reduced-motion: reduce) {
-  .kpi-fill, .kpi-grow, .animate-chart-in { animation: none; }
+  .kpi-fill, .animate-chart-in { animation: none; }
   .kpi-complete::after { animation: none; content: none; }
 }
 
@@ -3082,8 +3020,6 @@ html[data-lng]:not([data-lng="en"]) [class*="stat"] > :is(p, span):not([class*="
 }
 @keyframes survey-twinkle { 0%, 100% { opacity: 0.35; transform: scale(0.8); } 50% { opacity: 1; transform: scale(1.15); } }
 .survey-twinkle { animation: survey-twinkle 3.2s ease-in-out infinite; animation-delay: var(--d, 0ms); }
-@keyframes survey-float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-5px); } }
-.survey-float { animation: survey-float 3.4s ease-in-out infinite; animation-delay: var(--d, 0ms); }
 @keyframes survey-nudge { 0%, 100% { transform: translateX(0); } 50% { transform: translateX(4px); } }
 .survey-nudge { animation: survey-nudge 1.6s ease-in-out infinite; }
 @keyframes survey-glow { 0%, 100% { box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.0); } 50% { box-shadow: 0 0 14px 2px rgba(255, 255, 255, 0.75); } }
@@ -3119,9 +3055,7 @@ html[data-lng]:not([data-lng="en"]) [class*="stat"] > :is(p, span):not([class*="
 @keyframes survey-fill-glow { 0%, 100% { filter: brightness(1); } 50% { filter: brightness(1.18); } }
 .survey-fill { animation: survey-fill-glow 2.2s ease-in-out infinite; }
 @media (prefers-reduced-motion: reduce) {
-  .survey-word, .survey-shine::after, .survey-twinkle, .survey-float, .survey-nudge, .survey-glow, .survey-star-in,
-  .survey-spark, .survey-label, .survey-ripple, .survey-draw, .survey-confetti, .animate-survey-sink, .animate-fade-out,
-  .survey-fill { animation: none; }
+  .survey-word, .survey-shine::after, .survey-twinkle, .survey-nudge, .survey-glow, .survey-star-in, .survey-spark, .survey-label, .survey-ripple, .survey-draw, .survey-confetti, .animate-survey-sink, .animate-fade-out, .survey-fill { animation: none; }
   .survey-draw { stroke-dasharray: none; }
 }
 
@@ -3347,7 +3281,6 @@ html[data-slow-net] .vip-panel > * > * { animation: none !important; }
 @keyframes agreement-rise { from { transform: translateY(48px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
 @keyframes agreement-pop { from { transform: translateY(16px) scale(0.97); opacity: 0; } to { transform: none; opacity: 1; } }
 @keyframes agreement-sink { from { transform: none; opacity: 1; } to { transform: translateY(36px) scale(0.98); opacity: 0; } }
-.agreement-chip { animation: rise 0.5s cubic-bezier(0.22, 1, 0.36, 1) both; }
 .agreement-section { margin-top: 1.6rem; animation: rise 0.55s cubic-bezier(0.22, 1, 0.36, 1) both; }
 /*
  * The reading line in the sheet's header: a soft track, a white fill that eases rather than jumps, and a glow at its
@@ -3365,8 +3298,7 @@ html[data-slow-net] .vip-panel > * > * { animation: none !important; }
 @keyframes agreement-done { 0% { transform: scale(1); } 40% { transform: scale(1.03); } 100% { transform: scale(1); } }
 @keyframes agreement-check { from { transform: scale(0) rotate(-30deg); } to { transform: none; } }
 @media (prefers-reduced-motion: reduce) {
-  .agreement-sheet, .agreement-chip, .agreement-section, .agreement-scrim, .agreement-root.is-leaving .agreement-sheet,
-  .agreement-root.is-leaving .agreement-scrim, .agreement-cta.is-done, .agreement-check { animation: none; }
+  .agreement-sheet, .agreement-section, .agreement-scrim, .agreement-root.is-leaving .agreement-sheet, .agreement-root.is-leaving .agreement-scrim, .agreement-cta.is-done, .agreement-check { animation: none; }
 }
 
 /* Printing an agreement prints the agreement, not the app around it. */
@@ -3498,7 +3430,6 @@ html[data-nav-return] .animate-rise,
 html[data-nav-return] .animate-fade-up,
 html[data-nav-return] .animate-tab-in,
 html[data-nav-return] .animate-pop-in,
-html[data-nav-return] .animate-slide-in-right,
 html[data-nav-return] .animate-bar-rise,
 html[data-nav-return] .animate-selected-in,
 html[data-nav-return] .animate-fade-in,

@@ -66,44 +66,6 @@ export function historyMetrics(r) {
   }
 }
 
-/**
- * Roll a set of history rows up into one line of programme totals.
- *
- * A TOTAL SKIPS WHAT IT CANNOT COUNT, AND SAYS SO. `challenges` is every row;
- * `measured` is the ones with a view count. A CPM computed over 49 challenges'
- * prize money and 35 challenges' views would be wrong by a third and would look
- * completely plausible, which is the dangerous kind of wrong - so the cost side
- * of every ratio only counts the challenges whose views are known.
- */
-export function rollUp(rows) {
-  const measured = rows.filter((r) => r.total_views != null)
-  const sum = (list, k) => list.reduce((n, r) => n + (Number(r[k]) || 0), 0)
-  const views = sum(measured, 'total_views')
-  const measuredPrize = sum(measured, 'prize_total')
-  return {
-    challenges: rows.length,
-    measured: measured.length,
-    unmeasured: rows.length - measured.length,
-    prize: sum(rows, 'prize_total'),
-    views,
-    creators: sum(rows, 'creators'),
-    posts: sum(rows, 'posts'),
-    winners: sum(rows, 'winners'),
-    // Only over the challenges we can actually see the views for.
-    cpm: views > 0 ? measuredPrize / (views / 1000) : null,
-    measuredPrize,
-  }
-}
-
-/**
- * The rows that are NOT also live challenges on this platform.
- *
- * The UK challenge that ran 20 Jul to exists in both places - the team tracked it on the spreadsheet while the platform
- * was being built. Any total that adds the sheet's figure to the platform's counts one contest twice, so every roll-up
- * filters through this and the live side supplies that challenge's numbers instead.
- */
-export const historyOnly = (rows) => rows.filter((r) => !r.challenge_id)
-
 export async function saveHistory(row, userId) {
   const patch = {}
   for (const k of HISTORY_FIELDS) patch[k] = row[k] === '' ? null : row[k]

@@ -90,7 +90,6 @@ export const CREATORS = [
 
 export const byId = (id) => CREATORS.find((c) => c.id === id) || CREATORS[0]
 
-
 export const MARKETS = [
   { slug: 'uk', name: 'UK & Ireland', codes: ['GB', 'IE'], timezone: 'Europe/London', members: 21 },
   { slug: 'spain', name: 'Spain', codes: ['ES'], timezone: 'Europe/Madrid', members: 9 },
@@ -125,21 +124,6 @@ export const CHALLENGE = {
   participation_prize: '£10 Tryp.com voucher',
 }
 
-// Entries: creator, platform, the view count an admin logged. The scoring lab
-// edits these live, so they are plain numbers with no derived fields baked in.
-export const ENTRIES = [
-  { id: 'e1', creator: 'demo-c1', platform: 'TikTok', url: 'https://tiktok.com/@jamestest/video/1', logged_views: 412000, postedDaysAgo: -9 },
-  { id: 'e2', creator: 'demo-c1', platform: 'Instagram', url: 'https://instagram.com/reel/2', logged_views: 96000, postedDaysAgo: -6 },
-  { id: 'e3', creator: 'demo-c2', platform: 'Instagram', url: 'https://instagram.com/reel/3', logged_views: 288000, postedDaysAgo: -8 },
-  { id: 'e4', creator: 'demo-c2', platform: 'Instagram', url: 'https://instagram.com/reel/4', logged_views: 174000, postedDaysAgo: -5 },
-  { id: 'e5', creator: 'demo-c2', platform: 'TikTok', url: 'https://tiktok.com/@migueltest/video/5', logged_views: 61000, postedDaysAgo: -3 },
-  { id: 'e6', creator: 'demo-c3', platform: 'TikTok', url: 'https://tiktok.com/@sofiatest/video/6', logged_views: 331000, postedDaysAgo: -7 },
-  { id: 'e7', creator: 'demo-c4', platform: 'YouTube', url: 'https://youtube.com/shorts/7', logged_views: 128000, postedDaysAgo: -6 },
-  { id: 'e8', creator: 'demo-c5', platform: 'Instagram', url: 'https://instagram.com/reel/8', logged_views: 47000, postedDaysAgo: -4 },
-  { id: 'e9', creator: 'demo-c6', platform: 'TikTok', url: 'https://tiktok.com/@anatest/video/9', logged_views: 22000, postedDaysAgo: -2 },
-  { id: 'e10', creator: 'demo-c7', platform: 'Instagram', url: 'https://instagram.com/reel/10', logged_views: 3100, postedDaysAgo: -1 },
-]
-
 export const PAYEE_GBP = {
   label: 'Test account, pounds',
   currency: 'GBP',
@@ -170,46 +154,6 @@ export const PAYEE_EMPTY = {
   label: 'Test account, nothing on file',
   currency: '', name: '', bank: '', sortCode: '', accountNumber: '', iban: '', bic: '', address: '',
 }
-
-// --------------------------------------------------------- notifications ----
-
-// One row per type the database actually writes, which is the only way to see
-// that TYPE_META covers all of them. A type missing from that table falls
-// through to a bare bell with no label, and that has shipped before.
-export const NOTIFICATIONS = [
-  { type: 'dm', title: 'Sofia Test sent you a message', body: 'Are you filming in Barcelona next week?', link: '/messages/demo', minutesAgo: 4 },
-  { type: 'mention', title: 'James Test mentioned you', body: '@alex this is the shot I meant', link: '/chat/general', minutesAgo: 19 },
-  { type: 'chat', title: 'New message in #general', body: 'Lukas Test: the night train actually worked', link: '/chat/general', minutesAgo: 44 },
-  { type: 'connection', title: 'Emily Test wants to connect', body: 'You have 3 mutual connections', link: '/connections', minutesAgo: 90 },
-  { type: 'collab', title: 'You will both be in Lisbon', body: 'Miguel Test is there 4 to 9 September', link: '/collab', minutesAgo: 150 },
-  { type: 'new_member', title: 'Freja Test joined the Nordics', body: 'Say hello in the room', link: '/creators', minutesAgo: 260 },
-  { type: 'referral', title: 'Your referral counted', body: 'Owen Test submitted their first video', link: '/refer', minutesAgo: 400 },
-  { type: 'feedback', title: 'Ana Test reported a bug', body: 'Video upload fails over 25MB', link: '/admin/feedback', minutesAgo: 520 },
-  { type: 'challenge', title: 'New challenge is live', body: 'One perfect day in your city closes Sunday', link: '/challenges', minutesAgo: 1500 },
-  { type: 'submission', title: 'Sofia Test entered', body: 'One perfect day in your city', link: '/admin/challenges', minutesAgo: 1600 },
-  { type: 'deadline', title: '24 hours left', body: 'One perfect day in your city closes at midnight tomorrow', link: '/challenges', minutesAgo: 1700 },
-  { type: 'results', title: 'Results are in', body: 'You finished 2nd. Well done.', link: '/challenges', minutesAgo: 2600 },
-  { type: 'reward', title: 'Your reward is on its way', body: '£150 cash, invoice raised', link: '/rewards', minutesAgo: 2900 },
-  { type: 'event', title: 'Creator Q&A on Thursday', body: '18:00 London time, on the calendar', link: '/events', minutesAgo: 3300 },
-  { type: 'application', title: 'Alex Test applied', body: 'Bristol, United Kingdom', link: '/admin/applications', minutesAgo: 4000 },
-  { type: 'announcement', title: 'Tryp.com Team posted an announcement', body: 'September challenge dates are up', link: '/chat/announcements', minutesAgo: 4400 },
-  { type: 'daily_streak', title: '12 day streak', body: 'You have played every day for 12 days', link: '/game', minutesAgo: 5000 },
-  { type: 'daily_reminder', title: "Today's puzzles are up", body: 'Guess the Country, Flight Path and the daily quiz', link: '/game', minutesAgo: 5400 },
-  { type: 'inactive', title: 'We have not seen you in a while', body: 'There is a live challenge you can still enter', link: '/home', minutesAgo: 8000 },
-]
-
-// ---------------------------------------------------------------- flights ----
-
-export const FLIGHTS = [
-  { from: 'LHR', to: 'LIS', daysAgo: -18, airline: 'TP', aircraft: 'a320neo' },
-  { from: 'LIS', to: 'OPO', daysAgo: -14, airline: 'TP', aircraft: 'a319' },
-  { from: 'OPO', to: 'BCN', daysAgo: -11, airline: 'FR', aircraft: 'b738' },
-  { from: 'BCN', to: 'LGW', daysAgo: -8, airline: 'VY', aircraft: 'a321' },
-  { from: 'LHR', to: 'JFK', daysAgo: -120, airline: 'BA', aircraft: 'b789' },
-  { from: 'JFK', to: 'LHR', daysAgo: -113, airline: 'VS', aircraft: 'a35k' },
-  { from: 'MAN', to: 'DUB', daysAgo: -200, airline: 'EI', aircraft: 'a320' },
-  { from: 'DUB', to: 'CPH', daysAgo: -196, airline: 'SK', aircraft: 'a20n' },
-]
 
 // ------------------------------------------------------------------ misc ----
 

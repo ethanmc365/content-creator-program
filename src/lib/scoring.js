@@ -65,7 +65,6 @@ export const STARTER_POINT_RULES = [
   { kind: 'views_threshold', label: 'Passed 50,000 views', points: 10, threshold: 50000, max_points: null },
 ]
 
-
 // WHICH FIELDS EACH POINT RULE ACTUALLY USES.
 //
 // Two files needed to know this and each had its own answer written as an
@@ -94,15 +93,6 @@ export const CONSISTENCY_PERIODS = [
   { days: 1, label: 'every day' },
   { days: 7, label: 'every week' },
 ]
-
-/** How many windows a challenge's dates cut into, for `period_days`. */
-export function consistencyWindows(startIso, endIso, periodDays) {
-  const start = Date.parse(startIso)
-  const end = Date.parse(endIso)
-  const days = Number(periodDays)
-  if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start || !(days > 0)) return null
-  return Math.max(1, Math.ceil((end - start) / (days * 86400000)))
-}
 
 // `min_views` HOLDS A CLAIMED BONUS BACK UNTIL THE ENTRY EARNS IT (migration
 // 181). It is the only field whose owner is not decided by `kind` alone: a

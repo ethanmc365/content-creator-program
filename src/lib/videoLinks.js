@@ -57,49 +57,9 @@ export function facebookId(url) {
   return url.match(/\/(?:videos|reel|video)\/(\d{6,})/)?.[1] ?? url.match(/[?&]v=(\d{6,})/)?.[1] ?? null
 }
 
-// Instagram's own base64 alphabet. The shortcode in /reel/<code>/ IS the media
-// id encoded against it, so one converts to the other with no lookup.
-const IG_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_'
-
 export function instagramShortcode(url) {
   if (typeof url !== 'string') return null
   return url.match(/instagram\.com\/(?:[^/]+\/)?(?:reels?|p|tv)\/([A-Za-z0-9_-]{5,})/)?.[1] ?? null
-}
-
-export function instagramMediaId(shortcode) {
-  if (!shortcode) return null
-  let n = 0n
-  for (const ch of shortcode) {
-    const i = IG_ALPHABET.indexOf(ch)
-    if (i < 0) return null
-    n = n * 64n + BigInt(i)
-  }
-  return n.toString()
-}
-
-// Whose profile a link belongs to. Instagram view counts are read off the
-// creator's public reels tab, so the handle is what the reader needs, and a
-// wrong one sends it to the wrong profile - or, if a route word slipped through,
-// to instagram.com/reel/reels/ as though "reel" were a person. The Edge Function
-// applies the same rule (igHandleFrom); this exists so the rule is pinned by a
-// test. Handles are compared lower-case because Instagram treats them that way.
-const INSTAGRAM_ROUTES = new Set([
-  'p', 'reel', 'reels', 'tv', 'explore', 'stories', 'accounts', 'direct', 'api', 'graphql', 's',
-])
-
-export function instagramHandleFrom(url) {
-  if (typeof url !== 'string' || !url.trim()) return null
-  let first
-  try {
-    const u = new URL(url.trim())
-    if (!/(^|\.)instagram\.com$/i.test(u.hostname)) return null
-    first = u.pathname.split('/').filter(Boolean)[0]
-  } catch {
-    // Not a URL: accept a bare handle, with or without the @.
-    first = url.trim().replace(/^@/, '')
-  }
-  if (!first || INSTAGRAM_ROUTES.has(first.toLowerCase())) return null
-  return /^[A-Za-z0-9._]{1,30}$/.test(first) ? first.toLowerCase() : null
 }
 
 /** The id this link resolves to, whichever platform it belongs to. */

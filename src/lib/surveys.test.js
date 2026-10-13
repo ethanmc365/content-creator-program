@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { cleanSurvey, fromStarter, missingAnswer, pendingSurveys, responsesByDay, SURVEY_STARTERS, summarise, surveyProblem } from './surveys'
+import { cleanSurvey, fromStarter, pendingSurveys, responsesByDay, SURVEY_STARTERS, summarise, surveyProblem } from './surveys'
 
 const platform = SURVEY_STARTERS.find((x) => x.key === 'platform')
 
@@ -20,13 +20,6 @@ describe('surveys (migration 291)', () => {
     const c = cleanSurvey(s)
     expect(c.questions[1].options).not.toContain('')
     expect(c.community_ids).toEqual([])
-  })
-
-  it('finds the first required question left blank', () => {
-    const qs = [{ id: 'a', type: 'rating', required: true }, { id: 'b', type: 'multi', required: true }, { id: 'c', type: 'text', required: false }]
-    expect(missingAnswer(qs, {}).id).toBe('a')
-    expect(missingAnswer(qs, { a: 4, b: [] }).id).toBe('b')
-    expect(missingAnswer(qs, { a: 4, b: ['x'] })).toBeNull()
   })
 
   it('summarises ratings, choices and written answers, ignoring declines', () => {

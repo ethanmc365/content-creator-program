@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { gmailComposeUrl, mailtoUrl } from './compose'
+import { gmailComposeUrl } from './compose'
 
 describe('gmailComposeUrl', () => {
   it('fills every field Gmail reads', () => {
@@ -32,15 +32,5 @@ describe('gmailComposeUrl', () => {
     // wrong person; URLSearchParams encodes it.
     expect(q.get('to')).toBe('a+b@example.com')
     expect(q.get('su')).toBe('Prize & payment: 1st place')
-  })
-})
-
-describe('mailtoUrl', () => {
-  it('puts the address in the path and the rest in the query', () => {
-    const url = mailtoUrl({ to: 'a+b@example.com', subject: 'Hi', body: 'There' })
-    expect(url.startsWith('mailto:a%2Bb%40example.com?')).toBe(true)
-    const q = new URLSearchParams(url.split('?')[1])
-    expect(q.get('subject')).toBe('Hi')
-    expect(q.get('body')).toBe('There')
   })
 })

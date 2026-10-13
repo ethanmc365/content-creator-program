@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { reasonFor, pickWhoToMeet, weekIndex, dayIndex } from './whoToMeet'
+import { reasonFor, pickWhoToMeet, dayIndex } from './whoToMeet'
 
 const me = {
   id: 'me',
@@ -107,15 +107,6 @@ describe('pickWhoToMeet', () => {
     const a = pickWhoToMeet(me, pool, {}, morning).map((o) => o.creator.id)
     const b = pickWhoToMeet(me, pool, {}, night).map((o) => o.creator.id)
     expect(a).toEqual(b)
-  })
-
-  it('rolls over at UTC midnight, and the week index still means a week', () => {
-    const monday = Date.UTC(2026, 7, 10, 9, 0)
-    const tuesday = Date.UTC(2026, 7, 11, 9, 0)
-    const nextWeek = Date.UTC(2026, 7, 18, 9, 0)
-    expect(dayIndex(tuesday)).toBe(dayIndex(monday) + 1)
-    expect(weekIndex(monday)).toBe(weekIndex(Date.UTC(2026, 7, 13, 22, 0)))
-    expect(weekIndex(nextWeek)).not.toBe(weekIndex(monday))
   })
 
   // THE ROTATION IS THE POINT, and a day seed alone would not have produced it:

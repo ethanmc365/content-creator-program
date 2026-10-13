@@ -39,11 +39,6 @@ export function adoptTestDataVisibility(profile) {
   visible = !!(profile?.is_admin && (profile?.is_test || profile?.is_sandbox))
 }
 
-/** Is the current viewer one of the demo/QA admin accounts? */
-export function seesTestData() {
-  return visible
-}
-
 /**
  * THE VALUES OF `is_test` THIS VIEWER IS ALLOWED TO SEE.
  *
@@ -63,22 +58,6 @@ const HIDDEN = [false]
 const BOTH = [false, true]
 export function testFlags() {
   return visible ? BOTH : HIDDEN
-}
-
-/**
- * Apply `is_test = false` to a Supabase query UNLESS the viewer is a test admin.
- *
- * Written as a wrapper rather than left at each call site because there are
- * eighty-odd of these filters in the app and the failure mode of missing one is
- * a fake person in a real creator's feed.
- *
- * @param {object} q a PostgREST query builder
- * @param {string} [path] the column, qualified for an embedded table
- *                        (e.g. 'profiles' → `profiles.is_test`)
- */
-export function hideTest(q, path) {
-  if (visible) return q
-  return q.eq(path ? `${path}.is_test` : 'is_test', false)
 }
 
 /**

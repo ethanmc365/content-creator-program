@@ -7,18 +7,6 @@ export function viewerZone() {
   try { return Intl.DateTimeFormat().resolvedOptions().timeZone || null } catch { return null }
 }
 
-/** A short zone label for a given zone at a given instant, e.g. "GMT+1". */
-export function zoneLabel(zone, at = new Date()) {
-  if (!zone) return ''
-  try {
-    const parts = new Intl.DateTimeFormat('en-GB', { timeZone: zone, timeZoneName: 'short' })
-      .formatToParts(new Date(at))
-    return parts.find((p) => p.type === 'timeZoneName')?.value || ''
-  } catch {
-    return ''
-  }
-}
-
 /** "Europe/Lisbon" -> "Lisbon". The last path segment, underscores removed. */
 export function shortZoneName(zone) {
   if (!zone) return ''

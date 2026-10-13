@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { historyMetrics, rollUp, historyOnly } from './challengeHistory'
+import { historyMetrics } from './challengeHistory'
 
 // THE ARITHMETIC IS TESTED BECAUSE IT IS THE ARITHMETIC A BUDGET IS SET FROM.
 //
@@ -38,40 +38,5 @@ describe('historyMetrics', () => {
     expect(m.cpm).toBeNull()
     expect(m.costPerPost).toBeNull()
     expect(m.postsPerCreator).toBeNull()
-  })
-})
-
-describe('rollUp', () => {
-  const rows = [
-    { prize_total: 540, total_views: 2844995, creators: 27, posts: 787, winners: 12 },
-    { prize_total: 200, total_views: null, creators: null, posts: null, winners: 3 },
-    { prize_total: 120, total_views: 34000, creators: 5, posts: 6, winners: 3 },
-  ]
-
-  it('counts the prize money of every challenge, measured or not', () => {
-    // The money left the account whether or not anybody logged the views.
-    expect(rollUp(rows).prize).toBe(860)
-  })
-
-  it('computes CPM only over the challenges whose views are known', () => {
-    const r = rollUp(rows)
-    // 660 of prize money bought 2,878,995 views. Including the unmeasured 200
-    // would report a CPM a third lower than the truth - plausible, and wrong.
-    expect(r.cpm).toBeCloseTo(660 / (2878995 / 1000), 4)
-    expect(r.measured).toBe(2)
-    expect(r.unmeasured).toBe(1)
-  })
-
-  it('reports nothing rather than zero when nothing was measured at all', () => {
-    expect(rollUp([{ prize_total: 50, total_views: null }]).cpm).toBeNull()
-  })
-})
-
-describe('historyOnly', () => {
-  it('drops the rows that are the same contest as a live challenge', () => {
-    // The UK challenge of 20 Jul - 20 Aug is in the spreadsheet AND on the
-    // platform. Adding both is how a programme total quietly gains a challenge.
-    const rows = [{ ref: 'UK-04', challenge_id: 'abc' }, { ref: 'ES-03', challenge_id: null }]
-    expect(historyOnly(rows).map((r) => r.ref)).toEqual(['ES-03'])
   })
 })

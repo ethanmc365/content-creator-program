@@ -48,18 +48,11 @@ const offered = (k, p, isOwner) => (k !== 'access' || isOwner) && !(p?.kind === 
 // per market, and it was asked again on every switch, behind a grey block. It is kept here, and the VIP page warms it
 // (and this file) while the team is still looking at the page, so the switch has nothing to wait for.
 let programmesCache = null
-let programmesInflight = null
 async function fetchProgrammes(isOwner) {
   const { data } = await vipApi.programmes().select('*, community:community_id(name, slug, country_codes)').order('name')
   const shown = (data || []).filter((p) => p.active || isOwner)
   const oks = await Promise.all(shown.map((p) => vipApi.canManage({ p_programme: p.id }).then((r) => !!r.data)))
   return shown.map((p, i) => ({ ...p, can_manage: oks[i] }))
-}
-/** Load the markets in the background, for the VIP page to call before anybody presses "VIP tools". */
-export function warmVipTools(isOwner) {
-  if (programmesCache || programmesInflight) return programmesInflight
-  programmesInflight = fetchProgrammes(isOwner).then((list) => { programmesCache = { isOwner, list }; return list }).finally(() => { programmesInflight = null })
-  return programmesInflight
 }
 
 /** The tools' own outline while the first load runs: the same five cards, a row of pills, a panel - so nothing jumps. */

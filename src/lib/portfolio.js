@@ -36,16 +36,6 @@
 export const PAGE_W = 1280
 export const PAGE_H = 720
 
-// The slides, in order. `key` is what the `copy` jsonb is keyed on, so renaming
-// one orphans whatever a creator wrote - add, never rename.
-export const SLIDES = [
-  { key: 'cover', title: 'Cover', always: true },
-  { key: 'about', title: 'About', always: true },
-  { key: 'work', title: 'The work', always: true },
-  { key: 'awards', title: 'Awards', always: false },
-  { key: 'contact', title: 'Contact', always: true },
-]
-
 // THE WORDS A PORTFOLIO STARTS WITH.
 //
 // Every one of these is editable - - and every one of them has to be good enough to publish UNEDITED, because most
@@ -89,13 +79,6 @@ export const PORTFOLIO_ACCENTS = [
   { key: 'bronze', label: 'Bronze', hex: '#A8641E' },
   { key: 'graphite', label: 'Graphite', hex: '#2B2E36' },
 ]
-
-/** The copy for one slot: what they wrote, else the default, never blank. */
-export function copyFor(copy, key) {
-  const written = copy?.[key]
-  if (typeof written === 'string' && written.trim()) return written
-  return DEFAULT_COPY[key] || ''
-}
 
 /**
  * THE EMAIL ON "WORK WITH ME". What they typed, else the address on their account; `hide_email` turns it off. The

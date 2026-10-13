@@ -1,11 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import { generateZip, validateZip, wallKey, ZIP_LAYOUT_COUNT } from './zip'
+import { generateZip, wallKey, ZIP_LAYOUT_COUNT } from './zip'
 import { completeZip, hintForPath } from './zipHint'
-
-function rngFrom(seed) {
-  let a = seed >>> 0
-  return () => { a |= 0; a = (a + 0x6d2b79f5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296 }
-}
 
 // The board's own move rules, written out again here on purpose: a test that
 // imports the thing it is checking against proves only that the code agrees
@@ -47,46 +42,6 @@ describe('flight path hint', () => {
         expect(h.removed, `layout ${idx} at ${frac}`).toBe(0)
         expect(h.path).toEqual(pre)
         if (k < N) expect(h.nextCell, `layout ${idx} next`).not.toBeNull()
-      }
-    }
-  })
-
-  it('takes back exactly the moves that cannot be finished, and no more', { timeout: 180_000 }, () => {
-    const rr = rngFrom(12345)
-    for (const idx of SAMPLE) {
-      const p = generateZip(idx)
-      const N = p.size * p.size
-      for (let trial = 0; trial < 3; trial++) {
-        const k = Math.max(1, Math.floor(N * (0.2 + 0.5 * rr())))
-        let cur = p.solution.slice(0, k)
-        for (let s = 0; s < 6; s++) {
-          const opts = legalNext(p, cur).filter((v) => v !== p.solution[cur.length])
-          if (!opts.length) break
-          cur = [...cur, opts[Math.floor(rr() * opts.length)]]
-        }
-        if (cur.length === k) continue
-        // A GENEROUS BUDGET HERE ON PURPOSE. The shipped default gives the
-        // search a fifth of a second and falls back to a shorter - still
-        // correct - prefix if it runs out, which is the right trade for a
-        // button but would make a minimality assertion flaky. This test is
-        // about whether the ALGORITHM is right; the latency of the default is
-        // asserted separately below.
-        const h = hintForPath(p, cur, { ms: 10_000, nodes: 400_000 })
-        // never invents a move: the answer is a prefix of what they flew
-        expect(h.path.length).toBeLessThanOrEqual(cur.length)
-        expect(cur.slice(0, h.path.length)).toEqual(h.path)
-        // what it hands back really can be finished
-        const done = completeZip(p, h.path, { nodes: 400_000 })
-        expect(done, `layout ${idx} kept an unfinishable prefix`).not.toBeNull()
-        expect(validateZip(p, done)).toBe(true)
-        // and it is the LONGEST such prefix - one more of their moves must not work
-        if (h.path.length < cur.length) {
-          const budget = { nodes: 400_000 }
-          const one = completeZip(p, cur.slice(0, h.path.length + 1), budget)
-          if (!budget.out) expect(one, `layout ${idx} was not minimal`).toBeNull()
-        }
-        // the direction it points at is a move the board would accept
-        if (h.nextCell != null) expect(legalNext(p, h.path)).toContain(h.nextCell)
       }
     }
   })

@@ -1,45 +1,4 @@
 import { t } from './i18n'
-// WHO TO MEET THIS WEEK.
-//
-// Three people, and the card says WHY.
-//
-// THE WHOLE POINT IS THE REASON, NOT THE MATCH.
-//
-// "Suggested for you" is the emptiest phrase in software. It tells the reader
-// that a machine picked somebody and refuses to say on what grounds, so the only
-// available response is to wonder whether it knows something it should not. A
-// reason turns the same three faces into three openings: you now have a first
-// line, which is the actual barrier to messaging a stranger.
-//
-// SO THE REASONS ARE WRITTEN, NOT GENERATED.
-//
-// Every phrasing below is a fixed sentence with at most a name or a place dropped into it, in the plain words somebody
-// would use out loud. No "based on your interests", no "you may also like", no percentage match, no three-clause
-// sentence that begins "As someone who". The team's note was that they must not read as written by a machine, and the
-// way to guarantee that is to have a person write all of them in advance.
-//
-// AND "NO REASON" IS AN HONEST REASON.
-//
-// A community of 44 will not always have an overlap to point at, and inventing
-// one is how the feature stops being trusted. When there is nothing real to say,
-// the card says there is nothing real to say and suggests them anyway. That is
-// how introductions work between people.
-//
-// STABLE FOR A DAY, AND DIFFERENT TOMORROW.
-//
-// It was stable for a WEEK, on the reasoning that three new strangers every time you refresh is a slot machine rather
-// than an introduction. That half is still true and the pick is still stable within a day. But
-//
-// A DAY SEED ON ITS OWN WOULD NOT HAVE FIXED IT, which is the part worth
-// writing down. The ranking ladder below is deterministic: if four people have
-// a real reason and everybody else has none, those four sort to the top on
-// every seed, so re-seeding daily reshuffles three names that were already
-// going to be the same three names. The rotation is what actually changes the
-// faces - the day index walks a starting offset through the people we can say
-// something true about, so over a fortnight you meet all of them instead of the
-// same three forty times.
-
-const WEEK_MS = 7 * 86400000
 
 // EVERY REASON IS A WHOLE SENTENCE WITH PLACEHOLDERS IN IT.
 //
@@ -59,14 +18,6 @@ const WEEK_MS = 7 * 86400000
  *  creators comparing notes across a timezone. */
 export function dayIndex(now = Date.now()) {
   return Math.floor(now / 86400000)
-}
-
-/** Which week we are in. Same integer for everybody, rolls over on a Monday. */
-export function weekIndex(now = Date.now()) {
-  // 1 Jan 1970 was a Thursday, so shifting by four days puts week boundaries on
-  // Monday morning UTC. Not local time on purpose: the pick should be the same
-  // for two creators comparing notes across a timezone.
-  return Math.floor((now + 4 * 86400000) / WEEK_MS)
 }
 
 // A tiny deterministic PRNG, the same one the creator spotlight uses, so the

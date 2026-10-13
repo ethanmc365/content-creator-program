@@ -42,15 +42,6 @@ export function gmailComposeUrl({ to = '', subject = '', body = '', bcc = '' } =
   return `${GMAIL}&${q.toString()}`
 }
 
-/** The same message as a `mailto:`, for anyone not in Gmail. */
-export function mailtoUrl({ to = '', subject = '', body = '', bcc = '' } = {}) {
-  const q = new URLSearchParams()
-  if (bcc) q.set('bcc', bcc)
-  if (subject) q.set('subject', subject)
-  if (body) q.set('body', body)
-  return `mailto:${encodeURIComponent(to)}?${q.toString()}`
-}
-
 /**
  * Open the composer.
  *

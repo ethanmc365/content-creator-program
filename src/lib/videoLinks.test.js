@@ -1,16 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import {
-  platformOf,
-  tiktokId,
-  isTiktokShortLink,
-  youtubeId,
-  facebookId,
-  instagramShortcode,
-  instagramMediaId,
-  videoIdOf,
-  instagramHandleFrom,
-  describeLink,
-} from './videoLinks'
+import { platformOf, tiktokId, isTiktokShortLink, youtubeId, facebookId, instagramShortcode, videoIdOf, describeLink } from './videoLinks'
 
 // The cases here are the shapes that are actually in the submissions table, not
 // invented ones. Creators paste whatever the share sheet gives them, which is a
@@ -93,36 +82,6 @@ describe('facebook ids', () => {
   })
 })
 
-// The handle is what points the reader at the right public reels tab, so a
-// route word mistaken for a person would send it somewhere that cannot exist.
-describe('whose instagram profile a link belongs to', () => {
-  it('takes the handle from a profile or a named post link', () => {
-    expect(instagramHandleFrom('https://www.instagram.com/denisahadarau_/')).toBe('denisahadarau_')
-    expect(instagramHandleFrom('https://www.instagram.com/denisahadarau_/reel/DbpxlShtiot/')).toBe('denisahadarau_')
-    expect(instagramHandleFrom('https://instagram.com/jacobs_world_travels?igsh=MWwz&utm_source=qr')).toBe('jacobs_world_travels')
-  })
-
-  it('lower-cases, the way Instagram does', () => {
-    expect(instagramHandleFrom('https://www.instagram.com/JacobsWorldTravels/')).toBe('jacobsworldtravels')
-    expect(instagramHandleFrom('@Anya.Joyful')).toBe('anya.joyful')
-  })
-
-  it('refuses a route word, so /reel/ is never read as a person', () => {
-    expect(instagramHandleFrom('https://www.instagram.com/reel/DcJwJHEMJ4L/')).toBeNull()
-    expect(instagramHandleFrom('https://www.instagram.com/p/DbjKzotjAv0/')).toBeNull()
-    expect(instagramHandleFrom('https://www.instagram.com/explore/tags/travel/')).toBeNull()
-  })
-
-  it('refuses another site, an empty path and a malformed handle', () => {
-    expect(instagramHandleFrom('https://www.instagram.com.evil.test/someone/')).toBeNull()
-    expect(instagramHandleFrom('https://www.instagram.com/')).toBeNull()
-    expect(instagramHandleFrom('https://www.tiktok.com/@someone')).toBeNull()
-    expect(instagramHandleFrom('has spaces')).toBeNull()
-    expect(instagramHandleFrom('')).toBeNull()
-    expect(instagramHandleFrom(null)).toBeNull()
-  })
-})
-
 describe('one id, whichever platform', () => {
   it('routes to the right reader', () => {
     expect(videoIdOf('https://www.youtube.com/shorts/tPEE9ZwTmy0')).toBe('tPEE9ZwTmy0')
@@ -145,20 +104,6 @@ describe('instagram codes', () => {
     expect(instagramShortcode('https://www.instagram.com/reel/DcJwJHEMJ4L/?igsh=MW93NTl2MThhZXRwZQ==')).toBe(
       'DcJwJHEMJ4L',
     )
-  })
-
-  // The shortcode IS the media id in Instagram's own base64. Getting this wrong
-  // means asking the API about somebody else's post, so it is pinned to values
-  // checked against the live API.
-  it('decodes a shortcode to the numeric media id', () => {
-    expect(instagramMediaId('DbTKSGui3F9')).toBe('3950546522773090685')
-    expect(instagramMediaId('DbVZdZHtbhg')).toBe('3951176219087976544')
-    expect(instagramMediaId('DcE2C7AM_hw')).toBe('3964531267297605744')
-  })
-
-  it('refuses a code containing a character outside the alphabet', () => {
-    expect(instagramMediaId('bad code!')).toBeNull()
-    expect(instagramMediaId(null)).toBeNull()
   })
 })
 

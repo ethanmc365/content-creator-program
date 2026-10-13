@@ -198,11 +198,6 @@ export const answered = (q, v) => {
   return v !== ''
 }
 
-/** The first required question left unanswered, or null when the answers can be sent. */
-export function missingAnswer(questions, answers) {
-  return (questions || []).find((q) => q.required && !answered(q, answers?.[q.id])) || null
-}
-
 /** A rough "about N minutes", from what the questions ask for. */
 export function minutesFor(questions) {
   const secs = (questions || []).reduce((s, q) => s + (q.type === 'text' ? 35 : 10), 0)

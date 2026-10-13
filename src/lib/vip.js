@@ -46,13 +46,6 @@ export function daysLeft(endsAt, now = Date.now()) {
   return Math.max(0, Math.ceil((Date.parse(endsAt) - now) / 86400000))
 }
 
-/** A month's progress, 0 to 1, by the clock. */
-export function monthProgress(startsAt, endsAt, now = Date.now()) {
-  const a = Date.parse(startsAt)
-  const b = Date.parse(endsAt)
-  return Math.max(0, Math.min(1, (now - a) / Math.max(1, b - a)))
-}
-
 /** A plain amount with its currency: 1,234.50. The symbol comes from Intl so it follows the language. */
 export function money(amount, currency = 'EUR', { cents = true } = {}) {
   const n = Number(amount) || 0
@@ -520,5 +513,4 @@ export function vipSlugFromPath(pathname) {
   const m = /^\/c\/([^/]+)\/chat\/vip(?:_announcements)?(?:\/|$)/.exec(pathname || '')
   return m ? m[1] : null
 }
-
 

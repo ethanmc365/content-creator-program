@@ -1641,20 +1641,6 @@ export const LANGUAGES = [
   },
 ]
 
-/** Languages available for a round in this region. */
-export function languagesForRegion(region) {
-  return region === 'World' ? LANGUAGES : LANGUAGES.filter((l) => l.region === region)
-}
-
-// PHRASE LEVELS, AND WHY THEY ARE ON THE PHRASE AND NOT THE LANGUAGE.
-//
-// "Hola" and "¿Dónde está el baño?" are both Spanish and they are not remotely
-// the same question: one is known by people who have never been to Spain, the
-// other takes a moment even if you speak some. Grading the LANGUAGE would put
-// them in the same bucket, which is exactly the flatness the bigger bank exists
-// to fix.
-export const PHRASE_LEVELS = ['easy', 'medium', 'hard']
-
 // A PHRASE THAT TWO LANGUAGES BOTH USE IS NOT A QUESTION.
 //
 // This was broken before the bank grew and nobody had noticed: "Por favor" is
@@ -1679,45 +1665,6 @@ function sharedBy(text) {
     }
   }
   return SHARED.get(text) ?? new Set()
-}
-
-/**
- * Build one question: a phrase, and four languages to choose between.
- *
- * `rand` is injected rather than reaching for Math.random, so the page can pass
- * a seeded generator for the daily round and everybody gets the same one - and
- * so it is testable, which a function that calls Math.random inside itself is
- * not.
- *
- * `opts.level` asks for a phrase of a given difficulty, which is how the daily
- * round builds a mix rather than ten questions of whatever fell out.
- *
- * WHERE THE WRONG ANSWERS COME FROM, AND WHY IT IS NOT JUST "SAME REGION".
- *
- * Offering Japanese, Swahili and Welsh against a Spanish phrase is not a
- * question, it is a formality. Region was the first answer to that and it is a
- * blunt one: it put Japanese against Thai, which share a continent and nothing
- * else, while Spanish and Catalan - the actual near miss - only met by accident.
- *
- * So a HARD question draws its wrong answers from the same language FAMILY
- * first, which is where the real confusions live (Czech against Slovak, Danish
- * against Norwegian, Indonesian against Malay). Region is the fallback, and
- * anywhere is the fallback after that, because four buttons matter more than
- * four perfect buttons.
- */
-export function buildQuestion(pool, rand = Math.random, opts = {}) {
-  const pick = (arr) => arr[Math.floor(rand() * arr.length)]
-
-  // Choose the phrase first when a level was asked for: picking the language
-  // and then hoping it has a hard phrase is how you end up quietly serving
-  // whatever it does have.
-  const want = opts.level
-  const withLevel = want ? pool.filter((l) => l.phrases.some((p) => p.level === want)) : pool
-  const answer = pick(withLevel.length ? withLevel : pool)
-  const atLevel = want ? answer.phrases.filter((p) => p.level === want) : answer.phrases
-  const phrase = pick(atLevel.length ? atLevel : answer.phrases)
-
-  return questionFor(pool, answer, phrase, rand, want)
 }
 
 /**
@@ -1841,12 +1788,6 @@ function decks() {
   }
   DECKS = by
   return DECKS
-}
-
-/** How long a level's deck takes to come round, in days. */
-export function phraseCycleDays(level) {
-  const per = DAILY_SHAPE.filter((l) => l === level).length
-  return per ? Math.floor(decks()[level].length / per) : 0
 }
 
 /**

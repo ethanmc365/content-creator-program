@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { normalisePointRule, RULE_USES_THRESHOLD, RULE_USES_MAX, isSavedRuleId, consistencyWindows } from './scoring'
+import { normalisePointRule, RULE_USES_THRESHOLD, RULE_USES_MAX, isSavedRuleId } from './scoring'
 
 // The bug this pins: the challenge form used to null `threshold` for anything
 // that was not `views_threshold`, so a `total_views_threshold` rule reached the
@@ -109,19 +109,6 @@ describe('the consistency bonus', () => {
   })
   it('drops the window from every other kind', () => {
     expect(normalisePointRule({ kind: 'bonus', label: 'x', points: 1, period_days: 7 }).period_days).toBeNull()
-  })
-  it('cuts the Global Challenge into four weeks', () => {
-    // Monday 21 Sep 00:00 to Sunday 18 Oct 23:59, London.
-    expect(consistencyWindows('2026-09-20T23:00:00Z', '2026-10-18T22:59:00Z', 7)).toBe(4)
-    expect(consistencyWindows('2026-09-20T23:00:00Z', '2026-10-18T22:59:00Z', 1)).toBe(28)
-  })
-  it('counts a short last window as a window', () => {
-    expect(consistencyWindows('2026-09-01T00:00:00Z', '2026-09-10T00:00:00Z', 7)).toBe(2)
-  })
-  it('has no answer without real dates', () => {
-    expect(consistencyWindows(null, '2026-09-10T00:00:00Z', 7)).toBeNull()
-    expect(consistencyWindows('2026-09-10T00:00:00Z', '2026-09-01T00:00:00Z', 7)).toBeNull()
-    expect(consistencyWindows('2026-09-01T00:00:00Z', '2026-09-10T00:00:00Z', 0)).toBeNull()
   })
 })
 

@@ -190,13 +190,6 @@ export function useKeyboardOpen() {
   return useVisualViewport(keyboardOpenOf)
 }
 
-// Backwards-compatible helper: just the keyboard height in CSS px, 0 when closed.
-const keyboardOf = (v) => v.keyboard
-
-export function useKeyboardInset() {
-  return useVisualViewport(keyboardOf)
-}
-
 // One media query, kept in sync on resize/orientation change. The two hooks
 // below are the two breakpoints this app actually reasons about in JS; anything
 // else belongs in a Tailwind class.

@@ -1,71 +1,9 @@
 import { describe, it, expect, beforeEach } from 'vitest'
-import { adoptTestDataVisibility, seesTestData, testFlags, isHiddenTestRow, hideTest } from './testData'
+import { adoptTestDataVisibility, testFlags, isHiddenTestRow } from './testData'
 import { isRealMember, memberCount } from './members'
 
-// WHO SEES THE PRETEND PEOPLE. The report this pins: "all the test data
-// accounts you created seem to be in the actual community and viewable to
-// everyone, for example on the creator network page etc."
-//
-// The whole rule lives in one place, so it can be tested in one place. The
-// database enforces the same thing independently (migration 178) - these tests
-// are about the second half, which decides whether a viewer who is ALLOWED to
-// see demo rows is actually shown them.
-
-// A fake PostgREST builder that records the filters applied to it.
-function fakeQuery() {
-  const calls = []
-  const q = {
-    calls,
-    eq(col, val) { calls.push(['eq', col, val]); return q },
-    in(col, vals) { calls.push(['in', col, vals]); return q },
-  }
-  return q
-}
-
 const REAL_CREATOR = { is_admin: false, is_test: false, is_sandbox: false }
-const REAL_ADMIN = { is_admin: true, is_test: false, is_sandbox: false }
 const DEMO_ADMIN = { is_admin: true, is_test: true, is_sandbox: true }
-const SANDBOX_CREATOR = { is_admin: false, is_test: true, is_sandbox: true }
-
-describe('who is allowed to see test data', () => {
-  beforeEach(() => adoptTestDataVisibility(null))
-
-  it('hides it by default, before any profile has loaded', () => {
-    expect(seesTestData()).toBe(false)
-  })
-
-  it('hides it from a real creator', () => {
-    adoptTestDataVisibility(REAL_CREATOR)
-    expect(seesTestData()).toBe(false)
-  })
-
-  // The team is a real admin. They manages the demo accounts in /admin (the database lets them read them) and he must
-  // not meet them in their own community pages.
-  it('hides it from a real admin', () => {
-    adoptTestDataVisibility(REAL_ADMIN)
-    expect(seesTestData()).toBe(false)
-  })
-
-  it('shows it to the demo admin account', () => {
-    adoptTestDataVisibility(DEMO_ADMIN)
-    expect(seesTestData()).toBe(true)
-  })
-
-  // "View as creator" steps into a sandbox account that is a test account but
-  // NOT an admin. A preview of the app has to show what a real creator sees, or
-  // it is a preview of nothing.
-  it('hides it during a view-as-creator preview', () => {
-    adoptTestDataVisibility(SANDBOX_CREATOR)
-    expect(seesTestData()).toBe(false)
-  })
-
-  it('goes back to hiding it on sign-out', () => {
-    adoptTestDataVisibility(DEMO_ADMIN)
-    expect(seesTestData()).toBe(true)
-    adoptTestDataVisibility(null)
-    expect(seesTestData()).toBe(false)
-  })
-})
 
 describe('testFlags', () => {
   beforeEach(() => adoptTestDataVisibility(null))
@@ -81,25 +19,6 @@ describe('testFlags', () => {
   it('asks for both when the viewer may', () => {
     adoptTestDataVisibility(DEMO_ADMIN)
     expect(testFlags()).toEqual([false, true])
-  })
-})
-
-describe('hideTest', () => {
-  beforeEach(() => adoptTestDataVisibility(null))
-
-  it('adds the filter for a real creator', () => {
-    adoptTestDataVisibility(REAL_CREATOR)
-    expect(hideTest(fakeQuery()).calls).toEqual([['eq', 'is_test', false]])
-  })
-
-  it('qualifies the column for an embedded table', () => {
-    adoptTestDataVisibility(REAL_CREATOR)
-    expect(hideTest(fakeQuery(), 'profiles').calls).toEqual([['eq', 'profiles.is_test', false]])
-  })
-
-  it('adds nothing at all for the demo admin', () => {
-    adoptTestDataVisibility(DEMO_ADMIN)
-    expect(hideTest(fakeQuery()).calls).toEqual([])
   })
 })
 

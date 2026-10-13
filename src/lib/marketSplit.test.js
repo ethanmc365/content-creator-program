@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { marketSplit, entriesOverTime, NO_MARKET } from './marketSplit'
+import { marketSplit, NO_MARKET } from './marketSplit'
 
 const markets = [
   { id: 'uk', name: 'UK & Ireland', slug: 'uk', country_codes: ['GB', 'IE'] },
@@ -47,21 +47,5 @@ describe('marketSplit', () => {
   it('sums each market\'s points from the board', () => {
     const { rows } = marketSplit({ subs, homeOf, markets, pointsOf: new Map([['a', 6], ['b', 4], ['c', 1]]) })
     expect(rows.find((r) => r.id === 'es').points).toBe(10)
-  })
-})
-
-describe('entriesOverTime', () => {
-  it('builds a running total per market, one row per day', () => {
-    const subs = [
-      { creator_id: 'a', submitted_at: '2026-09-21T10:00:00' },
-      { creator_id: 'c', submitted_at: '2026-09-22T10:00:00' },
-      { creator_id: 'b', submitted_at: '2026-09-22T11:00:00' },
-    ]
-    const out = entriesOverTime({ subs, homeOf, marketIds: ['uk', 'es'], from: '2026-09-21T00:00:00', to: '2026-09-23T00:00:00' })
-    expect(out).toEqual([
-      { day: '2026-09-21', uk: 0, es: 1 },
-      { day: '2026-09-22', uk: 1, es: 2 },
-      { day: '2026-09-23', uk: 1, es: 2 },
-    ])
   })
 })

@@ -432,36 +432,3 @@ export function zipIndexForDay(day) {
   const cycle = Math.floor(d / ZIP_LAYOUT_COUNT)
   return cyclePermutation(cycle)[slot]
 }
-
-/**
- * Is `path` a valid completed solution for `puzzle`? Checks: starts at stop 1,
- * ends at the last stop, every step orthogonally adjacent and not through a
- * wall, every cell covered exactly once, and stops visited in order.
- */
-export function validateZip(puzzle, path) {
-  const { size, dots, walls = [] } = puzzle
-  const N = size * size
-  if (path.length !== N) return false
-  if (new Set(path).size !== N) return false
-  if (path.some((c) => c < 0 || c >= N)) return false
-  const blocked = new Set(walls.map(([a, b]) => wallKey(a, b)))
-  for (let i = 1; i < path.length; i++) {
-    const a = path[i - 1], b = path[i]
-    const ra = Math.floor(a / size), ca = a % size
-    const rb = Math.floor(b / size), cb = b % size
-    if (Math.abs(ra - rb) + Math.abs(ca - cb) !== 1) return false
-    if (blocked.has(wallKey(a, b))) return false
-  }
-  const numberAt = new Map(dots.map((d) => [d.cell, d.n]))
-  if (numberAt.get(path[0]) !== 1) return false
-  if (numberAt.get(path[N - 1]) !== dots.length) return false
-  let expected = 1
-  for (const cell of path) {
-    const n = numberAt.get(cell)
-    if (n != null) {
-      if (n !== expected) return false
-      expected++
-    }
-  }
-  return expected === dots.length + 1
-}

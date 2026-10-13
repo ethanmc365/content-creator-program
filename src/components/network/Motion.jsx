@@ -1,42 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
-import { motion, useInView, useReducedMotion } from 'motion/react'
-import { reveal } from '../../lib/motion'
+import { useInView, useReducedMotion } from 'motion/react'
 import { cx } from '../../lib/utils'
 import { useRevealed } from '../../lib/revealContext'
-
-// Small motion pieces used across the network pages.
-//
-// They live together because they share one rule: MOTION IS A UNIT OF MEANING,
-// not decoration. A section rising as it enters says "this is new to you". A
-// number counting up says "this is a quantity that moves". A ring filling says
-// "you are partway through something". If a component here cannot answer what
-// its animation is telling the reader, it should not be animated.
-//
-// Everything respects `prefers-reduced-motion` through Motion's own
-// `useReducedMotion`, which reads the same signal as the global MotionConfig in
-// main.jsx. Reduced motion gets the end state instantly, never a broken layout.
-
-/** A section that rises into view once, as it scrolls in.
- *
- * NAMED RiseIn, not Reveal. There is a `Reveal` in this folder already - the
- * staggered grid one - and having two exports called Reveal that do different
- * things has now caused two separate mistakes, because an import line does not
- * say which you got. This one animates ONE element; that one animates a list.
- */
-export function RiseIn({ children, delay = 0, className, as = 'div' }) {
-  const reduced = useReducedMotion()
-  const Tag = motion[as] || motion.div
-  if (reduced) return <div className={className}>{children}</div>
-  return (
-    <Tag
-      {...reveal}
-      transition={{ ...reveal.transition, delay }}
-      className={className}
-    >
-      {children}
-    </Tag>
-  )
-}
 
 /**
  * A number that counts to its value the first time it is seen.
