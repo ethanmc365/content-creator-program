@@ -87,7 +87,7 @@ function EmailPreview({ inv, to, cc, replyTo }) {
 
       <div className="bg-white px-5 py-4 text-[13px] leading-relaxed">
         <p className="text-base font-bold">Invoice {ref}</p>
-        <p className="mt-0.5 text-xs text-smoke">Content Creator Program · prize payment</p>
+        <p className="mt-0.5 text-xs text-smoke">Content Creator Programme · prize payment</p>
         <dl className="mt-3 divide-y divide-gray-50 rounded-xl border border-gray-100 px-4">
           {[['Creator', inv.creator_name], ['Prize', inv.description],
             ['Amount', amount], ['Payment due', 'Within 7 days']].map(([k, v]) => (

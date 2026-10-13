@@ -25,7 +25,7 @@ export default function InvoicePreview({ inv }) {
         {/* Creator headline */}
         <div>
           <p className="text-xl font-extrabold uppercase leading-tight tracking-tight">{inv.creatorName || 'Creator name'}</p>
-          <p className="mt-1 text-[10px] font-bold tracking-[0.3em] text-smoke">CONTENT CREATOR PROGRAM</p>
+          <p className="mt-1 text-[10px] font-bold tracking-[0.3em] text-smoke">CONTENT CREATOR PROGRAMME</p>
           {inv.creatorAddress && <p className="mt-1 text-xs text-smoke">{String(inv.creatorAddress).replace(/\n+/g, ', ')}</p>}
         </div>
 

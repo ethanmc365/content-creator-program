@@ -213,7 +213,7 @@ export async function buildInvoicePdf(inv) {
   page.drawText('Thank you! Payment is due within 7 days of the issue date.', {
     x: MARGIN, y: 62, font, size: 9, color: smoke,
   })
-  page.drawText('Tryp.com Content Creator Program', { x: MARGIN, y: 48, font, size: 9, color: smoke })
+  page.drawText('Tryp.com Content Creator Programme', { x: MARGIN, y: 48, font, size: 9, color: smoke })
   page.drawRectangle({ x: 0, y: 0, width: A4.w, height: 24, color: brand })
 
   return doc.save()

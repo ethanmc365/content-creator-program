@@ -523,7 +523,7 @@ export default function InvoicesPanel({ prefill, onClose, onSent }) {
       const body = [
         `Hey ${names.length ? names.join(' and ') : 'there'},`,
         '',
-        `I've attached the invoice for ${firstName(inv.creatorName)}, ${formatMoney(Number(invoiceAmount), currency)} for ${descPhrase} in the Content Creator Program. ${notes.trim() || defaultNotes(currency)}`,
+        `I've attached the invoice for ${firstName(inv.creatorName)}, ${formatMoney(Number(invoiceAmount), currency)} for ${descPhrase} in the Content Creator Programme. ${notes.trim() || defaultNotes(currency)}`,
         '',
         'Thank you,',
         firstName(profile?.name) || 'The Tryp.com team',
