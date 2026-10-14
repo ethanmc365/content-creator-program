@@ -116,8 +116,8 @@ export default function AdminVideoTracker() {
   const filtered = filter.challenge || filter.platform || filter.q || filter.market || filter.month || filter.source
   const hooks = useTranslatedHooks(shown, hookLang)
   // One dropdown for "which videos": a whole group (community, VIP, official) or one challenge or programme.
-  const scopeValue = filter.source ? `src:${filter.source}` : filter.challenge
-  const setScope = (v) => (v.startsWith('src:') ? set({ source: v.slice(4), challenge: '' }) : set({ challenge: v, source: '' }))
+  const scopeValue = filter.challenge
+  const setScope = (v) => set({ challenge: v })
   const hasVip = (rows || []).some((r) => r.source === 'vip')
   const hasOfficial = (rows || []).some((r) => r.source === 'official')
 
@@ -165,6 +165,32 @@ export default function AdminVideoTracker() {
           meant. The card's version is the one that stays: it is beside the
           filters that change it. */}
       <MarketScope markets={markets} value={filter.market} onChange={(m) => set({ market: m })} />
+
+      {/* THE COMMUNITY AND THE VIP SPACES, SEPARATELY (14 Oct 2026). "We should also have the VIP community separate here,
+          not just incorporated into it." One switch above everything else; each side keeps its own count. */}
+      {(hasVip || hasOfficial) && (
+        <div className="mb-4 flex flex-wrap gap-2 animate-fade-up">
+          {[
+            ['', tr('Everything'), 'squares'],
+            ['community', tr('General community'), 'users'],
+            ...(hasVip ? [['vip', tr('VIP community'), 'star']] : []),
+            ...(hasOfficial ? [['official', tr('Official creators'), 'badge']] : []),
+          ].map(([k, label, icon]) => {
+            const on = filter.source === k
+            const n = visibleVideos(rows || [], { ...filter, source: k, challenge: '' }).length
+            return (
+              <button key={k || 'all'} type="button" onClick={() => set({ source: k, challenge: '' })} aria-pressed={on}
+                className={cx('inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-semibold transition-all duration-200',
+                  on ? (k === 'vip' || k === 'official' ? 'border-ink bg-ink text-white shadow-card' : 'border-brand bg-brand text-white shadow-card')
+                    : 'border-gray-200 bg-white text-smoke hoverable:hover:-translate-y-0.5 hoverable:hover:border-brand hoverable:hover:text-ink')}>
+                <Icon name={icon} className={cx('h-4 w-4', on ? 'text-white' : k === 'vip' || k === 'official' ? 'text-ink' : 'text-brand')} />
+                {label}
+                <span className={cx('tabular-nums text-xs', on ? 'text-white/80' : 'text-gray-400')}>{n}</span>
+              </button>
+            )
+          })}
+        </div>
+      )}
 
       {/* (The standing "syncing the top 3 of every challenge, plus anything over 10k views" line used to sit here as a
           paragraph of its own.
@@ -239,11 +265,8 @@ export default function AdminVideoTracker() {
             variant="field"
             className="w-[11.5rem] shrink-0"
             ariaLabel={tr('Challenge')}
-            options={[{ value: '', label: tr('Every video') },
-              ...((hasVip || hasOfficial) ? [{ value: 'src:community', label: tr('General community') }] : []),
-              ...(hasVip ? [{ value: 'src:vip', label: tr('VIP community') }] : []),
-              ...(hasOfficial ? [{ value: 'src:official', label: tr('Official creators') }] : []),
-              ...challenges.map((c) => ({ value: c.key, label: c.label }))]}
+            options={[{ value: '', label: tr('Every challenge') },
+              ...challenges.filter((c) => !filter.source || c.source === filter.source || (!c.source && filter.source === 'community')).map((c) => ({ value: c.key, label: c.label }))]}
           />
           <Select
             value={filter.platform}
@@ -602,14 +625,11 @@ function VideoCard({ v, onOpen, eager = false, hook = null, translated = false }
         <p className="text-[15px] font-semibold leading-snug text-ink line-clamp-3">
           {/* THE WORDS ON THE VIDEO WIN: the text the creator typed onto it (read from TikTok with the view count) is
               the real hook; the caption's first line is the fallback. */}
+          {/* TRANSLATED IS A SMALL GLOBE IN THE LINE, NOT A LINE OF ITS OWN (14 Oct 2026: the label above/below every hook
+              "is taking up so much space"). Hover says what it means. */}
+          {translated && <span title={tr('Translated from the video')} className="mr-1 inline-flex align-[-2px] text-brand"><Icon name="globe" className="h-3.5 w-3.5" /></span>}
           {hook || v.hook || <span className="text-gray-300">{tr('No hook written yet')}</span>}
         </p>
-        {v.screen_text && (
-          <p className="mt-0.5 flex items-center gap-1 text-[10.5px] font-semibold uppercase tracking-wide text-brand">
-            {translated && <Icon name="globe" className="h-3 w-3" />}
-            {translated ? tr('Translated from the video') : tr('Text on the video')}
-          </p>
-        )}
         {/* The caption under the on-screen hook, small, so both are there to compare. */}
         {v.screen_text && v.caption && (
           <p className="mt-1.5 line-clamp-2 text-xs leading-snug text-smoke">{v.caption}</p>
@@ -650,7 +670,7 @@ function VideoCard({ v, onOpen, eager = false, hook = null, translated = false }
               )}
             {(challenge || v.market_name) && (
               <span className="block truncate text-[11px] text-smoke">
-                {[challenge, v.market_name].filter(Boolean).join(' · ')}
+                {[challenge, v.home_name && v.home_name !== v.market_name ? `${v.home_name} creator` : v.market_name].filter(Boolean).join(' · ')}
               </span>
             )}
           </span>

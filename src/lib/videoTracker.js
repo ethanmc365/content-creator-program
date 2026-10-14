@@ -112,7 +112,8 @@ export function visibleVideos(rows, filter = {}) {
 
   const kept = (rows || []).filter((v) => {
     if (!v.qualifies && !v.pinned) return false
-    if (market && v.community_id !== market) return false
+    // A MARKET IS ITS CHALLENGES AND ITS CREATORS (migration 417): a Romanian creator's Global Challenge video is Romania's too.
+    if (market && v.community_id !== market && v.home_id !== market) return false
     if (challenge && challengeKey(v) !== challenge) return false
     if (source && (v.source || 'community') !== source) return false
     if (platform && v.platform !== platform) return false
