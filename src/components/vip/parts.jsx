@@ -12,6 +12,7 @@ import { formatDate, formatViews, cx } from '../../lib/utils'
 import { BONUS_KINDS, describeRule, money, monthLabel, nf, perK, prizesByPlace, ruleRunsIn, useOptionalRpc, useVipPreview, vipRpc, useKindT } from '../../lib/vip'
 import { CountUp, VIP_COUNT_MS } from '../network/Motion'
 import { safeUrl } from '../../lib/safeUrl'
+import { vipApi } from '../../api/vip'
 
 // THE PIECES OF A VIP'S PAGE. Kept together because they share one vocabulary - views gained this month, what they are
 // worth, what the statement says - and a screen reads best when every piece uses the same words for the same number.
@@ -119,9 +120,55 @@ function QuestionRow({ rule, value, onChange, disabled }) {
  * its views are read straight away (migration 307 asks for a reading on insert); the page asks again every few seconds
  * until the first reading lands, so the number appears without a refresh.
  */
+// THE TEAM'S QUESTIONS ON EVERY VIDEO (migration 418). Marta: "every time someone submits that link ... they have to
+// tick a box", e.g. "This is a flight and hotel video". Read once per session; a question with options is chips (one or
+// several), one without is Yes / No. Required ones must be answered before Add video.
+let QUESTIONS = null
+function useVideoQuestions(disabled) {
+  const [qs, setQs] = useState(QUESTIONS || [])
+  useEffect(() => {
+    if (QUESTIONS || disabled) return undefined
+    let alive = true
+    vipApi.myVideoQuestions().then(({ data }) => { QUESTIONS = data || []; if (alive) setQs(QUESTIONS) })
+    return () => { alive = false }
+  }, [disabled])
+  return qs
+}
+
+export function VideoQuestion({ q, value = [], onChange, disabled }) {
+  const tr = useKindT()
+  const opts = q.options?.length ? q.options : [tr('Yes'), tr('No')]
+  const many = q.multiple && q.options?.length
+  const pick = (o) => onChange(many ? (value.includes(o) ? value.filter((x) => x !== o) : [...value, o]) : (value[0] === o ? [] : [o]))
+  return (
+    <div className="rounded-xl border border-gray-100 bg-white px-3.5 py-3 animate-rise">
+      <p className="text-[13.5px] font-semibold leading-snug text-ink">
+        <Icon name="check" className="mr-1.5 inline h-4 w-4 -translate-y-px text-brand" />{q.question}
+        {q.required && <span className="ml-1 text-brand">*</span>}
+      </p>
+      {many && <p className="mt-0.5 text-[11px] text-smoke">{tr('Tick every one that fits.')}</p>}
+      <div role={many ? 'group' : 'radiogroup'} aria-label={q.question} className="mt-2 flex flex-wrap gap-1.5">
+        {opts.map((o) => {
+          const on = value.includes(o)
+          return (
+            <button key={o} type="button" role={many ? 'checkbox' : 'radio'} aria-checked={on} disabled={disabled} onClick={() => pick(o)}
+              className={cx('inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-bold transition-all duration-200 disabled:opacity-50',
+                on ? 'bg-brand text-white shadow-card' : 'bg-white text-smoke ring-1 ring-gray-200 hoverable:hover:text-ink')}>
+              {many && <span className={cx('flex h-3.5 w-3.5 items-center justify-center rounded-[4px] border', on ? 'border-white bg-white text-brand' : 'border-gray-300')}>{on && <Icon name="check" className="h-3 w-3" />}</span>}
+              {o}
+            </button>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
 export function VipSubmit({ disabled, onAdded, month, rules = null }) {
   const tr = useKindT()
   const [url, setUrl] = useState('')
+  const questions = useVideoQuestions(disabled)
+  const [qa, setQa] = useState({})
   // The answers to this month's bonus questions, rule id -> true. Nothing is assumed: an unanswered question is a no.
   const asking = askingRules(rules, month)
   const [answers, setAnswers] = useState({})
@@ -139,12 +186,19 @@ export function VipSubmit({ disabled, onAdded, month, rules = null }) {
     if (!link) { setErr(tr('Paste the link to your video first.')); return }
     if (!/^https?:\/\/\S+\.\S+/i.test(link)) { setErr(tr('That does not look like a link. Copy it from the share button on your video.')); return }
     if (!platform) { setErr(tr('Only TikTok, Instagram, YouTube and Facebook links carry a view count we can read.')); return }
+    const missing = questions.find((q) => q.required && !(qa[q.id] || []).length)
+    if (missing) { setErr(tr('Answer "{q}" first.', { q: missing.question })); return }
     setBusy(true)
     try {
       const claims = asking.filter((r) => answers[r.id]).map((r) => r.id)
-      await vipRpc('vip_submit_video', { p_url: link, p_platform: platform, p_caption: null, ...(claims.length ? { p_claims: claims } : {}) })
+      const id = await vipRpc('vip_submit_video', { p_url: link, p_platform: platform, p_caption: null, ...(claims.length ? { p_claims: claims } : {}) })
+      if (id && Object.keys(qa).length) {
+        const { error: qErr } = await vipApi.answerVideo({ p_video: id, p_answers: qa })
+        if (qErr) console.warn('Could not save the video answers:', qErr.message)
+      }
       setUrl('')
       setAnswers({})
+      setQa({})
       toastSuccess(tr('Added. Reading its views now.'))
       onAdded?.({ watch: true })
     } catch (e2) { setErr(vipError(e2.message, tr)) } finally { setBusy(false) }
@@ -197,6 +251,11 @@ export function VipSubmit({ disabled, onAdded, month, rules = null }) {
           {tr('Add video')}
         </button>
       </div>
+      {questions.length > 0 && (
+        <div className="relative mt-3 space-y-2">
+          {questions.map((q) => <VideoQuestion key={q.id} q={q} value={qa[q.id] || []} disabled={disabled || busy} onChange={(v) => { setErr(''); setQa((a) => ({ ...a, [q.id]: v })) }} />)}
+        </div>
+      )}
       {asking.length > 0 && (
         <div className="relative mt-3 space-y-2">
           {asking.map((r) => <QuestionRow key={r.id} rule={r} value={!!answers[r.id]} disabled={disabled || busy} onChange={(v) => setAnswers((a) => ({ ...a, [r.id]: v }))} />)}

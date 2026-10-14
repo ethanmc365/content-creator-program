@@ -39,6 +39,7 @@ import { submissionsApi } from '../api/submissions'
 import { profilesApi } from '../api/profiles'
 import { flightsApi } from '../api/flights'
 import { teamApi } from '../api/team'
+import { vipApi } from '../api/vip'
 
 // A creator's public profile: photo, bio, socials, the orange country map,
 // languages, stats and their content showcase (submitted video links).
@@ -150,16 +151,24 @@ export default function Profile() {
       setCreator(p)
       setRelation(rel)
       setLoading(false)
-      const [{ data: subs }, { data: tripsData }, { data: flightsData }] = await Promise.all([subsQ, tripsQ, upcomingFlights])
+      // A VIP'S VIDEOS ARE THEIR CONTENT TOO (14 Oct 2026; migration 418): the showcase read challenge entries only, so a
+      // VIP's profile said they had never posted. They join the same list, labelled as VIP or official videos.
+      const vipQ = p?.is_vip ? vipApi.profileVipVideos({ p_profile: id, p_limit: 24 }) : Promise.resolve({ data: [] })
+      const [{ data: entries }, { data: tripsData }, { data: flightsData }, { data: vipVids }] = await Promise.all([subsQ, tripsQ, upcomingFlights, vipQ])
       if (cancelled) return
-      setSubmissions(subs ?? [])
+      const vipLabel = p?.vip_kind === 'official' ? 'Official video' : 'VIP video'
+      const subs = [...(entries ?? []), ...(vipVids ?? []).map((v) => ({
+        id: v.id, video_url: v.video_url, platform: v.platform, thumbnail_url: v.thumbnail_url, logged_views: v.views,
+        submitted_at: v.posted_at, caption: null, vip: true, challenges: { title: vipLabel },
+      }))]
+      setSubmissions(subs)
       setSubsReady(true)
-      setChallengeCount(new Set((subs ?? []).map((s) => s.challenge_id)).size)
+      setChallengeCount(new Set((entries ?? []).map((s) => s.challenge_id)).size)
       setTrips(tripsData ?? [])
       setUpcoming(flightsData ?? [])
       writePageCache(cacheKey, {
         ready: true, creator: p, relation: rel, submissions: subs ?? [], trips: tripsData ?? [], upcoming: flightsData ?? [],
-        challengeCount: new Set((subs ?? []).map((s) => s.challenge_id)).size,
+        challengeCount: new Set((entries ?? []).map((s) => s.challenge_id)).size,
       })
     }
     let cancelled = false
@@ -1145,7 +1154,7 @@ function ShowcaseCard({ submission: s, expanded, onToggle }) {
       </a>
 
       <div className="flex min-w-0 flex-1 flex-col p-3">
-        <p className="truncate text-[13px] font-semibold text-ink">{s.challenges?.title || tr('Challenge entry')}</p>
+        <p className="truncate text-[13px] font-semibold text-ink">{s.vip ? tr(s.challenges.title) : (s.challenges?.title || tr('Challenge entry'))}</p>
         <p className="text-[12px] text-smoke">{postedOn(s.submitted_at)}</p>
         {hasCaption && (
           <>

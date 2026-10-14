@@ -15,6 +15,7 @@ import { SyncEvery, VipBonusesTab, VipCloseTab, VipSettingsTab } from './adminB'
 import { VipAnalyticsTab } from './analytics'
 import { VipKpiTab } from './kpis'
 import { VipPreviewTab } from './preview'
+import { VipQuestionsTab, VipVideosTab } from './videosTab'
 import { VipCertificatesTab } from './certificates'
 import { VipRequirementsTab, VipRulesCard, VipSheetTab, VipWalletsTab } from './teamTools'
 import { vipApi } from '../../api/vip'
@@ -28,8 +29,11 @@ import { vipApi } from '../../api/vip'
 // The tools are grouped the way a month runs - People, Money, Content, Numbers, Setup - so fourteen tabs read as five
 // short rows instead of one strip you scroll sideways on a phone. Once a tool is opened it stays mounted (hidden) for
 // that market, so going back to it is instant.
+// SIX GROUPS (14 Oct 2026): Videos is its own group now - every video in the market, and the questions asked on each
+// one - instead of a list at the foot of People. "It's hard to understand where stuff is."
 const GROUPS = [
   { key: 'people', label: 'People', icon: 'users', tabs: [['overview', 'Overview'], ['members', 'Members'], ['requirements', 'Stay-in check'], ['preview', 'See as a VIP']] },
+  { key: 'videos', label: 'Videos', icon: 'video', tabs: [['videos', 'All videos'], ['questions', 'Video questions']] },
   { key: 'money', label: 'Money', icon: 'wallet', tabs: [['wallets', 'Balances'], ['close', 'Month end'], ['sheet', 'CPM sheet'], ['bonuses', 'Bonuses and perks']] },
   { key: 'content', label: 'Content', icon: 'megaphone', tabs: [['announcements', 'Announcements'], ['challenges', 'Monthly challenges'], ['guides', 'Guides'], ['certificates', 'Certificates']] },
   { key: 'numbers', label: 'Numbers', icon: 'chart', tabs: [['analytics', 'Analytics'], ['kpis', 'KPIs']] },
@@ -59,8 +63,8 @@ async function fetchProgrammes(isOwner) {
 export function VipToolsSkeleton() {
   return (
     <div className="vip-mode-in" aria-busy="true">
-      <div className="mb-3 grid grid-cols-5 gap-1.5 rounded-card border border-gray-100 bg-white p-1.5 shadow-card sm:gap-2 sm:p-2">
-        {[0, 1, 2, 3, 4].map((i) => <Skeleton key={i} className="h-11 rounded-xl" />)}
+      <div className="mb-3 grid grid-cols-3 gap-1.5 rounded-card sm:grid-cols-6 border border-gray-100 bg-white p-1.5 shadow-card sm:gap-2 sm:p-2">
+        {[0, 1, 2, 3, 4, 5].map((i) => <Skeleton key={i} className="h-11 rounded-xl" />)}
       </div>
       <div className="mb-4 flex gap-2 pt-1.5">{[0, 1, 2].map((i) => <Skeleton key={i} className="h-8 w-24 rounded-full" />)}</div>
       <Skeleton className="h-72 w-full rounded-card" />
@@ -119,6 +123,8 @@ export default function VipTools({ programmeId }) {
     members: (p) => <VipMembersTab programme={p} />,
     requirements: (p) => <VipRequirementsTab programme={p} />,
     preview: (p) => <VipPreviewTab programme={p} />,
+    videos: (p) => <VipVideosTab programme={p} />,
+    questions: (p) => <VipQuestionsTab programme={p} isOwner={isOwner} />,
     wallets: (p) => <VipWalletsTab programme={p} />,
     close: (p) => <VipCloseTab programme={p} />,
     sheet: (p) => <VipSheetTab programme={p} />,
@@ -145,7 +151,7 @@ export default function VipTools({ programmeId }) {
   return (
     <div>
       {/* Five groups as cards; the tools of the open group as a row of pills under them. */}
-      <div className="mb-3 grid grid-cols-5 gap-1.5 rounded-card border border-gray-100 bg-white p-1.5 shadow-card sm:gap-2 sm:p-2">
+      <div className="mb-3 grid grid-cols-3 gap-1.5 rounded-card sm:grid-cols-6 border border-gray-100 bg-white p-1.5 shadow-card sm:gap-2 sm:p-2">
         {GROUPS.map((g) => {
           const on = g.key === group.key
           const first = g.tabs.find(([k]) => offered(k, programme, isOwner))?.[0]
@@ -157,7 +163,7 @@ export default function VipTools({ programmeId }) {
               aria-current={on ? 'true' : undefined}
               className={cx('relative flex flex-col items-center gap-1 rounded-xl px-1 py-2 text-[11px] font-bold transition-colors duration-200 sm:flex-row sm:justify-center sm:gap-2 sm:py-2.5 sm:text-[13px]', on ? 'text-white' : 'text-ink/75 hoverable:hover:bg-cloud hoverable:hover:text-ink')}
             >
-              {on && <motion.span layoutId="vip-tools-group" transition={SPRING} className="absolute inset-0 rounded-xl bg-gradient-to-br from-brand to-brand-light shadow-card" />}
+              {on && <motion.span layoutId="vip-tools-group" transition={SPRING} className="absolute inset-0 rounded-xl bg-brand shadow-card" />}
               <Icon name={g.icon} className={cx('relative h-[18px] w-[18px]', on ? 'text-white' : 'text-brand')} strokeWidth={on ? 2.2 : 1.9} />
               <span className="relative truncate">{tr(g.label)}</span>
             </button>
