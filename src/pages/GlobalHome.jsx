@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import NewInRooms from '../components/network/NewInRooms'
 import { Link } from 'react-router-dom'
 import { format } from 'date-fns'
 import { motion } from 'motion/react'
@@ -604,6 +605,7 @@ export default function GlobalHome() {
                 <span className="sm:hidden">{tr("Here is what is happening right now.")}</span>
                 <span className="hidden sm:inline">{tr("Here is what is happening across the network right now.")}</span>
               </p>
+              <NewInRooms className="mt-4" />
             </section>
           </Reveal>
           )}

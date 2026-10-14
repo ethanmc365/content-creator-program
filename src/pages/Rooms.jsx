@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import RoomsPushCard from '../components/network/RoomsPushCard'
 import { Link, Navigate } from 'react-router-dom'
 import { motion } from 'motion/react'
 import { useCommunity } from '../context/CommunityContext'
@@ -485,7 +486,7 @@ export default function Rooms() {
                         on ? 'z-10 border-transparent text-white' : 'border-gray-200 bg-white text-ink/80',
                       )}
                     >
-                      {on && <motion.span layoutId="rooms-chip" transition={SPRING} className="absolute -inset-px rounded-full bg-gradient-to-r from-brand to-brand-light shadow-card" />}
+                      {on && <motion.span layoutId="rooms-chip" transition={SPRING} className="absolute -inset-px rounded-full bg-brand shadow-card" />}
                       <span className="relative flex items-center gap-1.5">
                         {(c.codes || c.network) && <FlagStack codes={c.network ? [] : c.codes} className="text-[13px]" />}
                         {c.key === 'vip' && <Icon name="sparkles" className={cx('h-3.5 w-3.5', on ? 'text-white' : 'text-brand')} />}
@@ -498,6 +499,7 @@ export default function Rooms() {
               </div>
 
               <div key={filter} className="flex flex-col gap-4 animate-tab-in">
+                <RoomsPushCard />
                 {/* NEW SINCE YOU LOOKED - what needs you, across every place, newest first (Slack's "bubble it up"). */}
                 {(filter === 'all' || filter === 'unread') && unreadRooms.length > 0 && (
                   <section className="rounded-card border border-gray-100 bg-white p-3 shadow-card">
