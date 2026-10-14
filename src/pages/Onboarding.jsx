@@ -272,6 +272,8 @@ export default function Onboarding() {
   // came through makes them a VIP as they finish, and the welcome says so. Same two sources as the team invite: the
   // profile once the claim has landed, the token put aside by the sign-up page before there was a session.
   const [vipApplication, setVipApplication] = useState(() => {
+    // `?vip=1` walks the demo as a VIP sign-up (Applications > Sign-up previews the VIP call this way).
+    if (demo) return params.get('vip') === '1'
     try { return !!localStorage.getItem('tryp_vip_invite') } catch { return false }
   })
   useEffect(() => { if (auth.profile?.is_vip) setVipApplication(true) }, [auth.profile?.is_vip])
@@ -300,27 +302,33 @@ export default function Onboarding() {
     return () => { alive = false }
   }, [vipApplication, demo, draft.country_code])
 
-  // THE MARKET'S ONBOARDING CALL (migration 413). Spain switches it on: a new Spanish creator books 15 minutes with
-  // Marta before review. Never for the team, a VIP sign-up, or somebody already in.
+  // THE MARKET'S ONBOARDING CALL (migrations 413, 420). Spain switches it on, with one booking link for general-community
+  // sign-ups and another for VIP sign-ups: a new Spanish creator books 15 minutes before review. The country decides the
+  // market (a VIP sign-up from Spain gets the Spanish VIP call); never for the team or somebody already in.
   const [signupCalls, setSignupCalls] = useState([])
   useEffect(() => {
     let alive = true
     marketsApi.signupCalls().then(({ data }) => { if (alive) setSignupCalls(data || []) })
     return () => { alive = false }
   }, [])
-  const call = (!teamApplication && !vipApplication && pending && market.market)
-    ? signupCalls.find((c) => c.community_id === market.market.id) || null
+  const savedCall = (!teamApplication && pending && market.market)
+    ? signupCalls.find((c) => c.community_id === market.market.id && c.audience === (vipApplication ? 'vip' : 'community')) || null
     : null
+  // The demo walk can try a link before it is saved: `?callurl=https://cal.com/...` (nothing is written in a demo).
+  const trialUrl = demo ? params.get('callurl') : null
+  const call = savedCall && trialUrl ? { ...savedCall, call_url: trialUrl } : savedCall
   const [callOpened, setCallOpened] = useState(() => !!auth.profile?.onboarding_call_opened_at)
   const [callBooked, setCallBooked] = useState(() => !demo && !!auth.profile?.onboarding_call_booked_at)
-  const markCall = (state) => { if (!demo) marketsApi.onboardingCallMark({ p_state: state }) }
+  const [callAt, setCallAt] = useState(() => (demo ? null : auth.profile?.onboarding_call_at || null))
+  const markCall = (state, extra = {}) => { if (!demo) marketsApi.onboardingCallMark({ p_state: state, ...extra }) }
 
+  const hasCall = !!call
   const steps = useMemo(() => {
     const list = stepsFor(teamApplication)
-    if (!call) return list
+    if (!hasCall) return list
     const at = list.findIndex((st) => st.key === 'review')
     return [...list.slice(0, at), { key: 'call', title: 'Onboarding call', part: 'Finish', need: true }, ...list.slice(at)]
-  }, [teamApplication, call])
+  }, [teamApplication, hasCall])
   const problems = [
     ...draftProblems(draft, contact, { team: teamApplication }),
     ...(call && !callBooked ? [{ step: 'call', text: 'Book your onboarding call' }] : []),
@@ -803,8 +811,13 @@ export default function Onboarding() {
                 call={call}
                 opened={callOpened}
                 booked={callBooked}
+                bookedAt={callAt}
+                prefill={{ name: draft.name, email: user?.email, profileId: demo ? null : user?.id }}
                 onOpen={() => { setCallOpened(true); markCall('opened') }}
-                onBooked={(yes) => { setError(''); setCallBooked(yes); markCall(yes ? 'booked' : 'unbooked') }}
+                onBooked={(yes, info = {}) => {
+                  setError(''); setCallBooked(yes); setCallAt(yes ? info.when || null : null)
+                  markCall(yes ? 'booked' : 'unbooked', yes ? { p_when: info.when || null, p_ref: info.ref || null } : {})
+                }}
               />
             )}
 

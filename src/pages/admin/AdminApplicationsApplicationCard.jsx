@@ -158,9 +158,11 @@ export function ApplicationCard({
               <span className={cx('inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold',
                 app.onboarding_call_booked_at ? 'bg-brand text-white' : 'bg-cloud text-smoke')}>
                 <Icon name="calendar" className="h-3.5 w-3.5" />
-                {app.onboarding_call_booked_at
-                  ? `Booked their onboarding call · ${new Date(app.onboarding_call_booked_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}`
-                  : 'Opened the booking page, has not booked'}
+                {app.onboarding_call_at
+                  ? `Onboarding call ${new Date(app.onboarding_call_at).toLocaleString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}${new Date(app.onboarding_call_at) < new Date() ? ' · done, ready to approve' : ''}`
+                  : app.onboarding_call_booked_at
+                    ? `Booked their onboarding call · ${new Date(app.onboarding_call_booked_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}`
+                    : 'Opened the booking page, has not booked'}
               </span>
             </div>
           )}
