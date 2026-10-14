@@ -1,18 +1,17 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { format } from 'date-fns'
-import { Skeleton } from '../../../components/ui'
-import Segmented from '../../../components/network/Segmented'
-import PeriodPicker from '../../../components/PeriodPicker'
+import { Avatar, Skeleton } from '../../../components/ui'
+import MeetingDeck from './MeetingDeck'
 import VideoThumb from '../../../components/VideoThumb'
 import Icon from '../../../components/Icon'
 import { CountUp } from '../../../components/network/Motion'
 import { CHART, axisTick, tooltipStyle } from '../../../components/charts/chartTheme'
-import { PERIODS, periodRange } from '../../../lib/analyticsPeriod'
+import { PERIODS } from '../../../lib/analyticsPeriod'
 import { copyToClipboard } from '../../../lib/clipboard'
 import { toastSuccess } from '../../../lib/toast'
 import { notice } from '../../../lib/confirm'
-import { compact, foldWeeks, pctChange, rangeLabel, snapshotSvg, snapshotText, viewsFor } from '../../../lib/weeklySnapshot'
+import { compact, foldWeeks, pctChange, rangeLabel, snapshotText, viewsFor } from '../../../lib/weeklySnapshot'
 import { cx, downloadCsv, formatViews } from '../../../lib/utils'
 import { useT } from '../../../lib/i18n'
 import { teamApi } from '../../../api/team'
@@ -23,25 +22,17 @@ import { teamApi } from '../../../api/team'
 //
 // Everything is `admin_views_gained`: views GAINED inside the dates (not lifetime totals), community and VIP side by side. It is read
 // when the dates or the Refresh button change and at no other time - no polling - so leaving the tab open costs the database nothing.
-const PERIOD_KEYS = ['last_7', 'this_week', 'last_week', 'last_3', 'this_month', 'last_month', 'last_30', 'last_90', 'custom']
-const PICKER = PERIOD_KEYS.map((k) => PERIODS.find((p) => p.key === k))
-// THE PERIODS AS BUTTONS. The six that get used are one press each; anything else is behind "More dates".
-const QUICK = ['last_7', 'this_week', 'last_week', 'this_month', 'last_month', 'last_30']
 // What the picture and the file are called, so a month is not handed round as a "weekly" snapshot.
 const SNAP_TITLE = { last_7: 'Weekly snapshot', this_week: 'Weekly snapshot', last_week: 'Weekly snapshot', this_month: 'Monthly snapshot', last_month: 'Monthly snapshot' }
 const longDay = (iso) => new Date(`${iso}T12:00:00Z`).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' })
 const ymd = (d) => format(d, 'yyyy-MM-dd')
 
-export default function ViewsReport() {
+export default function ViewsReport({ market = '', marketName = null, allMarkets = [], periodKey = 'last_7', range, scope = 'both' }) {
   const tr = useT()
-  const [scope, setScope] = useState('both')
-  const [periodKey, setPeriodKey] = useState('last_7')
-  const [custom, setCustom] = useState({ from: '', to: '' })
-  const range = useMemo(() => periodRange(periodKey, new Date(), custom), [periodKey, custom])
-  const from = range.start ? ymd(range.start) : null
+  const from = range?.start ? ymd(range.start) : null
   // `end` is half-open and "now" for a running period, so the last whole day is the one before it - except for a running period,
   // where today counts too.
-  const to = range.end ? ymd(new Date(range.end.getTime() - 1)) : null
+  const to = range?.end ? ymd(new Date(range.end.getTime() - 1)) : null
 
   const cache = useRef(new Map())
   const [data, setData] = useState(null)
@@ -51,14 +42,14 @@ export default function ViewsReport() {
   // Which period the numbers on screen belong to. The buttons change at once; the numbers follow when they land, and the
   // heading must name the numbers, not the button (it said "This month" over last week's dates while loading).
   const [shownKey, setShownKey] = useState(periodKey)
-  const key = `${from}|${to}`
+  const key = `${from}|${to}|${market}`
   useEffect(() => {
     if (!from || !to) return undefined
     let alive = true
     const hit = cache.current.get(key)
     const pk = periodKey
     if (hit && tick === 0) { setData(hit); setShownKey(pk); setErr('') } else setLoading(true)
-    teamApi.adminViewsGained({ p_from: from, p_to: to }).then(({ data: d, error }) => {
+    teamApi.adminViewsGained({ p_from: from, p_to: to, p_market: market || null }).then(({ data: d, error }) => {
       if (!alive) return
       if (error) { setErr(error.message); setLoading(false); return }
       cache.current.set(key, d); setData(d); setShownKey(pk); setErr(''); setLoading(false)
@@ -87,6 +78,8 @@ export default function ViewsReport() {
   const markets = (data?.markets || []).filter((m) => viewsFor(m, scope) > 0 || m.videos > 0 || m.new_members > 0)
   const topMarket = Math.max(1, ...markets.map((m) => viewsFor(m, scope)))
 
+  const topVideos = (data?.top_videos || []).filter((v) => scope === 'both' || (scope === 'vip') === !!v.vip)
+  const topCreators = (data?.top_creators || []).filter((c) => scope === 'both' || (scope === 'vip') === !!c.vip).slice(0, 8)
   const scopeLabel = scope === 'community' ? tr('Community') : scope === 'vip' ? tr('VIP creators') : tr('Community + VIP')
 
   async function copyText() {
@@ -124,65 +117,19 @@ export default function ViewsReport() {
     ])
   }
 
-  function download(kind) {
-    const svg = snapshotSvg(data, scope, snapTitle)
-    const name = `tryp-${(SNAP_TITLE[shownKey] || 'snapshot').toLowerCase().replace(/\s+/g, '-')}-${data.from}-to-${data.to}`
-    const save = (blob, ext) => {
-      const a = document.createElement('a')
-      a.href = URL.createObjectURL(blob)
-      a.download = `${name}.${ext}`
-      document.body.appendChild(a); a.click(); a.remove()
-      setTimeout(() => URL.revokeObjectURL(a.href), 4000)
-    }
-    if (kind === 'svg') { save(new Blob([svg], { type: 'image/svg+xml' }), 'svg'); return }
-    // PNG: the same SVG drawn onto a canvas at twice the size, for the places that will not take an SVG (Meet's chat, WhatsApp).
-    const img = new Image()
-    img.onload = () => {
-      const c = document.createElement('canvas')
-      c.width = 2560; c.height = 1440
-      const ctx = c.getContext('2d')
-      ctx.drawImage(img, 0, 0, c.width, c.height)
-      c.toBlob((b) => { if (b) save(b, 'png'); else notice(tr('Could not make the picture.')) }, 'image/png')
-    }
-    img.onerror = () => notice(tr('Could not make the picture.'))
-    img.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`
-  }
+
 
   return (
     <div className="space-y-5">
-      {/* THE CONTROLS, ONE PANEL: the dates as buttons on top, which views and the actions under them. */}
-      <div className="overflow-hidden rounded-card border border-gray-100 bg-white shadow-card">
-        <div className="flex flex-col gap-2 p-3 lg:flex-row lg:items-center lg:justify-between">
-          <div className="pick-row -mx-1 !mt-0 flex gap-1 overflow-x-auto px-1 !pb-1 !pt-0" role="group" aria-label={tr('Dates')}>
-            {QUICK.map((k) => {
-              const on = periodKey === k
-              return (
-                <button key={k} type="button" onClick={() => setPeriodKey(k)} aria-pressed={on}
-                  className={cx('shrink-0 whitespace-nowrap rounded-full px-3.5 py-1.5 text-[13px] font-semibold transition-all duration-200',
-                    on ? 'bg-brand text-white shadow-card' : 'text-smoke hoverable:hover:bg-cloud hoverable:hover:text-ink')}>
-                  {tr(PERIODS.find((p) => p.key === k).label)}
-                </button>
-              )
-            })}
-          </div>
-          <div className="flex items-center gap-2">
-            <PeriodPicker value={QUICK.includes(periodKey) ? '' : periodKey} from={custom.from} to={custom.to}
-              periods={[{ key: '', label: tr('More dates') }, ...PICKER.filter((p) => !QUICK.includes(p.key))]} className="" width="w-44"
-              onChange={(k, f, tt) => { if (!k) return; setPeriodKey(k); if (k === 'custom') setCustom({ from: f, to: tt }) }} />
-            <button type="button" onClick={() => setTick((n) => n + 1)} disabled={loading} aria-label={tr('Refresh')} title={tr('Read it again')} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-gray-200 bg-white text-smoke transition-all hoverable:hover:text-brand disabled:opacity-50">
-              <Icon name="refresh" className={cx('h-4 w-4', loading && 'animate-spin')} />
-            </button>
-          </div>
-        </div>
-        <div className="flex flex-col gap-3 border-t border-gray-50 bg-cloud/40 px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between">
-          <Segmented value={scope} onChange={setScope} label={tr('Which views')} options={[
-            { value: 'both', label: tr('Community + VIP') }, { value: 'community', label: tr('Community') }, { value: 'vip', label: tr('VIP') },
-          ]} />
-          <div className="flex flex-wrap gap-1.5">
-            <button type="button" disabled={!data} onClick={downloadData} className="btn-secondary !py-1.5 text-xs disabled:opacity-40"><Icon name="download" className="h-3.5 w-3.5" />{tr('Data (CSV)')}</button>
-            <button type="button" disabled={!data} onClick={() => download('png')} className="btn-secondary !py-1.5 text-xs disabled:opacity-40"><Icon name="image" className="h-3.5 w-3.5" />{tr('Picture (PNG)')}</button>
-            <button type="button" disabled={!data} onClick={copyText} className="btn-secondary !py-1.5 text-xs disabled:opacity-40"><Icon name="copy" className="h-3.5 w-3.5" />{tr('Copy as text')}</button>
-          </div>
+      {/* THE ACTIONS. The dates, the market and which views come from the page's own bar above (14 Oct 2026). */}
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="text-xs text-smoke">{marketName ? tr('{m} only. Pick Worldwide above for every market.', { m: marketName }) : tr('Every market. Pick one above for its own numbers and slides.')}</p>
+        <div className="flex flex-wrap gap-1.5">
+          <button type="button" onClick={() => setTick((n) => n + 1)} disabled={loading} aria-label={tr('Refresh')} title={tr('Read it again')} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-gray-200 bg-white text-smoke transition-all hoverable:hover:text-brand disabled:opacity-50">
+            <Icon name="refresh" className={cx('h-4 w-4', loading && 'animate-spin')} />
+          </button>
+          <button type="button" disabled={!data} onClick={downloadData} className="btn-secondary !py-1.5 text-xs disabled:opacity-40"><Icon name="download" className="h-3.5 w-3.5" />{tr('Data (CSV)')}</button>
+          <button type="button" disabled={!data} onClick={copyText} className="btn-secondary !py-1.5 text-xs disabled:opacity-40"><Icon name="copy" className="h-3.5 w-3.5" />{tr('Copy as text')}</button>
         </div>
       </div>
 
@@ -271,39 +218,55 @@ export default function ViewsReport() {
             </div>
           </section>
 
-          {(data.top_videos || []).length > 0 && (
-            <section className="animate-rise">
-              <h3 className="mb-3 text-[15px] font-bold text-ink">{tr('Videos that gained most')}</h3>
-              <div className="scrollbar-none -mx-4 flex gap-3 overflow-x-auto px-4 pb-1 sm:mx-0 sm:px-0">
-                {data.top_videos.filter((v) => scope === 'both' || (scope === 'vip') === v.vip).map((v) => (
-                  <a key={v.id} href={v.url} target="_blank" rel="noopener noreferrer" className="group relative w-[132px] shrink-0 overflow-hidden rounded-2xl bg-ink shadow-card transition-transform duration-300 hoverable:hover:-translate-y-0.5">
-                    <VideoThumb url={v.url} platform={v.platform} thumbnailUrl={v.thumb} className="!aspect-[9/14]" mark={false} />
-                    <span aria-hidden className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/80 to-transparent" />
-                    <span className="absolute inset-x-2 bottom-2 text-white"><span className="block text-base font-bold tabular-nums leading-none">+{formatViews(v.views)}</span><span className="block truncate text-[10.5px] text-white/80">{v.name}{v.vip ? ' · VIP' : ''}</span></span>
-                  </a>
-                ))}
+          {/* WHAT GAINED MOST (14 Oct 2026): twelve videos, scrollable, each saying whose it is, which challenge, what it
+              gained here and where it stands in total; and the creators beside them. */}
+          <div className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+            <section className="animate-rise rounded-card border border-gray-100 bg-white p-4 shadow-card sm:p-5">
+              <div className="mb-3 flex items-center justify-between">
+                <h3 className="text-[15px] font-bold text-ink">{tr('Videos that gained most')}</h3>
+                <span className="text-xs text-smoke">{tr('Scroll for more')}</span>
               </div>
+              {topVideos.length === 0 ? <p className="py-8 text-center text-sm text-smoke">{tr('Nothing in these dates.')}</p> : (
+                <div className="scrollbar-none -mx-1 flex snap-x gap-3 overflow-x-auto px-1 pb-1">
+                  {topVideos.map((v, i) => (
+                    <a key={v.id} href={v.url} target="_blank" rel="noopener noreferrer" className="group relative w-[150px] shrink-0 snap-start overflow-hidden rounded-2xl bg-ink shadow-card transition-transform duration-300 animate-rise hoverable:hover:-translate-y-0.5" style={{ animationDelay: `${i * 40}ms` }}>
+                      <VideoThumb url={v.url} platform={v.platform} thumbnailUrl={v.thumb} className="!aspect-[9/14]" mark={false} />
+                      <span className="absolute left-2 top-2 flex h-6 min-w-6 items-center justify-center rounded-full bg-white px-1.5 text-[11px] font-extrabold text-brand shadow-card">{i + 1}</span>
+                      <span aria-hidden className="absolute inset-x-0 bottom-0 h-3/5 bg-gradient-to-t from-black/85 to-transparent" />
+                      <span className="absolute inset-x-2 bottom-2 text-white">
+                        <span className="block text-base font-bold tabular-nums leading-none">+{formatViews(v.views)}</span>
+                        <span className="mt-0.5 block truncate text-[11px] font-semibold">{v.name}{v.vip ? ' · VIP' : ''}</span>
+                        <span className="block truncate text-[10px] text-white/70">{v.challenge || (v.vip ? tr('VIP video') : '')}{v.total ? ` · ${formatViews(v.total)} ${tr('in total')}` : ''}</span>
+                      </span>
+                    </a>
+                  ))}
+                </div>
+              )}
             </section>
-          )}
+            <section className="animate-rise rounded-card border border-gray-100 bg-white p-4 shadow-card sm:p-5" style={{ animationDelay: '60ms' }}>
+              <h3 className="mb-3 text-[15px] font-bold text-ink">{tr('Creators who gained most')}</h3>
+              {topCreators.length === 0 ? <p className="py-8 text-center text-sm text-smoke">{tr('Nothing in these dates.')}</p> : (
+                <ol className="space-y-2.5">
+                  {topCreators.map((c, i) => {
+                    const max = Math.max(1, ...topCreators.map((x) => Number(x.views) || 0))
+                    return (
+                      <li key={c.id} className="flex items-center gap-3">
+                        <span className={cx('w-5 text-right text-sm font-extrabold tabular-nums', i < 3 ? 'text-brand' : 'text-gray-400')}>{i + 1}</span>
+                        <Avatar src={c.photo_url} name={c.name} size="xs" />
+                        <span className="min-w-0 flex-1">
+                          <span className="flex justify-between gap-2 text-sm"><span className="truncate font-semibold">{c.name}{c.vip ? ' · VIP' : ''}</span><span className="font-bold tabular-nums">+{formatViews(c.views)}</span></span>
+                          <span className="mt-1 block h-1.5 overflow-hidden rounded-full bg-cloud"><span className="block h-full rounded-full bg-brand transition-[width] duration-700" style={{ width: `${(Number(c.views) / max) * 100}%` }} /></span>
+                        </span>
+                      </li>
+                    )
+                  })}
+                </ol>
+              )}
+            </section>
+          </div>
 
-          {/* THE SNAPSHOT: what goes on the screen in the meeting. Same numbers as above, as one picture and one paragraph. */}
-          <section className="animate-rise overflow-hidden rounded-card border border-brand/25 bg-white shadow-card">
-            <div className="flex flex-wrap items-center justify-between gap-3 px-4 pt-4 sm:px-5">
-              <div>
-                <h3 className="flex items-center gap-2 text-[15px] font-bold text-ink"><Icon name="megaphone" className="h-4 w-4 text-brand" />{tr('{t} for the meeting', { t: snapTitle })}</h3>
-                <p className="text-xs text-smoke">{tr('One picture for the screen, one paragraph for the chat. It follows the dates and the switch above.')}</p>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                <button type="button" onClick={() => download('png')} className="btn-primary !py-2 text-xs"><Icon name="download" className="h-3.5 w-3.5" />{tr('Picture (PNG)')}</button>
-                <button type="button" onClick={() => download('svg')} className="btn-secondary !py-2 text-xs">{tr('SVG')}</button>
-                <button type="button" onClick={downloadData} className="btn-secondary !py-2 text-xs"><Icon name="download" className="h-3.5 w-3.5" />{tr('Data (CSV)')}</button>
-                <button type="button" onClick={copyText} className="btn-secondary !py-2 text-xs"><Icon name="copy" className="h-3.5 w-3.5" />{tr('Copy as text')}</button>
-              </div>
-            </div>
-            <div className="p-4 sm:p-5">
-              <div className="overflow-hidden rounded-2xl border border-gray-100 shadow-sm" dangerouslySetInnerHTML={{ __html: snapshotSvg(data, scope, snapTitle).replace(/ width="1280" height="720"/, ' style="width:100%;height:auto;display:block"') }} />
-            </div>
-          </section>
+          <MeetingDeck data={data} scope={scope} market={market} marketName={marketName} allMarkets={allMarkets} from={from} to={to} title={snapTitle} />
+
         </div>
       )}
     </div>

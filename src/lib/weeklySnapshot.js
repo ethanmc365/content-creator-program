@@ -77,8 +77,13 @@ export function snapshotSvg(r, scope = 'both', title = 'Weekly snapshot') {
   const chText = ch == null ? 'nothing earlier to compare' : `${ch >= 0 ? '▲' : '▼'} ${Math.abs(ch)}% on the ${r.days} days before`
     const which = scope === 'community' ? 'Community' : scope === 'vip' ? 'VIP creators' : 'Community + VIP'
 
-  const rows = (r?.markets || []).filter((m) => viewsFor(m, scope) > 0 || m.new_members > 0 || m.videos > 0).slice(0, 7)
-  const maxRow = Math.max(1, ...rows.map((m) => viewsFor(m, scope)))
+  // A ONE-MARKET SNAPSHOT (14 Oct 2026) shows that market's top creators on the right instead of every market.
+  const one = !!r?.market
+  const rows = one
+    ? (r.top_creators || []).filter((c) => scope === 'both' || (scope === 'vip') === !!c.vip).slice(0, 7)
+      .map((c) => ({ name: c.vip ? `${c.name} · VIP` : c.name, community: c.views, vip: 0, videos: c.videos, creator: true }))
+    : (r?.markets || []).filter((m) => viewsFor(m, scope) > 0 || m.new_members > 0 || m.videos > 0).slice(0, 7)
+  const maxRow = Math.max(1, ...rows.map((m) => (m.creator ? m.community : viewsFor(m, scope))))
   const series = r?.days > 21 ? foldWeeks(r.daily || []) : (r?.daily || [])
   const maxBar = Math.max(1, ...series.map((d) => (scope === 'community' ? d.community : scope === 'vip' ? d.vip : d.community + d.vip)))
 
@@ -102,17 +107,17 @@ export function snapshotSvg(r, scope = 'both', title = 'Weekly snapshot') {
 
   const table = rows.map((m, i) => {
     const y = 306 + i * 52
-    const v = viewsFor(m, scope)
+    const v = m.creator ? m.community : viewsFor(m, scope)
     const w = Math.max(4, Math.round((v / maxRow) * 190))
-    const mch = pctChange(viewsFor(m, scope), scope === 'both' ? m.prev_combined : null)
+    const mch = m.creator ? null : pctChange(viewsFor(m, scope), scope === 'both' ? m.prev_combined : null)
     return `<g>
-      <text x="676" y="${y + 17}" font-size="17" font-weight="700" fill="${INK}">${esc(m.name)}</text>
+      <text x="676" y="${y + 17}" font-size="17" font-weight="700" fill="${INK}">${esc(String(m.name).length > 20 ? `${String(m.name).slice(0, 19)}…` : m.name)}</text>
       <rect x="676" y="${y + 26}" width="190" height="7" rx="3.5" fill="#f1ece8"/>
       <rect x="676" y="${y + 26}" width="${w}" height="7" rx="3.5" fill="${ORANGE}"/>
       <text x="880" y="${y + 17}" font-size="17" font-weight="800" fill="${INK}">${compact(v)}</text>
       ${mch == null ? '' : `<text x="880" y="${y + 36}" font-size="12" fill="${mch >= 0 ? '#16803c' : '#b91c1c'}">${mch >= 0 ? '▲' : '▼'} ${Math.abs(mch)}%</text>`}
       <text x="962" y="${y + 17}" font-size="15" fill="${SMOKE}">${m.videos} videos</text>
-      <text x="962" y="${y + 36}" font-size="13" fill="${SMOKE}">${m.new_members} new · ${m.active_creators} active</text>
+      ${m.creator ? '' : `<text x="962" y="${y + 36}" font-size="13" fill="${SMOKE}">${m.new_members} new · ${m.active_creators} active</text>`}
     </g>`
   }).join('')
 
@@ -142,7 +147,7 @@ export function snapshotSvg(r, scope = 'both', title = 'Weekly snapshot') {
     ${scope !== 'community' ? `<rect x="${scope === 'vip' ? 48 : 200}" y="${cy0 + chh + 42}" width="12" height="12" rx="3" fill="${INK}"/><text x="${scope === 'vip' ? 66 : 218}" y="${cy0 + chh + 52}">VIP ${compact(t.vip)}</text>` : ''}
   </g>
 
-  <text x="676" y="290" font-size="13" font-weight="700" letter-spacing="1.4" fill="${SMOKE}">BY MARKET</text>
+  <text x="676" y="290" font-size="13" font-weight="700" letter-spacing="1.4" fill="${SMOKE}">${one ? 'CREATORS WHO GAINED MOST' : 'BY MARKET'}</text>
   ${table}
 
   <text x="48" y="${H - 28}" font-size="13" fill="${SMOKE}">Views gained inside the dates shown, not lifetime totals. ${scope === 'both' ? 'Community and VIP added together.' : ''}</text>

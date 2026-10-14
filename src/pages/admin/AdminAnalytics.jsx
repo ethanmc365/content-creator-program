@@ -35,6 +35,8 @@ import ChartPanel from '../../components/charts/ChartPanel'
 import Icon from '../../components/Icon'
 import Recruitment from './analytics/Recruitment'
 import { TABS } from './analytics/tabs'
+
+const VIEW_PERIODS = ['last_7', 'this_week', 'last_week', 'last_3', 'this_month', 'last_month', 'last_30', 'last_90', 'custom'].map((k) => PERIODS.find((p) => p.key === k))
 import { moneyApi } from '../../api/money'
 import { challengesApi } from '../../api/challenges'
 import { submissionsApi } from '../../api/submissions'
@@ -212,6 +214,13 @@ export default function AdminAnalytics() {
   // The only thing that finds it is opening the page, which is now what happens
   // before this file is committed.
   const market = params.get('market') || ''
+  // Which views the Weekly views tab counts, in the URL like the rest.
+  const viewScope = ['community', 'vip'].includes(params.get('views')) ? params.get('views') : 'both'
+  const setViewScope = (v) => {
+    const q = { ...Object.fromEntries(params) }
+    if (v === 'both') delete q.views; else q.views = v
+    setParams(q, { replace: true })
+  }
 
   // THE SCOPE IS RESOLVED BEFORE ANYTHING IS COMPUTED FROM IT.
   //
@@ -238,6 +247,7 @@ export default function AdminAnalytics() {
   )
   const periodOn = !!(range.start || range.end)
   // The eight headline figures for the period and for the one before it, worked out the same way.
+  const [openedAt] = useState(() => Date.now())
   // THIS MONTH SO FAR AGAINST THE SAME DAYS LAST MONTH, for the All time overview.
   const monthCompare = useMemo(() => {
     if (!scoped || periodOn || !loadedAt) return null
@@ -578,7 +588,7 @@ export default function AdminAnalytics() {
     ? `${(scoped?.profiles || []).filter((p) => !p.is_test && !p.is_admin).length} creators · ${(scoped?.challenges || []).length} challenges here`
     : null
 
-  const filterBar = (marketsOff = false, periodOff = false) => (
+  const filterBar = (marketsOff = false, periodOff = false, extra = {}) => (
     <div className="mb-6 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-card border border-gray-100 bg-white p-1.5 shadow-card">
       {/* ON A PHONE THE MARKETS GET THEIR OWN ROW. Squeezed beside the date they scrolled in a sliver, and a picked
           market chip clipped at the edge read as "an orange bar on the right side" of the date. Full width, a fade at
@@ -617,11 +627,12 @@ export default function AdminAnalytics() {
           Overview only: the other tabs have their own clocks (the league is a month, the log has its year/month), so
           here it is dimmed rather than removed and the bar never changes shape between tabs. */}
       <PeriodPicker
-        value={periodKey}
+        value={extra.periodValue ?? periodKey}
         from={customFrom}
         to={customTo}
         onChange={setPeriod}
         disabled={periodOff}
+        periods={extra.periods}
       />
 
       {/* THE REPORTING CURRENCY. Half the markets are in euros and half in
@@ -636,6 +647,7 @@ export default function AdminAnalytics() {
           the whole thing was reachable by typing `?ccy=GBP` into the address
           bar. Now it lives once, here, and the Challenges tab is handed the
           same value rather than keeping a second one that could disagree. */}
+      {extra.right ?? (
       <div className="flex shrink-0 items-center gap-0.5 border-gray-100 pl-3 max-sm:border-l-0 sm:border-l">
         {['EUR', 'GBP'].map((c) => (
           <button
@@ -652,6 +664,7 @@ export default function AdminAnalytics() {
           </button>
         ))}
       </div>
+      )}
     </div>
   )
 
@@ -693,19 +706,37 @@ export default function AdminAnalytics() {
   // league table with one row in it. NO MARKET PICKER ON ERRORS: a crash is a property of the code and the
   // route, not of a market, and a control that cannot change the answer teaches people controls do not work - so
   // on those two tabs the bar stays where it is but is dimmed and switched off.
-  const shell = (body, { filters = true, markets: marketsOn = true, period: periodCtl = false } = {}) => (
+  const shell = (body, { filters = true, markets: marketsOn = true, period: periodCtl = false, extra } = {}) => (
     <div className="page">
       <PageHeader back="/admin" title="Analytics" />
       {tabBar}
       {/* Kept in place on the two tabs it cannot change (dimmed, not removed), so
           the body starts at the same height on every tab and nothing jumps. */}
-      <div aria-hidden={!filters} className={cx('transition-opacity duration-200', !filters && 'pointer-events-none select-none opacity-35')}>{filterBar(!marketsOn, !periodCtl)}</div>
+      <div aria-hidden={!filters} className={cx('transition-opacity duration-200', !filters && 'pointer-events-none select-none opacity-35')}>{filterBar(!marketsOn, !periodCtl, extra)}</div>
       <div key={tab} className={cx('animate-tab-in transition-opacity duration-200', marketPending && 'opacity-50')}>{body}</div>
     </div>
   )
 
   if (tab === 'recruitment') return shell(<Recruitment raw={scoped} market={market} markets={markets} scopeLabel={scopeLabel} range={periodOn ? range : null} />, { period: true })
-  if (tab === 'views') return shell(<ViewsReport />, { filters: false })
+  // WEEKLY VIEWS USES THE PAGE'S OWN BAR (14 Oct 2026). It used to grey the bar out and draw a second panel of controls
+  // under it. Now the markets narrow it, the period picker holds the views periods (a year of days at most, so All time
+  // reads as the last 7 days here), and the currency switch becomes the Community / VIP switch.
+  if (tab === 'views') {
+    const vKey = VIEW_PERIODS.some((p) => p.key === periodKey) ? periodKey : 'last_7'
+    const vRange = periodRange(vKey, new Date(loadedAt || openedAt), { from: customFrom, to: customTo })
+    const scopeToggle = (
+      <div className="flex shrink-0 items-center gap-0.5 border-gray-100 pl-3 max-sm:border-l-0 sm:border-l">
+        {[['both', 'All'], ['community', 'Community'], ['vip', 'VIP']].map(([k, label]) => (
+          <button key={k} type="button" onClick={() => setViewScope(k)} aria-pressed={viewScope === k}
+            className={cx('rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors', viewScope === k ? 'bg-brand text-white' : 'text-smoke hover:bg-cloud hover:text-ink')}>
+            {label}
+          </button>
+        ))}
+      </div>
+    )
+    return shell(<ViewsReport market={market} marketName={marketName} allMarkets={markets} periodKey={vKey} range={vRange} scope={viewScope} />,
+      { period: true, extra: { periods: VIEW_PERIODS, periodValue: vKey, right: scopeToggle } })
+  }
   if (tab === 'vip') return shell(<VipAnalytics />, { filters: false })
   if (tab === 'markets') return shell(<MarketLeague raw={raw} currency={currency} />, { markets: false })
   if (tab === 'growth') return shell(<Growth raw={scoped} scopeLabel={scopeLabel} onDrill={drillTo} />)
