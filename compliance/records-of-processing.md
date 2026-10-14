@@ -30,7 +30,6 @@ Replace the **[PLACEHOLDER]** fields with your real details.
 | Supabase | Database, auth, file storage | Switzerland | EU adequacy decision | [link/date] |
 | Vercel | App hosting / CDN | US/global | DPF / SCCs | [link/date] |
 | Cloudflare | Turnstile, CDN | US/global | DPF / SCCs | [link/date] |
-| Resend | Transactional/notification email | US | DPF / SCCs | [link/date] |
 
 ## Data subject rights — how they're handled
 - **Access / portability:** self-service "Download my data" (Edit profile → Your data & account) exports JSON.

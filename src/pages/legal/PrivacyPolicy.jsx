@@ -95,7 +95,6 @@ export default function PrivacyPolicy() {
         <li><strong>Cloudflare</strong> - bot protection on the sign-up and login forms (Turnstile).</li>
         <li><strong>Sentry</strong> - error monitoring, so that a crash is reported to us rather than only to the person it happened to. It receives the technical details of the fault and your account's internal reference number; it does not receive your name, email address or IP address. Hosted in the European Union.</li>
         <li><strong>Google</strong> - if, and only if, you choose "Continue with Google" to sign in. Google tells us your name, email address and that the address is verified. If you sign in with an email and password, Google receives nothing.</li>
-        <li><strong>Resend</strong> - transactional and notification email.</li>
         <li><strong>OpenStreetMap (Nominatim)</strong> - turning the town you type into map coordinates. It receives the place name, not your identity.</li>
         <li><strong>Google Fonts</strong> - the typeface the site is set in.</li>
         <li><strong>Instagram, TikTok, YouTube and Facebook</strong> - we request the public page of a link you submitted in order to read its view count. We send them a request for a public URL and nothing about you.</li>
@@ -109,7 +108,7 @@ export default function PrivacyPolicy() {
       <p>
         Supabase processes your data in Switzerland, which the European Commission recognises as
         providing an adequate level of protection. Sentry processes error reports in the European
-        Union. Some processors (Vercel, Cloudflare, Resend,
+        Union. Some processors (Vercel, Cloudflare,
         Google) may process data in the United States; where they do, those transfers are covered by
         the EU-US Data Privacy Framework and/or the European Commission's Standard Contractual
         Clauses, with the UK Addendum where UK data is involved.

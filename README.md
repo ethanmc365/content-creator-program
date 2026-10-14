@@ -84,7 +84,6 @@ deployed edge functions with the repo (`edge-drift` job, needs the `SUPABASE_ACC
 | `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_ANON_KEY` | Every function (provided by Supabase) |
 | `WEBHOOK_SECRET` | view-sync, notify-dispatch, media-cleanup; must equal `private.config.webhook_secret` |
 | `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` | notify-dispatch (web push). Keep the same pair at a move or every phone must re-enable notifications. |
-| `RESEND_API_KEY` | send-invoice (email) |
 | `APP_URL` | links in emails and pushes |
 | `YOUTUBE_API_KEY` | optional fallback; view-sync reads `private.config.youtube_api_key` first |
 | `ANTHROPIC_API_KEY` | optional; translate-text uses free engines without it |

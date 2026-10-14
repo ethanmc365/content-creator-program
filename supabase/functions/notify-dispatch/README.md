@@ -15,16 +15,14 @@ creators get alerts even when the PWA is fully closed.
    supabase secrets set \
      VAPID_PUBLIC_KEY=<public key in src/lib/push.js> \
      VAPID_PRIVATE_KEY=<private key - kept out of git; ask the team> \
-     RESEND_API_KEY=<your Resend API key> \
      APP_URL=https://trypcreators.vercel.app
    ```
    (`SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` are injected automatically.
    The VAPID private key is not committed; it is stored with the team / in the
    project's secret store.)
 
-3. **Get a Resend API key** (free tier, 3k emails/mo) at resend.com, verify a
-   sending domain (or use the `onboarding@resend.dev` sandbox sender for tests),
-   and put it in the secret above. Email is skipped if `RESEND_API_KEY` is unset.
+3. There is no email provider: this function sends web push only (Resend was set up once, never used, and removed on
+   14 Oct 2026).
 
 4. **Create the Database Webhook**: Supabase Dashboard → Database → Webhooks →
    *Create*, table `public.notifications`, event **INSERT**, type **HTTP Request**,

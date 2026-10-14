@@ -162,11 +162,7 @@ export function InvoiceModal({ inv, open, onClose, onDecide, onRecordSent, onPai
 
   // GMAIL IS THE ONLY WAY OUT NOW.
   //
-  // `startSend` used to hand the PDF to the `send-invoice` function, which
-  // mailed it through Resend. That path is paused until mail.tryp.com has its
-  // DNS records, and an invoice is the worst thing to discover was silently
-  // undeliverable - the creator is waiting on money and nobody finds out until
-  // they ask. What was the ESCAPE HATCH below is now the road.
+  // The admin sends the PDF from their own mailbox and records it here; the platform has no mail service.
   //
   // RECORDING IT IS STILL A SEPARATE PRESS. Opening a compose window is not
   // evidence anybody sent anything, and this particular row moves money: the
@@ -408,8 +404,7 @@ export function useInvoiceViewer({ onChanged, onEdit } = {}) {
 
   // RECORDING A SEND THAT HAPPENED IN GMAIL. The channel is 'gmail', which
   // means the function only writes the record and notifies the creator - it
-  // attaches nothing and mails nothing. 'resend' was the old path where the
-  // platform itself sent the invoice; it is gone (see the note on startSend).
+  // attaches nothing and mails nothing. The platform sends no mail of its own.
   async function onRecordSent(inv, { to, cc }) {
     if (!await confirm(
       `Record ${invoiceRef(inv.number)} as sent to ${parseEmails(to).join(', ')}?\n\n` +

@@ -15,8 +15,8 @@ describes the architecture, the controls in place, and the known limitations.
   - `auth-gate` — proxies login/signup/recover and enforces rate limiting.
   - `upload` — verifies the user and writes to Storage with the service role
     (so uploads don't depend on Storage's per-node JWT cache), own-folder only.
-  - `notify-dispatch` — sends web push + email; locked behind a shared secret.
-- **Secrets** (service-role key, Resend API key, VAPID private key, webhook
+  - `notify-dispatch` — sends web push; locked behind a shared secret.
+- **Secrets** (service-role key, VAPID private key, webhook
   secret) live as Supabase **function secrets** or in a private `private.config`
   table. They are **never** in the repo, git history, or the browser bundle.
 

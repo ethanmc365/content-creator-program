@@ -1,6 +1,6 @@
 import { supabase } from './supabase'
 import { parseEmails } from './invoice'
-import { buildInvoicePdf, invoiceFilename, pdfToBase64 } from './invoicePdf'
+
 
 // SENDING AN INVOICE, IN ONE PLACE.
 //
@@ -38,23 +38,12 @@ export function invoiceFromRow(row) {
 }
 
 /**
- * Record that an approved invoice has gone out - and, on the retired 'resend'
- * channel, send it.
- *
- * `channel` is 'gmail' (the admin sent it themselves; this only records the
- * fact and notifies the creator) or 'resend' (the platform mails the PDF).
- *
- * IT DEFAULTS TO 'gmail' NOW, AND NOTHING IN THE CLIENT PASSES 'resend'. All outbound mail is paused until mail.tryp.com
- * has its DNS records - see lib/compose - so a caller that forgot to say which channel it wanted must get the one that
- * cannot silently fail to deliver an invoice somebody is waiting on. The 'resend' branch is left in place, unreferenced,
- * because the edge function still understands it and this becomes a one-word change when the domain is verified.
+ * Record that an approved invoice has gone out (the admin emails the PDF from their own mailbox) and tell the creator.
+ * There is no platform email: Resend was never used and was removed on 14 Oct 2026.
  */
-export async function sendInvoiceRow(row, { to, cc, channel = 'gmail' } = {}) {
+export async function sendInvoiceRow(row, { to, cc } = {}) {
   const inv = invoiceFromRow(row)
   const { data: { session } } = await supabase.auth.getSession()
-
-  let pdfBase64 = null
-  if (channel === 'resend') pdfBase64 = pdfToBase64(await buildInvoicePdf(inv))
 
   const res = await fetch(FN_URL, {
     method: 'POST',
@@ -64,7 +53,7 @@ export async function sendInvoiceRow(row, { to, cc, channel = 'gmail' } = {}) {
       apikey: supabase.supabaseKey,
     },
     body: JSON.stringify({
-      channel,
+      channel: 'gmail',
       invoiceId: row.id,
       number: row.number,
       creatorId: row.creator_id,
@@ -78,8 +67,6 @@ export async function sendInvoiceRow(row, { to, cc, channel = 'gmail' } = {}) {
       payment: inv.payee,
       to: parseEmails(to).join(', '),
       cc: parseEmails(cc).join(', '),
-      filename: invoiceFilename(inv),
-      pdfBase64,
     }),
   })
   const out = await res.json().catch(() => ({}))

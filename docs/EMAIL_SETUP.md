@@ -1,3 +1,7 @@
+> **14 Oct 2026: Resend is removed.** It was integrated and never used; the platform sends no email of its own. Welcome
+> emails and invoices go out from the team's own mailboxes. The options below are kept as history for whoever sets up
+> platform email later.
+
 # Email setup (Gmail SMTP)
 
 ## Current status (13 Oct 2026)

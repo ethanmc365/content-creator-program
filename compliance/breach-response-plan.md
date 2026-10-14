@@ -9,7 +9,7 @@ to them is high. This plan makes that achievable. Replace **[PLACEHOLDER]** valu
 - **Controller:** Tryp.com LDA, Lisbon, Portugal — ethan@tryp.com
 - **Breach lead:** [NAME / ROLE] — [email/phone]  ← name a specific person
 - **Supervisory authority:** Comissão Nacional de Proteção de Dados (CNPD), Portugal — https://www.cnpd.pt (breach notification via the CNPD website)
-- **Processors to alert if involved:** Supabase, Vercel, Cloudflare, Resend (support/security contacts)
+- **Processors to alert if involved:** Supabase, Vercel, Cloudflare, Sentry (support/security contacts)
 
 ## What counts as a breach
 Any accidental or unlawful destruction, loss, alteration, unauthorised disclosure of, or

@@ -19,7 +19,7 @@ import {
   parseEmails,
   badEmails,
 } from '../../lib/invoice'
-import { downloadInvoicePdf, invoiceFilename } from '../../lib/invoicePdf'
+import { downloadInvoicePdf } from '../../lib/invoicePdf'
 // The on-screen invoice. Shared with the Testing Centre's invoice lab, so the
 // demo and the real composer can never draw two different invoices.
 import InvoicePreview from '../../components/InvoicePreview'
@@ -454,10 +454,9 @@ export default function InvoicesPanel({ prefill, onClose, onSent }) {
     try { await downloadInvoicePdf(inv) } finally { setDownloading(false) }
   }
 
-  // Record the invoice + notify the creator via the edge function.
-  // channel 'resend' also emails the PDF; 'gmail' only records (the admin
-  // sends the email themselves from Gmail).
-  async function callSendInvoice(channel, pdfBase64OrNull) {
+  // Record the invoice + notify the creator via the edge function. The admin sends the email themselves from Gmail; the
+  // platform sends no mail (Resend removed 14 Oct 2026).
+  async function callSendInvoice() {
     const { data: { session } } = await supabase.auth.getSession()
     const res = await fetch(FN_URL, {
       method: 'POST',
@@ -467,7 +466,7 @@ export default function InvoicesPanel({ prefill, onClose, onSent }) {
         apikey: supabase.supabaseKey,
       },
       body: JSON.stringify({
-        channel,
+        channel: 'gmail',
         invoiceId,
         number,
         creatorId: offPlatform ? null : (creatorId || null),
@@ -481,8 +480,6 @@ export default function InvoicesPanel({ prefill, onClose, onSent }) {
         payment: payee,
         to: parseEmails(to).join(', '),
         cc: parseEmails(cc).join(', '),
-        filename: invoiceFilename(inv),
-        pdfBase64: pdfBase64OrNull,
       }),
     })
     const out = await res.json().catch(() => ({}))
@@ -491,12 +488,6 @@ export default function InvoicesPanel({ prefill, onClose, onSent }) {
   }
 
   // THE PLATFORM DOES NOT SEND THE INVOICE ANY MORE.
-  //
-  // `send()` lived here and called `send-invoice` with the PDF as base64, which
-  // mailed it through Resend. That is exactly the outbound path that is paused
-  // until the DNS records for mail.tryp.com exist - and an invoice is the worst
-  // possible thing to discover was silently undeliverable, because the creator
-  // is waiting on money and nobody finds out until they ask.
   //
   // So there is one path now: `composeInGmail` below. The edge function is still
   // called, with action 'gmail', but only to RECORD the send and notify the
@@ -544,7 +535,7 @@ export default function InvoicesPanel({ prefill, onClose, onSent }) {
   async function markGmailSent() {
     setSending(true)
     try {
-      await callSendInvoice('gmail', null)
+      await callSendInvoice()
       notice(`Invoice ${invoiceRef(number)} recorded.\n\n${inv.creatorName} has been told to expect the payment within 7 days.`)
       onSent?.()
       closeComposer()
