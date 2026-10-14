@@ -77,6 +77,12 @@ export default defineConfig({
             { name: 'charts', test: /node_modules[/\\]recharts[/\\]/, priority: 50 },
             { name: 'maps', test: /node_modules[/\\](react-simple-maps|topojson-client)[/\\]/, priority: 50 },
             { name: 'supabase', test: /node_modules[/\\]@supabase[/\\]/, priority: 50 },
+            // THE ENTRY WAS 795kB (15 Oct 2026), and 440kB of its source was the animation library. It is needed on the
+            // first frame either way, so this does not delay anything; it gives it its own long-cached file, so a deploy
+            // of the app no longer re-downloads it, and takes the entry back under the 500kB line. Same for the airport
+            // and airline tables, which change far less often than the code around them.
+            { name: 'motion', test: /node_modules[/\\](framer-motion|motion-dom|motion-utils)[/\\]/, priority: 60 },
+            { name: 'travel-data', test: /src[/\\]lib[/\\](airports|airlines)\.js$/, priority: 40 },
           ],
         },
       },

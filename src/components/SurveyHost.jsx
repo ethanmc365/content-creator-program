@@ -316,10 +316,14 @@ function RatingAnswer({ q, value, onChange }) {
           <linearGradient id={`${gid}-on`} x1="0" y1="0" x2="1" y2="1">
             {/* BRIGHT YELLOW (14 Oct 2026): the stars ran gold to brand orange and "look really dull ... a really dark
                 colour. It should be like a bright yellow". */}
-            <stop offset="0%" stopColor="#fff176" />
-            <stop offset="55%" stopColor="#ffd60a" />
-            <stop offset="100%" stopColor="#fbbf24" />
+            <stop offset="0%" stopColor="#fff59d" />
+            <stop offset="50%" stopColor="#ffe100" />
+            <stop offset="100%" stopColor="#ffb300" />
           </linearGradient>
+          <radialGradient id={`${gid}-core`} cx="50%" cy="45%" r="55%">
+            <stop offset="0%" stopColor="#ffffff" stopOpacity="0.95" />
+            <stop offset="100%" stopColor="#fff59d" stopOpacity="0" />
+          </radialGradient>
         </defs>
       </svg>
       <div className="flex items-center justify-between gap-1" role="radiogroup" aria-label={q.prompt} onMouseLeave={() => setHover(0)}>
@@ -349,17 +353,23 @@ function RatingAnswer({ q, value, onChange }) {
               {value === n && SPARKS.map((sp, k) => (
                 <span key={`${value}-${k}`} aria-hidden className="survey-spark" style={{ '--x': `${sp.x}px`, '--y': `${sp.y}px`, background: sp.c }} />
               ))}
+              {/* A GLOW, NOT JUST A COLOUR (15 Oct 2026: "still extremely dull ... a really nice glow effect, bright and
+                  energetic"). A soft yellow halo blooms behind every lit star, the star itself has a hot white-yellow
+                  core and a layered golden shadow. No loops: it lights once and stays lit. */}
+              <span aria-hidden className="pointer-events-none absolute inset-0 m-auto h-14 w-14 rounded-full blur-md transition-[opacity,transform] duration-300 ease-out"
+                style={{ background: 'radial-gradient(circle, rgba(255,230,80,0.95) 0%, rgba(255,200,40,0.55) 40%, rgba(255,180,0,0) 70%)', opacity: bright ? bright : 0, transform: `scale(${bright === 1 ? 1.15 : 0.7})`, transitionDelay: bright ? `${(n - 1) * 45}ms` : '0ms' }} />
               <span className={cx('relative block', value === n && 'survey-star-in')} style={{ '--d': '0ms' }}>
                 <svg viewBox="0 0 24 24" className="h-10 w-10 sm:h-11 sm:w-11" aria-hidden>
-                  <path d={STAR} fill="#e5e7eb" stroke="#d1d5db" strokeWidth="0.6" strokeLinejoin="round" />
+                  <path d={STAR} fill="#f3f4f6" stroke="#e5e7eb" strokeWidth="0.8" strokeLinejoin="round" />
                 </svg>
                 <svg
                   viewBox="0 0 24 24"
                   className="absolute inset-0 h-10 w-10 sm:h-11 sm:w-11"
-                  style={{ opacity: bright, transform: `scale(${bright === 1 ? 1 : 0.92})`, transition: `opacity 260ms ease, transform 260ms ease`, transitionDelay: bright ? `${(n - 1) * 45}ms` : '0ms', filter: bright ? 'drop-shadow(0 4px 10px rgba(251,191,36,0.6))' : 'none' }}
+                  style={{ opacity: bright, transform: `scale(${bright === 1 ? 1.08 : 0.94})`, transition: `opacity 260ms ease, transform 320ms cubic-bezier(0.34,1.56,0.64,1)`, transitionDelay: bright ? `${(n - 1) * 45}ms` : '0ms', filter: bright ? 'drop-shadow(0 0 6px rgba(255,214,10,0.95)) drop-shadow(0 0 14px rgba(255,190,0,0.7)) drop-shadow(0 4px 10px rgba(245,158,11,0.55))' : 'none' }}
                   aria-hidden
                 >
-                  <path d={STAR} fill={`url(#${gid}-on)`} stroke="#f59e0b" strokeWidth="0.7" strokeLinejoin="round" />
+                  <path d={STAR} fill={`url(#${gid}-on)`} stroke="#ffc400" strokeWidth="0.7" strokeLinejoin="round" />
+                  <path d={STAR} fill={`url(#${gid}-core)`} transform="translate(12 12) scale(0.55) translate(-12 -12)" />
                 </svg>
               </span>
             </button>

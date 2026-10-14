@@ -383,7 +383,7 @@ export default function Referrals({ market = '', memberRows = [], scopeLabel = '
                   <YAxis allowDecimals={false} tick={{ fontSize: 10, fill: '#6B7280' }} tickLine={false} axisLine={false} width={40} />
                   <Tooltip
                     contentStyle={tooltipStyle}
-                    cursor={{ fill: 'rgba(217,68,7,0.06)' }}
+                    cursor={false}
                     labelFormatter={(l) => `Week of ${l}`}
                     formatter={(v, k) => [v, k === 'signed' ? 'Signed up' : 'Counted']}
                   />

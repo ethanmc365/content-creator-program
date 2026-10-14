@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Navigate, Outlet, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { saved } from '../lib/confirm'
@@ -8,6 +8,7 @@ import SubmittedCard from './SubmittedCard'
 import { formatDate } from '../lib/utils'
 import { useT } from '../lib/i18n'
 import { profilesApi } from '../api/profiles'
+import { teamApi } from '../api/team'
 
 // Route guards.
 //  <ProtectedRoute>  - must be signed in (and not suspended).
@@ -42,6 +43,16 @@ async function signOutAndGoHome(signOut) {
 // applying meant watching two full-screen animations with a navigation between them. One card, one state change, nothing
 // flies.
 function ReviewPending({ signOut }) {
+  const { refreshProfile } = useAuth()
+  // ACCEPTED AHEAD OF THE CALL (migration 421): once the call has ended they are in the moment the app opens, without
+  // waiting for the five-minute job. One read when the screen shows; nothing when nothing is due.
+  useEffect(() => {
+    let alive = true
+    Promise.resolve().then(() => teamApi.claimMyScheduledApproval())
+      .then((res) => { if (alive && res?.data === true) refreshProfile?.() })
+      .catch(() => { /* nothing due, or offline: the five-minute job will do it */ })
+    return () => { alive = false }
+  }, [refreshProfile])
   return <SubmittedCard pending onSignOut={() => signOutAndGoHome(signOut)} />
 }
 

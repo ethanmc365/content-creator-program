@@ -386,7 +386,7 @@ export default function CommunityHealth({ market = '', memberRows = [], scopeLab
                 <XAxis dataKey="week" tick={{ fontSize: 10, fill: '#6B7280' }} interval="preserveStartEnd" />
                 <YAxis yAxisId="l" tick={{ fontSize: 11, fill: '#6B7280' }} allowDecimals={false} />
                 <YAxis yAxisId="r" orientation="right" tick={{ fontSize: 11, fill: '#6B7280' }} unit="%" />
-                <Tooltip contentStyle={tooltipStyle} cursor={{ fill: 'rgba(217,68,7,0.06)' }} />
+                <Tooltip contentStyle={tooltipStyle} cursor={false} />
                 <Legend wrapperStyle={{ fontSize: 11 }} />
                 <Bar animationDuration={600} yAxisId="l" dataKey="members" name="Members" fill={FILL.pale} radius={[8, 8, 0, 0]} maxBarSize={26} />
                 <Bar animationDuration={600} yAxisId="l" dataKey="active_creators" name="Active" fill={FILL.brand} radius={[8, 8, 0, 0]} maxBarSize={26} />

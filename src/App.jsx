@@ -29,13 +29,13 @@ import Signup from './pages/auth/Signup'
 import ForgotPassword from './pages/auth/ForgotPassword'
 import ResetPassword from './pages/auth/ResetPassword'
 import AuthCallback from './pages/auth/AuthCallback'
-import PrivacyPolicy from './pages/legal/PrivacyPolicy'
-import Terms from './pages/legal/Terms'
-import GuardianConsent from './pages/legal/GuardianConsent'
+const PrivacyPolicy = lazyRoute(chunk.PrivacyPolicy)
+const Terms = lazyRoute(chunk.Terms)
+const GuardianConsent = lazyRoute(chunk.GuardianConsent)
 
 // Creator pages
-import Profile from './pages/Profile'
-import Challenges from './pages/Challenges'
+const Profile = lazyRoute(chunk.Profile)
+const Challenges = lazyRoute(chunk.Challenges)
 const Rewards = lazyRoute(chunk.Rewards)
 const Notifications = lazyRoute(chunk.Notifications)
 const Dashboard = lazyRoute(chunk.Dashboard)

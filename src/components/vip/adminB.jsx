@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useAuth } from '../../context/AuthContext'
 import { Avatar, Modal, Select, Skeleton, Spinner, Toggle } from '../ui'
 import Segmented from '../network/Segmented'
@@ -475,9 +475,16 @@ function ClaimsReview({ claims }) {
   const list = show === 'open' ? open : claims
   // SEVERAL AT ONCE (14 Oct 2026): "there should be a button to approve all or to select them quickly". Tick rows (or
   // Select all) and confirm or reject them in one go; each is still its own decision, so one failure does not undo the rest.
+  // TICKED FROM THE START (15 Oct 2026): "automatically they should always be checked, and later on you correct them,
+  // like the community challenges". Every answer to check arrives ticked; untick the ones that do not fit, press
+  // Confirm. A decided one can still be changed straight to the other answer.
   const [picked, setPicked] = useState(() => new Set())
+  const touched = useRef(false)
   const keyOf = (c) => `${c.video_id}:${c.rule_id}`
   const openKeys = open.map(keyOf)
+  const openSig = openKeys.join('|')
+  useEffect(() => { if (!touched.current) setPicked(new Set(openSig ? openSig.split('|') : [])) }, [openSig])
+  const toggleKey = (k) => { touched.current = true; setPicked((p) => { const n = new Set(p); if (n.has(k)) n.delete(k); else n.add(k); return n }) }
   const allPicked = openKeys.length > 0 && openKeys.every((k) => picked.has(k))
   async function decide(c, status, quiet = false) {
     const k = keyOf(c)
@@ -510,7 +517,7 @@ function ClaimsReview({ claims }) {
       </div>
       {open.length > 0 && (
         <div className="flex flex-wrap items-center gap-2 border-b border-gray-50 px-4 py-2.5">
-          <button type="button" onClick={() => setPicked(allPicked ? new Set() : new Set(openKeys))} className="inline-flex items-center gap-2 text-xs font-semibold text-ink">
+          <button type="button" onClick={() => { touched.current = true; setPicked(allPicked ? new Set() : new Set(openKeys)) }} className="-m-2 inline-flex items-center gap-2 rounded-lg p-2 text-xs font-semibold text-ink">
             <span className={cx('flex h-4 w-4 items-center justify-center rounded border', allPicked ? 'border-brand bg-brand text-white' : 'border-gray-300')}>{allPicked && <Icon name="check" className="h-3 w-3" />}</span>
             {allPicked ? tr('Clear selection') : tr('Select all {n}', { n: open.length })}
           </button>
@@ -528,11 +535,14 @@ function ClaimsReview({ claims }) {
             const k = `${c.video_id}:${c.rule_id}`
             const st = statusOf(c)
             return (
-              <li key={k} className="flex items-center gap-3 px-4 py-3 animate-rise" style={{ animationDelay: `${Math.min(i, 8) * 35}ms` }}>
+              // THE WHOLE ROW TICKS IT (15 Oct 2026: "clicking near the box should also activate it"), except its links and buttons.
+              <li key={k} className={cx('flex items-center gap-3 px-4 py-3 animate-rise', st === 'claimed' && 'cursor-pointer transition-colors hover:bg-cloud/40')} style={{ animationDelay: `${Math.min(i, 8) * 35}ms` }}
+                onClick={(e) => { if (st === 'claimed' && !e.target.closest('a,button')) toggleKey(k) }}>
                 {st === 'claimed' && (
-                  <button type="button" aria-pressed={picked.has(k)} aria-label={tr('Select')} onClick={() => setPicked((p) => { const n = new Set(p); if (n.has(k)) n.delete(k); else n.add(k); return n })}
-                    className={cx('flex h-5 w-5 shrink-0 items-center justify-center rounded border transition-colors', picked.has(k) ? 'border-brand bg-brand text-white' : 'border-gray-300 hover:border-brand')}>
-                    {picked.has(k) && <Icon name="check" className="h-3.5 w-3.5" />}
+                  <button type="button" aria-pressed={picked.has(k)} aria-label={tr('Select')} onClick={() => toggleKey(k)} className="group -m-2.5 shrink-0 p-2.5">
+                    <span className={cx('flex h-5 w-5 items-center justify-center rounded border transition-colors', picked.has(k) ? 'border-brand bg-brand text-white' : 'border-gray-300 group-hover:border-brand')}>
+                      {picked.has(k) && <Icon name="check" className="h-3.5 w-3.5" />}
+                    </span>
                   </button>
                 )}
                 <div className="relative w-12 shrink-0 overflow-hidden rounded-lg">
@@ -553,7 +563,7 @@ function ClaimsReview({ claims }) {
                   ) : (
                     <>
                       <span className={cx('rounded-full px-2.5 py-1 text-[11px] font-bold', st === 'rejected' ? 'bg-red-50 text-red-600' : 'bg-brand-tint text-brand')}>{st === 'rejected' ? tr('Rejected') : tr('Confirmed')}</span>
-                      <button type="button" disabled={busy === k} onClick={() => decide(c, 'claimed')} className="text-[11px] font-semibold text-smoke hover:text-ink">{tr('Undo')}</button>
+                      <button type="button" disabled={busy === k} onClick={() => decide(c, st === 'rejected' ? 'confirmed' : 'rejected')} className="rounded-full px-2 py-1 text-[11px] font-semibold text-smoke transition-colors hover:bg-cloud hover:text-ink">{st === 'rejected' ? tr('It fits after all') : tr('Take it out')}</button>
                     </>
                   )}
                 </div>

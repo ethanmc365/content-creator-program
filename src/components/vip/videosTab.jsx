@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { Avatar, Floating, Select, Skeleton } from '../ui'
+import { Avatar, Floating, Select, Skeleton, Toggle } from '../ui'
 import Icon from '../Icon'
 import VideoThumb from '../VideoThumb'
+import SocialMark from '../SocialMark'
 import { cx, downloadCsv, formatDate, formatViews } from '../../lib/utils'
 import { confirm, notice } from '../../lib/confirm'
 import { toastSuccess } from '../../lib/toast'
@@ -130,29 +131,42 @@ export function VipVideosTab({ programme }) {
           </div>
           <div className="relative min-w-[9rem] flex-1">
             <Icon name="magnifier" className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-300" />
-            <input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder={tr('Search')} className="input !py-2 !pl-9 text-sm" aria-label={tr('Search videos')} />
+            <input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder={tr('Search a creator or caption')} className="input !py-2 !pl-9 text-sm" aria-label={tr('Search videos')} />
           </div>
-          <Select value={creator} onChange={setCreator} variant="field" className="w-44" ariaLabel={tr('Creator')}
-            options={[{ value: '', label: tr('Every creator') }, ...creators.map((c) => ({ value: c.id, label: c.name }))]} />
           <Select value={month} onChange={setMonth} variant="field" className="w-40" ariaLabel={tr('Month')} search={false}
             options={[{ value: '', label: tr('Every month') }, ...months.map((m) => ({ value: m, label: monthName(m) }))]} />
           <button type="button" onClick={exportCsv} disabled={!shown.length} className="rounded-xl border border-gray-200 px-3 py-2 text-xs font-semibold text-smoke hover:border-brand hover:text-brand disabled:opacity-40">
             <Icon name="download" className="mr-1 inline h-3.5 w-3.5" />CSV
           </button>
         </div>
+        {state.questions.length > 0 && (
         <div className="mt-2 flex flex-wrap items-center gap-1.5 px-1 pb-0.5">
-          {PLATFORMS.map((p) => (
-            <button key={p} type="button" onClick={() => setPlatform((cur) => (cur === p ? '' : p))} aria-pressed={platform === p}
-              className={cx('rounded-full px-3 py-1 text-xs font-semibold transition-colors', platform === p ? 'bg-brand text-white' : 'bg-cloud text-smoke hover:text-ink')}>{p}</button>
-          ))}
           {state.questions.map((x) => (
             <Select key={x.id} value={answer?.q === x.id ? (answer.a || '__any') : ''} variant="chip" className="max-w-[16rem]" ariaLabel={x.question} search={false}
               onChange={(v) => setAnswer(v ? { q: x.id, a: v === '__any' ? '' : v } : null)}
               options={[{ value: '', label: x.question }, { value: '__any', label: tr('Answered') }, { value: '__none', label: tr('Not answered') },
                 ...(x.options?.length ? x.options : [tr('Yes'), tr('No')]).map((o) => ({ value: o, label: o }))]} />
           ))}
-          {filtered && <button type="button" onClick={() => { setQ(''); setPlatform(''); setMonth(''); setCreator(''); setAnswer(null) }} className="ml-auto text-xs font-semibold text-smoke hover:text-brand">{tr('Clear')}</button>}
         </div>
+        )}
+      </div>
+
+      {/* THE PLATFORMS, AS THEIR LOGOS, ON THEIR OWN LINE UNDER THE CARD (15 Oct 2026). Press one to see only its videos;
+          press it again for every platform. */}
+      <div className="flex flex-wrap items-center gap-2 px-1">
+        {PLATFORMS.map((p) => {
+          const on = platform === p
+          const n = (state?.videos || []).filter((v) => v.platform === p).length
+          return (
+            <button key={p} type="button" onClick={() => setPlatform((cur) => (cur === p ? '' : p))} aria-pressed={on} title={p} aria-label={p}
+              className={cx('inline-flex items-center gap-2 rounded-full border py-1 pl-1 pr-3 text-xs font-semibold transition-all duration-200 hoverable:hover:-translate-y-0.5',
+                on ? 'border-brand bg-brand text-white shadow-card' : 'border-gray-200 bg-white text-smoke hoverable:hover:border-brand/50', !n && 'opacity-40')}>
+              <SocialMark brand={p.toLowerCase()} tile className="h-6 w-6" />
+              <span className="tabular-nums">{n}</span>
+            </button>
+          )
+        })}
+        {filtered && <button type="button" onClick={() => { setQ(''); setPlatform(''); setMonth(''); setCreator(''); setAnswer(null) }} className="ml-auto text-xs font-semibold text-smoke hover:text-brand">{tr('Clear')}</button>}
       </div>
 
       {shown.length === 0 && <p className="rounded-card border border-dashed border-gray-200 px-6 py-12 text-center text-sm text-smoke">{tr('No videos match that.')}</p>}
@@ -362,9 +376,7 @@ function QuestionEditor({ draft, members, isOwner, onCancel, onSave }) {
   const switchRow = (k, label, hint) => (
     <label className="flex cursor-pointer items-center justify-between gap-3 rounded-xl bg-cloud/60 px-3.5 py-2.5">
       <span><span className="block text-sm font-semibold">{label}</span>{hint && <span className="block text-[11px] text-smoke">{hint}</span>}</span>
-      <button type="button" role="switch" aria-checked={d[k]} onClick={() => toggle(k)} className={cx('relative h-6 w-11 shrink-0 rounded-full transition-colors', d[k] ? 'bg-brand' : 'bg-gray-200')}>
-        <span className={cx('absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform', d[k] ? 'translate-x-[22px]' : 'translate-x-0.5')} />
-      </button>
+      <Toggle on={!!d[k]} onChange={() => toggle(k)} label={label} />
     </label>
   )
   return (

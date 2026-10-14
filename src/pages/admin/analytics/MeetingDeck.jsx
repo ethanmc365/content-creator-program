@@ -4,7 +4,8 @@ import { cx } from '../../../lib/utils'
 import { notice } from '../../../lib/confirm'
 import { flagFromIso } from '../../../lib/flags'
 import { useT } from '../../../lib/i18n'
-import { challengeSlide, inlineImages, leadersSlide, marketsSlide, overviewSlide, svgToPng } from '../../../lib/meetingSlides'
+import { challengeSlide, inlineImages, leadersSlide, marketsSlide, numberSlide, overviewSlide, svgToPng } from '../../../lib/meetingSlides'
+import { rangeLabel } from '../../../lib/weeklySnapshot'
 import { teamApi } from '../../../api/team'
 import { challengesApi } from '../../../api/challenges'
 import { submissionsApi } from '../../../api/submissions'
@@ -22,6 +23,8 @@ export default function MeetingDeck({ data, scope, market, marketName, allMarket
   const [slides, setSlides] = useState(null)
   const [at, setAt] = useState(0)
   const [busy, setBusy] = useState(false)
+  // What the slides on screen were drawn from, so a change of picks says "redraw" instead of silently showing the old deck.
+  const [builtFor, setBuiltFor] = useState('')
 
   useEffect(() => { setPicked(new Set(market ? [market] : [])); setGlobal(!market) }, [market])
   useEffect(() => {
@@ -36,6 +39,10 @@ export default function MeetingDeck({ data, scope, market, marketName, allMarket
 
   const toggle = (set, setter, id) => setter(() => { const n = new Set(set); if (n.has(id)) n.delete(id); else n.add(id); return n })
   const count = (global ? 3 : 0) + picked.size * 2 + chPicked.size
+  const pickKey = `${global}|${[...picked].sort().join(',')}|${[...chPicked].sort().join(',')}`
+  const stale = !!slides && builtFor !== pickKey
+  const flagOf = (m) => flagFromIso((m?.country_codes || [])[0]) || null
+  const flags = Object.fromEntries(allMarkets.map((m) => [m.name, flagOf(m) || '']))
 
   async function build() {
     if (!count) return
@@ -44,10 +51,12 @@ export default function MeetingDeck({ data, scope, market, marketName, allMarket
       const out = []
       const answers = []
       if (global) answers.push({ name: null, d: market ? (await teamApi.adminViewsGained({ p_from: from, p_to: to })).data : data })
-      for (const id of picked) {
+      // IN A FIXED ORDER, whatever order they were ticked in: Worldwide, then the markets as listed, then challenges.
+      const order = allMarkets.map((x) => x.id).filter((id) => picked.has(id))
+      for (const id of [...order, ...[...picked].filter((id) => !order.includes(id))]) {
         const m = allMarkets.find((x) => x.id === id)
         const d = id === market ? data : (await teamApi.adminViewsGained({ p_from: from, p_to: to, p_market: id })).data
-        if (d) answers.push({ name: m?.name || marketName, d })
+        if (d) answers.push({ name: m?.name || marketName, d, badge: flagOf(m) })
       }
       const chosen = challenges.filter((c) => chPicked.has(c.id))
       const chData = await Promise.all(chosen.map(async (c) => {
@@ -63,14 +72,16 @@ export default function MeetingDeck({ data, scope, market, marketName, allMarket
       ]
       const images = await inlineImages(urls.filter((u) => /supabase\.co\//.test(u || '')))
       for (const a of answers) {
-        out.push({ label: a.name ? `${a.name}: numbers` : 'Worldwide: numbers', svg: overviewSlide(a.d, scope, title, a.name) })
-        if (!a.name) out.push({ label: 'Markets side by side', svg: marketsSlide(a.d, scope, title) })
-        out.push({ label: a.name ? `${a.name}: who gained most` : 'Worldwide: who gained most', svg: leadersSlide(a.d, scope, { title, marketName: a.name, images }) })
+        out.push({ label: a.name ? `${a.name}: numbers` : 'Worldwide: numbers', svg: overviewSlide(a.d, scope, title, a.name, a.badge) })
+        if (!a.name) out.push({ label: 'Markets side by side', svg: marketsSlide(a.d, scope, title, flags) })
+        out.push({ label: a.name ? `${a.name}: who gained most` : 'Worldwide: who gained most', svg: leadersSlide(a.d, scope, { title, marketName: a.name, images, badge: a.badge }) })
       }
       for (const { c, res, subs } of chData) {
         out.push({
           label: c.title,
           svg: challengeSlide(c, {
+            badge: flagOf(allMarkets.find((m) => m.id === c.community_id)) || 'globe',
+            date: c.start_date ? rangeLabel(String(c.start_date).slice(0, 10), String(c.end_date || c.start_date).slice(0, 10)) : '',
             title: c.status === 'active' ? 'Running now' : 'Finished',
             results: res.map((r) => ({ ...r, name: r.profiles?.name, photo_url: r.profiles?.photo_url })),
             entries: subs.length, creators: new Set(subs.map((x) => x.creator_id)).size,
@@ -78,7 +89,8 @@ export default function MeetingDeck({ data, scope, market, marketName, allMarket
           }),
         })
       }
-      setSlides(out)
+      setSlides(out.map((sl, i) => ({ ...sl, svg: numberSlide(sl.svg, i + 1, out.length) })))
+      setBuiltFor(pickKey)
       setAt(0)
     } catch (e) {
       notice(`Could not build the slides: ${e.message}`)
@@ -114,13 +126,13 @@ export default function MeetingDeck({ data, scope, market, marketName, allMarket
     on ? 'border-brand bg-brand text-white shadow-card' : 'border-gray-200 bg-white text-smoke hoverable:hover:border-brand hoverable:hover:text-brand')
 
   return (
-    <section className="animate-rise overflow-hidden rounded-card border border-brand/25 bg-white shadow-card">
+    <section className="animate-rise overflow-hidden rounded-card border border-gray-100 bg-white shadow-card">
       <div className="flex flex-wrap items-start justify-between gap-3 px-4 pt-4 sm:px-5">
         <div>
           <h3 className="flex items-center gap-2 text-[15px] font-bold text-ink"><Icon name="megaphone" className="h-4 w-4 text-brand" />{tr('Slides for the weekly meeting')}</h3>
           <p className="text-xs text-smoke">{tr('Pick what goes in. Each market gets two slides, so every manager can present their own.')}</p>
         </div>
-        <button type="button" onClick={build} disabled={!count || busy} className="btn-primary !py-2 text-xs disabled:opacity-40">
+        <button type="button" onClick={build} disabled={!count || busy} className={cx('btn-primary !py-2 text-xs disabled:opacity-40', stale && 'animate-pulse')}>
           <Icon name={busy ? 'refresh' : 'sparkles'} className={cx('h-3.5 w-3.5', busy && 'animate-spin')} />
           {busy ? tr('Drawing…') : slides ? tr('Redraw {n} slides', { n: count }) : tr('Make {n} slides', { n: count })}
         </button>
@@ -132,7 +144,7 @@ export default function MeetingDeck({ data, scope, market, marketName, allMarket
           </button>
           {allMarkets.map((m) => (
             <button key={m.id} type="button" onClick={() => toggle(picked, setPicked, m.id)} aria-pressed={picked.has(m.id)} className={chip(picked.has(m.id))}>
-              <span>{flagFromIso((m.country_codes || [])[0]) || ''}</span>{m.name}
+              <span>{flagOf(m) || ''}</span>{m.name}
             </button>
           ))}
         </div>
@@ -148,8 +160,16 @@ export default function MeetingDeck({ data, scope, market, marketName, allMarket
           </div>
         )}
       </div>
+      {!slides && count > 0 && (
+        <p className="mx-4 mb-4 rounded-xl bg-cloud/70 px-4 py-3 text-xs text-smoke sm:mx-5">{tr('Press Make slides to draw them here: you see every slide before you download.')}</p>
+      )}
+      {stale && (
+        <p className="mx-4 mb-3 flex items-center gap-2 rounded-xl bg-brand-tint/60 px-4 py-2.5 text-xs font-semibold text-brand animate-tab-in sm:mx-5">
+          <Icon name="refresh" className="h-3.5 w-3.5" />{tr('Your picks changed. Press Redraw to update the slides below.')}
+        </p>
+      )}
       {slides && slides.length > 0 && (
-        <div className="border-t border-gray-50 bg-cloud/40 p-4 sm:p-5">
+        <div className={cx('border-t border-gray-50 bg-cloud/40 p-4 transition-opacity duration-300 sm:p-5', stale && 'opacity-60')}>
           <div className="mb-3 flex flex-wrap items-center gap-2">
             <button type="button" onClick={() => setAt((i) => Math.max(0, i - 1))} disabled={at === 0} aria-label={tr('Previous slide')} className="flex h-9 w-9 items-center justify-center rounded-full border border-gray-200 bg-white text-smoke disabled:opacity-30"><Icon name="chevronLeft" className="h-4 w-4" /></button>
             <span className="min-w-0 flex-1 truncate text-sm font-semibold">{at + 1} / {slides.length} · {current.label}</span>
@@ -158,11 +178,18 @@ export default function MeetingDeck({ data, scope, market, marketName, allMarket
             <button type="button" onClick={downloadAll} className="btn-primary !py-2 text-xs"><Icon name="download" className="h-3.5 w-3.5" />{tr('All {n} slides (PNG)', { n: slides.length })}</button>
           </div>
           <div key={at} className="overflow-hidden rounded-2xl border border-gray-100 shadow-sm animate-tab-in" dangerouslySetInnerHTML={{ __html: preview }} />
-          <div className="mt-3 flex gap-2 overflow-x-auto pb-1 scrollbar-none">
+          {/* EVERY SLIDE AT A GLANCE, numbered and named, in deck order. */}
+          <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
             {slides.map((sl, i) => (
               <button key={i} type="button" onClick={() => setAt(i)} aria-label={sl.label}
-                className={cx('w-28 shrink-0 overflow-hidden rounded-lg border-2 transition-all', i === at ? 'border-brand' : 'border-transparent opacity-70 hover:opacity-100')}
-                dangerouslySetInnerHTML={{ __html: sl.svg.replace(/ width="1280" height="720"/, ' style="width:100%;height:auto;display:block"') }} />
+                className={cx('group min-w-0 text-left animate-rise transition-transform duration-200 hoverable:hover:-translate-y-0.5', i === at && 'scale-[1.02]')} style={{ animationDelay: `${i * 40}ms` }}>
+                <span className={cx('block overflow-hidden rounded-lg border-2 bg-white shadow-sm transition-colors', i === at ? 'border-brand' : 'border-transparent group-hover:border-brand/40')}
+                  dangerouslySetInnerHTML={{ __html: sl.svg.replace(/ width="1280" height="720"/, ' style="width:100%;height:auto;display:block"') }} />
+                <span className="mt-1 flex items-center gap-1.5 text-[11px] font-semibold text-smoke">
+                  <span className={cx('flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] font-bold', i === at ? 'bg-brand text-white' : 'bg-white text-smoke')}>{i + 1}</span>
+                  <span className="truncate">{sl.label}</span>
+                </span>
+              </button>
             ))}
           </div>
         </div>

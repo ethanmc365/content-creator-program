@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, useTransition } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, useTransition } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import {
   Area, Bar, BarChart, CartesianGrid, ComposedChart, Legend, Line, Tooltip, XAxis, YAxis,
@@ -34,6 +34,7 @@ import { convert } from '../../lib/programme'
 import { FILL, BAR_END, gridProps, xAxisProps, yAxisProps, lineProps, barProps, cursorFill, stackShape, tooltipStyle } from '../../components/charts/chartTheme'
 import ChartPanel from '../../components/charts/ChartPanel'
 import Icon from '../../components/Icon'
+import { flagFromIso } from '../../lib/flags'
 import Recruitment from './analytics/Recruitment'
 import { TABS } from './analytics/tabs'
 
@@ -559,7 +560,11 @@ export default function AdminAnalytics() {
   useEffect(() => {
     const row = marketRowRef.current
     const chip = row?.querySelector('[aria-pressed="true"]')
-    if (row && chip) row.scrollTo({ left: Math.max(0, chip.offsetLeft - 8), behavior: 'smooth' })
+    if (!row || !chip) return
+    const l = chip.offsetLeft - 12
+    const r = chip.offsetLeft + chip.offsetWidth + 12 - row.clientWidth
+    if (l < row.scrollLeft) row.scrollTo({ left: Math.max(0, l), behavior: 'smooth' })
+    else if (r > row.scrollLeft) row.scrollTo({ left: r, behavior: 'smooth' })
   }, [market])
   const setMarket = (next) => {
     const q = { ...Object.fromEntries(params) }
@@ -594,33 +599,10 @@ export default function AdminAnalytics() {
       {/* ON A PHONE THE MARKETS GET THEIR OWN ROW. Squeezed beside the date they scrolled in a sliver, and a picked
           market chip clipped at the edge read as "an orange bar on the right side" of the date. Full width, a fade at
           the edge instead of a hard cut, and the picked chip scrolled into view. */}
-      <div aria-hidden={marketsOff || undefined} ref={marketRowRef} className={cx('flex min-w-0 flex-1 items-center gap-1 overflow-x-auto transition-opacity duration-200 [-ms-overflow-style:none] [scrollbar-width:none] max-sm:basis-full max-sm:[mask-image:linear-gradient(to_right,#000_88%,transparent)] [&::-webkit-scrollbar]:hidden', marketsOff && 'pointer-events-none select-none opacity-35')}>
-        <button
-          type="button"
-          onClick={() => setMarket('')}
-          aria-pressed={!market}
-          className={cx(
-            'shrink-0 rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors',
-            !market ? 'bg-brand text-white' : 'text-smoke hover:bg-cloud hover:text-ink',
-          )}
-        >
-          Worldwide
-        </button>
-        {markets.map((m) => (
-          <button
-            key={m.id}
-            type="button"
-            onClick={() => setMarket(m.id)}
-            aria-pressed={market === m.id}
-            className={cx(
-              'shrink-0 rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors',
-              market === m.id ? 'bg-brand text-white' : 'text-smoke hover:bg-cloud hover:text-ink',
-            )}
-          >
-            {m.name}
-          </button>
-        ))}
-      </div>
+      {/* THE MARKETS, WITH A SLIDING PILL (15 Oct 2026). Flags and a globe so a market reads at a glance; on the VIP tab
+          each chip is that market's VIP programme ("Spain VIP" with a star). The row has its own inner padding and the
+          picked chip is scrolled fully into view, so its rounded corners are never cut by the scroller's edge. */}
+      <MarketChips rowRef={marketRowRef} off={marketsOff} market={market} markets={markets} onPick={setMarket} vip={!!extra.vip} />
 
       {scopeNote && <span className="shrink-0 px-1 text-[11px] text-smoke max-lg:hidden">{scopeNote}</span>}
 
@@ -742,7 +724,7 @@ export default function AdminAnalytics() {
     const vKey = VIP_PERIODS.includes(periodKey) ? periodKey : 'last_30'
     const vRange = periodRange(vKey, new Date(loadedAt || openedAt), { from: customFrom, to: customTo })
     return shell(<VipAnalytics market={market} periodKey={vKey} range={vRange} />,
-      { period: true, extra: { periods: VIP_PERIODS.map((k) => PERIODS.find((p) => p.key === k)), periodValue: vKey, right: <span /> } })
+      { period: true, extra: { vip: true, periods: VIP_PERIODS.map((k) => PERIODS.find((p) => p.key === k)), periodValue: vKey, right: <span /> } })
   }
   if (tab === 'markets') return shell(<MarketLeague raw={raw} currency={currency} />, { markets: false })
   if (tab === 'growth') return shell(<Growth raw={scoped} scopeLabel={scopeLabel} onDrill={drillTo} />)
@@ -795,7 +777,7 @@ export default function AdminAnalytics() {
         </>
       )}
 
-      {/* ---- Programme economics: ratios, month by month, every challenge ---- */}
+      {/* ---- Economics: ratios, month by month, every challenge ---- */}
       <div className="mb-10 mt-10">
         <ProgrammePerformance market={marketName} currency={currency} mode="summary" range={periodOn ? range : null} />
       </div>
@@ -879,7 +861,7 @@ export default function AdminAnalytics() {
           data={derived.gamesByMode} height={220}
           csv={{ name: 'games-by-mode.csv' }}
           render={(rows) => (
-            <BarChart data={rows} layout="vertical" margin={{ top: 4, right: 16, left: 8, bottom: 0 }}>
+            <BarChart className="chart-h" data={rows} layout="vertical" margin={{ top: 4, right: 16, left: 8, bottom: 0 }}>
               <CartesianGrid {...gridProps} vertical horizontal={false} />
               <XAxis type="number" {...xAxisProps} allowDecimals={false} />
               <YAxis type="category" dataKey="name" {...yAxisProps} width={110} />
@@ -908,9 +890,9 @@ function MonthCompare({ data, currency, onPick }) {
   ]
   return (
     <button type="button" onClick={onPick} className="group block w-full rounded-card border border-gray-100 bg-white px-5 py-4 text-left shadow-card transition-all duration-200 animate-rise hoverable:hover:-translate-y-0.5 hoverable:hover:shadow-lift" style={{ animationDelay: '280ms' }}>
-      <p className="mb-3 flex items-baseline gap-2 text-sm">
-        <span className="font-semibold text-ink">This month so far</span>
-        <span className="text-xs text-smoke">against the same days last month</span>
+      {/* ONE TITLE IN ONE TYPE (15 Oct 2026): the comparison was a second, smaller grey sentence beside a bold one. */}
+      <p className="mb-3 flex items-center gap-2 text-sm font-semibold text-ink">
+        <span>This month so far vs the same days last month</span>
         <Icon name="chevronRight" className="ml-auto h-4 w-4 text-gray-300 transition-transform group-hover:translate-x-0.5 group-hover:text-brand" />
       </p>
       <div className="grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-5">
@@ -974,6 +956,47 @@ function PeriodTiles({ now, prev, range, scopeLabel, members, currency, onCreato
         <StatCard label="Cash CPM" value={cpm(now.cashCpm)} delta={d('cashCpm', true)} hint="cash per 1,000 views" />
         <StatCard label="Total CPM" value={cpm(now.totalCpm)} delta={d('totalCpm', true)} hint="cash and vouchers per 1,000 views" />
       </div>
+    </div>
+  )
+}
+
+// The market chips of the filter bar: a pill that slides to the picked chip (measured from the chip's own offset in the
+// row, so nothing outside the row moves it), the flag before each name, a globe for Worldwide.
+function MarketChips({ rowRef, off, market, markets, onPick, vip }) {
+  const [pill, setPill] = useState(null)
+  useLayoutEffect(() => {
+    const measure = () => {
+      const el = rowRef.current?.querySelector('[aria-pressed="true"]')
+      if (el) setPill({ left: el.offsetLeft, width: el.offsetWidth, height: el.offsetHeight, top: el.offsetTop })
+    }
+    measure()
+    const t = setTimeout(measure, 300)
+    window.addEventListener('resize', measure)
+    return () => { clearTimeout(t); window.removeEventListener('resize', measure) }
+  }, [market, markets.length, vip, rowRef])
+  const chip = (on) => cx('relative z-10 flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors duration-200',
+    on ? 'text-white' : 'text-smoke hover:bg-cloud hover:text-ink')
+  return (
+    <div aria-hidden={off || undefined} ref={rowRef}
+      className={cx('relative flex min-w-0 flex-1 items-center gap-1 overflow-x-auto px-0.5 py-0.5 transition-opacity duration-200 [-ms-overflow-style:none] [scrollbar-width:none] max-sm:basis-full [&::-webkit-scrollbar]:hidden', off && 'pointer-events-none select-none opacity-35')}>
+      {pill && (
+        <span aria-hidden className="pointer-events-none absolute left-0 top-0 rounded-lg bg-brand shadow-card transition-[transform,width] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]"
+          style={{ width: pill.width, height: pill.height, transform: `translate(${pill.left}px, ${pill.top}px)` }} />
+      )}
+      <button type="button" onClick={() => onPick('')} aria-pressed={!market} className={chip(!market)}>
+        {vip ? <Icon name="star" className="h-3.5 w-3.5" /> : <Icon name="globe" className="h-3.5 w-3.5" />}
+        {vip ? 'All VIP markets' : 'Worldwide'}
+      </button>
+      {markets.map((m) => {
+        const on = market === m.id
+        return (
+          <button key={m.id} type="button" onClick={() => onPick(m.id)} aria-pressed={on} className={chip(on)}>
+            <span aria-hidden className="text-[13px] leading-none">{flagFromIso((m.country_codes || [])[0]) || ''}</span>
+            {m.name}
+            {vip && <span className="inline-flex items-center gap-0.5">VIP<Icon name="star" className={cx('h-3 w-3', on ? 'text-white' : 'text-brand')} /></span>}
+          </button>
+        )
+      })}
     </div>
   )
 }

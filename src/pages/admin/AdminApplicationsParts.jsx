@@ -127,6 +127,8 @@ export function marketLanguages(m) {
 // copied thing on the page. It is on the summary now, next to the copy button
 // that copies it, which is the rule the rest of this file already follows.
 export function PickTick({ selected, onSelect, name }) {
+  // A BIG HIT AREA AROUND A SMALL BOX (15 Oct 2026): "clicking near the box should also activate it". The button is 40px
+  // of invisible padding around the 20px box, pulled back by negative margins so the layout does not move.
   return (
     <button
       type="button"
@@ -134,14 +136,16 @@ export function PickTick({ selected, onSelect, name }) {
       role="checkbox"
       aria-checked={!!selected}
       aria-label={`Select ${name || 'this application'}`}
-      className={cx(
-        'mt-1 flex h-5 w-5 shrink-0 items-center justify-center rounded border transition-all duration-150',
+      className="group -m-2.5 flex shrink-0 items-start justify-center rounded-xl p-2.5 pt-3.5"
+    >
+      <span className={cx(
+        'flex h-5 w-5 items-center justify-center rounded border transition-all duration-150',
         selected
           ? 'border-brand bg-brand text-white'
-          : 'border-gray-300 bg-white hoverable:hover:border-brand',
-      )}
-    >
-      {selected && <Icon name="check" className="h-3 w-3" />}
+          : 'border-gray-300 bg-white group-hover:border-brand',
+      )}>
+        {selected && <Icon name="check" className="h-3 w-3" />}
+      </span>
     </button>
   )
 }

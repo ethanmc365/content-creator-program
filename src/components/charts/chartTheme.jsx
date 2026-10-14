@@ -33,10 +33,11 @@ export const FILL = {
   rest: 'url(#tg-rest)',
 }
 
-// A COLOUR PER MARKET THAT FOLLOWS THE MARKET, never its rank (validated with the dataviz palette
-// checker: lightness band, chroma, colour-blind separation and contrast all pass). Global challenges
-// are the brand orange; the markets take the rest in a fixed alphabetical order.
-export const SCOPE_COLORS = ['#d94407', '#2563eb', '#0d9488', '#9333ea', '#db2777', '#0284c7', '#65a30d', '#b45309']
+// A COLOUR PER MARKET THAT FOLLOWS THE MARKET, never its rank. Global challenges are the brand orange; the markets take
+// the rest in a fixed alphabetical order. THE PLATFORM'S OWN FAMILY ONLY (15 Oct 2026, Ethan: "I don't like the pink ...
+// keep it with the style of the platform: the orange gradients, the green gradients, maybe yellow, but not pink or
+// blue"): oranges, greens and ambers, alternated so neighbours in the order stay far apart.
+export const SCOPE_COLORS = ['#d94407', '#10b981', '#f59e0b', '#047857', '#f5853f', '#65a30d', '#b45309', '#eab308']
 
 export const tooltipStyle = {
   borderRadius: 12, border: '1px solid #F1F1F2', fontFamily: 'Poppins',
@@ -89,7 +90,8 @@ export const xAxisProps = { tick: axisTick, tickLine: false, axisLine: { stroke:
 export const yAxisProps = { tick: axisTick, tickLine: false, axisLine: false, width: 48 }
 export const lineProps = { type: 'monotone', strokeWidth: 2.5, dot: { r: 3, fill: CHART.brand, strokeWidth: 0 }, activeDot: { r: 5 }, animationDuration: 600 }
 export const barProps = { radius: BAR_TOP, maxBarSize: 40, animationDuration: 600 }
-export const cursorFill = { fill: 'rgba(217,68,7,0.06)' }
+// NO HIGHLIGHT BAND (15 Oct 2026): the bar under the pointer magnifies instead (index.css, .recharts-bar-rectangle).
+export const cursorFill = false
 
 /**
  * A STACK WITH ONE ROUNDED TOP. Recharts rounds a stacked segment whether or not anything sits on it, so a week where

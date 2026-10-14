@@ -20,7 +20,7 @@ import { deleteHistory } from '../../../lib/challengeHistory'
 import { confirm, notice } from '../../../lib/confirm'
 import { loadMarkets } from '../../../lib/markets'
 import { flagFromIso } from '../../../lib/flags'
-import { FILL, CHART, SCOPE_COLORS, BAR_TOP, gridProps, xAxisProps, yAxisProps, lineProps, barProps, cursorFill, tooltipStyle as chartTooltip } from '../../../components/charts/chartTheme'
+import { FILL, CHART, SCOPE_COLORS, gridProps, xAxisProps, yAxisProps, lineProps, barProps, cursorFill, tooltipStyle as chartTooltip } from '../../../components/charts/chartTheme'
 import ChartPanel from '../../../components/charts/ChartPanel'
 import { useNavigate } from 'react-router-dom'
 import { overlaps } from '../../../lib/analyticsPeriod'
@@ -299,7 +299,7 @@ export default function ProgrammePerformance({ market: scopeMarket = null, curre
       <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3">
         <div className="min-w-0">
           <h2 className="text-lg font-semibold">
-            {view === 'summary' ? 'Programme economics' : `Every challenge (${data.scoped.length})`}
+            {view === 'summary' ? 'Economics' : `Every challenge (${data.scoped.length})`}
           </h2>
           <p className="mt-0.5 text-xs text-smoke">
             {view === 'summary'
@@ -860,39 +860,90 @@ function SummaryView({ data, b, currency }) {
         </div>
       )}
 
-      <ChartPanel
-        title="Every challenge"
-        subtitle="Oldest on the left, newest on the right · coloured by market · press a bar for the challenge"
-        data={perChallenge} minPoint={58} height={300} delay={200}
-        csv={{ name: `every-challenge-${measure}.csv`, rows: perChallenge.map((r) => ({ challenge: r.title, market: r.market, started: r.when, views: r.views, posts: r.posts, creators: r.creators, cpm: r.cpm, [`prize_${currency.toLowerCase()}`]: r.spend })) }}
-        actions={(
-          <div className="mr-1 flex gap-0.5 rounded-full bg-cloud p-0.5">
+      <EveryChallenge rows={perChallenge} measure={measure} m={m} fmt={fmt} onMeasure={setMeasure} marketColor={marketColor}
+        onOpen={(id) => navigate(`/admin/analytics/${id}`)} currency={currency} />
+    </>
+  )
+}
+
+// EVERY CHALLENGE, AS A RANKED LIST (15 Oct 2026). It was a bar chart with fifty slanted labels cut to fifteen letters
+// ("you cannot just see the name of the challenges"). Now one row per challenge: the market's flag, the whole title, when it
+// ran, and a bar in the market's colour sized against the biggest, with the number at its end. Sort by newest or by the
+// measure; the list scrolls inside the card; a row opens the challenge. Hovering a row lifts and magnifies its bar.
+function EveryChallenge({ rows, measure, m, fmt, onMeasure, marketColor, onOpen, currency }) {
+  const [sort, setSort] = useState('value')
+  const list = useMemo(() => {
+    const out = [...rows]
+    if (sort === 'value') out.sort((x, y) => (Number(y[measure]) || 0) - (Number(x[measure]) || 0))
+    else out.reverse()
+    return out
+  }, [rows, sort, measure])
+  const max = Math.max(1, ...rows.map((r) => Number(r[measure]) || 0))
+  return (
+    <section className="card animate-rise" style={{ animationDelay: '200ms' }}>
+      <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h2 className="font-semibold">Every challenge <span className="font-normal text-smoke">({rows.length})</span></h2>
+          <p className="mt-1 text-xs text-smoke">Coloured by market · press a challenge to open it</p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="flex gap-0.5 rounded-full bg-cloud p-0.5">
             {MEASURES.map((x) => (
-              <button key={x.key} type="button" onClick={() => setMeasure(x.key)} aria-pressed={measure === x.key}
+              <button key={x.key} type="button" onClick={() => onMeasure(x.key)} aria-pressed={measure === x.key}
                 className={cx('rounded-full px-2.5 py-1 text-[11px] font-semibold transition-colors', measure === x.key ? 'bg-brand text-white' : 'text-smoke hover:text-ink')}>
                 {x.label}
               </button>
             ))}
           </div>
-        )}
-        render={(rows) => (
-          <BarChart data={rows} margin={{ top: 18, right: 4, left: 0, bottom: 0 }} style={{ cursor: 'pointer' }}
-            onClick={(e) => { const id = e?.activePayload?.[0]?.payload?.id; if (id) navigate(`/admin/analytics/${id}`) }}>
-            <CartesianGrid {...gridProps} />
-            <XAxis dataKey="name" {...xAxisProps} interval={0} tick={{ fontSize: 10, fill: '#6B7280' }} height={58} angle={-35} textAnchor="end" />
-            <YAxis {...yAxisProps} tickFormatter={(v) => (m.money != null ? `${sym}${v}` : formatViewsTotal(v))} />
-            <Tooltip contentStyle={chartTooltip} cursor={cursorFill}
-              labelFormatter={(_, p) => { const r = p?.[0]?.payload; return r ? `${r.title} · ${r.market} · ${r.when}${r.running ? ' · running' : ''}` : '' }}
-              formatter={(v) => [fmt(v), m.label]} />
-            {measure === 'cpm' && <ReferenceLine y={0.5} stroke={GOOD} strokeDasharray="4 4" />}
-            <Bar dataKey={measure} name={m.label} radius={BAR_TOP} maxBarSize={36} animationDuration={500}
-              label={rows.length <= 40 ? { position: 'top', fontSize: 10, fill: '#6B7280', formatter: (v) => (v == null || v === 0 ? '' : m.money != null ? `${sym}${Number(v).toFixed(m.money)}` : formatViewsTotal(v)) } : false}>
-              {rows.map((r) => <Cell key={r.id} fill={marketColor(r.market === 'Global' ? null : r.market)} fillOpacity={r.running ? 0.6 : 1} />)}
-            </Bar>
-          </BarChart>
-        )}
-      />
-    </>
+          <div className="flex gap-0.5 rounded-full bg-cloud p-0.5">
+            {[['value', 'Top'], ['date', 'Newest']].map(([k, l]) => (
+              <button key={k} type="button" onClick={() => setSort(k)} aria-pressed={sort === k}
+                className={cx('rounded-full px-2.5 py-1 text-[11px] font-semibold transition-colors', sort === k ? 'bg-ink text-white' : 'text-smoke hover:text-ink')}>
+                {l}
+              </button>
+            ))}
+          </div>
+          <button type="button" title="Download CSV" className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-cloud hover:text-brand"
+            onClick={() => downloadCsv(`every-challenge-${measure}.csv`, rows.map((r) => ({ challenge: r.title, market: r.market, started: r.when, views: r.views, posts: r.posts, creators: r.creators, cpm: r.cpm, [`prize_${currency.toLowerCase()}`]: r.spend })))}>
+            <Icon name="download" className="h-4 w-4" />
+          </button>
+        </div>
+      </div>
+      {list.length === 0 ? (
+        <p className="rounded-xl bg-cloud/50 px-4 py-10 text-center text-sm text-smoke">Nothing to show yet</p>
+      ) : (
+        <ol key={`${measure}-${sort}`} className="-mx-2 max-h-[460px] space-y-0.5 overflow-y-auto px-2 py-1">
+          {list.map((r, i) => {
+            const v = Number(r[measure]) || 0
+            const pct = Math.max(2, (v / max) * 100)
+            const color = marketColor(r.market === 'Global' ? null : r.market)
+            return (
+              <li key={r.id} className="animate-rise" style={{ animationDelay: `${Math.min(i, 14) * 30}ms` }}>
+                <button type="button" onClick={() => onOpen(r.id)}
+                  className="group grid w-full grid-cols-[minmax(0,1fr)] items-center gap-x-4 gap-y-1.5 rounded-xl px-3 py-2.5 text-left transition-all duration-200 hover:bg-cloud/60 sm:grid-cols-[minmax(0,15rem)_minmax(0,1fr)]">
+                  <span className="min-w-0">
+                    <span className="block text-sm font-semibold leading-snug text-ink transition-colors group-hover:text-brand">{r.title}</span>
+                    <span className="mt-0.5 flex items-center gap-1.5 text-[11px] text-smoke">
+                      <MarketMark name={r.market === 'Global' ? null : r.market} />
+                      <span aria-hidden>·</span>{r.when}
+                      {r.running && <span className="rounded-full bg-brand px-1.5 py-px text-[10px] font-bold text-white">Running</span>}
+                    </span>
+                  </span>
+                  <span className="flex min-w-0 items-center gap-2.5">
+                    <span className="relative h-3 min-w-0 flex-1 rounded-full bg-cloud transition-transform duration-200 ease-out group-hover:scale-y-[1.5]">
+                      <span className="absolute inset-y-0 left-0 origin-left rounded-full animate-bar-grow transition-shadow duration-200 group-hover:shadow-[0_3px_8px_rgba(217,68,7,0.3)]"
+                        style={{ width: `${pct}%`, background: `linear-gradient(90deg, ${color}cc, ${color})`, opacity: r.running ? 0.7 : 1, animationDelay: `${Math.min(i, 14) * 30 + 120}ms` }} />
+                    </span>
+                    <span className="w-16 shrink-0 text-right text-sm font-bold tabular-nums text-ink">{fmt(r[measure])}</span>
+                  </span>
+                </button>
+              </li>
+            )
+          })}
+        </ol>
+      )}
+      <p className="sr-only">{m.label}</p>
+    </section>
   )
 }
 

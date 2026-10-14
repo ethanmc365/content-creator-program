@@ -592,22 +592,37 @@ export function SaveButton({ saved = false, busy = false, onClick, disabled = fa
   )
 }
 
-/** An on/off switch. Controlled: pass `on` and an `onChange(next)` handler. */
-export function Toggle({ on, onChange, label, disabled = false }) {
+/**
+ * An on/off switch. Controlled: pass `on` and an `onChange(next)` handler. The ONE switch: every hand-rolled copy of
+ * it drifted (15 Oct 2026: a knob with no `left` sits wherever the button centres its content, so an "on" switch drew
+ * its knob off the end of the track). The knob is pinned with left + top and moved only by translate. `size` 'sm' for
+ * dense rows. Inside a <label> the whole row toggles it.
+ */
+export function Toggle({ on, onChange, label, disabled = false, size = 'md', className = '' }) {
+  const sm = size === 'sm'
   return (
     <button
       type="button"
       role="switch"
-      aria-checked={on}
+      aria-checked={!!on}
       aria-label={label}
       disabled={disabled}
       onClick={() => onChange(!on)}
       className={cx(
-        'relative h-6 w-11 shrink-0 rounded-full transition-colors disabled:opacity-50',
-        on ? 'bg-brand' : 'bg-gray-300'
+        'relative inline-block shrink-0 rounded-full p-0 align-middle transition-colors duration-200 disabled:opacity-50',
+        sm ? 'h-5 w-9' : 'h-6 w-11',
+        on ? 'bg-brand' : 'bg-gray-300',
+        className,
       )}
     >
-      <span className={cx('absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all', on ? 'left-[22px]' : 'left-0.5')} />
+      <span
+        aria-hidden
+        className={cx(
+          'pointer-events-none absolute left-0.5 top-0.5 block rounded-full bg-white shadow-md transition-transform duration-200 ease-out',
+          sm ? 'h-4 w-4' : 'h-5 w-5',
+          on ? (sm ? 'translate-x-4' : 'translate-x-5') : 'translate-x-0',
+        )}
+      />
     </button>
   )
 }
@@ -966,7 +981,7 @@ export function Select({
                       line up down the list instead of starting wherever the
                       previous flag happened to end. */}
                   {o.icon && (
-                    <span aria-hidden className="w-5 shrink-0 text-center text-base leading-none">{o.icon}</span>
+                    <span aria-hidden className="flex min-w-5 shrink-0 justify-center text-base leading-none">{o.icon}</span>
                   )}
                   <span className="min-w-0 flex-1 whitespace-nowrap">{o.label}</span>
                   {/* A secondary value, right-aligned and tabular so a column of
@@ -1022,7 +1037,10 @@ export function Select({
           open ? 'border-brand text-ink shadow-card' : 'border-gray-200 text-ink hover:border-brand hover:shadow-card',
         )}
       >
-        <span className={cx('truncate', !selected && 'text-gray-400')}>{selected?.label ?? placeholder}</span>
+        <span className={cx('flex min-w-0 items-center gap-2', !selected && 'text-gray-400')}>
+          {selected?.icon && <span aria-hidden className="flex shrink-0 leading-none">{selected.icon}</span>}
+          <span className="truncate">{selected?.label ?? placeholder}</span>
+        </span>
         <Icon
           name="chevronRight"
           className={cx('h-4 w-4 shrink-0 text-smoke transition-transform', open ? '-rotate-90' : 'rotate-90')}

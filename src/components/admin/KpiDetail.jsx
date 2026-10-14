@@ -276,7 +276,7 @@ export default function KpiDetail({ row, scope, basis = 'all', currency = 'EUR',
                         <CartesianGrid stroke={CHART.grid} vertical={false} />
                         <XAxis dataKey="day" tick={axisTick} axisLine={false} tickLine={false} interval="preserveStartEnd" minTickGap={32} />
                         <YAxis tick={axisTick} axisLine={false} tickLine={false} width={56} tickFormatter={(v) => f(v)} allowDecimals={false} />
-                        <Tooltip contentStyle={chartTip} cursor={{ fill: 'rgba(217,68,7,0.06)' }} formatter={(v) => [f(v), tr('That day')]} />
+                        <Tooltip contentStyle={chartTip} cursor={false} formatter={(v) => [f(v), tr('That day')]} />
                         <Bar animationDuration={600} dataKey="landed" fill={FILL.brand} radius={[4, 4, 0, 0]} maxBarSize={14} />
                       </BarChart>
                     </ResponsiveContainer>

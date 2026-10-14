@@ -15,39 +15,65 @@ const H = 720
 const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 const clip = (s, n) => { const t = String(s ?? ''); return t.length > n ? `${t.slice(0, n - 1)}…` : t }
 
-function frame(title, sub, right, body, foot = '') {
-  return `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" font-family="Poppins, 'Helvetica Neue', Arial, sans-serif" role="img" aria-label="${esc(title)}">
-  <defs>
+// ONE HEADER, FOUR TONES (15 Oct 2026). "They all look very similar": each kind of slide now has its own header colour,
+// and every slide says WHERE (the market's flag, or a globe for Worldwide) and WHEN (the dates in a pill) at a glance.
+// `badge` is a flag emoji, 'globe', or null.
+const TONES = {
+  orange: { bg: 'url(#hg)', kick: '#ffe3d2', title: '#ffffff' },
+  ink: { bg: INK, kick: ORANGE_LIGHT, title: '#ffffff' },
+  light: { bg: '#fff1e8', kick: ORANGE, title: INK },
+  green: { bg: 'url(#gg)', kick: '#d1fae5', title: '#ffffff' },
+}
+const GLOBE = (cx, cy, r, c) => `<g fill="none" stroke="${c}" stroke-width="2.4"><circle cx="${cx}" cy="${cy}" r="${r}"/><ellipse cx="${cx}" cy="${cy}" rx="${r * 0.45}" ry="${r}"/><path d="M${cx - r} ${cy} H${cx + r} M${cx - r * 0.86} ${cy - r * 0.5} H${cx + r * 0.86} M${cx - r * 0.86} ${cy + r * 0.5} H${cx + r * 0.86}"/></g>`
+export function slideHeader({ kicker, title, date, badge = null, tone = 'orange' }) {
+  const t = TONES[tone] || TONES.orange
+  const pillW = Math.max(150, String(date || '').length * 9 + 36)
+  const pillX = W - 48 - (badge ? 76 : 0) - pillW
+  return `<defs>
     <linearGradient id="hg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${ORANGE}"/><stop offset="1" stop-color="${ORANGE_LIGHT}"/></linearGradient>
-    <clipPath id="thumb"><rect width="186" height="236" rx="16"/></clipPath>
+    <linearGradient id="gg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#047857"/><stop offset="1" stop-color="#10b981"/></linearGradient>
   </defs>
+  <rect width="${W}" height="116" fill="${t.bg}"/>
+  <text x="48" y="48" font-size="14" font-weight="700" letter-spacing="2" fill="${t.kick}">${esc(String(kicker || '').toUpperCase())}</text>
+  <text x="48" y="90" font-size="34" font-weight="800" fill="${t.title}">${esc(clip(title, 44))}</text>
+  ${date ? `<g><rect x="${pillX}" y="38" width="${pillW}" height="40" rx="20" fill="#ffffff" ${tone === 'light' ? 'stroke="#f3d6c4"' : ''}/>
+    <text x="${pillX + pillW / 2}" y="64" font-size="16" font-weight="700" text-anchor="middle" fill="${ORANGE}">${esc(date)}</text></g>` : ''}
+  ${badge ? `<g><circle cx="${W - 78}" cy="58" r="30" fill="#ffffff"/>${badge === 'globe' ? GLOBE(W - 78, 58, 17, ORANGE) : `<text x="${W - 78}" y="70" font-size="32" text-anchor="middle">${esc(badge)}</text>`}</g>` : ''}`
+}
+
+function frame(head, body, foot = '') {
+  return `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" font-family="Poppins, 'Helvetica Neue', Arial, sans-serif" role="img" aria-label="${esc(head.title)}">
   <rect width="${W}" height="${H}" fill="#faf7f4"/>
-  <rect width="${W}" height="108" fill="url(#hg)"/>
-  <text x="48" y="46" font-size="14" font-weight="700" letter-spacing="2" fill="#ffe3d2">${esc(sub.toUpperCase())}</text>
-  <text x="48" y="86" font-size="34" font-weight="800" fill="#ffffff">${esc(title)}</text>
-  <text x="${W - 48}" y="86" font-size="16" font-weight="700" text-anchor="end" fill="#ffffff">${esc(right)}</text>
+  ${slideHeader(head)}
   ${body}
   ${foot ? `<text x="48" y="${H - 28}" font-size="13" fill="${SMOKE}">${esc(foot)}</text>` : ''}
 </svg>`
+}
+
+/** Slide numbers, added once the deck's order is known: "3 / 7" bottom right. */
+export function numberSlide(svg, n, total) {
+  return svg.replace(/<\/svg>\s*$/, `<text x="${W - 48}" y="${H - 28}" font-size="13" font-weight="700" text-anchor="end" fill="${SMOKE}">${n} / ${total}</text></svg>`)
 }
 
 const avatar = (x, y, r, name, uri) => (uri
   ? `<g><clipPath id="a${x}${y}"><circle cx="${x}" cy="${y}" r="${r}"/></clipPath><image href="${uri}" x="${x - r}" y="${y - r}" width="${r * 2}" height="${r * 2}" preserveAspectRatio="xMidYMid slice" clip-path="url(#a${x}${y})"/></g>`
   : `<g><circle cx="${x}" cy="${y}" r="${r}" fill="#fde3d1"/><text x="${x}" y="${y + r * 0.36}" font-size="${Math.round(r * 0.9)}" font-weight="800" text-anchor="middle" fill="${ORANGE}">${esc(String(name || '?').trim().slice(0, 1).toUpperCase())}</text></g>`)
 
-/** The headline slide: the existing snapshot, titled for a market when there is one. */
-export function overviewSlide(r, scope, title, marketName) {
-  const t = marketName ? `${marketName} · ${title}` : title
-  return snapshotSvg(r, scope, t)
+/** The headline slide: the existing snapshot, with the deck's header (where and when). */
+export function overviewSlide(r, scope, title, marketName, badge = null) {
+  const which = scope === 'community' ? 'Community' : scope === 'vip' ? 'VIP creators' : 'Community + VIP'
+  return snapshotSvg(r, scope, title, {
+    header: slideHeader({ kicker: `Tryp.com Creator Community · ${which}`, title: `${marketName || 'Worldwide'} · ${title}`, date: rangeLabel(r.from, r.to), badge: badge || (marketName ? null : 'globe'), tone: 'orange' }),
+  })
 }
 
 /** Who and what gained most: top creators on the left, top videos (as thumbnails) on the right. */
-export function leadersSlide(r, scope, { title, marketName, images = {} }) {
+export function leadersSlide(r, scope, { title, marketName, images = {}, badge = null }) {
   const creators = (r?.top_creators || []).filter((c) => scope === 'both' || (scope === 'vip') === !!c.vip).slice(0, 6)
   const videos = (r?.top_videos || []).filter((v) => scope === 'both' || (scope === 'vip') === !!v.vip).slice(0, 6)
   const maxC = Math.max(1, ...creators.map((c) => Number(c.views) || 0))
   const left = creators.map((c, i) => {
-    const y = 176 + i * 78
+    const y = 196 + i * 76
     const w = Math.max(6, Math.round(((Number(c.views) || 0) / maxC) * 300))
     return `<g>
       <text x="48" y="${y + 8}" font-size="22" font-weight="800" fill="${i < 3 ? ORANGE : SMOKE}">${i + 1}</text>
@@ -62,37 +88,39 @@ export function leadersSlide(r, scope, { title, marketName, images = {} }) {
   const right = videos.map((v, i) => {
     const col = i % 3
     const row = Math.floor(i / 3)
-    const x = 640 + col * 202
-    const y = 140 + row * 270
+    // SIZED TO FIT (15 Oct 2026: the second row ran into the foot of the slide). Two rows of 170x226 end at y 640.
+    const x = 640 + col * 196
+    const y = 168 + row * 246
     const thumb = images[v.thumb]
     return `<g>
-      <svg x="${x}" y="${y}" width="186" height="236">
-        <rect width="186" height="236" rx="16" fill="${INK}"/>
-        ${thumb ? `<image href="${thumb}" width="186" height="236" preserveAspectRatio="xMidYMid slice" clip-path="url(#thumb)"/>` : `<text x="93" y="122" font-size="14" text-anchor="middle" fill="#ffffff" opacity="0.6">${esc(v.platform || 'Video')}</text>`}
-        <rect y="140" width="186" height="96" fill="#000000" opacity="0.55"/>
+      <svg x="${x}" y="${y}" width="170" height="226">
+        <defs><clipPath id="vt${i}"><rect width="170" height="226" rx="16"/></clipPath></defs>
+        <rect width="170" height="226" rx="16" fill="${INK}"/>
+        ${thumb ? `<image href="${thumb}" width="170" height="226" preserveAspectRatio="xMidYMid slice" clip-path="url(#vt${i})"/>` : `<text x="85" y="118" font-size="14" text-anchor="middle" fill="#ffffff" opacity="0.6">${esc(v.platform || 'Video')}</text>`}
+        <rect y="136" width="170" height="90" fill="#000000" opacity="0.55" clip-path="url(#vt${i})"/>
+        <circle cx="22" cy="22" r="14" fill="#ffffff"/>
+        <text x="22" y="27" font-size="13" font-weight="800" text-anchor="middle" fill="${ORANGE}">${i + 1}</text>
       </svg>
-      <text x="${x + 12}" y="${y + 196}" font-size="24" font-weight="800" fill="#ffffff">+${compact(v.views)}</text>
-      <text x="${x + 12}" y="${y + 220}" font-size="13" fill="#ffffff" opacity="0.85">${esc(clip(v.name, 20))}${v.vip ? ' · VIP' : ''}</text>
+      <text x="${x + 12}" y="${y + 186}" font-size="22" font-weight="800" fill="#ffffff">+${compact(v.views)}</text>
+      <text x="${x + 12}" y="${y + 210}" font-size="13" fill="#ffffff" opacity="0.85">${esc(clip(v.name, 19))}${v.vip ? ' · VIP' : ''}</text>
     </g>`
   }).join('')
-  const empty = `<text x="48" y="200" font-size="18" fill="${SMOKE}">No views gained in these dates.</text>`
+  const empty = `<text x="48" y="210" font-size="18" fill="${SMOKE}">No views gained in these dates.</text>`
   return frame(
-    `${marketName ? `${marketName} · ` : ''}Who gained most`,
-    'Tryp.com Creator Community',
-    `${title} · ${rangeLabel(r.from, r.to)}`,
-    `<text x="48" y="140" font-size="13" font-weight="700" letter-spacing="1.4" fill="${SMOKE}">TOP CREATORS</text>
-     <text x="640" y="128" font-size="13" font-weight="700" letter-spacing="1.4" fill="${SMOKE}">TOP VIDEOS</text>
+    { kicker: `Tryp.com Creator Community · ${title}`, title: `${marketName || 'Worldwide'} · Who gained most`, date: rangeLabel(r.from, r.to), badge: badge || (marketName ? null : 'globe'), tone: 'light' },
+    `<text x="48" y="158" font-size="13" font-weight="700" letter-spacing="1.4" fill="${SMOKE}">TOP CREATORS</text>
+     <text x="640" y="156" font-size="13" font-weight="700" letter-spacing="1.4" fill="${SMOKE}">TOP VIDEOS</text>
      ${creators.length ? left : empty}${right}`,
     'Views gained inside the dates shown. A creator in several videos counts once, with every video added together.',
   )
 }
 
 /** One challenge as it stands: the podium five, the entries and views, and how the markets split it. */
-export function challengeSlide(ch, { results = [], entries = 0, creators = 0, views = 0, title, images = {} }) {
+export function challengeSlide(ch, { results = [], entries = 0, creators = 0, views = 0, title, images = {}, badge = null, date = '' }) {
   const top = results.slice(0, 5)
   const pts = ch.scoring === 'points'
   const rows = top.map((r, i) => {
-    const y = 300 + i * 76
+    const y = 316 + i * 74
     return `<g>
       <rect x="48" y="${y - 32}" width="700" height="64" rx="16" fill="${i === 0 ? '#fff1e8' : '#ffffff'}" stroke="#ece6e1"/>
       <text x="76" y="${y + 9}" font-size="24" font-weight="800" fill="${i < 3 ? ORANGE : SMOKE}">${r.rank ?? i + 1}</text>
@@ -101,35 +129,34 @@ export function challengeSlide(ch, { results = [], entries = 0, creators = 0, vi
       <text x="720" y="${y + 8}" font-size="20" font-weight="800" text-anchor="end" fill="${INK}">${pts ? `${Number(r.final_views || 0).toLocaleString('en-GB')} pts` : compact(r.final_views)}</text>
     </g>`
   }).join('')
-  const tile = (x, label, big) => `<g><rect x="${x}" y="140" width="250" height="100" rx="20" fill="#ffffff" stroke="#ece6e1"/>
-    <text x="${x + 20}" y="170" font-size="12" font-weight="700" letter-spacing="1.4" fill="${SMOKE}">${esc(label.toUpperCase())}</text>
-    <text x="${x + 20}" y="216" font-size="40" font-weight="800" fill="${INK}">${esc(big)}</text></g>`
+  const tile = (x, label, big) => `<g><rect x="${x}" y="148" width="250" height="100" rx="20" fill="#ffffff" stroke="#ece6e1"/>
+    <text x="${x + 20}" y="178" font-size="12" font-weight="700" letter-spacing="1.4" fill="${SMOKE}">${esc(label.toUpperCase())}</text>
+    <text x="${x + 20}" y="224" font-size="40" font-weight="800" fill="${INK}">${esc(big)}</text></g>`
   const left = ch.status === 'active' && ch.end_date ? Math.max(0, Math.ceil((Date.parse(ch.end_date) - Date.now()) / 864e5)) : null
   return frame(
-    clip(ch.title, 40),
-    'Tryp.com Creator Community · challenge',
-    title,
+    { kicker: `Challenge · ${title}`, title: ch.title, date, badge: badge || 'globe', tone: ch.status === 'active' ? 'ink' : 'green' },
     `${tile(48, 'Entries', String(entries))}${tile(318, 'Creators', String(creators))}${tile(588, 'Views', compact(views))}
-     <g><rect x="858" y="140" width="374" height="100" rx="20" fill="${ORANGE}"/>
-       <text x="878" y="170" font-size="12" font-weight="700" letter-spacing="1.4" fill="#ffe3d2">${ch.status === 'active' ? 'STATUS' : 'FINISHED'}</text>
-       <text x="878" y="216" font-size="34" font-weight="800" fill="#ffffff">${ch.status === 'active' ? (left === 0 ? 'Last day' : `${left} days left`) : 'Final'}</text></g>
-     <text x="48" y="262" font-size="13" font-weight="700" letter-spacing="1.4" fill="${SMOKE}">${ch.status === 'active' ? 'LEADERBOARD RIGHT NOW' : 'FINAL LEADERBOARD'}</text>
+     <g><rect x="858" y="148" width="374" height="100" rx="20" fill="${ORANGE}"/>
+       <text x="878" y="178" font-size="12" font-weight="700" letter-spacing="1.4" fill="#ffe3d2">${ch.status === 'active' ? 'STATUS' : 'FINISHED'}</text>
+       <text x="878" y="224" font-size="34" font-weight="800" fill="#ffffff">${ch.status === 'active' ? (left === 0 ? 'Last day' : `${left} days left`) : 'Final'}</text></g>
+     <text x="48" y="274" font-size="13" font-weight="700" letter-spacing="1.4" fill="${SMOKE}">${ch.status === 'active' ? 'LEADERBOARD RIGHT NOW' : 'FINAL LEADERBOARD'}</text>
      ${rows || `<text x="48" y="320" font-size="18" fill="${SMOKE}">No results yet.</text>`}
-     <text x="800" y="300" font-size="15" fill="${SMOKE}">${esc(pts ? 'Ranked by points.' : 'Ranked by views.')}</text>`,
+     <text x="800" y="316" font-size="15" fill="${SMOKE}">${esc(pts ? 'Ranked by points.' : 'Ranked by views.')}</text>`,
     ch.status === 'active' ? 'Standings can still change until the challenge closes.' : '',
   )
 }
 
 /** The market table on its own slide, for a deck that leads with the worldwide picture. */
-export function marketsSlide(r, scope, title) {
+export function marketsSlide(r, scope, title, flags = {}) {
   const rows = (r?.markets || []).filter((m) => viewsFor(m, scope) > 0 || m.videos > 0).slice(0, 8)
   const max = Math.max(1, ...rows.map((m) => viewsFor(m, scope)))
   const body = rows.map((m, i) => {
-    const y = 170 + i * 64
+    const y = 190 + i * 62
     const v = viewsFor(m, scope)
     const ch = scope === 'both' ? pctChange(v, m.prev_combined) : null
     return `<g>
-      <text x="48" y="${y + 6}" font-size="20" font-weight="700" fill="${INK}">${esc(m.name)}</text>
+      <text x="48" y="${y + 8}" font-size="24">${esc(flags[m.name] || '')}</text>
+      <text x="${flags[m.name] ? 88 : 48}" y="${y + 6}" font-size="20" font-weight="700" fill="${INK}">${esc(clip(m.name, 18))}</text>
       <rect x="300" y="${y - 10}" width="560" height="18" rx="9" fill="#f1ece8"/>
       <rect x="300" y="${y - 10}" width="${Math.max(8, Math.round((v / max) * 560))}" height="18" rx="9" fill="${ORANGE}"/>
       <text x="880" y="${y + 6}" font-size="20" font-weight="800" fill="${INK}">${compact(v)}</text>
@@ -137,8 +164,8 @@ export function marketsSlide(r, scope, title) {
       <text x="1070" y="${y + 6}" font-size="15" fill="${SMOKE}">${m.videos} videos</text>
     </g>`
   }).join('')
-  return frame('Markets, side by side', 'Tryp.com Creator Community', `${title} · ${rangeLabel(r.from, r.to)}`,
-    `<text x="48" y="140" font-size="13" font-weight="700" letter-spacing="1.4" fill="${SMOKE}">VIEWS GAINED BY MARKET</text>${body}`,
+  return frame({ kicker: `Tryp.com Creator Community · ${title}`, title: 'Markets, side by side', date: rangeLabel(r.from, r.to), badge: 'globe', tone: 'ink' },
+    `<text x="48" y="158" font-size="13" font-weight="700" letter-spacing="1.4" fill="${SMOKE}">VIEWS GAINED BY MARKET</text>${body}`,
     'A creator counts for their home market; a VIP for their VIP market.')
 }
 

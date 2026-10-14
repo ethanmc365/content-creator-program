@@ -135,12 +135,12 @@ export function JoinBonusCallout({ points, from, onOpen }) {
 /**
  * Several offers in one slot take turns, a few seconds each.
  *
- * SMOOTH, NOT A FLASH (14 Oct 2026). Every offer used to be remounted in place, so the switch was a blink. Now all of them
- * sit stacked in one grid cell: the one leaving lifts and blurs away while the next rises into place on the same curve,
- * so the dark card looks like it is turning its words over rather than being replaced. Dots under it show which offer
- * and fill with the time until the next; hovering pauses, a dot jumps to that offer.
+ * ONE SMOOTH GLIDE, NO DOTS (15 Oct 2026). The team did not want the two little progress bars: each offer shows for
+ * 4.5 seconds, then the whole card's words glide sideways - the one leaving slides out to the left and fades, the next
+ * slides in from the right on the same curve - so the change is noticeable without being a blink. All offers sit stacked
+ * in one grid cell, so the card never changes height. Hovering pauses.
  */
-const ROTATE_MS = 6000
+const ROTATE_MS = 4500
 export function OfferRotator({ items }) {
   const [i, setI] = useState(0)
   const [paused, setPaused] = useState(false)
@@ -154,18 +154,20 @@ export function OfferRotator({ items }) {
   const k = i % n
   const prev = (k - 1 + n) % n
   return (
-    <div className="relative flex w-full min-w-0 flex-col sm:flex-1" onMouseEnter={() => setPaused(true)} onMouseLeave={() => setPaused(false)}>
+    <div className="relative flex w-full min-w-0 flex-col overflow-hidden rounded-card sm:flex-1" onMouseEnter={() => setPaused(true)} onMouseLeave={() => setPaused(false)}>
       <div className="grid w-full min-w-0">
         {items.map((item, idx) => {
           const on = idx === k
-          const leaving = n > 1 && idx === prev
+          const leaving = n > 1 && i > 0 && idx === prev
+          // Keyframes rather than transitions, restarted per turn by the key, so the next offer always comes in from the
+          // right and the last one always leaves to the left, also with only two offers.
           return (
             <div
-              key={idx}
+              key={on || leaving ? `${idx}-${i}` : idx}
               aria-hidden={!on || undefined}
               className={cx(
-                'flex w-full min-w-0 [grid-area:1/1] transition-[opacity,transform,filter] duration-700 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none',
-                on ? 'z-10 translate-y-0 scale-100 opacity-100 blur-0' : leaving ? 'pointer-events-none -translate-y-3 scale-[0.97] opacity-0 blur-[3px]' : 'pointer-events-none translate-y-3 scale-[0.97] opacity-0 blur-[3px]',
+                'flex w-full min-w-0 [grid-area:1/1] motion-reduce:animate-none',
+                on ? cx('z-10', i > 0 && 'animate-offer-in') : leaving ? 'pointer-events-none animate-offer-out' : 'pointer-events-none invisible',
               )}
             >
               {item}
@@ -173,19 +175,6 @@ export function OfferRotator({ items }) {
           )
         })}
       </div>
-      {n > 1 && (
-        <div className="absolute bottom-1 left-1/2 z-20 flex -translate-x-1/2 gap-1" role="tablist" aria-label="Offers">
-          {items.map((_, idx) => (
-            <button key={idx} type="button" role="tab" aria-selected={idx === k} aria-label={`Offer ${idx + 1} of ${n}`}
-              onClick={() => setI(idx)} className="relative h-1 w-4 overflow-hidden rounded-full bg-white/25">
-              {idx === k && (
-                <span key={`${i}-${paused}`} className="absolute inset-y-0 left-0 rounded-full bg-brand-light"
-                  style={paused ? { width: '100%' } : { animation: `offer-fill ${ROTATE_MS}ms linear forwards` }} />
-              )}
-            </button>
-          ))}
-        </div>
-      )}
     </div>
   )
 }

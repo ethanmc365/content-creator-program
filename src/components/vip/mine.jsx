@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import Icon from '../Icon'
 import { CountUp, VIP_COUNT_MS } from '../network/Motion'
 import { TargetBar } from './parts'
@@ -22,9 +22,48 @@ export function VipAnnouncements({ programmeId }) {
     return () => { alive = false }
   }, [programmeId])
   if (rows.length === 0) return null
+  return <AnnouncementStack rows={rows} label={tr('From the team')} />
+}
+
+/**
+ * SEVERAL NOTES AT ONCE ARE A STACK, NOT A COLUMN (15 Oct 2026). The newest is on top; the ones still running sit behind
+ * it, their edges peeking out, with "1 of 2" and arrows. Swipe sideways (or press an arrow) to bring the next one to the
+ * front. A note that has ended is gone already (the query only reads running ones), so a new note simply replaces an
+ * old one unless the old one was set to stay.
+ */
+export function AnnouncementStack({ rows, label, preview = false }) {
+  const tr = useKindT()
+  const [at, setAt] = useState(0)
+  const [dir, setDir] = useState(1)
+  const start = useRef(null)
+  const n = rows.length
+  const k = Math.min(at, n - 1)
+  const go = (d) => { if (n < 2) return; setDir(d); setAt((i) => (i + d + n) % n) }
   return (
-    <section className="space-y-3" aria-label={tr('From the team')}>
-      {rows.map((a, i) => <AnnouncementCard key={a.id} a={a} delay={i * 60} />)}
+    <section aria-label={label} aria-roledescription="carousel" className="relative"
+      onPointerDown={(e) => { start.current = e.clientX }}
+      onPointerUp={(e) => { if (start.current == null) return; const dx = e.clientX - start.current; start.current = null; if (Math.abs(dx) > 40) go(dx < 0 ? 1 : -1) }}>
+      <div className="relative">
+        {n > 1 && <span aria-hidden className="absolute inset-x-3 -bottom-2 h-6 rounded-card bg-brand/25" />}
+        {n > 2 && <span aria-hidden className="absolute inset-x-6 -bottom-4 h-6 rounded-card bg-brand/15" />}
+        <div key={`${rows[k]?.id || k}-${at}`} className={cx('relative', n > 1 && (dir > 0 ? 'animate-[stack-in-r_380ms_cubic-bezier(0.22,1,0.36,1)_both]' : 'animate-[stack-in-l_380ms_cubic-bezier(0.22,1,0.36,1)_both]'))}>
+          <AnnouncementCard a={rows[k]} preview={preview && !rows[k]?.id} />
+        </div>
+      </div>
+      {n > 1 && (
+        <div className="mt-4 flex items-center justify-center gap-3">
+          <button type="button" onClick={() => go(-1)} aria-label={tr('Previous')} className="flex h-7 w-7 items-center justify-center rounded-full bg-white text-smoke shadow-card transition-transform hoverable:hover:-translate-y-0.5 hoverable:hover:text-brand">
+            <Icon name="chevronLeft" className="h-4 w-4" />
+          </button>
+          <span className="flex items-center gap-1.5 text-xs font-semibold text-smoke">
+            {rows.map((r, i) => <span key={r.id || i} className={cx('h-1.5 rounded-full transition-all duration-300', i === k ? 'w-4 bg-brand' : 'w-1.5 bg-gray-300')} />)}
+            <span className="ml-1 tabular-nums">{tr('{a} of {b}', { a: k + 1, b: n })}</span>
+          </span>
+          <button type="button" onClick={() => go(1)} aria-label={tr('Next')} className="flex h-7 w-7 items-center justify-center rounded-full bg-white text-smoke shadow-card transition-transform hoverable:hover:-translate-y-0.5 hoverable:hover:text-brand">
+            <Icon name="chevronRight" className="h-4 w-4" />
+          </button>
+        </div>
+      )}
     </section>
   )
 }

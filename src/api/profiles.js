@@ -6,6 +6,7 @@ import { supabase } from '../lib/supabase'
 export const makeProfilesApi = (db = supabase) => ({
   connections: () => db.from('connections'),
   creatorPhotos: () => db.from('creator_photos'),
+  onboardingProgress: () => db.from('onboarding_progress'),
   creatorPortfolios: () => db.from('creator_portfolios'),
   profiles: () => db.from('profiles'),
   adminSetCreatorMarkets: (args, opts) => db.rpc('admin_set_creator_markets', args, opts),

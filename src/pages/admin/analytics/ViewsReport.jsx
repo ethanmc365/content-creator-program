@@ -6,7 +6,7 @@ import MeetingDeck from './MeetingDeck'
 import VideoThumb from '../../../components/VideoThumb'
 import Icon from '../../../components/Icon'
 import { CountUp } from '../../../components/network/Motion'
-import { CHART, axisTick, tooltipStyle } from '../../../components/charts/chartTheme'
+import { CHART, axisTick, stackShape, tooltipStyle } from '../../../components/charts/chartTheme'
 import { PERIODS } from '../../../lib/analyticsPeriod'
 import { copyToClipboard } from '../../../lib/clipboard'
 import { toastSuccess } from '../../../lib/toast'
@@ -26,6 +26,7 @@ import { teamApi } from '../../../api/team'
 const SNAP_TITLE = { last_7: 'Weekly snapshot', this_week: 'Weekly snapshot', last_week: 'Weekly snapshot', this_month: 'Monthly snapshot', last_month: 'Monthly snapshot' }
 const longDay = (iso) => new Date(`${iso}T12:00:00Z`).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' })
 const ymd = (d) => format(d, 'yyyy-MM-dd')
+const STACK = ['community', 'vip']
 
 export default function ViewsReport({ market = '', marketName = null, allMarkets = [], periodKey = 'last_7', range, scope = 'both' }) {
   const tr = useT()
@@ -151,16 +152,16 @@ export default function ViewsReport({ market = '', marketName = null, allMarkets
           </div>
 
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-            <div className="animate-rise rounded-card border border-brand/20 bg-white p-4 shadow-card">
+            <div className="animate-rise rounded-card border border-gray-100 bg-white p-4 shadow-card">
               <p className="text-sm font-medium text-smoke">{scopeLabel}</p>
-              <p className="mt-2 text-3xl font-bold tracking-tight text-brand"><CountUp value={now} format={formatViews} /></p>
+              <p className="mt-2 text-3xl font-bold tracking-tight text-ink"><CountUp value={now} format={formatViews} /></p>
               <p className={cx('mt-1.5 text-[11px] font-semibold', move == null ? 'text-gray-400' : move >= 0 ? 'text-green-700' : 'text-red-600')}>
                 {move == null ? tr('Nothing to compare with') : `${move >= 0 ? '▲' : '▼'} ${Math.abs(move)}% ${tr('on the {n} days before', { n: data.days })}`}
               </p>
             </div>
             <Tile label={tr('Videos posted')} value={(t.videos || 0) + (scope === 'community' ? 0 : t.vip_videos || 0)} sub={`${prev ? (prev.videos || 0) + (scope === 'community' ? 0 : prev.vip_videos || 0) : 0} ${tr('before')}`} delay={60} />
             <Tile label={tr('New creators')} value={t.new_members || 0} sub={`${prev?.new_members ?? 0} ${tr('before')}`} delay={120} />
-            <Tile label={tr('Creators gaining views')} value={t.active_creators || 0} sub={scope === 'both' ? `${formatViews(t.community)} + ${formatViews(t.vip)}` : ' '} delay={180} />
+            <Tile label={tr('Creators gaining views')} value={t.active_creators || 0} sub={scope === 'both' ? `${formatViews(t.community)} ${tr('community')} · ${formatViews(t.vip)} VIP` : ' '} delay={180} />
           </div>
           {vipOff && scope !== 'community' && <p className="rounded-xl bg-amber-50 px-4 py-2.5 text-sm text-amber-800">{tr('You do not have VIP access, so the VIP numbers are left out.')}</p>}
 
@@ -178,14 +179,18 @@ export default function ViewsReport({ market = '', marketName = null, allMarkets
                   <CartesianGrid vertical={false} stroke={CHART.grid} />
                   <XAxis dataKey="label" tick={axisTick} tickLine={false} axisLine={false} interval="preserveStartEnd" />
                   <YAxis tick={axisTick} tickLine={false} axisLine={false} tickFormatter={(v) => compact(v)} width={44} />
-                  <Tooltip cursor={{ fill: 'rgba(217,68,7,0.06)' }} contentStyle={tooltipStyle} formatter={(v, n) => [formatViews(v), n === 'community' ? tr('Community') : tr('VIP')]} />
-                  {scope !== 'vip' && <Bar dataKey="community" stackId="v" fill={CHART.brand} radius={scope === 'community' ? [6, 6, 0, 0] : [0, 0, 0, 0]} animationDuration={700} />}
-                  {scope !== 'community' && <Bar dataKey="vip" stackId="v" fill={CHART.ink} radius={[6, 6, 0, 0]} animationDuration={700} />}
+                  <Tooltip cursor={false} contentStyle={tooltipStyle} formatter={(v, n) => [formatViews(v), n === 'community' ? tr('Community') : tr('VIP')]} />
+                  {/* ROUNDED WHEREVER A COLUMN ENDS (15 Oct 2026): UK & Ireland has no VIPs, so its community bars are the top of
+                      every column and were square. stackShape rounds whichever segment is highest in its column. */}
+                  {scope !== 'vip' && <Bar dataKey="community" stackId="v" fill={CHART.brand} shape={stackShape(STACK, 'community')} maxBarSize={44} animationDuration={700} />}
+                  {scope !== 'community' && <Bar dataKey="vip" stackId="v" fill={CHART.ink} shape={stackShape(STACK, 'vip')} maxBarSize={44} animationDuration={700} />}
                 </BarChart>
               </ResponsiveContainer>
             </div>
           </section>
 
+          {/* BY MARKET ONLY ACROSS MARKETS: with one market picked it was a table of one row. */}
+          {!market && (
           <section className="animate-rise overflow-hidden rounded-card border border-gray-100 bg-white shadow-card">
             <h3 className="px-4 pt-4 text-[15px] font-bold text-ink sm:px-5">{tr('By market')}</h3>
             <p className="px-4 text-xs text-smoke sm:px-5">{tr('A creator counts for the market they belong to; a VIP counts for their VIP market.')}</p>
@@ -217,10 +222,11 @@ export default function ViewsReport({ market = '', marketName = null, allMarkets
               </table>
             </div>
           </section>
+          )}
 
           {/* WHAT GAINED MOST (14 Oct 2026): twelve videos, scrollable, each saying whose it is, which challenge, what it
               gained here and where it stands in total; and the creators beside them. */}
-          <div className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+          <div className="grid grid-cols-1 items-start gap-5 xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
             <section className="animate-rise rounded-card border border-gray-100 bg-white p-4 shadow-card sm:p-5">
               <div className="mb-3 flex items-center justify-between">
                 <h3 className="text-[15px] font-bold text-ink">{tr('Videos that gained most')}</h3>

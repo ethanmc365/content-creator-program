@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Avatar, Modal, Skeleton, Spinner } from '../ui'
 import Icon from '../Icon'
-import FlagTile from '../network/FlagTile'
 import { notice } from '../../lib/confirm'
 import { copyToClipboard, emailList } from '../../lib/clipboard'
 import { toastSuccess } from '../../lib/toast'
@@ -39,16 +38,12 @@ const SEGMENTS = {
     title_default: 'Your community is waiting', body_default: 'Open Tryp.com Creators and join the Global Challenge. Post one video and you are on the board.',
   },
 }
-const STATE_ORDER = ['posted', 'seen', 'dormant', 'never']
-const STATE_LABEL = { posted: 'Posted', seen: 'Looked, did not post', dormant: 'Quiet since it started', never: 'Never opened the app' }
-const STATE_TONE = { posted: 'bg-gradient-to-r from-brand to-brand-light', seen: 'bg-brand-light/50', dormant: 'bg-gray-300', never: 'bg-gray-200' }
 
 const pct = (a, b) => (b ? Math.round((a / b) * 100) : 0)
 
 export default function ChallengeReach({ challenge }) {
   const [d, setD] = useState(undefined)
   const [sheet, setSheet] = useState(null) // { segment, market }
-  const [openMarket, setOpenMarket] = useState(null)
   const [grown, setGrown] = useState(false)
   const [goal, setGoal] = useState(() => { try { return Number(localStorage.getItem(`tryp_reach_goal_${challenge.id}`)) || 50 } catch { return 50 } })
 
@@ -65,11 +60,6 @@ export default function ChallengeReach({ challenge }) {
   const saveGoal = (n) => { setGoal(n); try { localStorage.setItem(`tryp_reach_goal_${challenge.id}`, String(n)) } catch { /* private mode */ } }
 
   const people = useMemo(() => d?.people || [], [d])
-  const byMarket = useMemo(() => {
-    const m = new Map()
-    for (const p of people) { if (!m.has(p.market)) m.set(p.market, []); m.get(p.market).push(p) }
-    return m
-  }, [people])
 
   if (d === undefined) return <section className="card mb-10" aria-busy="true"><Skeleton className="h-6 w-56" /><Skeleton className="mt-5 h-24 w-full" /></section>
   if (!d) return null
@@ -80,7 +70,6 @@ export default function ChallengeReach({ challenge }) {
     { label: 'Posted an entry', n: d.posted, sub: `${pct(d.posted, d.seen)}% of those who looked` },
   ]
   const toGoal = Math.max(0, goal - d.posted)
-  const top = Math.max(1, ...(d.markets || []).map((m) => m.audience))
 
   return (
     <section className="card mb-10 animate-fade-up">
@@ -117,97 +106,27 @@ export default function ChallengeReach({ challenge }) {
         )}
       </div>
 
-      {/* the funnel */}
-      <ol className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-3">
-        {step.map((s, i) => (
-          <li key={s.label} className="rounded-xl bg-cloud/60 px-4 py-3.5">
-            <p className="text-[11px] font-bold uppercase tracking-wide text-gray-400">{s.label}</p>
-            <p className="mt-1 text-3xl font-bold tabular-nums text-ink">{s.n}</p>
-            <p className="text-xs text-smoke">{s.sub}</p>
-            <div className="mt-2.5 h-1.5 overflow-hidden rounded-full bg-white"><div className="h-full rounded-full bg-gradient-to-r from-brand to-brand-light transition-[width] duration-700" style={{ width: grown ? `${pct(s.n, d.audience)}%` : '0%', transitionDelay: `${i * 90}ms` }} /></div>
+      {/* THE FUNNEL AND THE FOLLOW-UPS, ONE COMPACT ROW (15 Oct 2026). Market by market lives in Participation by market
+          now (press a market: posted / not posted / in the app today, with emails), so it is not drawn twice. */}
+      <ol className="mt-5 grid grid-cols-2 gap-2.5 lg:grid-cols-4">
+        {[...step, { label: 'Not posted yet', n: Math.max(0, d.audience - d.posted), sub: `${pct(Math.max(0, d.audience - d.posted), d.audience)}% of the audience` }].map((s, i) => (
+          <li key={s.label} className="rounded-xl bg-cloud/60 px-3.5 py-3">
+            <p className="text-[10.5px] font-bold uppercase tracking-wide text-gray-400">{s.label}</p>
+            <p className="mt-0.5 text-2xl font-bold tabular-nums text-ink">{s.n}</p>
+            <p className="text-[11px] text-smoke">{s.sub}</p>
+            <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white"><div className="h-full rounded-full bg-gradient-to-r from-brand to-brand-light transition-[width] duration-700" style={{ width: grown ? `${pct(s.n, d.audience)}%` : '0%', transitionDelay: `${i * 90}ms` }} /></div>
           </li>
         ))}
       </ol>
-
-      {/* market by market */}
-      <div className="mt-8">
-        <div className="flex flex-wrap items-end justify-between gap-2">
-          <h3 className="text-sm font-semibold text-ink">Market by market</h3>
-          <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-smoke">
-            {STATE_ORDER.map((k) => <span key={k} className="inline-flex items-center gap-1.5"><span className={cx('h-2 w-2 rounded-full', STATE_TONE[k])} />{STATE_LABEL[k]}</span>)}
-          </p>
-        </div>
-        <ul className="mt-3 space-y-2">
-          {(d.markets || []).map((m, i) => {
-            const rows = byMarket.get(m.name) || []
-            const open = openMarket === m.name
-            return (
-              <li key={m.name} className={cx('overflow-hidden rounded-card border bg-white transition-shadow duration-200', open ? 'border-brand/30 shadow-lift' : 'border-gray-100 shadow-card')}>
-                <button type="button" onClick={() => setOpenMarket(open ? null : m.name)} aria-expanded={open} className="group flex w-full items-center gap-3 px-3.5 py-3 text-left">
-                  {m.codes?.length > 0
-                    ? <FlagTile codes={m.codes} size="h-7 w-7" />
-                    : <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-cloud text-base leading-none" aria-hidden>🌍</span>}
-                  <span className="w-28 shrink-0 truncate text-sm font-semibold text-ink sm:w-36">{m.name}</span>
-                  <span className="relative hidden h-5 min-w-0 flex-1 overflow-hidden rounded-md bg-cloud/70 sm:flex" style={{ maxWidth: `${Math.max(18, (m.audience / top) * 100)}%` }}>
-                    {[['posted', m.posted], ['seen', m.seen_not_posted], ['dormant', m.dormant], ['never', m.never]].map(([k, n], j) => (
-                      <span key={k} className={cx('h-full transition-[width] duration-700 ease-out', STATE_TONE[k])} style={{ width: grown ? `${pct(n, m.audience)}%` : '0%', transitionDelay: `${Math.min(i, 8) * 45 + j * 60}ms` }} title={`${STATE_LABEL[k]}: ${n}`} />
-                    ))}
-                  </span>
-                  <span className="ml-auto flex shrink-0 items-baseline gap-1 tabular-nums">
-                    <span className="text-base font-bold text-ink">{m.posted}</span>
-                    <span className="text-xs text-smoke">of {m.audience} posted</span>
-                  </span>
-                  <Icon name="chevronDown" className={cx('h-4 w-4 shrink-0 text-gray-300 transition-transform duration-200 group-hover:text-brand', open && 'rotate-180 text-brand')} />
-                </button>
-                {open && (
-                  <div className="animate-tab-in border-t border-gray-100 bg-cloud/30 px-3.5 py-4">
-                    <div className="flex flex-wrap items-center gap-2">
-                      {Object.keys(SEGMENTS).map((key) => {
-                        const n = key === 'seen' ? m.seen_not_posted : m[key]
-                        return (
-                          <button key={key} type="button" disabled={!n} onClick={() => setSheet({ segment: key, market: m.name })}
-                            className="inline-flex items-center gap-1.5 rounded-full border border-gray-200 bg-white px-3 py-1.5 text-xs font-semibold text-ink transition-all duration-200 hoverable:hover:-translate-y-0.5 hoverable:hover:border-brand hoverable:hover:text-brand disabled:opacity-40">
-                            <Icon name="bell" className="h-3.5 w-3.5 text-brand" />Push the {n} {key === 'seen' ? 'who looked' : key === 'dormant' ? 'who went quiet' : 'who never opened it'}
-                          </button>
-                        )
-                      })}
-                    </div>
-                    <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
-                      {STATE_ORDER.map((k) => {
-                        const list = rows.filter((p) => p.state === k)
-                        if (!list.length) return null
-                        return (
-                          <div key={k}>
-                            <p className="mb-1.5 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide text-gray-400"><span className={cx('h-2 w-2 rounded-full', STATE_TONE[k])} />{STATE_LABEL[k]} · {list.length}</p>
-                            <ul className="max-h-64 divide-y divide-gray-50 overflow-y-auto rounded-xl border border-gray-100 bg-white">
-                              {list.map((p) => <PersonRow key={p.id} p={p} />)}
-                            </ul>
-                          </div>
-                        )
-                      })}
-                    </div>
-                  </div>
-                )}
-              </li>
-            )
-          })}
-        </ul>
-      </div>
-
-      {/* everyone who has not entered, across every market */}
-      <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-3">
+      <div className="mt-4 flex flex-wrap gap-2">
         {Object.entries(SEGMENTS).map(([key, seg]) => {
           const n = d[key === 'seen' ? 'seen_not_posted' : key]
           return (
             <button key={key} type="button" onClick={() => setSheet({ segment: key, market: null })} disabled={!n}
-              className="group flex flex-col rounded-card border border-gray-100 bg-white p-4 text-left shadow-card transition-all duration-200 hover:-translate-y-0.5 hover:border-brand/30 hover:shadow-lift disabled:opacity-50">
-              <span className="flex items-center justify-between">
-                <span className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide text-gray-400"><Icon name={seg.icon} className="h-3.5 w-3.5 text-brand" />{seg.title}</span>
-                <Icon name="chevronRight" className="h-3.5 w-3.5 text-gray-300 transition-transform group-hover:translate-x-0.5 group-hover:text-brand" />
-              </span>
-              <span className="mt-1.5 text-3xl font-bold tabular-nums text-ink">{n}</span>
-              <span className="text-xs text-smoke">{seg.hint}, in every market</span>
-              <span className="mt-2 text-xs font-semibold text-brand">See who, push or copy emails</span>
+              className="inline-flex items-center gap-2 rounded-full border border-gray-200 bg-white px-3.5 py-2 text-xs font-semibold text-ink transition-all duration-200 hoverable:hover:-translate-y-0.5 hoverable:hover:border-brand hoverable:hover:text-brand disabled:opacity-40">
+              <Icon name={seg.icon} className="h-3.5 w-3.5 text-brand" />{seg.title}
+              <span className="rounded-full bg-cloud px-1.5 py-0.5 text-[10px] font-bold tabular-nums">{n}</span>
+              <span className="text-smoke">push or copy emails</span>
             </button>
           )
         })}

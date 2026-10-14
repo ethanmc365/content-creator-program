@@ -1,11 +1,11 @@
 import { useMemo } from 'react'
 import {
-  Area, AreaChart, Bar, CartesianGrid, ComposedChart, Legend, Line,
-  ResponsiveContainer, Tooltip, XAxis, YAxis,
+  Bar, CartesianGrid, ComposedChart, Legend, Line, Tooltip, XAxis, YAxis,
 } from 'recharts'
 import { growthByMonth, monthLabel } from '../../../lib/analyticsScope'
-import { downloadCsv, formatViews } from '../../../lib/utils'
-import { FILL } from '../../../components/charts/chartTheme'
+import { formatViews } from '../../../lib/utils'
+import { FILL, CHART, barProps, gridProps, lineProps, tooltipStyle, xAxisProps, yAxisProps } from '../../../components/charts/chartTheme'
+import ChartPanel from '../../../components/charts/ChartPanel'
 
 // HOW BIG IS THIS, AND IS IT STILL GETTING BIGGER.
 //
@@ -21,37 +21,6 @@ import { FILL } from '../../../components/charts/chartTheme'
 //
 // Counted from ACCEPTANCE, not signup - see growthByMonth. An application in
 // the queue is not a member.
-
-const BRAND = '#d94407'
-
-const tooltipStyle = {
-  borderRadius: 12, border: '1px solid #F1F1F2', fontFamily: 'Poppins',
-  fontSize: 12, boxShadow: '0 4px 16px rgba(26,26,26,0.08)',
-}
-
-function Card({ title, subtitle, onExport, onDrill, children, tall = false }) {
-  return (
-    <section className="card">
-      <div className="mb-6 flex items-start justify-between gap-3">
-        <div>
-          <h2 className="font-semibold">{title}</h2>
-          {subtitle && <p className="mt-1 text-xs text-smoke">{subtitle}</p>}
-        </div>
-        <span className="flex items-center gap-1.5">
-          {/* A CHART ANSWERS "WHEN". The next question is always "who", and
-              until now there was nowhere to go and ask it. */}
-          {onDrill && (
-            <button onClick={onDrill} className="btn-ghost !py-1.5 !px-3 text-xs">
-              See the creators →
-            </button>
-          )}
-          {onExport && <button onClick={onExport} className="btn-ghost !py-1.5 !px-3 text-xs">CSV ↓</button>}
-        </span>
-      </div>
-      <div className={tall ? 'h-80' : 'h-64'}>{children}</div>
-    </section>
-  )
-}
 
 function Stat({ label, value, hint, tone }) {
   return (
@@ -140,76 +109,70 @@ export default function Growth({ raw, scopeLabel, onDrill }) {
         />
       </div>
 
-      <Card
-        onDrill={onDrill && (() => onDrill('creators'))}
+      {/* THE GROWTH TAB ON THE SHARED CHART CARD (15 Oct 2026): the title opens the full history, CSV on each, the
+          platform's bars and lines, and the bar under the pointer magnifies. */}
+      <ChartPanel
         title="How the community grew"
-        subtitle="The running total is the size of the programme. The bars are each month's intake. A community can be growing and still have stopped recruiting."
-        tall
-        onExport={() => downloadCsv('creator-growth.csv',
-          months.map((m) => ({ month: m.month, joined: m.joined, left: m.left, net: m.net, total: m.total })))}
-      >
-        <ResponsiveContainer width="100%" height="100%">
-          <ComposedChart data={chart} margin={{ top: 16, right: 12, left: -6, bottom: 0 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#F1F1F2" vertical={false} />
-            <XAxis dataKey="label" tick={{ fontSize: 11 }} stroke="#8A8A8F" />
-            <YAxis tick={{ fontSize: 11 }} stroke="#8A8A8F" allowDecimals={false} />
-            <Tooltip contentStyle={tooltipStyle} />
-            <Legend wrapperStyle={{ fontSize: 12 }} />
-            <Bar animationDuration={600} dataKey="joined" name="Joined" fill={FILL.light} radius={[4, 4, 0, 0]} maxBarSize={38} />
-            <Line
-              type="monotone" dataKey="total" name="Total creators"
-              stroke={BRAND} strokeWidth={2.5} dot={{ r: 3 }} activeDot={{ r: 5 }}
-            />
+        subtitle="Bars: each month's intake. Line: creators in total. A community can be growing and still have stopped recruiting."
+        data={chart} height={300} minPoint={44} delay={40}
+        csv={{ name: 'creator-growth.csv', rows: months.map((m) => ({ month: m.month, joined: m.joined, left: m.left, net: m.net, total: m.total })) }}
+        actions={onDrill && <button type="button" onClick={() => onDrill('creators')} className="rounded-lg px-2 py-1 text-[11px] font-semibold text-smoke transition-colors hover:bg-cloud hover:text-brand">Creators</button>}
+        render={(rows) => (
+          <ComposedChart data={rows} margin={{ top: 16, right: 4, left: 0, bottom: 0 }}>
+            <CartesianGrid {...gridProps} />
+            <XAxis dataKey="label" {...xAxisProps} />
+            <YAxis yAxisId="l" {...yAxisProps} allowDecimals={false} />
+            <YAxis yAxisId="r" orientation="right" {...yAxisProps} allowDecimals={false} />
+            <Tooltip contentStyle={tooltipStyle} cursor={false} />
+            <Legend wrapperStyle={{ fontSize: 11 }} iconType="circle" />
+            <Bar yAxisId="l" dataKey="joined" name="Joined" fill={FILL.light} {...barProps} />
+            <Line yAxisId="r" dataKey="total" name="Creators in total" stroke={CHART.brand} {...lineProps} />
           </ComposedChart>
-        </ResponsiveContainer>
-      </Card>
+        )}
+      />
 
       {output.length > 0 && (
-        <>
-          <Card
-            onDrill={onDrill && (() => onDrill('creators'))}
+        <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
+          {/* VIEWS DELIVERED, AS BARS (15 Oct 2026: "it's just a big line"). Each month's views on the videos posted in it,
+              with the average per video as the line, so a month of many weak videos and one of a few strong ones differ. */}
+          <ChartPanel
             title="Views delivered each month"
-            subtitle="Read this against the chart above. More creators and flat views is a different problem from fewer creators and flat views."
-            onExport={() => downloadCsv('views-by-month.csv',
-              output.map((m) => ({ month: m.month, videos: m.videos, views: m.views, creators_posting: m.creators })))}
-          >
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={output} margin={{ top: 4, right: 8, left: 6, bottom: 0 }}>
-                <defs>
-                  <linearGradient id="growthViews" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor={BRAND} stopOpacity={0.28} />
-                    <stop offset="100%" stopColor={BRAND} stopOpacity={0.02} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="#F1F1F2" vertical={false} />
-                <XAxis dataKey="label" tick={{ fontSize: 11 }} stroke="#8A8A8F" />
-                <YAxis tick={{ fontSize: 11 }} stroke="#8A8A8F" tickFormatter={formatViews} width={52} />
-                <Tooltip contentStyle={tooltipStyle} formatter={(v) => formatViews(Number(v))} />
-                <Area animationDuration={600} type="monotone" dataKey="views" name="Views" stroke={BRAND} strokeWidth={2.5} fill="url(#growthViews)" />
-              </AreaChart>
-            </ResponsiveContainer>
-          </Card>
-
-          <Card
-            onDrill={onDrill && (() => onDrill('creators'))}
-            title="Who was actually posting"
-            subtitle="Distinct creators who put up at least one video that month, against the videos themselves."
-            onExport={() => downloadCsv('active-creators-by-month.csv',
-              output.map((m) => ({ month: m.month, creators_posting: m.creators, videos: m.videos })))}
-          >
-            <ResponsiveContainer width="100%" height="100%">
-              <ComposedChart data={output} margin={{ top: 16, right: 12, left: -6, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#F1F1F2" vertical={false} />
-                <XAxis dataKey="label" tick={{ fontSize: 11 }} stroke="#8A8A8F" />
-                <YAxis tick={{ fontSize: 11 }} stroke="#8A8A8F" allowDecimals={false} />
-                <Tooltip contentStyle={tooltipStyle} />
-                <Legend wrapperStyle={{ fontSize: 12 }} />
-                <Bar animationDuration={600} dataKey="videos" name="Videos" fill={FILL.light} radius={[4, 4, 0, 0]} maxBarSize={38} />
-                <Line animationDuration={600} type="monotone" dataKey="creators" name="Creators posting" stroke={BRAND} strokeWidth={2.5} dot={{ r: 3 }} />
+            subtitle="Bars: views on that month's videos. Line: average views per video."
+            data={output.map((m) => ({ ...m, perVideo: m.videos ? Math.round(m.views / m.videos) : 0 }))} height={280} minPoint={44} delay={80}
+            csv={{ name: 'views-by-month.csv', rows: output.map((m) => ({ month: m.month, videos: m.videos, views: m.views, creators_posting: m.creators })) }}
+            actions={onDrill && <button type="button" onClick={() => onDrill('creators')} className="rounded-lg px-2 py-1 text-[11px] font-semibold text-smoke transition-colors hover:bg-cloud hover:text-brand">Creators</button>}
+            render={(rows) => (
+              <ComposedChart data={rows} margin={{ top: 16, right: 4, left: 0, bottom: 0 }}>
+                <CartesianGrid {...gridProps} />
+                <XAxis dataKey="label" {...xAxisProps} />
+                <YAxis yAxisId="l" {...yAxisProps} tickFormatter={formatViews} width={52} />
+                <YAxis yAxisId="r" orientation="right" {...yAxisProps} tickFormatter={formatViews} />
+                <Tooltip contentStyle={tooltipStyle} cursor={false} formatter={(v) => formatViews(Number(v))} />
+                <Legend wrapperStyle={{ fontSize: 11 }} iconType="circle" />
+                <Bar yAxisId="l" dataKey="views" name="Views" fill={FILL.brand} {...barProps} />
+                <Line yAxisId="r" dataKey="perVideo" name="Per video" stroke={CHART.ink} {...lineProps} dot={{ r: 3, fill: CHART.ink, strokeWidth: 0 }} />
               </ComposedChart>
-            </ResponsiveContainer>
-          </Card>
-        </>
+            )}
+          />
+          <ChartPanel
+            title="Who was actually posting"
+            subtitle="Bars: videos posted. Line: distinct creators who posted at least one."
+            data={output} height={280} minPoint={44} delay={120}
+            csv={{ name: 'active-creators-by-month.csv', rows: output.map((m) => ({ month: m.month, creators_posting: m.creators, videos: m.videos })) }}
+            actions={onDrill && <button type="button" onClick={() => onDrill('creators')} className="rounded-lg px-2 py-1 text-[11px] font-semibold text-smoke transition-colors hover:bg-cloud hover:text-brand">Creators</button>}
+            render={(rows) => (
+              <ComposedChart data={rows} margin={{ top: 16, right: 4, left: 0, bottom: 0 }}>
+                <CartesianGrid {...gridProps} />
+                <XAxis dataKey="label" {...xAxisProps} />
+                <YAxis {...yAxisProps} allowDecimals={false} />
+                <Tooltip contentStyle={tooltipStyle} cursor={false} />
+                <Legend wrapperStyle={{ fontSize: 11 }} iconType="circle" />
+                <Bar dataKey="videos" name="Videos" fill={FILL.light} {...barProps} />
+                <Line dataKey="creators" name="Creators posting" stroke={CHART.brand} {...lineProps} />
+              </ComposedChart>
+            )}
+          />
+        </div>
       )}
     </div>
   )

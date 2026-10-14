@@ -123,7 +123,7 @@ export function BigToggle({ on, onChange, title, hint, onLabel = 'On', offLabel 
       >
         <span
           className={cx(
-            'absolute h-5 w-5 rounded-full bg-white shadow transition-transform duration-200',
+            'absolute left-0 h-5 w-5 rounded-full bg-white shadow transition-transform duration-200',
             on ? 'translate-x-6' : 'translate-x-1',
           )}
         />

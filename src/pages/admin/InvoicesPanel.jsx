@@ -23,6 +23,7 @@ import { downloadInvoicePdf } from '../../lib/invoicePdf'
 // The on-screen invoice. Shared with the Testing Centre's invoice lab, so the
 // demo and the real composer can never draw two different invoices.
 import InvoicePreview from '../../components/InvoicePreview'
+import { DateField } from '../../components/DateTimeFields'
 import { moneyApi } from '../../api/money'
 import { profilesApi } from '../../api/profiles'
 import { settingsApi } from '../../api/settings'
@@ -663,12 +664,13 @@ export default function InvoicesPanel({ prefill, onClose, onSent }) {
               </div>
               <div>
                 <div className="flex h-8 items-end justify-between gap-2">
-                  <label htmlFor="inv-date" className="label !mb-0">Invoice date</label>
+                  <span className="label !mb-0">Invoice date</span>
                 </div>
-                <input
-                  id="inv-date" type="text" className="input mt-2" placeholder="DD/MM/YYYY"
-                  value={issueDate} onChange={(e) => setIssueDate(e.target.value)}
-                />
+                {/* The shared date box: type it, or pick it from the calendar button (15 Oct 2026). */}
+                <div className="mt-2">
+                  <DateField id="inv-date" value={dateInputToIso(issueDate) || ''}
+                    onChange={(iso) => setIssueDate(iso ? isoToDateInput(`${iso}T12:00:00`) : '')} />
+                </div>
               </div>
             </div>
 

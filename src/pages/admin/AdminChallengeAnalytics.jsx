@@ -265,7 +265,7 @@ export default function AdminChallengeAnalytics() {
       <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
         <StatCard label="Entries" value={d.submissions} hint={`${d.uniqueCreators} creators`} />
         <StatCard label="Participation" value={`${d.participation}%`} hint={viewGroup ? `of ${viewGroup.name}` : groups.length ? 'of everyone in its groups' : 'of all creators'} />
-        <StatCard label="Total views" value={formatViewsTotal(d.totalViews)} accent />
+        <StatCard label="Total views" value={formatViewsTotal(d.totalViews)} />
         <StatCard label="Prize money paid" value={formatMoney(d.prizesPaid)} hint={d.prizesPending ? `${formatMoney(d.prizesPending)} pending` : 'all settled'} />
       </div>
       <div className="mb-10 grid grid-cols-2 gap-4 lg:grid-cols-4">
@@ -282,7 +282,6 @@ export default function AdminChallengeAnalytics() {
               label="CPM"
               value={sp.cpm == null ? '—' : formatMoney(Math.round(sp.cpm * 100) / 100, ccy)}
               hint={`per 1,000 views · ${formatMoney(sp.spend, ccy)} spend`}
-              accent
             />
           )
         })()}
@@ -387,7 +386,7 @@ export default function AdminChallengeAnalytics() {
                   <CartesianGrid strokeDasharray="3 3" stroke="#F1F1F2" />
                   <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#6B7280' }} />
                   <YAxis tick={{ fontSize: 11, fill: '#6B7280' }} allowDecimals={false} />
-                  <Tooltip contentStyle={tooltipStyle} cursor={{ fill: 'rgba(217,68,7,0.06)' }} />
+                  <Tooltip contentStyle={tooltipStyle} cursor={false} />
                   <Bar animationDuration={600} dataKey="entries" radius={[8, 8, 0, 0]} maxBarSize={56}>
                     {d.platforms.map((p) => <Cell key={p.name} fill={PLATFORM_COLORS[p.name] || BRAND} />)}
                   </Bar>
@@ -409,7 +408,7 @@ export default function AdminChallengeAnalytics() {
                   <CartesianGrid strokeDasharray="3 3" stroke="#F1F1F2" />
                   <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#6B7280' }} />
                   <YAxis tick={{ fontSize: 11, fill: '#6B7280' }} tickFormatter={formatViewsTotal} />
-                  <Tooltip contentStyle={tooltipStyle} cursor={{ fill: 'rgba(217,68,7,0.06)' }} formatter={(v) => formatViewsTotal(v)} />
+                  <Tooltip contentStyle={tooltipStyle} cursor={false} formatter={(v) => formatViewsTotal(v)} />
                   <Bar animationDuration={600} dataKey="views" fill={FILL.light} radius={[8, 8, 0, 0]} maxBarSize={56} />
                 </BarChart>
               </ResponsiveContainer>
@@ -429,7 +428,7 @@ export default function AdminChallengeAnalytics() {
       <section className="mt-10">
         <h2 className="mb-4 text-lg font-semibold">{challenge.status === 'active' ? 'Leaderboard right now' : 'Final leaderboard'}</h2>
         <div className="rounded-card border border-gray-100 bg-white p-4 shadow-card sm:p-6">
-          <ChallengeDetail challengeId={id} embedded initialTab="leaderboard" />
+          <ChallengeDetail challengeId={id} embedded boardOnly initialTab="leaderboard" />
         </div>
       </section>
 
@@ -560,13 +559,13 @@ function LoggedChallenge({ row, siblings, markets, userId, editing, onEdit, onCl
 
       <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
         <StatCard label="Prize money" value={dash(row.prize_total, (v) => formatMoney(v, row.prize_currency || 'EUR'))} hint={row.prize_type || undefined} />
-        <StatCard label="Total views" value={dash(row.total_views, formatViewsTotal)} accent />
+        <StatCard label="Total views" value={dash(row.total_views, formatViewsTotal)} />
         <StatCard label="Creators" value={dash(row.creators, (v) => v.toLocaleString())} />
         <StatCard label="Posts" value={dash(row.posts, (v) => v.toLocaleString())} />
       </div>
 
       <div className="mb-10 grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <StatCard label="CPM" value={dash(m.cpm, (v) => formatMoney(v, 'EUR'))} hint="per 1,000 views" accent />
+        <StatCard label="CPM" value={dash(m.cpm, (v) => formatMoney(v, 'EUR'))} hint="per 1,000 views" />
         <StatCard label="Cost / post" value={dash(m.costPerPost, (v) => formatMoney(v, 'EUR'))} />
         <StatCard label="Cost / creator" value={dash(m.costPerCreator, (v) => formatMoney(v, 'EUR'))} />
         <StatCard label="Posts / creator" value={dash(m.postsPerCreator, (v) => v.toFixed(1))} />
@@ -619,10 +618,10 @@ function LoggedChallenge({ row, siblings, markets, userId, editing, onEdit, onCl
                 <p className="mb-3 text-[11px] font-semibold uppercase tracking-wide text-smoke">{c.label}</p>
                 <div className="h-44">
                   <ResponsiveContainer>
-                    <BarChart data={c.bars} layout="vertical" margin={{ top: 0, right: 44, left: 0, bottom: 0 }}>
+                    <BarChart className="chart-h" data={c.bars} layout="vertical" margin={{ top: 0, right: 44, left: 0, bottom: 0 }}>
                       <XAxis type="number" hide />
                       <YAxis type="category" dataKey="name" width={72} tick={{ fontSize: 11, fill: '#6B7280' }} axisLine={false} tickLine={false} />
-                      <Tooltip contentStyle={tooltipStyle} formatter={(v) => c.format(v)} cursor={{ fill: 'rgba(217,68,7,0.06)' }} />
+                      <Tooltip contentStyle={tooltipStyle} formatter={(v) => c.format(v)} cursor={false} />
                       <Bar animationDuration={600} dataKey="value" radius={[0, 8, 8, 0]} maxBarSize={26} label={{ position: 'right', fontSize: 11, fill: '#6B7280', formatter: c.format }}>
                         {c.bars.map((b) => (
                           <Cell key={b.name} fill={b.self ? BRAND : BRAND_LIGHT} fillOpacity={b.self ? 1 : 0.45} />
@@ -884,7 +883,7 @@ function EntriesOverTime({ subs, challenge }) {
               <YAxis yAxisId="v" orientation="right" tick={{ fontSize: 11, fill: '#6B7280' }} tickFormatter={formatViewsTotal} />
               <Tooltip
                 contentStyle={tooltipStyle}
-                cursor={{ fill: 'rgba(217,68,7,0.06)' }}
+                cursor={false}
                 formatter={(v, name) => (name === 'views' ? [formatViewsTotal(v), 'Views so far'] : [v, 'Entries'])}
               />
               <Area animationDuration={600} yAxisId="v" type="monotone" dataKey="views" stroke={BRAND_LIGHT} strokeWidth={2} fill="url(#viewsFill)" />

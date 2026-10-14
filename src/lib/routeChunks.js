@@ -44,6 +44,13 @@ export const chunk = {
   // fetched on intent (a finger or pointer touching a link) and on idle, exactly as the tabs are, so the cost moves out
   // of the first paint rather than into a loading screen.
   // Pages a creator rarely opens first, split out of the entry.
+  // OUT OF THE ENTRY TOO (15 Oct 2026): the profile (with its photo board) and the challenges list were the biggest pages
+  // still in it, and the legal pages are opened by almost nobody. Prefetched on intent like the rest.
+  Profile: () => import('../pages/Profile'),
+  Challenges: () => import('../pages/Challenges'),
+  PrivacyPolicy: () => import('../pages/legal/PrivacyPolicy'),
+  Terms: () => import('../pages/legal/Terms'),
+  GuardianConsent: () => import('../pages/legal/GuardianConsent'),
   Rewards: () => import('../pages/Rewards'),
   Notifications: () => import('../pages/Notifications'),
   Dashboard: () => import('../pages/Dashboard'),
@@ -118,6 +125,10 @@ export const chunk = {
 // Path -> chunk, most specific first. Only the split routes are listed; a path
 // that matches nothing here is already in the main bundle and needs no help.
 const ROUTES = [
+  [/^\/profile\/(?!edit$)[^/]+$/, 'Profile'],
+  [/^\/challenges$/, 'Challenges'],
+  [/^\/privacy$/, 'PrivacyPolicy'],
+  [/^\/terms$/, 'Terms'],
   [/^\/rewards/, 'Rewards'],
   [/^\/notifications/, 'Notifications'],
   [/^\/dashboard/, 'Dashboard'],

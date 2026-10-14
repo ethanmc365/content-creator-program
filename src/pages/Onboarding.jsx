@@ -295,7 +295,9 @@ export default function Onboarding() {
   // what the screen says, and what they are put in when they finish (vip_settle_home, migration 307).
   const [vipHome, setVipHome] = useState(null)
   useEffect(() => {
-    if (!vipApplication || demo) return undefined
+    // The demo asks too (a read): without it "Which VIP market will I join?" said "Pick your country" for ever, even
+    // with Spain picked (15 Oct 2026).
+    if (!vipApplication) return undefined
     let alive = true
     vipApi.homeFor({ p_country_code: draft.country_code || null })
       .then(({ data }) => { if (alive) setVipHome(data || null) })
@@ -306,11 +308,26 @@ export default function Onboarding() {
   // sign-ups and another for VIP sign-ups: a new Spanish creator books 15 minutes before review. The country decides the
   // market (a VIP sign-up from Spain gets the Spanish VIP call); never for the team or somebody already in.
   const [signupCalls, setSignupCalls] = useState([])
+  const callAny = demo && params.get('call') === 'any'
   useEffect(() => {
     let alive = true
+    // `?call=any` (the team's "Test the sign-up" button): show the market's call even while it is switched off or has
+    // no link yet, so it can be checked before it goes live. Read straight from the settings table (team only).
+    if (callAny) {
+      Promise.all([marketsApi.marketSignupSettings().select('*'), profilesApi.profiles().select('id, name, photo_url, role_title').eq('is_admin', true)])
+        .then(([{ data: rows }, { data: team }]) => {
+          if (!alive) return
+          const byId = Object.fromEntries((team || []).map((p) => [p.id, p]))
+          setSignupCalls((rows || []).map((r) => ({
+            ...r, call_url: r.call_url || null, host_name: byId[r.host_profile_id]?.name || null,
+            host_photo_url: byId[r.host_profile_id]?.photo_url || null, host_title: byId[r.host_profile_id]?.role_title || null,
+          })))
+        })
+      return () => { alive = false }
+    }
     marketsApi.signupCalls().then(({ data }) => { if (alive) setSignupCalls(data || []) })
     return () => { alive = false }
-  }, [])
+  }, [callAny])
   const savedCall = (!teamApplication && pending && market.market)
     ? signupCalls.find((c) => c.community_id === market.market.id && c.audience === (vipApplication ? 'vip' : 'community')) || null
     : null
@@ -352,6 +369,7 @@ export default function Onboarding() {
       type: 'onboarding-state',
       step,
       total: steps.length,
+      steps: steps.map((st) => ({ key: st.key, title: st.title, skippable: !!st.skippable })),
       stepKey: current.key,
       stepTitle: current.title,
       part: current.part,
@@ -363,7 +381,7 @@ export default function Onboarding() {
         : { slug: null, name: null, outcome: market.outcome },
       draft: { name: draft.name, city: draft.city, country: draft.country, country_code: draft.country_code },
     })
-  }, [demo, step, steps.length, current, problems.length, complete, done, market, draft.name, draft.city, draft.country, draft.country_code])
+  }, [demo, step, steps, current, problems.length, complete, done, market, draft.name, draft.city, draft.country, draft.country_code])
 
   useEffect(() => { stepRef.current = step }, [step])
 

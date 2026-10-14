@@ -23,8 +23,12 @@ export function ApplicationCard({
   app, email, phone, photos, links, suggested, languageHints, markets,
   marketsSpeaking, vipOptions = null, vipPicked = null, onVipPick,
   placeIn, onPlaceIn, open, onToggle, busy, onApprove, onApproveTeam, onDecline, onZoom, onZoomPhoto,
-  selected, onSelect, inviteLabel,
+  selected, onSelect, inviteLabel, scheduled = null, callEnd = null, onApproveNow, onUndoSchedule,
 }) {
+  // ACCEPT AHEAD OF THE CALL (migration 421). With a booked call still to come, Accept stores the decision and the
+  // approval runs when the call is over; "Accept now" overrides that. `scheduled` is their scheduled_approvals row.
+  const afterCall = !app.team_application && callEnd && callEnd > new Date()
+  const fmtWhen = (d) => new Date(d).toLocaleString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
   // `profiles.dob` IS NULL ON EVERY ROW AND ALWAYS WILL BE - a BEFORE trigger
   // (mirror_dob_to_private) moves it into creator_private and derives
   // `profiles.age` from it. Reading dob here printed no age for anybody.
@@ -159,7 +163,7 @@ export function ApplicationCard({
                 app.onboarding_call_booked_at ? 'bg-brand text-white' : 'bg-cloud text-smoke')}>
                 <Icon name="calendar" className="h-3.5 w-3.5" />
                 {app.onboarding_call_at
-                  ? `Onboarding call ${new Date(app.onboarding_call_at).toLocaleString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}${new Date(app.onboarding_call_at) < new Date() ? ' · done, ready to approve' : ''}`
+                  ? `Onboarding call ${new Date(app.onboarding_call_at).toLocaleString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}${new Date(app.onboarding_call_at) < new Date() ? ' · done' : ''}`
                   : app.onboarding_call_booked_at
                     ? `Booked their onboarding call · ${new Date(app.onboarding_call_booked_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}`
                     : 'Opened the booking page, has not booked'}
@@ -381,20 +385,47 @@ export function ApplicationCard({
             one yet. */}
         {/* NO COPY ICON HERE. An unlabelled icon in a row of labelled buttons is the one control nobody can predict. It
             lives on the two rows it is about now - see `Fact`. */}
+        {scheduled && (
+          <div className="mt-4 flex items-center gap-3 rounded-2xl border-2 border-brand bg-brand-tint/40 px-4 py-3 animate-pop-in">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand text-white"><Icon name="check" className="h-4 w-4" /></span>
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-bold text-ink">Accepted, joins after the call</p>
+              <p className="text-xs text-smoke">They become part of the community at {fmtWhen(scheduled.approve_at)}, when their onboarding call is over.</p>
+            </div>
+          </div>
+        )}
         <div className="mt-4 grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center sm:justify-end">
           <Link to={`/profile/${app.id}`} className="btn-secondary justify-center !py-2 text-xs">Full profile</Link>
-          <button onClick={onDecline} disabled={busy} className="btn-danger justify-center !py-2 text-xs">Decline</button>
-          {/* A TEAM APPLICATION IS APPROVED ONTO THE TEAM, NOT INTO A MARKET. They came through an invite link, which
-              grants nothing; the ordinary Approve puts somebody into a market as a creator, and this person is not one.
-              Different button, different function. */}
-          <button
-            onClick={app.team_application ? onApproveTeam : onApprove}
-            disabled={busy}
-            className="btn-primary col-span-2 inline-flex items-center justify-center gap-1.5 !py-2 text-xs"
-          >
-            {busy ? <Spinner className="h-3.5 w-3.5" /> : <Icon name={app.team_application ? 'shield' : 'check'} className="h-3.5 w-3.5" />}
-            {app.team_application ? 'Add to the team' : 'Approve'}
-          </button>
+          {scheduled ? (
+            <>
+              <button type="button" onClick={onUndoSchedule} disabled={busy} className="btn-secondary justify-center !py-2 text-xs">Undo</button>
+              <button type="button" onClick={onApproveNow} disabled={busy} className="btn-primary col-span-2 inline-flex items-center justify-center gap-1.5 !py-2 text-xs">
+                {busy ? <Spinner className="h-3.5 w-3.5" /> : <Icon name="check" className="h-3.5 w-3.5" />}
+                Accept now
+              </button>
+            </>
+          ) : (
+            <>
+              <button onClick={onDecline} disabled={busy} className="btn-danger justify-center !py-2 text-xs">Decline</button>
+              {afterCall && (
+                <button type="button" onClick={onApproveNow} disabled={busy} className="btn-secondary col-span-2 justify-center !py-2 text-xs sm:col-span-1" title="Skip the wait: they join the community straight away">
+                  Accept now
+                </button>
+              )}
+              {/* A TEAM APPLICATION IS APPROVED ONTO THE TEAM, NOT INTO A MARKET. They came through an invite link, which
+                  grants nothing; the ordinary Accept puts somebody into a market as a creator, and this person is not one.
+                  Different button, different function. */}
+              <button
+                onClick={app.team_application ? onApproveTeam : onApprove}
+                disabled={busy}
+                className="btn-primary col-span-2 inline-flex items-center justify-center gap-1.5 !py-2 text-xs"
+                title={afterCall ? `They join when the call ends, ${fmtWhen(callEnd)}` : undefined}
+              >
+                {busy ? <Spinner className="h-3.5 w-3.5" /> : <Icon name={app.team_application ? 'shield' : 'check'} className="h-3.5 w-3.5" />}
+                {app.team_application ? 'Add to the team' : afterCall ? 'Accept after the call' : 'Accept'}
+              </button>
+            </>
+          )}
         </div>
       </div>
     </div>

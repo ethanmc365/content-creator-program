@@ -181,10 +181,12 @@ export default function MarketLeague({ raw, currency }) {
 
   return (
     <div className="space-y-5">
-      <section className="card">
+      {/* ON THE PAGE, NOT IN A CARD (15 Oct 2026): the market rows are cards themselves, so a card around them was a
+          card in a card. */}
+      <section>
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <h2 className="font-semibold">Market league</h2>
+            <h2 className="text-lg font-semibold">Market league</h2>
             <p className="mt-1 text-xs text-smoke">
               Every challenge counts for the market that ran it. {month ? monthLabel(month) : 'Since the programme began'}.
             </p>

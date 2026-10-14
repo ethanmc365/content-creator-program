@@ -57,7 +57,20 @@ export function VipAnalyticsTab({ programme, programmes = [], isAdmin, outer = n
   const all = canAll && scope === 'all'
   const shown = all ? null : (mine.find((p) => p.id === scope) || programme)
   const cur = (shown || mine[0] || programme).currency || 'EUR'
-  const [view, setView] = useState('overview')
+  const [view, setViewRaw] = useState('overview')
+  // SWITCHING VIEWS KEEPS YOUR PLACE (15 Oct 2026): "when I scroll down a bit on Creators and then click Months, the whole
+  // page jumps to the top". The new view starts as a short skeleton, the page got shorter than the scroll position and
+  // the browser clamped it. The body keeps the old view's height until the new one has drawn.
+  const bodyRef = useRef(null)
+  const [holdH, setHoldH] = useState(0)
+  const holdT = useRef(null)
+  const setView = (v) => {
+    setHoldH(bodyRef.current?.offsetHeight || 0)
+    clearTimeout(holdT.current)
+    holdT.current = setTimeout(() => setHoldH(0), 1800)
+    setViewRaw(v)
+  }
+  useEffect(() => () => clearTimeout(holdT.current), [])
   const [innerKey, setPeriodKey] = useState('last_30')
   const [custom, setCustom] = useState({ from: '', to: '' })
   const periodKey = outer ? outer.periodKey : innerKey
@@ -99,7 +112,8 @@ export function VipAnalyticsTab({ programme, programmes = [], isAdmin, outer = n
     <div className="space-y-5">
       {/* THE BAR: which view, then the clock. One row on a desktop, two on a phone. */}
       <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3">
-        <Segmented shape="tabs" id="vip-analytics-view" value={view} onChange={setView} label={tr('Analytics view')} options={[
+        <div className="scrollbar-none -mx-1 max-w-full overflow-x-auto px-1 py-0.5">
+        <Segmented id="vip-analytics-view" value={view} onChange={setView} label={tr('Analytics view')} options={[
           { value: 'overview', label: tr('Overview') },
           { value: 'growth', label: tr('Growth') },
           { value: 'creators', label: tr('Creators') },
@@ -108,6 +122,7 @@ export function VipAnalyticsTab({ programme, programmes = [], isAdmin, outer = n
           { value: 'compare', label: tr('Month vs Month') },
           { value: 'markets', label: tr('Markets') },
         ]} />
+        </div>
         {!outer && <PeriodPicker value={periodKey} from={custom.from} to={custom.to} periods={PICKER_PERIODS} disabled={whole} className="" width="w-44"
           onChange={(k, f, t) => { setPeriodKey(k); if (k === 'custom') setCustom({ from: f, to: t }) }} />}
       </div>
@@ -123,6 +138,7 @@ export function VipAnalyticsTab({ programme, programmes = [], isAdmin, outer = n
 
       {err && <p className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">{err}</p>}
 
+      <div ref={bodyRef} style={holdH ? { minHeight: holdH } : undefined}>
       {view === 'markets' ? <MarketStandings kind={programme.kind || 'vip'} /> : whole ? <MonthViews view={view} scope={all ? null : shown.id} cur={cur} /> : !data ? (
         <div className="space-y-4"><div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">{[0, 1, 2, 3].map((i) => <Skeleton key={i} className="h-28 rounded-card" />)}</div><Skeleton className="h-72 w-full rounded-card" /></div>
       ) : (
@@ -133,6 +149,7 @@ export function VipAnalyticsTab({ programme, programmes = [], isAdmin, outer = n
           {view === 'health' && <Health data={data} />}
         </div>
       )}
+      </div>
     </div>
   )
 }
@@ -164,6 +181,23 @@ function PersonLink({ id, name, photo, size = 'sm', sub }) {
   )
 }
 
+// WHICH MARK IS WHICH (15 Oct 2026: "it's not clear which one is the bar and which is the line"). A small key drawn
+// in the marks' own shapes, under the chart's title.
+function ChartKey({ items }) {
+  return (
+    <span className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-1">
+      {items.map((it) => (
+        <span key={it.label} className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-smoke">
+          {it.kind === 'line'
+            ? <span aria-hidden className="relative inline-block h-0.5 w-4 rounded-full" style={{ background: it.color }}><span className="absolute left-1/2 top-1/2 h-1.5 w-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full" style={{ background: it.color }} /></span>
+            : <span aria-hidden className="inline-block h-2.5 w-2.5 rounded-[3px]" style={{ background: it.color }} />}
+          {it.label}
+        </span>
+      ))}
+    </span>
+  )
+}
+
 // ----------------------------------------------------------------------------------------------------------------- overview
 function Overview({ data, cur, range }) {
   const tr = useKindT()
@@ -181,7 +215,7 @@ function Overview({ data, cur, range }) {
   return (
     <div className="space-y-5">
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
-        <StatCard accent label={tr('Views gained')} value={formatViews(t.views)} delta={d(t.views, p.views)} hint={best && best.views > 0 ? tr('best day {d}', { d: shortDay(best.d) }) : null} />
+        <StatCard label={tr('Views gained')} value={formatViews(t.views)} delta={d(t.views, p.views)} hint={best && best.views > 0 ? tr('best day {d}', { d: shortDay(best.d) }) : null} />
         <StatCard label={tr('Videos posted')} value={nf(t.videos)} delta={d(t.videos, p.videos)} />
         <StatCard label={tr('Creators gaining views')} value={nf(t.creators)} delta={d(t.creators, p.creators)} hint={tr('of {n} VIPs', { n: nf(data.members_now) })} />
         <StatCard label={tr('Views pay')} value={money(t.pay, cur, { cents: false })} delta={d(Number(t.pay), Number(p.pay), true)} hint={tr('at the agreed rates')} />
@@ -199,12 +233,12 @@ function Overview({ data, cur, range }) {
             <Area type="monotone" dataKey="views" stroke={CHART.brand} strokeWidth={2.5} fill="url(#vipRangeViews)" dot={false} activeDot={{ r: 4, fill: CHART.brand }} animationDuration={700} />
           </ComposedChart>
         </ChartCard>
-        <ChartCard title={tr('Videos posted, and creators gaining views')}>
+        <ChartCard title={tr('Videos posted, and creators gaining views')} total={<ChartKey items={[{ kind: 'bar', color: CHART.light, label: tr('Videos posted') }, { kind: 'line', color: CHART.ink, label: tr('Creators gaining views') }]} />}>
           <ComposedChart data={series} margin={{ top: 8, right: 6, left: -12, bottom: 0 }}>
             <CartesianGrid vertical={false} stroke={CHART.grid} />
             <XAxis dataKey="label" {...axisProps} interval="preserveStartEnd" minTickGap={28} />
             <YAxis {...axisProps} width={36} allowDecimals={false} />
-            <Tooltip contentStyle={tooltipStyle} formatter={(v, k) => [nf(v), k === 'videos' ? tr('Videos') : tr('Creators')]} cursor={{ fill: 'rgba(217,68,7,0.05)' }} />
+            <Tooltip contentStyle={tooltipStyle} formatter={(v, k) => [nf(v), k === 'videos' ? tr('Videos') : tr('Creators')]} cursor={false} />
             <Bar dataKey="videos" fill={FILL.light} radius={[6, 6, 0, 0]} maxBarSize={32} animationDuration={700} />
             <Line type="monotone" dataKey="creators" stroke={CHART.ink} strokeWidth={2} dot={{ r: 2.5 }} animationDuration={700} />
           </ComposedChart>
@@ -263,7 +297,6 @@ function Overview({ data, cur, range }) {
           </ul>
         </section>
       )}
-      <p className="text-xs leading-relaxed text-smoke">{tr('Views gained are counted on the day they are read. A video added after it was posted counts the views it had when it was first read across the days since it went up. Views pay is each creator\'s agreed rate on the views they gained, before bonuses, caps and tiers.')}</p>
     </div>
   )
 }
@@ -300,25 +333,28 @@ function Growth({ data, range, all }) {
   return (
     <div className="space-y-5">
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <StatCard accent label={tr('New VIPs')} value={nf(t.joined)} delta={d(t.joined, p.joined)} hint={tr('joined in these days')} />
+        <StatCard label={tr('New VIPs')} value={nf(t.joined)} delta={d(t.joined, p.joined)} hint={tr('joined in these days')} />
         <StatCard label={tr('VIPs now')} value={nf(data.members_now)} hint={tr('{n} at the start', { n: nf(data.members_before) })} />
         <StatCard label={tr('Posting')} value={creators.length ? `${Math.round((posted / creators.length) * 100)}%` : '-'} hint={tr('{a} of {b} VIPs posted', { a: posted, b: creators.length })} />
         <StatCard label={tr('Videos each')} value={posted ? (t.videos / posted).toFixed(1) : '-'} hint={tr('per VIP who posted')} />
       </div>
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <ChartCard title={tr('New VIPs, and how many there are')} total={tr('{n} joined', { n: nf(t.joined) })}>
+        {/* NOT ZOOMED (15 Oct 2026): the total's axis started wherever the line did, so 30 to 33 VIPs filled the whole
+            height and read like a rocket. Both axes start at 0 now, and the key says which mark is which. */}
+        <ChartCard title={tr('New VIPs, and how many there are')} total={<ChartKey items={[{ kind: 'bar', color: CHART.brand, label: tr('Joined that day') }, { kind: 'line', color: CHART.ink, label: tr('VIPs in all') }]} />}>
           <ComposedChart data={series} margin={{ top: 8, right: 6, left: -12, bottom: 0 }}>
             <CartesianGrid vertical={false} stroke={CHART.grid} />
             <XAxis dataKey="label" {...axisProps} interval="preserveStartEnd" minTickGap={28} />
-            <YAxis yAxisId="l" {...axisProps} width={32} allowDecimals={false} />
-            <YAxis yAxisId="r" orientation="right" {...axisProps} width={32} allowDecimals={false} />
-            <Tooltip contentStyle={tooltipStyle} formatter={(v, k) => [nf(v), k === 'joined' ? tr('Joined') : tr('VIPs in all')]} cursor={{ fill: 'rgba(217,68,7,0.05)' }} />
+            <YAxis yAxisId="l" {...axisProps} width={32} allowDecimals={false} domain={[0, (mx) => Math.max(2, mx)]} />
+            <YAxis yAxisId="r" orientation="right" {...axisProps} width={32} allowDecimals={false} domain={[0, (mx) => Math.max(4, Math.ceil(mx * 1.15))]} />
+            <Tooltip contentStyle={tooltipStyle} formatter={(v, k) => [nf(v), k === 'joined' ? tr('Joined') : tr('VIPs in all')]} cursor={false} />
             <Bar yAxisId="l" dataKey="joined" fill={FILL.brand} radius={[6, 6, 0, 0]} maxBarSize={34} animationDuration={700} />
             <Line yAxisId="r" type="monotone" dataKey="total" stroke={CHART.ink} strokeWidth={2} dot={{ r: 2.5 }} animationDuration={700} />
           </ComposedChart>
         </ChartCard>
         <section className="rounded-card border border-gray-100 bg-white p-4 shadow-card animate-rise sm:p-5">
-          <h3 className="mb-4 text-[13.5px] font-bold text-ink">{tr('From joining to gaining views')}</h3>
+          <h3 className="text-[13.5px] font-bold text-ink">{tr('From joining to gaining views')}</h3>
+          <p className="mb-4 mt-0.5 text-xs text-smoke">{tr('Of the VIPs in these days: how many posted a video, and how many of those videos gained views.')}</p>
           <ol className="space-y-3.5">
             {steps.map((s, i) => (
               <li key={s.label}>
@@ -540,7 +576,7 @@ function MonthCharts({ series, data, cur }) {
   return (
     <div className="space-y-5">
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <StatCard accent label={tr('Views, {m}', { m: monthLabel(last.year, last.month, { short: true }) })} value={formatViews(last.views)} delta={d(last.views, prev?.views)} hint={last.live ? tr('so far this month') : null} />
+        <StatCard label={tr('Views, {m}', { m: monthLabel(last.year, last.month, { short: true }) })} value={formatViews(last.views)} delta={d(last.views, prev?.views)} hint={last.live ? tr('so far this month') : null} />
         <StatCard label={tr('Paid, {m}', { m: monthLabel(last.year, last.month, { short: true }) })} value={money(last.cost, cur, { cents: false })} delta={d(last.cost, prev?.cost, true)} hint={last.live ? tr('views pay so far, bonuses at month end') : null} />
         <StatCard label={tr('Views pay per 1,000')} value={last.rate != null ? perK(last.rate, cur) : '-'} delta={last.rate != null && prev?.rate ? d(last.rate, prev.rate, true) : null} hint={tr('the rate before bonuses')} />
         <StatCard label={tr('All-in per 1,000')} value={last.cpm != null ? perK(last.cpm, cur) : '-'} delta={last.cpm != null && prev?.cpm ? d(last.cpm, prev.cpm, true) : null} hint={tr('with bonuses and fees')} />
@@ -551,7 +587,7 @@ function MonthCharts({ series, data, cur }) {
             <CartesianGrid vertical={false} stroke={CHART.grid} />
             <XAxis dataKey="label" {...axisProps} />
             <YAxis {...axisProps} width={52} tickFormatter={(v) => formatViews(v)} />
-            <Tooltip contentStyle={tooltipStyle} formatter={(v) => [nf(v), tr('Views')]} cursor={{ fill: 'rgba(217,68,7,0.05)' }} />
+            <Tooltip contentStyle={tooltipStyle} formatter={(v) => [nf(v), tr('Views')]} cursor={false} />
             <Bar dataKey="views" fill={FILL.brand} radius={[8, 8, 0, 0]} maxBarSize={44} animationDuration={800} />
           </ComposedChart>
         </ChartCard>
@@ -561,7 +597,7 @@ function MonthCharts({ series, data, cur }) {
             <XAxis dataKey="label" {...axisProps} />
             <YAxis yAxisId="l" {...axisProps} width={52} tickFormatter={(v) => money(v, cur, { cents: false })} />
             <YAxis yAxisId="r" orientation="right" {...axisProps} width={44} tickFormatter={(v) => Number(v).toFixed(2)} />
-            <Tooltip contentStyle={tooltipStyle} formatter={(v, k) => [k === 'cost' ? money(v, cur) : perK(v, cur), k === 'cost' ? tr('Cost') : k === 'rate' ? tr('Views pay per 1,000') : tr('All-in per 1,000')]} cursor={{ fill: 'rgba(217,68,7,0.05)' }} />
+            <Tooltip contentStyle={tooltipStyle} formatter={(v, k) => [k === 'cost' ? money(v, cur) : perK(v, cur), k === 'cost' ? tr('Cost') : k === 'rate' ? tr('Views pay per 1,000') : tr('All-in per 1,000')]} cursor={false} />
             <Bar yAxisId="l" dataKey="cost" fill={FILL.light} radius={[8, 8, 0, 0]} maxBarSize={44} animationDuration={800} />
             <Line yAxisId="r" type="monotone" dataKey="rate" stroke={CHART.brand} strokeWidth={2.5} dot={{ r: 3.5, fill: '#fff', stroke: CHART.brand, strokeWidth: 2 }} activeDot={{ r: 5 }} animationDuration={800} connectNulls />
             <Line yAxisId="r" type="monotone" dataKey="cpm" stroke={CHART.ink} strokeWidth={2} strokeDasharray="4 3" dot={false} animationDuration={800} connectNulls />
@@ -573,7 +609,7 @@ function MonthCharts({ series, data, cur }) {
           <CartesianGrid vertical={false} stroke={CHART.grid} />
           <XAxis dataKey="label" {...axisProps} />
           <YAxis {...axisProps} width={40} allowDecimals={false} />
-          <Tooltip contentStyle={tooltipStyle} formatter={(v, k) => [nf(v), k === 'videos' ? tr('Videos') : tr('VIPs')]} cursor={{ fill: 'rgba(217,68,7,0.05)' }} />
+          <Tooltip contentStyle={tooltipStyle} formatter={(v, k) => [nf(v), k === 'videos' ? tr('Videos') : tr('VIPs')]} cursor={false} />
           <Bar dataKey="videos" fill={FILL.pale} radius={[8, 8, 0, 0]} maxBarSize={44} animationDuration={800} />
           <Line type="monotone" dataKey="members" stroke={CHART.ink} strokeWidth={2} dot={{ r: 3 }} animationDuration={800} />
         </ComposedChart>

@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
 import Icon from '../Icon'
-import { Select, Skeleton } from '../ui'
+import { Avatar, Select, Skeleton, Toggle } from '../ui'
 import { cx } from '../../lib/utils'
 import { notice } from '../../lib/confirm'
 import { marketsApi } from '../../api/markets'
@@ -13,7 +12,7 @@ import PhoneFrame from './PhoneFrame'
 // APPLICATIONS > SIGN-UP (14 Oct 2026). Everything about joining that the team sets per market, starting with the
 // onboarding call: Spain sends every new creator to book 15 minutes with Marta before review. Switch it on for another
 // market (UK, Germany) when somebody there can take the calls. Each market previews exactly what an applicant sees,
-// and "Walk the sign-up" opens the real flow as an applicant from that country, with nothing saved.
+// and "Test the sign-up" opens the real flow as an applicant from that country, with nothing saved.
 export default function SignupSettings() {
   const [markets, setMarkets] = useState(null)
   const [rows, setRows] = useState({})
@@ -42,9 +41,6 @@ export default function SignupSettings() {
           A market with a call switched on adds one last required step to sign-up: book a short call with the host. General
           community and VIP sign-ups each have their own link. With a Cal.com link the booking opens inside the app and the
           app sees it happen; the application card then shows when the call is. Only applicants from that market see it.
-        </p>
-        <p className="mt-2 text-xs text-smoke">
-          The welcome email sent after approval is edited in <Link to="/admin/email" className="font-semibold text-brand hover:underline">Emails</Link>.
         </p>
       </div>
       {markets.map((m, i) => (
@@ -110,20 +106,31 @@ function CallEditor({ market, audience, row, team, onSaved, country }) {
   return (
     <div className="grid gap-6 rounded-2xl border border-gray-100 p-4 lg:grid-cols-[minmax(0,1fr)_280px]">
       <div className="space-y-4">
-        <label className="flex items-center justify-between gap-3 rounded-xl bg-cloud/60 px-4 py-3">
-          <span>
+        <label className={cx('flex cursor-pointer items-center gap-3 rounded-xl px-4 py-3 transition-colors duration-200', draft.enabled ? 'bg-brand-tint/50' : 'bg-cloud/60')}>
+          <Icon name={audience === 'vip' ? 'star' : 'users'} className="h-5 w-5 shrink-0 text-brand" />
+          <span className="min-w-0 flex-1">
             <span className="flex items-center gap-2 text-sm font-semibold">
-              {audience === 'vip' ? <Icon name="star" className="h-4 w-4 text-brand" /> : <Icon name="users" className="h-4 w-4 text-brand" />}
               {audience === 'vip' ? 'VIP sign-ups' : 'General community sign-ups'}
-              {on && <span className="rounded-full bg-brand px-2 py-0.5 text-[10px] font-bold text-white">On</span>}
+              <span className={cx('rounded-full px-2 py-0.5 text-[10px] font-bold transition-colors duration-200', on ? 'bg-brand text-white' : 'bg-white text-smoke')}>{on ? 'Live' : 'Off'}</span>
             </span>
             <span className="block text-xs text-smoke">New {who} applicants from {market.name} must book this call before they can submit.</span>
           </span>
-          <button type="button" role="switch" aria-checked={draft.enabled} onClick={() => setDraft((d) => ({ ...d, enabled: !d.enabled }))}
-            className={cx('relative h-7 w-12 shrink-0 rounded-full transition-colors', draft.enabled ? 'bg-brand' : 'bg-gray-200')}>
-            <span className={cx('absolute top-1 h-5 w-5 rounded-full bg-white shadow transition-transform', draft.enabled ? 'translate-x-6' : 'translate-x-1')} />
-          </button>
+          <Toggle on={draft.enabled} onChange={(v) => setDraft((d) => ({ ...d, enabled: v }))} label={`Onboarding call for ${who} sign-ups`} />
         </label>
+        {draft.enabled !== on && <p className="-mt-2 px-1 text-[11px] font-semibold text-brand animate-tab-in">Save to switch it {draft.enabled ? 'on' : 'off'} for applicants.</p>}
+        <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_150px]">
+          <div>
+            <span className="label">Who they meet</span>
+            <Select value={draft.host} onChange={(v) => setDraft((d) => ({ ...d, host: v }))} className="w-full" ariaLabel="Host" variant="field"
+              options={[{ value: '', label: 'Nobody named', icon: <Icon name="users" className="h-5 w-5 text-smoke" /> },
+                ...team.map((p) => ({ value: p.id, label: p.name, hint: p.role_title || undefined, icon: <Avatar src={p.photo_url} name={p.name} size="xs" className="!h-6 !w-6 !text-[9px]" /> }))]} />
+          </div>
+          <div>
+            <span className="label">Length</span>
+            <Select value={String(draft.minutes)} onChange={(v) => setDraft((d) => ({ ...d, minutes: Number(v) }))} className="w-full" ariaLabel="Length" search={false} variant="field"
+              options={[10, 15, 20, 30, 45].map((n) => ({ value: String(n), label: `${n} minutes` }))} />
+          </div>
+        </div>
         <div>
           <label className="label" htmlFor={`call-url-${market.id}-${audience}`}>Booking link</label>
           <input id={`call-url-${market.id}-${audience}`} className="input" value={draft.url} placeholder="https://cal.com/tryp/onboarding-spain"
@@ -142,18 +149,6 @@ function CallEditor({ market, audience, row, team, onSaved, country }) {
             </a>
           )}
         </div>
-        <div className="grid gap-3 sm:grid-cols-2">
-          <div>
-            <span className="label">Who they meet</span>
-            <Select value={draft.host} onChange={(v) => setDraft((d) => ({ ...d, host: v }))} className="w-full" ariaLabel="Host"
-              options={[{ value: '', label: 'Nobody named' }, ...team.map((p) => ({ value: p.id, label: p.role_title ? `${p.name} · ${p.role_title}` : p.name }))]} />
-          </div>
-          <div>
-            <span className="label">Length</span>
-            <Select value={String(draft.minutes)} onChange={(v) => setDraft((d) => ({ ...d, minutes: Number(v) }))} className="w-full" ariaLabel="Length" search={false}
-              options={[10, 15, 20, 30, 45].map((n) => ({ value: String(n), label: `${n} minutes` }))} />
-          </div>
-        </div>
         <div>
           <label className="label" htmlFor={`call-note-${market.id}-${audience}`}>Extra line for applicants (optional)</label>
           <textarea id={`call-note-${market.id}-${audience}`} rows={2} className="input" value={draft.note}
@@ -163,8 +158,8 @@ function CallEditor({ market, audience, row, team, onSaved, country }) {
         <div className="flex flex-wrap items-center gap-2">
           <button type="button" onClick={save} disabled={busy} className="btn-primary">{busy ? 'Saving…' : 'Save'}</button>
           {country && (
-            <a href={`/onboarding?demo=1&prefill=full&country=${country}${audience === 'vip' ? '&vip=1' : ''}`} target="_blank" rel="noopener noreferrer" className="btn-secondary">
-              <Icon name="eye" className="h-4 w-4" /> Walk the {audience === 'vip' ? 'VIP ' : ''}sign-up
+            <a href={`/onboarding?demo=1&prefill=full&call=any&country=${country}${audience === 'vip' ? '&vip=1' : ''}${draft.url && urlOk ? `&callurl=${encodeURIComponent(draft.url.trim())}` : ''}`} target="_blank" rel="noopener noreferrer" className="btn-secondary">
+              <Icon name="eye" className="h-4 w-4" /> Test the {audience === 'vip' ? 'VIP ' : ''}sign-up
             </a>
           )}
         </div>

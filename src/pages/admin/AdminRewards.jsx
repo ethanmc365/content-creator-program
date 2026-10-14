@@ -338,7 +338,7 @@ function PaidOut({ rewards, cashOut, voucherOut, paid }) {
             <CartesianGrid vertical={false} stroke={CHART.grid} />
             <XAxis dataKey="name" tick={axisTick} axisLine={false} tickLine={false} />
             <YAxis tick={axisTickSmall} axisLine={false} tickLine={false} tickFormatter={(v) => (v >= 1000 ? `${Math.round(v / 100) / 10}k` : v)} />
-            <Tooltip contentStyle={tooltipStyle} cursor={{ fill: 'rgba(217,68,7,0.05)' }} formatter={(v, k) => [eur(v), k === 'cash' ? 'Cash' : 'Vouchers']} />
+            <Tooltip contentStyle={tooltipStyle} cursor={false} formatter={(v, k) => [eur(v), k === 'cash' ? 'Cash' : 'Vouchers']} />
             <Bar dataKey="cash" stackId="p" fill={FILL.brand} maxBarSize={28} />
             <Bar dataKey="vouchers" stackId="p" fill={FILL.light} radius={[5, 5, 0, 0]} maxBarSize={28} />
           </BarChart>

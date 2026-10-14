@@ -116,7 +116,7 @@ function parseParticipationPrize(prizes) {
 // same thing as the `participation` computed below, which is the voucher
 // threshold ("post 3+ videos"). Two very different numbers that both wanted the
 // same word.
-export default function ChallengeDetail({ challengeId = null, embedded = false, marketParticipation = null, initialTab = null }) {
+export default function ChallengeDetail({ challengeId = null, embedded = false, marketParticipation = null, initialTab = null, boardOnly = false }) {
   const tr = useT()
   const { id: routeId } = useParams()
   const id = challengeId || routeId
@@ -829,6 +829,56 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
     // COUNTRY AGAINST COUNTRY, FOR THE GLOBAL CHALLENGE ONLY.
     ...(isGlobalChallenge ? [{ key: 'countries', label: tr('Country leaderboard'), icon: 'globe' }] : []),
   ]
+
+  const leaderboardEl = (
+    <ChallengeDetailLeaderboard
+      boardCounts={boardCounts}
+      boardParticipation={boardParticipation}
+      boardPrizes={boardPrizes}
+      boardRows={boardRows}
+      boards={boards}
+      challenge={challenge}
+      isLive={isLive}
+      myEntries={myEntries}
+      myGroupId={myGroupId}
+      podiumPlaces={podiumPlaces}
+      results={results}
+      setBoard={setBoard}
+      setShowSubmit={setShowSubmit}
+      shownBoard={shownBoard}
+      shownPrize={shownPrize}
+      streaks={streaks}
+      subCountByCreator={subCountByCreator}
+      submittedPlatforms={submittedPlatforms}
+      tr={tr}
+      user={user}
+    />
+  )
+
+  // ONLY THE BOARD (15 Oct 2026, the challenge's analytics page): "all I wanted to show is the actual leaderboard here,
+  // not an exact duplicate of that page" - no header buttons, brief, entries or offers; the country board beside it on a
+  // global challenge.
+  if (boardOnly) {
+    return (
+      <div className="space-y-4">
+        {isGlobalChallenge && (
+          <div className="flex gap-1 rounded-full bg-cloud p-1 sm:inline-flex">
+            {[['leaderboard', tr('Leaderboard'), 'trophy'], ['countries', tr('Country leaderboard'), 'globe']].map(([k, l, ic]) => (
+              <button key={k} type="button" onClick={() => setTab(k)} aria-pressed={tab === k}
+                className={cx('flex flex-1 items-center justify-center gap-1.5 rounded-full px-4 py-2 text-xs font-semibold transition-colors', tab === k ? 'bg-brand text-white shadow-card' : 'text-smoke hover:text-ink')}>
+                <Icon name={ic} className="h-3.5 w-3.5" />{l}
+              </button>
+            ))}
+          </div>
+        )}
+        <div key={tab} className="animate-tab-in">
+          {tab === 'countries' && isGlobalChallenge
+            ? <CountryBoard challenge={challenge} refreshKey={`${challenge.results_updated_at || ''}:${results.length}:${submissions.length}`} meId={user.id} />
+            : leaderboardEl}
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div ref={pageRef} className={shellClass} style={holdH ? { minHeight: holdH } : undefined}>
@@ -1591,30 +1641,7 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
         </div>
       )}
 
-      {tab === 'leaderboard' && (
-        <ChallengeDetailLeaderboard
-          boardCounts={boardCounts}
-          boardParticipation={boardParticipation}
-          boardPrizes={boardPrizes}
-          boardRows={boardRows}
-          boards={boards}
-          challenge={challenge}
-          isLive={isLive}
-          myEntries={myEntries}
-          myGroupId={myGroupId}
-          podiumPlaces={podiumPlaces}
-          results={results}
-          setBoard={setBoard}
-          setShowSubmit={setShowSubmit}
-          shownBoard={shownBoard}
-          shownPrize={shownPrize}
-          streaks={streaks}
-          subCountByCreator={subCountByCreator}
-          submittedPlatforms={submittedPlatforms}
-          tr={tr}
-          user={user}
-        />
-      )}
+      {tab === 'leaderboard' && leaderboardEl}
 
       {/* ---------- Inline video player ---------- */}
       {playing && (

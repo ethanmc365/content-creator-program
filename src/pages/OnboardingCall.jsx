@@ -55,23 +55,33 @@ export default function OnboardingCall({ call, booked, bookedAt = null, opened, 
 
   return (
     <div className="space-y-5">
-      <div className="flex items-center gap-4 rounded-2xl border border-gray-100 bg-white p-4 shadow-card animate-rise">
-        <Avatar src={call.host_photo_url} name={call.host_name || 'Tryp.com'} size="lg" />
-        <div className="min-w-0">
-          <p className="text-base font-bold text-ink">{call.host_name || 'Tryp.com'}</p>
-          {call.host_title && <p className="text-sm text-smoke">{call.host_title}</p>}
-          <p className="mt-1 inline-flex items-center gap-1.5 text-xs font-semibold text-brand">
-            <Icon name="clock" className="h-3.5 w-3.5" />{tr('{n} minute video call', { n: call.call_minutes || 15 })}
-          </p>
+      {/* ONE CARD: who you meet, then why (15 Oct 2026, the team: "put that in the card rather than just as plain text"). */}
+      <div className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-card animate-rise">
+        <div className="flex items-center gap-4 p-4">
+          <span className="relative shrink-0">
+            <Avatar src={call.host_photo_url} name={call.host_name || 'Tryp.com'} size="lg" />
+            <span aria-hidden className="absolute -bottom-0.5 -right-0.5 flex h-7 w-7 items-center justify-center rounded-full bg-brand text-white ring-[3px] ring-white">
+              <Icon name="video" className="h-3.5 w-3.5" />
+            </span>
+          </span>
+          <div className="min-w-0">
+            <p className="text-base font-bold text-ink">{call.host_name || 'Tryp.com'}</p>
+            {call.host_title && <p className="text-sm text-smoke">{call.host_title}</p>}
+            <p className="mt-1 inline-flex items-center gap-1.5 text-xs font-semibold text-brand">
+              <Icon name="clock" className="h-3.5 w-3.5" />{tr('{n} minute video call', { n: call.call_minutes || 15 })}
+            </p>
+          </div>
         </div>
-      </div>
-
-      <div className="rounded-2xl bg-cloud/70 p-4 text-sm leading-relaxed text-ink animate-rise [animation-delay:60ms]">
-        <p className="font-semibold">{tr('Booking this call is how you get accepted into the community.')}</p>
-        <p className="mt-1.5 text-smoke">
-          {tr('It is a quick, friendly chat with {name}: how the community works, how the challenges and prizes work, and how to get the most out of it.', { name: first })}
-        </p>
-        {call.note && <p className="mt-2 text-smoke">{call.note}</p>}
+        <div className="border-t border-gray-100 bg-gradient-to-b from-brand-tint/40 to-white px-4 py-3.5 text-sm leading-relaxed text-ink">
+          <p className="flex items-start gap-2 font-semibold">
+            <Icon name="sparkles" className="mt-0.5 h-4 w-4 shrink-0 text-brand" />
+            {tr('Booking this call is how you get accepted into the community.')}
+          </p>
+          <p className="mt-1.5 text-smoke">
+            {tr('It is a quick, friendly chat with {name}: how the community works, how the challenges and prizes work, and how to get the most out of it.', { name: first })}
+          </p>
+          {call.note && <p className="mt-2 text-smoke">{call.note}</p>}
+        </div>
       </div>
 
       {booked ? (

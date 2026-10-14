@@ -44,6 +44,7 @@ export default function PerCreator({ raw, currency = 'EUR', scopeLabel, target =
   const [sort, setSort] = useState('views')
   const [plotSort, setPlotSort] = useState('views')
   const [plotMore, setPlotMore] = useState(false)
+  const [mode, setMode] = useState('ranked')
   const [q, setQ] = useState('')
   const [desc, setDesc] = useState(true)
   const [onlyActive, setOnlyActive] = useState(false)
@@ -90,7 +91,8 @@ export default function PerCreator({ raw, currency = 'EUR', scopeLabel, target =
   // is somebody delivering cheaply; far left and high is the opposite, and
   // neither shows up when you are reading fifty rows in order.
   const plotAll = useMemo(() => {
-    const posted = rows.filter((r) => r.views > 0)
+    const needle = q.trim().toLowerCase()
+    const posted = rows.filter((r) => r.views > 0 && (!needle || (r.name || '').toLowerCase().includes(needle)))
     const by = {
       views: (a, b) => b.views - a.views,
       spend: (a, b) => b.spend - a.spend || b.views - a.views,
@@ -98,7 +100,7 @@ export default function PerCreator({ raw, currency = 'EUR', scopeLabel, target =
       value: (a, b) => (a.spend > 0 ? a.combinedCpm ?? Infinity : Infinity) - (b.spend > 0 ? b.combinedCpm ?? Infinity : Infinity) || b.views - a.views,
     }[plotSort]
     return [...posted].sort(by)
-  }, [rows, plotSort])
+  }, [rows, plotSort, q])
   const plotRows = plotMore ? plotAll : plotAll.slice(0, 10)
   const maxViews = Math.max(1, ...plotAll.map((r) => r.views))
 
@@ -135,7 +137,7 @@ export default function PerCreator({ raw, currency = 'EUR', scopeLabel, target =
         </div>
         <div className="rounded-card border border-gray-100 bg-white px-5 py-4 shadow-card">
           <p className="text-[11px] font-semibold uppercase tracking-widest text-smoke">Combined CPM</p>
-          <p className="mt-1.5 text-2xl font-bold tabular-nums text-brand">
+          <p className="mt-1.5 text-2xl font-bold tabular-nums">
             {totals.combinedCpm === null ? '—' : formatMoney(totals.combinedCpm, currency)}
           </p>
           <p className="mt-0.5 text-[11px] text-smoke">cash and vouchers together</p>
@@ -156,33 +158,73 @@ export default function PerCreator({ raw, currency = 'EUR', scopeLabel, target =
         </div>
       </div>
 
-      {/* SPEND AGAINST VIEWS, AS A RANKED LIST. It was a scatter plot - one unlabelled orange dot per creator on two
-          money/views axes - which answers "who is unusual" only for someone who already reads scatter plots, and names
-          nobody. Now each creator is a row: what their videos brought (the bar), what they were paid, and what that cost
-          per 1,000 views, coloured against the programme target. Sort it by what you are asking. */}
-      <section className="card">
-        <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+      {/* ONE CARD, ONE SWITCH (15 Oct 2026). "We still have the two charts here ... combine it all into one: the
+          every-creator view and then the most viewed, best value and most paid as a different chart." The ranked bars are
+          three orders of the same list; the table is the fourth view; the search works on both. */}
+      <section className="card !p-0">
+        <div className="flex flex-wrap items-center justify-between gap-3 px-6 py-5">
           <div>
-            <h2 className="font-semibold">Spend against views</h2>
-            <p className="mt-1 text-xs text-smoke">What each creator&apos;s videos brought in, against what they were paid. The colour is their cost per 1,000 views against the {formatMoney(target, currency)} target.</p>
+            <h2 className="font-semibold">Every creator</h2>
+            <p className="mt-1 text-xs text-smoke">
+              {mode === 'table'
+                ? 'Sort by any column. Click a name to open their own pages as they see them.'
+                : <>What each creator&apos;s videos brought in, against what they were paid. The colour is their cost per 1,000 views against the {formatMoney(target, currency)} target.</>}
+            </p>
           </div>
-          <Segmented size="sm" value={plotSort} onChange={setPlotSort} label="Order" options={[
-            { value: 'views', label: 'Most views' }, { value: 'value', label: 'Best value' }, { value: 'spend', label: 'Most paid' },
-          ]} />
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="relative">
+              <Icon name="magnifier" className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-300" />
+              <input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Find a creator" aria-label="Find a creator" className="input !w-44 !py-1.5 !pl-8 text-xs" />
+            </div>
+            <button
+              onClick={() => downloadCsv('per-creator.csv', shown.map((r) => ({
+                creator: r.name,
+                status: r.status,
+                joined: r.joined,
+                videos: r.videos,
+                views: r.views,
+                avg_views_per_video: Math.round(r.avgViews),
+                challenges: r.challenges,
+                messages: r.messages,
+                [`cash_${currency}`]: r.cash.toFixed(2),
+                [`vouchers_${currency}`]: r.vouchers.toFixed(2),
+                [`pending_${currency}`]: (r.cashPending + r.voucherPending).toFixed(2),
+                cash_cpm: r.cashCpm === null ? '' : r.cashCpm.toFixed(3),
+                combined_cpm: r.combinedCpm === null ? '' : r.combinedCpm.toFixed(3),
+              })))}
+              className="btn-secondary !py-1.5 !px-3 text-xs"
+            >
+              <Icon name="download" className="h-3.5 w-3.5" /> CSV
+            </button>
+          </div>
         </div>
+        <div className="flex flex-wrap items-center gap-2 px-6 pb-4">
+          <Segmented size="sm" value={mode === 'table' ? 'table' : plotSort} label="View" onChange={(v) => { if (v === 'table') setMode('table'); else { setMode('ranked'); setPlotSort(v) } }} options={[
+            { value: 'views', label: 'Most views' }, { value: 'value', label: 'Best value' }, { value: 'spend', label: 'Most paid' }, { value: 'table', label: 'Every number' },
+          ]} />
+          {mode === 'table' && (
+            <button type="button" onClick={() => setOnlyActive((v) => !v)} aria-pressed={onlyActive}
+              className={cx('rounded-full px-3 py-1.5 text-xs font-semibold transition-colors', onlyActive ? 'bg-brand text-white' : 'bg-cloud text-smoke hover:text-ink')}>
+              Creators that posted
+            </button>
+          )}
+        </div>
+
+        {mode !== 'table' && (
+        <div key={plotSort} className="px-6 pb-6 animate-tab-in">
         <ul className="space-y-1.5">
           {plotRows.map((r, i) => {
             const paid = r.spend > 0
             const band = paid ? toneOf(r.combinedCpm) : 'none'
             return (
-              <li key={r.id} className="grid grid-cols-[1.5rem_minmax(0,9rem)_minmax(0,1fr)_auto] items-center gap-3 rounded-xl px-1.5 py-1.5 transition-colors hover:bg-cloud/60 sm:grid-cols-[1.5rem_minmax(0,12rem)_minmax(0,1fr)_auto] animate-rise" style={{ animationDelay: `${Math.min(i, 12) * 30}ms` }}>
+              <li key={r.id} className="group grid grid-cols-[1.5rem_minmax(0,9rem)_minmax(0,1fr)_auto] items-center gap-3 rounded-xl px-1.5 py-1.5 transition-colors hover:bg-cloud/60 sm:grid-cols-[1.5rem_minmax(0,12rem)_minmax(0,1fr)_auto] animate-rise" style={{ animationDelay: `${Math.min(i, 12) * 30}ms` }}>
                 <span className="text-right text-xs font-bold tabular-nums text-gray-300">{i + 1}</span>
                 <span className="flex min-w-0 items-center gap-2">
                   <Avatar src={r.photo_url} name={r.name} size="xs" />
                   <span className="truncate text-[13px] font-semibold text-ink">{r.name}</span>
                 </span>
                 <span className="min-w-0">
-                  <span className="block h-2.5 overflow-hidden rounded-full bg-cloud">
+                  <span className="block h-2.5 origin-left overflow-hidden rounded-full bg-cloud transition-transform duration-200 group-hover:scale-y-150 group-hover:shadow-[0_3px_8px_rgba(217,68,7,0.25)]">
                     <span className="block h-full rounded-full bg-gradient-to-r from-brand to-brand-light transition-[width] duration-700" style={{ width: `${Math.max(2, (r.views / maxViews) * 100)}%` }} />
                   </span>
                   <span className="mt-1 flex flex-wrap gap-x-2 text-[11px] text-smoke">
@@ -208,56 +250,11 @@ export default function PerCreator({ raw, currency = 'EUR', scopeLabel, target =
           <span className="inline-flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-amber-500" />up to twice the target</span>
           <span className="inline-flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-red-500" />over twice the target</span>
         </p>
-      </section>
-
-      <section className="card !p-0">
-        <div className="flex flex-wrap items-center justify-between gap-3 px-6 py-5">
-          <div>
-            <h2 className="font-semibold">Every creator</h2>
-            <p className="mt-1 text-xs text-smoke">
-              Sort by any column. Click a name to open their own pages as they see them.
-            </p>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <div className="relative">
-              <Icon name="magnifier" className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-300" />
-              <input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Find a creator" aria-label="Find a creator" className="input !w-44 !py-1.5 !pl-8 text-xs" />
-            </div>
-            <button
-              type="button"
-              onClick={() => setOnlyActive((v) => !v)}
-              aria-pressed={onlyActive}
-              className={cx(
-                'rounded-lg px-2.5 py-1.5 text-xs font-semibold transition-colors',
-                onlyActive ? 'bg-brand text-white' : 'text-smoke hover:bg-cloud hover:text-ink',
-              )}
-            >
-              Creators that posted
-            </button>
-            <button
-              onClick={() => downloadCsv('per-creator.csv', shown.map((r) => ({
-                creator: r.name,
-                status: r.status,
-                joined: r.joined,
-                videos: r.videos,
-                views: r.views,
-                avg_views_per_video: Math.round(r.avgViews),
-                challenges: r.challenges,
-                messages: r.messages,
-                [`cash_${currency}`]: r.cash.toFixed(2),
-                [`vouchers_${currency}`]: r.vouchers.toFixed(2),
-                [`pending_${currency}`]: (r.cashPending + r.voucherPending).toFixed(2),
-                cash_cpm: r.cashCpm === null ? '' : r.cashCpm.toFixed(3),
-                combined_cpm: r.combinedCpm === null ? '' : r.combinedCpm.toFixed(3),
-              })))}
-              className="btn-secondary !py-1.5 !px-3 text-xs"
-            >
-              <Icon name="download" className="h-3.5 w-3.5" /> CSV
-            </button>
-          </div>
         </div>
+        )}
 
-        <div className="overflow-x-auto">
+        {mode === 'table' && (
+        <div className="overflow-x-auto animate-tab-in">
           <table className="w-full min-w-[860px] text-[13px]">
             <thead className="border-y border-gray-100 bg-cloud/50 text-[11px] uppercase tracking-wide text-smoke">
               <tr>
@@ -317,6 +314,7 @@ export default function PerCreator({ raw, currency = 'EUR', scopeLabel, target =
             </tbody>
           </table>
         </div>
+        )}
       </section>
     </div>
   )

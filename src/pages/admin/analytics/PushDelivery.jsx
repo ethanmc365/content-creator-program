@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Bar, CartesianGrid, ComposedChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { Skeleton, StatCard } from '../../../components/ui'
 import Segmented from '../../../components/network/Segmented'
-import { cx, timeAgo } from '../../../lib/utils'
+import { cx } from '../../../lib/utils'
 import { FILL } from '../../../components/charts/chartTheme'
 import { teamApi } from '../../../api/team'
 
@@ -20,8 +20,6 @@ import { teamApi } from '../../../api/team'
 
 const pct = (a, b) => (b > 0 ? `${Math.round((a / b) * 100)}%` : null)
 const day = (d) => new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
-const TYPE = { challenge: 'Challenge', announcement: 'Announcement', results: 'Results', reward: 'Reward', deadline: 'Deadline', connection: 'Connection', dm: 'Message', event: 'Event', application: 'Application', chat: 'Chat', mention: 'Mention', reaction: 'Reaction' }
-const PAGE = 50
 const pushCache = new Map()
 
 // WHAT EACH NUMBER MEANS, in the words the team asked for: not "land"; a push goes to a DEVICE (a phone or a laptop);
@@ -31,8 +29,6 @@ const pushCache = new Map()
 export default function PushDelivery() {
   const [days, setDays] = useState(30)
   const [data, setData] = useState(null)
-  const [more, setMore] = useState([])
-  const [loadingMore, setLoadingMore] = useState(false)
   const [err, setErr] = useState('')
 
   // SWITCHING 7 / 30 / 90 KEEPS THE PAGE. It blanked to a skeleton on every press. Now the numbers already on screen
@@ -41,29 +37,17 @@ export default function PushDelivery() {
   const [fetching, setFetching] = useState(false)
   useEffect(() => {
     let alive = true
-    setMore([])
     const hit = pushCache.get(days)
     if (hit) setData(hit); else setFetching(true)
-    teamApi.adminPushAnalytics({ p_days: days, p_recent: PAGE, p_offset: 0 }).then(({ data: d, error }) => {
+    // ONE READ, ON REQUEST (15 Oct 2026). It also fetched the two other windows ahead and a per-notification list of
+    // fifty; the team asked whether that strained the database and did not need the list, so neither is read now.
+    teamApi.adminPushAnalytics({ p_days: days, p_recent: 0, p_offset: 0 }).then(({ data: d, error }) => {
       if (!alive) return
       setFetching(false)
       if (error) setErr(error.message); else { setErr(''); pushCache.set(days, d); setData(d) }
-      for (const other of [7, 30, 90]) {
-        if (other !== days && !pushCache.has(other)) {
-          teamApi.adminPushAnalytics({ p_days: other, p_recent: PAGE, p_offset: 0 }).then(({ data: o }) => { if (o) pushCache.set(other, o) })
-        }
-      }
     })
     return () => { alive = false }
   }, [days])
-
-  async function loadMore() {
-    setLoadingMore(true)
-    const offset = (data?.recent?.length || 0) + more.length
-    const { data: d } = await teamApi.adminPushAnalytics({ p_days: days, p_recent: PAGE, p_offset: offset })
-    setMore((m) => [...m, ...(d?.recent || [])])
-    setLoadingMore(false)
-  }
 
   const t = data?.totals
   // "SHOWN" IS ONLY MEASURED WHERE IT CAN BE (migration 309). They were whole people, not stray pushes: creators who
@@ -79,8 +63,6 @@ export default function PushDelivery() {
     ['Read in the app', t.opened, pct(t.opened, t.notifications), 'read in the bell, any way'],
   ] : []
   const max = t ? Math.max(1, t.notifications) : 1
-  const recent = [...(data?.recent || []), ...more]
-  const total = data?.recent_total ?? recent.length
   // When tracking began inside the window, the window starts there (the RPC returns the same instant).
   const fromLater = !!data?.counted_from && data.counted_from === data.tracking_since
 
@@ -119,7 +101,7 @@ export default function PushDelivery() {
               </div>
             </div>
             <div className="grid grid-cols-2 gap-3">
-              <StatCard label="Shown rate" value={pct(t.delivered, sentReporting) || '-'} hint="where the device reports" accent />
+              <StatCard label="Shown rate" value={pct(t.delivered, sentReporting) || '-'} hint="where the device reports" />
               <StatCard label="Tap rate" value={pct(t.clicked, t.delivered || t.sent) || '-'} hint="of those shown" />
               <StatCard
                 label="Not confirmed yet"
@@ -127,19 +109,9 @@ export default function PushDelivery() {
                 hint={t.people_unconfirmed ? `${t.people_unconfirmed} ${t.people_unconfirmed === 1 ? 'person' : 'people'} on an older app` : 'every device reports'}
               />
               <StatCard label="No device" value={t.no_device} hint="push not switched on" />
-              <StatCard label="Muted" value={t.muted} hint="turned that kind off" />
               <StatCard label="Refused" value={t.failed} hint="push service said no" />
             </div>
           </div>
-
-          {(t.unconfirmed ?? 0) > 0 && (
-            <p className="rounded-card border border-gray-100 bg-cloud/50 px-4 py-3 text-xs leading-relaxed text-smoke">
-              <strong className="font-semibold text-ink">Why some are "not confirmed yet":</strong> a phone only reports a push
-              it showed once the creator has opened the app since 30 Sep, which is when that reporting was added. Until they
-              do, their pushes are still sent and may well arrive; we just cannot see it. They move into the funnel the next
-              time they open Tryp.com.
-            </p>
-          )}
 
           {data.daily.length > 1 && (
             <div className="rounded-card border border-gray-100 bg-white p-4 shadow-card">
@@ -150,7 +122,7 @@ export default function PushDelivery() {
                     <CartesianGrid vertical={false} stroke="#F1F1F2" />
                     <XAxis dataKey="name" tick={{ fontSize: 10, fill: '#6B7280' }} axisLine={false} tickLine={false} />
                     <YAxis tick={{ fontSize: 10, fill: '#6B7280' }} axisLine={false} tickLine={false} allowDecimals={false} />
-                    <Tooltip contentStyle={{ borderRadius: 12, border: '1px solid #F1F1F2', fontSize: 12 }} />
+                    <Tooltip contentStyle={{ borderRadius: 12, border: '1px solid #F1F1F2', fontSize: 12 }} cursor={false} />
                     <Bar dataKey="sent" name="Sent" fill={FILL.pale} radius={[5, 5, 0, 0]} maxBarSize={28} animationDuration={500} />
                     <Bar dataKey="delivered" name="Shown" fill={FILL.light} radius={[5, 5, 0, 0]} maxBarSize={28} animationDuration={500} />
                     <Bar dataKey="clicked" name="Tapped" fill={FILL.brand} radius={[5, 5, 0, 0]} maxBarSize={28} animationDuration={500} />
@@ -159,41 +131,6 @@ export default function PushDelivery() {
               </div>
             </div>
           )}
-
-          {/* FIVE IN VIEW, FIFTY IN THE BOX, MORE ON REQUEST. */}
-          <div className="overflow-hidden rounded-card border border-gray-100 bg-white shadow-card">
-            <div className="flex items-center justify-between border-b border-gray-50 px-4 py-3 sm:px-5">
-              <p className="text-sm font-semibold">Latest notifications</p>
-              <span className="text-xs text-smoke">{recent.length} of {total}</span>
-            </div>
-            {recent.length === 0 ? <p className="px-5 py-6 text-sm text-smoke">Nothing sent in this window yet.</p> : (
-              <div className="max-h-[21rem] overflow-y-auto overscroll-contain">
-                <ul className="divide-y divide-gray-50">
-                  {recent.map((r, i) => (
-                    <li key={i} className="flex items-center gap-3 px-4 py-2.5 sm:px-5">
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-medium">{r.title}</p>
-                        <p className="text-[11px] text-smoke">{TYPE[r.type] || r.type} · {timeAgo(r.at)} · to {r.recipients}</p>
-                      </div>
-                      <div className="grid shrink-0 grid-cols-4 gap-1 text-center">
-                        {[['Sent', r.sent], ['Shown', r.delivered], ['Tapped', r.clicked], ['Read', r.opened]].map(([l, v]) => (
-                          <div key={l} className="w-12 rounded-md bg-cloud/70 px-1 py-1">
-                            <p className={cx('text-xs font-bold tabular-nums', v > 0 ? 'text-ink' : 'text-gray-300')}>{v}</p>
-                            <p className="text-[9px] font-semibold uppercase tracking-wide text-gray-400">{l}</p>
-                          </div>
-                        ))}
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-                {recent.length < total && (
-                  <button type="button" onClick={loadMore} disabled={loadingMore} className="w-full border-t border-gray-50 py-2.5 text-xs font-semibold text-brand transition-colors hover:bg-cloud/50 disabled:opacity-60">
-                    {loadingMore ? 'Loading…' : 'Load more'}
-                  </button>
-                )}
-              </div>
-            )}
-          </div>
 
           {data.failures.length > 0 && (
             <div className="rounded-card border border-gray-100 bg-white p-4 shadow-card">

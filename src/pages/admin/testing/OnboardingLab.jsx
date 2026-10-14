@@ -20,6 +20,8 @@ import { LabPage, Panel, Note, Stage, useStage, Choice, Runner, Code, InfoList, 
 // below the frame answers the question this lab exists for: put in a set of
 // details and tell me where that creator ends up.
 
+const APPLICANT_FROM = ['GB', 'IE', 'ES', 'PT', 'DE', 'RO', 'DK', 'SE', 'NO', 'FR', 'US']
+
 const REQUIRED = [
   ['Profile photo', 'An admin approves a person. A directory of grey circles is not a community.'],
   ['Name', 'It is on the profile, the entries and every leaderboard.'],
@@ -62,6 +64,10 @@ export default function OnboardingLab() {
   const frameRef = useRef(null)
   const [prefill, setPrefill] = useState('full')
   const [pending, setPending] = useState('1')
+  // WHO IS APPLYING, AND THROUGH WHICH LINK (15 Oct 2026). The lab always walked a UK applicant, so a market's own
+  // steps (Spain's onboarding call) never appeared here however it was set up. The country and the VIP link decide them.
+  const [country, setCountry] = useState('GB')
+  const [vip, setVip] = useState('0')
   const [live, setLive] = useState(null)     // whatever the frame last told us
   const [markets, setMarkets] = useState([])
   const [probeCountry, setProbeCountry] = useState('United Kingdom')
@@ -78,10 +84,10 @@ export default function OnboardingLab() {
   }, [])
   useDemoMessages(onMessage)
 
-  const src = `/onboarding?demo=1&prefill=${prefill}&pending=${pending}`
+  const src = `/onboarding?demo=1&prefill=${prefill}&pending=${pending}&country=${country}&call=any${vip === '1' ? '&vip=1' : ''}`
   // Changing a scenario reloads the frame, which is what we want: the flow
   // reads its prefill once, at mount, exactly as a real creator's does.
-  const frameKey = `${prefill}-${pending}`
+  const frameKey = `${prefill}-${pending}-${country}-${vip}`
 
   const goto = (i) => sendDemoCommand(frameRef.current, { type: 'goto', step: i })
 
@@ -163,7 +169,24 @@ export default function OnboardingLab() {
               options={[{ value: '1', label: 'Applying' }, { value: '0', label: 'Already approved' }]}
             />
           </div>
+          <div>
+            <p className="label">Signing up through</p>
+            <Choice
+              value={vip} onChange={setVip}
+              options={[{ value: '0', label: 'Community link' }, { value: '1', label: 'VIP link' }]}
+            />
+          </div>
+          <div className="min-w-[200px]">
+            <p className="label">Applicant from</p>
+            <Select
+              value={country} onChange={setCountry} ariaLabel="Applicant from" variant="field" className="w-full"
+              options={APPLICANT_FROM.map((cc) => ({ value: cc, icon: flagFromIso(cc), label: new Intl.DisplayNames(['en'], { type: 'region' }).of(cc) }))}
+            />
+          </div>
         </div>
+        <p className="mt-3 text-xs text-smoke">
+          A market with an onboarding call switched on (Applications, Sign-up) adds the call as the last screen before the review, for applicants from that country only. Here it shows even while the call is switched off, so it can be checked before it goes live.
+        </p>
         {prefill === 'empty' && (
           <Note className="mt-5" icon="alert">
             <p className="font-semibold">Now press Continue on screen three with the fields blank.</p>
@@ -177,9 +200,9 @@ export default function OnboardingLab() {
         )}
       </Panel>
 
-      <Panel i={1} title="Jump to a screen" hint="Nine screens, four named parts. The one with nothing required on it says so before you start typing.">
+      <Panel i={1} title="Jump to a screen" hint="Nine screens (ten with an onboarding call), four named parts. The one with nothing required on it says so before you start typing.">
         <div className="flex flex-wrap gap-2">
-          {STEPS.map((s, i) => {
+          {(live?.steps || STEPS).map((s, i) => {
             const on = live?.step === i
             return (
               <button

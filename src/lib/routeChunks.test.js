@@ -7,12 +7,11 @@ import { chunk, chunkForPath, shapeForPath } from './routeChunks'
 // chunk or drew the wrong skeleton at some point while this was being written.
 
 describe('chunkForPath', () => {
-  it('leaves the pages that are already in the bundle alone', () => {
-    // Eagerly imported in App.jsx. A prefetch here would be a miss on every
-    // pointer that crossed the tab bar.
-    for (const p of ['/challenges']) {
-      expect(chunkForPath(p), p).toBeNull()
-    }
+  it('prefetches the profile, the challenges list and the legal pages, split out of the entry on 15 Oct 2026', () => {
+    expect(chunkForPath('/challenges')).toBe(chunk.Challenges)
+    expect(chunkForPath('/profile/93c6a3c9')).toBe(chunk.Profile)
+    expect(chunkForPath('/privacy')).toBe(chunk.PrivacyPolicy)
+    expect(chunkForPath('/terms')).toBe(chunk.Terms)
   })
 
   it('prefetches the creator pages that moved out of the entry', () => {
@@ -37,8 +36,8 @@ describe('chunkForPath', () => {
     // A challenge's page, but not its list and not its recap.
     expect(chunkForPath('/challenges/93c6a3c9')).toBe(chunk.ChallengeDetail)
     expect(chunkForPath('/challenges/93c6a3c9/recap')).toBe(chunk.ChallengeRecap)
-    // A profile is still in the entry; only its editor is split.
-    expect(chunkForPath('/profile/93c6a3c9')).toBeNull()
+    // The profile's editor is its own chunk, not the profile's.
+    expect(chunkForPath('/profile/edit')).not.toBe(chunk.Profile)
   })
 
   it('matches the five bottom tabs that are split', () => {

@@ -6,7 +6,12 @@ import { Link } from 'react-router-dom'
 import { formatViews, cx, timeAgo } from '../../lib/utils'
 import Segmented from '../network/Segmented'
 import FlagTile from '../network/FlagTile'
-import { Avatar, Skeleton } from '../ui'
+import { Avatar, CopyButton, Skeleton } from '../ui'
+import Icon from '../Icon'
+import { copyToClipboard, emailList } from '../../lib/clipboard'
+import { toastSuccess } from '../../lib/toast'
+import { notice } from '../../lib/confirm'
+import { teamApi } from '../../api/team'
 import { marketsApi } from '../../api/markets'
 
 // PARTICIPATION BY MARKET.
@@ -105,7 +110,7 @@ export default function MarketSplit({ subs = [], results = [], markets = [], sco
           <p className="mt-0.5 text-sm text-smoke">
             {totals.marketsTakingPart} of {rows.filter((r) => r.id !== NO_MARKET).length} markets have entered
             {lead ? <> · <span className="font-semibold text-ink">{lead.name}</span> leads with {pct(lead.shareEntries)} of entries</> : null}.
-            Each creator counts in their home market. <span className="font-semibold text-brand">Press a market to see who has and has not posted.</span>
+            Each creator counts in their home market.
           </p>
         </div>
         <Segmented value={metric} onChange={setMetric} options={metrics} size="sm" label="Measure" />
@@ -123,7 +128,7 @@ export default function MarketSplit({ subs = [], results = [], markets = [], sco
               tabIndex={0}
               onClick={() => setOpenMarket(r)}
               onKeyDown={(e) => { if (e.key === 'Enter') setOpenMarket(r) }}
-              className="group grid cursor-pointer grid-cols-[8.5rem_1fr_4.5rem] items-center gap-3 rounded-lg transition-colors hover:bg-cloud/50 sm:grid-cols-[11rem_1fr_6rem]"
+              className="group grid cursor-pointer grid-cols-[8.5rem_1fr_4.5rem] items-center gap-3 rounded-lg py-0.5 transition-transform duration-200 sm:grid-cols-[11rem_1fr_6rem]"
               title={`${r.name}: ${r.creators} creators, ${r.entries} entries, ${formatViews(r.views)} views${r.members ? `, ${pct(r.rate)} of ${r.members} members took part` : ''}`}
             >
               <span className="flex min-w-0 items-center gap-2">
@@ -134,9 +139,9 @@ export default function MarketSplit({ subs = [], results = [], markets = [], sco
                   : <span className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-cloud text-sm leading-none" aria-hidden>🌍</span>}
                 <span className={cx('truncate text-sm font-medium', none ? 'text-smoke' : 'text-ink')}>{r.name}</span>
               </span>
-              <span className="relative h-7 overflow-hidden rounded-lg bg-cloud/70">
+              <span className="relative h-7 origin-left overflow-hidden rounded-lg bg-cloud/70 transition-transform duration-200 ease-out group-hover:scale-y-[1.25] group-hover:shadow-[0_4px_10px_rgba(217,68,7,0.22)]">
                 <span
-                  className="absolute inset-y-0 left-0 rounded-lg bg-gradient-to-r from-brand to-brand-light transition-[width] duration-700 ease-out group-hover:brightness-110"
+                  className="absolute inset-y-0 left-0 rounded-lg bg-gradient-to-r from-brand to-brand-light transition-[width] duration-700 ease-out"
                   style={{ width: grown ? `${Math.max(none ? 0 : 2, w * 100)}%` : '0%', transitionDelay: `${Math.min(i, 8) * 55}ms` }}
                 />
                 {!none && (
@@ -222,6 +227,13 @@ const TODAY_MS = 24 * 3600000
 function MarketPeople({ market, homes, subs, results, scoring, onClose }) {
   const [filter, setFilter] = useState('all')
   const [now] = useState(() => Date.now())
+  // EMAILS, ONE PRESS (15 Oct 2026): a copy button on each person and one for everybody in the list showing.
+  const [emails, setEmails] = useState({})
+  useEffect(() => {
+    let alive = true
+    teamApi.adminListEmails().then(({ data }) => { if (alive) setEmails(Object.fromEntries((data || []).map((r) => [r.id, r.email]))) })
+    return () => { alive = false }
+  }, [])
   const people = useMemo(() => {
     const byCreator = new Map()
     for (const s of subs) {
@@ -249,6 +261,11 @@ function MarketPeople({ market, homes, subs, results, scoring, onClose }) {
   }
   const shown = people.filter((p) => (filter === 'posted' ? p.videos > 0 : filter === 'not' ? p.videos === 0 : filter === 'active' ? p.videos === 0 && p.today : true))
   const FILTERS = [['all', 'Everyone'], ['posted', 'Posted'], ['not', 'Not posted'], ['active', 'In the app today, not posted']]
+  async function copyAll() {
+    const text = emailList(shown.map((p) => emails[p.id]))
+    if (!text) { notice('No email addresses in this list.'); return }
+    if (await copyToClipboard(text)) toastSuccess(`${text.split(', ').length} email addresses copied.`)
+  }
   return createPortal(
     <div className="fixed inset-0 z-[90] flex items-end justify-center bg-ink/40 animate-page-in sm:items-center sm:p-6" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose() }}>
       <div role="dialog" aria-modal="true" className="flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-t-3xl bg-white shadow-lift animate-pop-in sm:rounded-3xl">
@@ -260,13 +277,19 @@ function MarketPeople({ market, homes, subs, results, scoring, onClose }) {
           </div>
           <button type="button" onClick={onClose} aria-label="Close" className="rounded-full p-2 text-smoke hover:bg-cloud hover:text-ink">✕</button>
         </div>
-        <div className="flex gap-1 overflow-x-auto px-5 py-3 scrollbar-none">
+        <div className="flex items-center gap-2 px-5 py-3">
+        <div className="flex min-w-0 flex-1 gap-1 overflow-x-auto scrollbar-none">
           {FILTERS.map(([k, label]) => (
             <button key={k} type="button" onClick={() => setFilter(k)} aria-pressed={filter === k}
               className={cx('shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold transition-colors', filter === k ? 'bg-brand text-white' : 'bg-cloud text-smoke hover:text-ink')}>
               {label} <span className="ml-0.5 tabular-nums opacity-80">{counts[k]}</span>
             </button>
           ))}
+        </div>
+          <button type="button" onClick={copyAll} disabled={!shown.length}
+            className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-gray-200 px-3 py-1.5 text-xs font-semibold text-ink transition-colors hover:border-brand hover:text-brand disabled:opacity-40">
+            <Icon name="copy" className="h-3.5 w-3.5" />Copy {shown.length} emails
+          </button>
         </div>
         <ul key={filter} className="min-h-0 flex-1 divide-y divide-gray-50 overflow-y-auto px-5 pb-4 animate-tab-in">
           {shown.length === 0 && <li className="py-10 text-center text-sm text-smoke">Nobody here.</li>}
@@ -285,6 +308,7 @@ function MarketPeople({ market, homes, subs, results, scoring, onClose }) {
                   {p.online ? ' · online now' : p.last_seen_at ? ` · seen ${timeAgo(p.last_seen_at)}` : ''}
                 </p>
               </div>
+              {emails[p.id] && <CopyButton value={emails[p.id]} label={`Copy ${p.name}'s email`} className="shrink-0 rounded-full border border-gray-200 p-2 text-smoke hover:border-brand hover:text-brand" />}
               <Link to={`/messages?to=${p.id}`} className={cx('shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold transition-colors', p.videos === 0 ? 'bg-brand text-white' : 'border border-gray-200 text-smoke hover:border-brand hover:text-brand')}>
                 Message
               </Link>

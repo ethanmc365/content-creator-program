@@ -1,0 +1,52 @@
+-- 422: A LATE-ADDED VIP VIDEO COUNTS ON THE DAY IT WAS POSTED (15 Oct 2026).
+--
+-- Ethan, on the VIP analytics footnote ("views gained are counted on the day they are read..."): it should show from
+-- when the video was posted, all views; "they might have added it a bit late, which is fine ... as long as it's for the
+-- correct month". The first reading of a video used to be spread evenly from the posting day to the day it was read, so
+-- a video posted on the 28th and added on the 5th put most of its views in the next month, and a video added more than
+-- 31 days late was left out entirely. Now the whole first reading lands on the posting day (up to 62 days late), and
+-- every later reading counts on the day it is read, as before. Analytics only (vip_range_analytics, admin_views_gained,
+-- vip_trend_core); pay and statements do not read this function.
+CREATE OR REPLACE FUNCTION public.vip_daily_gained(p_programmes uuid[], p_profile uuid, p_from date, p_to date)
+ RETURNS TABLE(d date, profile_id uuid, video_id uuid, programme_id uuid, gained numeric)
+ LANGUAGE sql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+  with v as (
+    select x.id, x.profile_id, x.programme_id, coalesce(x.posted_at, x.submitted_at) posted, coalesce(c.timezone, 'UTC') tz
+      from public.vip_videos x
+      join public.vip_programmes p on p.id = x.programme_id
+      left join public.communities c on c.id = p.community_id
+     where x.programme_id = any (p_programmes) and (p_profile is null or x.profile_id = p_profile)
+       and x.status = 'tracking' and not public.vip_hidden_profile(x.profile_id)
+  ), r as (
+    select rd.video_id, rd.read_at, rd.views,
+           lag(rd.views) over w as prev, row_number() over w as rn
+      from public.vip_view_readings rd join v on v.id = rd.video_id
+     where rd.read_at >= (p_from::timestamp - interval '10 days')
+    window w as (partition by rd.video_id order by rd.read_at)
+  ), r2 as (
+    select r.video_id, r.read_at, r.views,
+           case when r.rn = 1 then (select y.views from public.vip_view_readings y where y.video_id = r.video_id and y.read_at < r.read_at order by y.read_at desc limit 1)
+                else r.prev end as prev,
+           r.rn = 1 and not exists (select 1 from public.vip_view_readings y where y.video_id = r.video_id and y.read_at < r.read_at) as first_ever
+      from r
+  ), inc as (
+    select (r2.read_at at time zone v.tz)::date d, v.profile_id, v.id video_id, v.programme_id, greatest(r2.views - r2.prev, 0)::numeric gained
+      from r2 join v on v.id = r2.video_id where r2.prev is not null
+  ), fst as (
+    select r2.video_id, v.profile_id, v.programme_id, r2.views,
+           (least(v.posted, r2.read_at) at time zone v.tz)::date d0, (r2.read_at at time zone v.tz)::date d1
+      from r2 join v on v.id = r2.video_id
+     where r2.first_ever and r2.views > 0 and v.posted >= r2.read_at - interval '62 days'
+  ), spread as (
+    -- THE FIRST READING BELONGS TO THE DAY IT WENT UP (422): a video added late counts in the month it was posted.
+    select f.d0 d, f.profile_id, f.video_id, f.programme_id, f.views::numeric gained
+      from fst f
+  )
+  select s.d, s.profile_id, s.video_id, s.programme_id, s.gained
+    from (select * from inc union all select * from spread) s
+   where s.d between p_from and p_to
+$function$
+;

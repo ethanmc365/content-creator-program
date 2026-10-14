@@ -3,7 +3,7 @@ import { Select, Skeleton, Spinner } from '../ui'
 import Icon from '../Icon'
 import Segmented from '../network/Segmented'
 import FlagStack from '../network/FlagStack'
-import { AnnouncementCard } from './mine'
+import { AnnouncementStack } from './mine'
 import PhoneFrame from '../admin/PhoneFrame'
 import { confirm, notice } from '../../lib/confirm'
 import { toastSuccess } from '../../lib/toast'
@@ -115,7 +115,7 @@ export function AnnouncementsTab({ programme, programmes = [], isOwner = false }
             ]} />
           </div>
           <div key={view} className="animate-tab-in rounded-card border border-gray-100 bg-cloud/60 p-3 sm:p-4">
-            {view === 'page' && <PagePreview programme={target} everywhere={everywhere} draft={draft} existing={(list || []).filter((a) => !isEnded(a)).slice(0, 1)} />}
+            {view === 'page' && <PagePreview programme={target} everywhere={everywhere} draft={draft} existing={(list || []).filter((a) => !isEnded(a)).slice(0, 2)} />}
             {view === 'push' && <PushPreview draft={draft} />}
           </div>
         </section>
@@ -180,18 +180,20 @@ function PagePreview({ programme, everywhere, draft, existing }) {
             <div className="mt-2.5 h-2.5 w-48 rounded bg-white/20" />
             <div className="mt-4 grid grid-cols-3 gap-2">{[0, 1, 2].map((k) => <div key={k} className="h-12 rounded-xl bg-white/15" />)}</div>
           </div>
+          {/* THE NOTE GOES ON TOP OF ANY STILL RUNNING, AS A STACK: "1 of 2", swipe to the one behind. */}
           <div className="relative">
             <span className="absolute -top-2.5 left-4 z-10 rounded-full bg-ink px-2.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-white">{tr('Your note')}</span>
-            <AnnouncementCard a={draft} preview />
+            <AnnouncementStack rows={[draft, ...existing]} label={tr('From the team')} preview />
           </div>
-          {existing.map((a) => <div key={a.id} className="opacity-50"><AnnouncementCard a={a} /></div>)}
           <div className="flex items-center gap-3 rounded-card bg-white p-4 shadow-card">
             <span className="h-10 w-10 rounded-xl bg-gradient-to-br from-brand to-brand-light" />
             <div className="space-y-1.5"><div className="h-2.5 w-28 rounded bg-gray-200" /><div className="h-2 w-44 rounded bg-gray-100" /></div>
           </div>
         </div>
       </PhoneFrame>
-      <p className="mx-auto mt-3 max-w-xs text-center text-[11.5px] leading-relaxed text-smoke">{tr('It is a full-width card at the top of This month, right under the month card and above the video box.')}</p>
+      <p className="mx-auto mt-3 max-w-xs text-center text-[11.5px] leading-relaxed text-smoke">{existing.length
+        ? tr('It goes on top of the {n} still running, as a stack VIPs can swipe through. One that has ended is gone, so a new note replaces it.', { n: existing.length })
+        : tr('It is a full-width card at the top of This month, right under the month card and above the video box.')}</p>
     </div>
   )
 }

@@ -3,7 +3,7 @@ import { useAuth } from '../../context/AuthContext'
 import { PageHeader, Skeleton, Spinner, Select, Avatar } from '../../components/ui'
 import Icon from '../../components/Icon'
 import { PLATFORMS as PLATFORM_MARKS } from '../../components/VideoThumb'
-import MarketScope, { useScopedMarkets } from '../../components/admin/MarketScope'
+import { useScopedMarkets } from '../../components/admin/MarketScope'
 import TrackedVideoSheet from '../../components/admin/TrackedVideoSheet'
 import { cx, formatViews, formatDate, downloadCsv } from '../../lib/utils'
 import {
@@ -14,6 +14,7 @@ import {
 import { resolveThumbnail, forgetThumbnail } from '../../lib/videoThumbs'
 import { useT } from '../../lib/i18n'
 import { translateTexts } from '../../lib/contentTranslate'
+import { useLocale } from '../../lib/i18n'
 import { notice, promptText } from '../../lib/confirm'
 import { toastSuccess } from '../../lib/toast'
 import { safeUrl } from '../../lib/safeUrl'
@@ -70,7 +71,11 @@ export default function AdminVideoTracker() {
   })
   // THE HOOKS IN ANOTHER LANGUAGE. '' is the words as written; a language code translates every hook on the page through
   // the shared cache, original one press away.
-  const [hookLang, setHookLang] = useState('')
+  // IN THE LANGUAGE YOU READ THE APP IN (15 Oct 2026): "the hook should be translated to the language you're viewing it
+  // in, with the option to show the original". One toggle beside the count, not a whole line.
+  const locale = useLocale()
+  const [showOriginal, setShowOriginal] = useState(false)
+  const hookLang = showOriginal ? '' : locale
   const set = useCallback((patch) => setFilter((f) => ({ ...f, ...patch })), [])
 
   const load = useCallback(async () => {
@@ -139,9 +144,10 @@ export default function AdminVideoTracker() {
         title={tr('Video tracker')}
         action={
           <div className="flex flex-wrap gap-2">
-            <button type="button" onClick={sync} disabled={syncing} className="btn-secondary disabled:opacity-50">
+            {/* FEWER BUTTONS (15 Oct 2026): the sync is a round icon beside Add, its name in the tooltip. */}
+            <button type="button" onClick={sync} disabled={syncing} title={tr('Sync from entries')} aria-label={tr('Sync from entries')}
+              className="flex h-10 w-10 items-center justify-center rounded-full border border-gray-200 bg-white text-smoke transition-all duration-200 hoverable:hover:-translate-y-0.5 hoverable:hover:border-brand hoverable:hover:text-brand disabled:opacity-50">
               {syncing ? <Spinner className="h-4 w-4" /> : <Icon name="refresh" className="h-4 w-4" strokeWidth={2.2} />}
-              {tr('Sync from entries')}
             </button>
             <button type="button" onClick={() => setEditing({})} className="btn-primary">
               <Icon name="plus" className="h-4 w-4" strokeWidth={2.4} />
@@ -164,33 +170,41 @@ export default function AdminVideoTracker() {
           one screen, which is a third of what "there's too much going on"
           meant. The card's version is the one that stays: it is beside the
           filters that change it. */}
-      <MarketScope markets={markets} value={filter.market} onChange={(m) => set({ market: m })} />
-
-      {/* THE COMMUNITY AND THE VIP SPACES, SEPARATELY (14 Oct 2026). "We should also have the VIP community separate here,
-          not just incorporated into it." One switch above everything else; each side keeps its own count. */}
-      {(hasVip || hasOfficial) && (
-        <div className="mb-4 flex flex-wrap gap-2 animate-fade-up">
-          {[
-            ['', tr('Everything'), 'squares'],
-            ['community', tr('General community'), 'users'],
-            ...(hasVip ? [['vip', tr('VIP community'), 'star']] : []),
-            ...(hasOfficial ? [['official', tr('Official creators'), 'badge']] : []),
-          ].map(([k, label, icon]) => {
-            const on = filter.source === k
-            const n = visibleVideos(rows || [], { ...filter, source: k, challenge: '' }).length
+      {/* WHERE AND WHOSE, ONE ROW (15 Oct 2026: the General / VIP / Official switch "takes up too much space and should be
+          combined with Worldwide, Germany, Nordics"). Markets on the left, the space on the right, both in one card. */}
+      <div className="mb-4 flex flex-wrap items-center gap-2 rounded-card border border-gray-100 bg-white p-1.5 shadow-card animate-fade-up">
+        <div className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto px-0.5 py-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          {[{ id: '', name: tr('Worldwide') }, ...markets].map((m) => {
+            const on = filter.market === m.id
             return (
-              <button key={k || 'all'} type="button" onClick={() => set({ source: k, challenge: '' })} aria-pressed={on}
-                className={cx('inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-semibold transition-all duration-200',
-                  on ? (k === 'vip' || k === 'official' ? 'border-ink bg-ink text-white shadow-card' : 'border-brand bg-brand text-white shadow-card')
-                    : 'border-gray-200 bg-white text-smoke hoverable:hover:-translate-y-0.5 hoverable:hover:border-brand hoverable:hover:text-ink')}>
-                <Icon name={icon} className={cx('h-4 w-4', on ? 'text-white' : k === 'vip' || k === 'official' ? 'text-ink' : 'text-brand')} />
-                {label}
-                <span className={cx('tabular-nums text-xs', on ? 'text-white/80' : 'text-gray-400')}>{n}</span>
+              <button key={m.id || 'all'} type="button" onClick={() => set({ market: m.id })} aria-pressed={on}
+                className={cx('inline-flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors duration-200', on ? 'bg-brand text-white shadow-card' : 'text-smoke hover:bg-cloud hover:text-ink')}>
+                {!m.id && <Icon name="globe" className="h-3.5 w-3.5" />}{m.name}
               </button>
             )
           })}
         </div>
-      )}
+        {(hasVip || hasOfficial) && (
+          <div className="flex shrink-0 gap-0.5 rounded-lg bg-cloud p-0.5 max-sm:w-full max-sm:overflow-x-auto">
+            {[
+              ['', tr('All'), 'squares'],
+              ['community', tr('General'), 'users'],
+              ...(hasVip ? [['vip', tr('VIP'), 'star']] : []),
+              ...(hasOfficial ? [['official', tr('Official'), 'badge']] : []),
+            ].map(([k, label, icon]) => {
+              const on = filter.source === k
+              const n = visibleVideos(rows || [], { ...filter, source: k, challenge: '' }).length
+              return (
+                <button key={k || 'all'} type="button" onClick={() => set({ source: k, challenge: '' })} aria-pressed={on} title={label}
+                  className={cx('inline-flex shrink-0 items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-semibold transition-all duration-200', on ? 'bg-white text-ink shadow-card' : 'text-smoke hover:text-ink')}>
+                  <Icon name={icon} className={cx('h-3.5 w-3.5', on ? 'text-brand' : '')} />{label}
+                  <span className="tabular-nums text-[10px] text-gray-400">{n}</span>
+                </button>
+              )
+            })}
+          </div>
+        )}
+      </div>
 
       {/* (The standing "syncing the top 3 of every challenge, plus anything over 10k views" line used to sit here as a
           paragraph of its own.
@@ -334,10 +348,10 @@ export default function AdminVideoTracker() {
             type="button"
             onClick={() => downloadCsv(`tryp-video-tracker-${filter.month || new Date().toISOString().slice(0, 10)}.csv`, toCsvRows(shown), CSV_COLUMNS)}
             disabled={!shown.length}
-            className="rounded-xl border border-gray-200 px-3.5 py-2 text-sm font-medium text-smoke transition-all duration-200 disabled:opacity-40 hoverable:hover:border-brand hoverable:hover:text-ink"
+            title={tr('Export')} aria-label={tr('Export')}
+            className="flex h-9 w-9 items-center justify-center rounded-xl border border-gray-200 text-smoke transition-all duration-200 disabled:opacity-40 hoverable:hover:border-brand hoverable:hover:text-brand"
           >
-            <Icon name="download" className="mr-1.5 inline h-4 w-4 align-[-3px]" />
-            {tr('Export')}
+            <Icon name="download" className="h-4 w-4" />
           </button>
           </div>
         </div>
@@ -393,7 +407,7 @@ export default function AdminVideoTracker() {
               <span className="text-sm text-smoke">
                 {filter.source === 'vip' ? tr('Every VIP community video over the line') : filter.source === 'official' ? tr('Every official creator video over the line') : filter.source === 'community' ? tr('General community videos') : ''}
               </span>
-              <HookLanguage value={hookLang} onChange={setHookLang} />
+              <HookToggle original={showOriginal} onChange={setShowOriginal} locale={locale} />
             </div>
           )}
           {rows && shown.length > 0 && filter.challenge && chosenChallenge && (
@@ -424,8 +438,8 @@ export default function AdminVideoTracker() {
                   key={v.id}
                   v={v}
                   eager={i < 6}
-                  hook={v.screen_text ? hooks.pick(v.screen_text) : null}
-                  translated={!!v.screen_text && hooks.differs(v.screen_text)}
+                  hook={(v.screen_text || v.hook) ? hooks.pick(v.screen_text || v.hook) : null}
+                  translated={!!(v.screen_text || v.hook) && hooks.differs(v.screen_text || v.hook)}
                   onOpen={() => (v.source && v.source !== 'community' ? editVipHook(v) : setEditing(v))}
                 />
               ))}
@@ -755,18 +769,10 @@ function IconButton({ label, onClick, href, name, active = false }) {
   )
 }
 
-// THE HOOKS, IN THE LANGUAGE PICKED ABOVE THE GRID ('' = as written). One cache lookup for the whole page.
-const HOOK_LANGS = [
-  { value: '', label: 'As written' },
-  { value: 'en', label: 'English' },
-  { value: 'es', label: 'Español' },
-  { value: 'pt', label: 'Português' },
-  { value: 'de', label: 'Deutsch' },
-  { value: 'ro', label: 'Română' },
-]
+// THE HOOKS (on-screen text, else the caption's first line), IN THE READER'S LANGUAGE ('' = as written). One cache lookup for the whole page.
 function useTranslatedHooks(rows, lang) {
   const [map, setMap] = useState({})
-  const texts = useMemo(() => [...new Set((rows || []).map((r) => r.screen_text).filter(Boolean))], [rows])
+  const texts = useMemo(() => [...new Set((rows || []).map((r) => r.screen_text || r.hook).filter(Boolean))], [rows])
   const key = texts.join('\u0001')
   useEffect(() => {
     let alive = true
@@ -778,12 +784,17 @@ function useTranslatedHooks(rows, lang) {
   return { differs, pick: (t) => (differs(t) ? map[t].value : t) }
 }
 
-function HookLanguage({ value, onChange }) {
+function HookToggle({ original, onChange, locale }) {
+  const name = new Intl.DisplayNames([locale || 'en'], { type: 'language' }).of(locale || 'en') || 'English'
   return (
-    <span className="inline-flex items-center gap-1.5 text-sm text-smoke">
-      <Icon name="globe" className="h-4 w-4 text-brand" />
-      <span className="hidden sm:inline">Hooks</span>
-      <Select value={value} onChange={onChange} variant="field" className="w-[8.5rem]" ariaLabel="Translate the hooks" options={HOOK_LANGS} />
+    <span className="inline-flex items-center gap-0.5 rounded-full bg-cloud p-0.5 text-xs font-semibold" role="group" aria-label="Hooks">
+      <Icon name="language" className="ml-2 mr-1 h-3.5 w-3.5 text-brand" />
+      {[[false, name.charAt(0).toUpperCase() + name.slice(1)], [true, 'Original']].map(([v, label]) => (
+        <button key={String(v)} type="button" onClick={() => onChange(v)} aria-pressed={original === v}
+          className={cx('rounded-full px-3 py-1 transition-all duration-200', original === v ? 'bg-white text-ink shadow-card' : 'text-smoke hover:text-ink')}>
+          {label}
+        </button>
+      ))}
     </span>
   )
 }

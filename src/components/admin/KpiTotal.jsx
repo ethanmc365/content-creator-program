@@ -282,11 +282,11 @@ function MarketsCompared({ markets, onPickScope }) {
       </div>
       <div className="animate-chart-in" style={{ height: Math.max(120, data.length * 44) }}>
         <ResponsiveContainer>
-          <BarChart data={data} layout="vertical" margin={{ top: 4, right: 48, left: 0, bottom: 0 }} barCategoryGap="30%" onClick={(e) => e?.activePayload?.[0] && onPickScope?.(e.activePayload[0].payload.key)}>
+          <BarChart className="chart-h" data={data} layout="vertical" margin={{ top: 4, right: 48, left: 0, bottom: 0 }} barCategoryGap="30%" onClick={(e) => e?.activePayload?.[0] && onPickScope?.(e.activePayload[0].payload.key)}>
             <CartesianGrid horizontal={false} stroke={CHART.grid} />
             <XAxis type="number" domain={[0, (max) => Math.max(1, Math.ceil(max * 10) / 10)]} tickFormatter={(v) => `${Math.round(v * 100)}%`} tick={axisTickSmall} axisLine={false} tickLine={false} />
             <YAxis type="category" dataKey="name" width={112} tick={{ fontSize: 12, fill: CHART.ink, fontWeight: 600 }} axisLine={false} tickLine={false} />
-            <Tooltip cursor={{ fill: 'rgba(26,26,26,0.03)' }} contentStyle={tooltipStyle} formatter={(v) => [`${Math.round(v * 100)}%`, tr('Average progress')]} />
+            <Tooltip cursor={false} contentStyle={tooltipStyle} formatter={(v) => [`${Math.round(v * 100)}%`, tr('Average progress')]} />
             <ReferenceLine x={pace} stroke="#6b7280" strokeDasharray="4 4" strokeWidth={1.5} />
             <Bar dataKey="pct" radius={[0, 8, 8, 0]} maxBarSize={20} animationDuration={700} className="cursor-pointer">
               {data.map((d) => <Cell key={d.key} fill={fill[d.verdict] || FILL.brandH} />)}
@@ -425,12 +425,12 @@ function TotalDetail({ row, period, currency, onClose }) {
             <h3 className="mb-3 text-sm font-semibold">{tr('Each market against its own goal')}</h3>
             <div style={{ height: Math.max(140, data.length * 52) }}>
               <ResponsiveContainer>
-                <BarChart data={data} layout="vertical" margin={{ top: 0, right: 56, left: 0, bottom: 0 }} barCategoryGap="28%">
+                <BarChart className="chart-h" data={data} layout="vertical" margin={{ top: 0, right: 56, left: 0, bottom: 0 }} barCategoryGap="28%">
                   <CartesianGrid horizontal={false} stroke={CHART.grid} />
                   <XAxis type="number" tick={axisTickSmall} tickFormatter={(v) => `${Math.round(v * 100)}%`} domain={[0, (max) => Math.max(1, Math.ceil(max * 10) / 10)]} axisLine={false} tickLine={false} />
                   <YAxis type="category" dataKey="name" width={104} tick={{ fontSize: 12, fill: CHART.ink, fontWeight: 600 }} axisLine={false} tickLine={false} />
                   <Tooltip
-                    cursor={{ fill: 'rgba(217,68,7,0.05)' }}
+                    cursor={false}
                     content={({ active, payload }) => {
                       const d = active && payload?.[0]?.payload
                       if (!d) return null

@@ -66,7 +66,7 @@ export function foldWeeks(daily) {
 }
 
 /** 1280x720 SVG, self-contained (no external fonts or images) so it pastes into Slides, Meet or chat. */
-export function snapshotSvg(r, scope = 'both', title = 'Weekly snapshot') {
+export function snapshotSvg(r, scope = 'both', title = 'Weekly snapshot', opts = {}) {
   const W = 1280
   const H = 720
   const t = r?.totals || {}
@@ -130,10 +130,10 @@ export function snapshotSvg(r, scope = 'both', title = 'Weekly snapshot') {
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" font-family="Poppins, 'Helvetica Neue', Arial, sans-serif" role="img" aria-label="${esc(title)}">
   <defs><linearGradient id="hg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${ORANGE}"/><stop offset="1" stop-color="${ORANGE_LIGHT}"/></linearGradient></defs>
   <rect width="${W}" height="${H}" fill="#faf7f4"/>
-  <rect width="${W}" height="108" fill="url(#hg)"/>
+  ${opts.header || `<rect width="${W}" height="108" fill="url(#hg)"/>
   <text x="48" y="46" font-size="14" font-weight="700" letter-spacing="2" fill="#ffe3d2">TRYP.COM CREATOR COMMUNITY</text>
   <text x="48" y="86" font-size="34" font-weight="800" fill="#ffffff">${esc(title)} · ${esc(rangeLabel(r.from, r.to))}</text>
-  <text x="${W - 48}" y="86" font-size="16" font-weight="700" text-anchor="end" fill="#ffffff">${esc(which)}</text>
+  <text x="${W - 48}" y="86" font-size="16" font-weight="700" text-anchor="end" fill="#ffffff">${esc(which)}</text>`}
 
   ${tile(48, 'Views gained', compact(now), true)}
   <text x="70" y="250" font-size="14" fill="#ffe3d2">${esc(chText)}</text>

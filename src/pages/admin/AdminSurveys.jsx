@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { Area, AreaChart, Bar, BarChart, CartesianGrid, Cell, LabelList, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
-import { Avatar, EmptyState, PageHeader, Skeleton } from '../../components/ui'
+import { Avatar, EmptyState, PageHeader, Skeleton, Toggle } from '../../components/ui'
 import Icon from '../../components/Icon'
 import { SurveyCard } from '../../components/SurveyHost'
 import { CHART, FILL, axisTickSmall, tooltipStyle } from '../../components/charts/chartTheme'
@@ -684,12 +684,10 @@ function QuestionEditor({ q, i, total, open, onOpen, onChange, onMove, onDuplica
             </div>
           )}
           <div className="flex items-center justify-between gap-2 border-t border-gray-100 pt-2.5">
-            <button type="button" role="switch" aria-checked={!!q.required} onClick={() => onChange({ required: !q.required })} className="flex items-center gap-2 text-xs font-semibold text-ink">
-              <span className={cx('relative h-5 w-9 rounded-full transition-colors duration-200', q.required ? 'bg-brand' : 'bg-gray-200')}>
-                <span className={cx('absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-all duration-200', q.required ? 'left-[18px]' : 'left-0.5')} />
-              </span>
+            <label className="flex cursor-pointer items-center gap-2 py-1 pr-2 text-xs font-semibold text-ink">
+              <Toggle size="sm" on={!!q.required} onChange={(v) => onChange({ required: v })} label={tr('Needs an answer')} />
               {tr('Needs an answer')}
-            </button>
+            </label>
             <span className="flex items-center gap-0.5">
               <IconBtn name="chevronUp" label={tr('Move up')} onClick={() => onMove(-1)} disabled={i === 0} />
               <IconBtn name="chevronDown" label={tr('Move down')} onClick={() => onMove(1)} disabled={i === total - 1} />
@@ -929,10 +927,10 @@ function RatingResult({ q }) {
       </div>
       <div className="h-32 flex-1 animate-chart-in">
         <ResponsiveContainer>
-          <BarChart data={data} layout="vertical" margin={{ top: 0, right: 28, left: -18, bottom: 0 }} barCategoryGap="22%">
+          <BarChart className="chart-h" data={data} layout="vertical" margin={{ top: 0, right: 28, left: -18, bottom: 0 }} barCategoryGap="22%">
             <XAxis type="number" hide allowDecimals={false} />
             <YAxis type="category" dataKey="name" tick={{ fontSize: 11, fill: CHART.axis, fontWeight: 700 }} axisLine={false} tickLine={false} width={36} tickFormatter={(v) => `${v}★`} />
-            <Tooltip cursor={{ fill: 'rgba(26,26,26,0.03)' }} contentStyle={tooltipStyle} formatter={(v) => [v, tr('Answers')]} />
+            <Tooltip cursor={false} contentStyle={tooltipStyle} formatter={(v) => [v, tr('Answers')]} />
             <Bar dataKey="count" fill={FILL.brandH} radius={[0, 6, 6, 0]} background={{ fill: '#f3f4f6', radius: 6 }} animationDuration={700}>
               <LabelList dataKey="count" position="right" style={{ fontSize: 11, fontWeight: 700, fill: CHART.ink }} />
             </Bar>
@@ -960,7 +958,7 @@ function ScaleResult({ q }) {
             <CartesianGrid vertical={false} stroke={CHART.grid} />
             <XAxis dataKey="name" tick={axisTickSmall} axisLine={false} tickLine={false} />
             <YAxis tick={axisTickSmall} axisLine={false} tickLine={false} allowDecimals={false} />
-            <Tooltip cursor={{ fill: 'rgba(26,26,26,0.03)' }} contentStyle={tooltipStyle} formatter={(v) => [v, tr('Answers')]} />
+            <Tooltip cursor={false} contentStyle={tooltipStyle} formatter={(v) => [v, tr('Answers')]} />
             <Bar dataKey="count" radius={[5, 5, 0, 0]} animationDuration={700}>
               {data.map((d) => <Cell key={d.name} fill={d.band === 'high' ? FILL.green : d.band === 'mid' ? FILL.amber : FILL.brand} />)}
             </Bar>
@@ -1013,10 +1011,10 @@ function ChoiceResult({ q }) {
     <div>
       <div className="animate-chart-in" style={{ height: Math.max(90, data.length * 38) }}>
         <ResponsiveContainer>
-          <BarChart data={data} layout="vertical" margin={{ top: 0, right: 44, left: 0, bottom: 0 }} barCategoryGap="24%">
+          <BarChart className="chart-h" data={data} layout="vertical" margin={{ top: 0, right: 44, left: 0, bottom: 0 }} barCategoryGap="24%">
             <XAxis type="number" hide domain={[0, 1]} />
             <YAxis type="category" dataKey="name" width={140} tick={{ fontSize: 12, fill: CHART.ink, fontWeight: 600 }} axisLine={false} tickLine={false} />
-            <Tooltip cursor={{ fill: 'rgba(26,26,26,0.03)' }} contentStyle={tooltipStyle} formatter={(v, k, p) => [`${p.payload.count} · ${Math.round(v * 100)}%`, tr('Answers')]} />
+            <Tooltip cursor={false} contentStyle={tooltipStyle} formatter={(v, k, p) => [`${p.payload.count} · ${Math.round(v * 100)}%`, tr('Answers')]} />
             <Bar dataKey="pct" radius={[0, 7, 7, 0]} background={{ fill: '#f3f4f6', radius: 7 }} animationDuration={700}>
               {data.map((d) => <Cell key={d.name} fill={d.count === top && top > 0 ? FILL.brandH : '#fbc9a6'} />)}
               <LabelList dataKey="pct" position="right" formatter={(v) => `${Math.round(v * 100)}%`} style={{ fontSize: 11, fontWeight: 700, fill: CHART.ink }} />

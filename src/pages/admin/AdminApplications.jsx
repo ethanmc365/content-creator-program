@@ -14,6 +14,7 @@ import { socialHref, linkHref } from '../../lib/socialLinks'
 import { vipApi } from '../../api/vip'
 import { moneyApi } from '../../api/money'
 import { profilesApi } from '../../api/profiles'
+import { marketsApi } from '../../api/markets'
 import { teamApi } from '../../api/team'
 import { appliedAt, marketLanguages } from './AdminApplicationsParts'
 import { ApplicationCard } from './AdminApplicationsApplicationCard'
@@ -59,6 +60,9 @@ export default function AdminApplications() {
   const [onlyUnfollowed, setOnlyUnfollowed] = useState(false)
   const markets = useMarkets()
   const [inviteLabels, setInviteLabels] = useState({})
+  // Acceptances waiting for an onboarding call to end (migration 421), keyed by applicant, and the call lengths.
+  const [scheduled, setScheduled] = useState({})
+  const [callMinutes, setCallMinutes] = useState(15)
 
   async function load() {
     // BOTH BUCKETS IN ONE QUERY. `status = 'pending'` is the whole queue;
@@ -82,6 +86,14 @@ export default function AdminApplications() {
       teamApi.teamInvites().select('id, label').then(({ data }) => setInviteLabels(Object.fromEntries((data ?? []).map((r) => [r.id, r.label]))))
     }
     setEmails(Object.fromEntries((emailRows ?? []).map((r) => [r.id, r.email])))
+    if (list.some((a) => a.onboarding_call_at)) {
+      const [{ data: sch }, { data: calls }] = await Promise.all([
+        teamApi.scheduledApprovals().select('*'),
+        marketsApi.marketSignupSettings().select('call_minutes'),
+      ])
+      setScheduled(Object.fromEntries((sch ?? []).map((r) => [r.profile_id, r])))
+      setCallMinutes(Math.max(15, ...(calls ?? []).map((r) => r.call_minutes || 0)))
+    }
 
     // The two extra reads, batched over the whole queue rather than fired per
     // card: a page of fifteen applications must not open fifteen connections.
@@ -207,15 +219,46 @@ export default function AdminApplications() {
       && marketLanguages(m).some((l) => l.toLowerCase() === String(lang).toLowerCase()))
     .map((m) => m.name)
 
-  async function approve(app) {
+  // When their booked call is over: start + the market's call length.
+  const callEndFor = (a) => (a.onboarding_call_at ? new Date(new Date(a.onboarding_call_at).getTime() + callMinutes * 60000) : null)
+
+  // ACCEPT AFTER THE CALL. The decision is kept with the markets picked on the card and runs when the call ends.
+  async function scheduleApproval(app) {
+    const end = callEndFor(app)
+    const vip = app.is_vip && !app.team_application
+    const opt = vip ? (vipOptions || []).find((o) => o.id === vipChoice(app)) : null
+    if (vip && !opt) { flash('Pick a VIP market first.'); return }
+    const slugs = vip ? [] : (placeIn[app.id] ?? [])
+    const where = vip ? opt.name : (slugs.map((sl) => markets.find((m) => m.slug === sl)?.name ?? sl).join(', ') || 'the worldwide community only')
+    const when = end.toLocaleString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
+    if (!await confirm(`Accept ${app.name} into ${where}? They join when their onboarding call ends (${when}).`)) return
+    setBusyId(app.id)
+    const { error } = await teamApi.adminScheduleApproval({ target: app.id, p_market_slugs: slugs, p_programme: opt?.id ?? null, p_at: end.toISOString() })
+    setBusyId(null)
+    if (error) { flash(`Something went wrong: ${error.message}`); return }
+    flash(`${app.name} is accepted and joins after the call.`)
+    setScheduled((prev) => ({ ...prev, [app.id]: { profile_id: app.id, approve_at: end.toISOString() } }))
+  }
+
+  async function undoSchedule(app) {
+    setBusyId(app.id)
+    const { error } = await teamApi.adminCancelScheduledApproval({ target: app.id })
+    setBusyId(null)
+    if (error) { flash(`Something went wrong: ${error.message}`); return }
+    setScheduled((prev) => { const next = { ...prev }; delete next[app.id]; return next })
+  }
+
+  async function approve(app, { now = false } = {}) {
+    const end = callEndFor(app)
+    if (!now && !app.team_application && end && end > new Date()) { await scheduleApproval(app); return }
     if (app.is_vip && !app.team_application) {
       const opt = (vipOptions || []).find((o) => o.id === vipChoice(app))
-      if (!await confirm(`Approve ${app.name} into ${opt?.name ?? 'their VIP market'}?`)) return
+      if (!await confirm(`Accept ${app.name} into ${opt?.name ?? 'their VIP market'}${now ? ' now' : ''}?`)) return
       setBusyId(app.id)
       const res = await approveVip(app)
       setBusyId(null)
       if (res !== true) { if (res) flash(`Something went wrong: ${res}`); return }
-      flash(`${app.name} approved into ${opt.name}.`)
+      flash(`${app.name} accepted into ${opt.name}.`)
       setApps((prev) => prev.filter((a) => a.id !== app.id))
       return
     }
@@ -224,7 +267,7 @@ export default function AdminApplications() {
     const where = names.length
       ? names.slice(0, -1).concat(names.length > 1 ? [`and ${names[names.length - 1]}`] : names).join(names.length > 2 ? ', ' : ' ')
       : 'the worldwide community only'
-    if (!await confirm(`Approve ${app.name} into ${where}?`)) return
+    if (!await confirm(`Accept ${app.name} into ${where}${now ? ' now' : ''}?`)) return
     setBusyId(app.id)
     const { data, error } = await teamApi.adminApproveApplication({
       target: app.id,
@@ -235,7 +278,7 @@ export default function AdminApplications() {
     })
     setBusyId(null)
     if (error) { flash(`Something went wrong: ${error.message}`); return }
-    flash(`${app.name} approved into ${data?.summary ?? where}.`)
+    flash(`${app.name} accepted into ${data?.summary ?? where}.`)
     setApps((prev) => prev.filter((a) => a.id !== app.id))
   }
 
@@ -458,8 +501,8 @@ export default function AdminApplications() {
           )}
         >
           {key === 'markets' && <Icon name="globe" className="mr-1.5 inline h-4 w-4 -translate-y-px text-brand" />}
+          {key === 'signup' && <Icon name="userPlus" className="mr-1.5 inline h-4 w-4 -translate-y-px text-brand" />}
           {label}
-          {key === 'signup' && <Icon name="sliders" className="mr-1.5 inline h-4 w-4 -translate-y-px text-brand" />}
           {n == null ? null : key === 'markets' && n > 0
             ? <span className="ml-1.5 inline-flex min-w-5 items-center justify-center rounded-full bg-brand px-1.5 text-[11px] font-bold tabular-nums text-white animate-pop-in">{n}</span>
             : <span className={cx('ml-1.5 tabular-nums', bucket === key ? 'text-brand' : 'text-gray-400')}>{n}</span>}
@@ -699,6 +742,10 @@ export default function AdminApplications() {
                 onToggle={() => setOpenId((v) => (v === a.id ? null : a.id))}
                 busy={busyId === a.id}
                 onApprove={() => approve(a)}
+                onApproveNow={() => approve(a, { now: true })}
+                onUndoSchedule={() => undoSchedule(a)}
+                scheduled={scheduled[a.id] || null}
+                callEnd={callEndFor(a)}
                 onApproveTeam={() => approveTeam(a)}
                 inviteLabel={inviteLabels[a.team_invite_id]}
                 onDecline={() => decline(a)}

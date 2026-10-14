@@ -1,14 +1,15 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Bar, BarChart, CartesianGrid, Legend, Tooltip, XAxis, YAxis } from 'recharts'
 import { format, startOfWeek } from 'date-fns'
 import { Avatar, Skeleton } from '../../../components/ui'
 import Icon from '../../../components/Icon'
 import ChartPanel from '../../../components/charts/ChartPanel'
-import { FILL, gridProps, xAxisProps, yAxisProps, cursorFill, stackShape, tooltipStyle } from '../../../components/charts/chartTheme'
+import { FILL, gridProps, xAxisProps, yAxisProps, stackShape, tooltipStyle } from '../../../components/charts/chartTheme'
 import { cx, timeAgo, downloadCsv } from '../../../lib/utils'
 import { flagFromIso } from '../../../lib/flags'
-import { notice } from '../../../lib/confirm'
+import { confirm, notice } from '../../../lib/confirm'
+import { toastSuccess } from '../../../lib/toast'
 import { allRows } from '../../../lib/fetchAll'
 import { profilesApi } from '../../../api/profiles'
 import { teamApi } from '../../../api/team'
@@ -21,13 +22,15 @@ import { inRange, change } from '../../../lib/analyticsPeriod'
 // The applicants are read here (pending people belong to no market yet, so the page's market-scoped data does not hold
 // them); a market narrows to applicants whose country it covers.
 const DAY = 86400000
+const bySignup = (a, b) => Date.parse(b.created_at) - Date.parse(a.created_at)
 
 // The step somebody stopped on, worked out from what the onboarding autosave has written so far (same order as the form).
 function stageOf(p) {
   if (p.status === 'active') return 'approved'
   if (p.onboarded) return 'submitted'
   if (!p.name?.trim() || !p.photo_url) return 'identity'
-  if (!p.country_code || !p.city?.trim() || !p.dob) return 'based'
+  // profiles.dob is always empty (it lives in creator_private); `age` is derived from it, so read that.
+  if (!p.country_code || !p.city?.trim() || p.age == null) return 'based'
   if (![p.instagram_url, p.tiktok_url, p.youtube_url, p.facebook_url].some((u) => u?.trim())) return 'socials'
   if (!p.bio?.trim() || !p.about?.trim()) return 'story'
   if (!(p.languages || []).length) return 'languages'
@@ -54,15 +57,20 @@ export default function Recruitment({ raw, market, markets, scopeLabel, range })
   const [people, setPeople] = useState(null)
   const [emails, setEmails] = useState({})
   const [list, setList] = useState('unfinished')
+  // GENERAL COMMUNITY OR VIP (15 Oct 2026): Lorenzo recruits for both, and they are different funnels.
+  const [aud, setAud] = useState('all')
+  const [progress, setProgress] = useState(null)
   const [now] = useState(() => Date.now())
 
   useEffect(() => {
     let alive = true
     Promise.all([
-      allRows(() => profilesApi.profiles().select('id, name, photo_url, created_at, accepted_at, submitted_at, status, onboarded, is_admin, is_test, deletion_requested_at, country_code, country, city, dob, languages, countries_visited, instagram_url, tiktok_url, youtube_url, facebook_url, bio, about, referred_by, team_invite_id, team_application, is_vip, followed_up_at, signup_source, onboarding_call_opened_at, onboarding_call_booked_at, last_seen_at')),
+      allRows(() => profilesApi.profiles().select('id, name, photo_url, created_at, accepted_at, submitted_at, status, onboarded, is_admin, is_test, deletion_requested_at, country_code, country, city, age, languages, countries_visited, instagram_url, tiktok_url, youtube_url, facebook_url, bio, about, referred_by, team_invite_id, team_application, is_vip, followed_up_at, signup_source, onboarding_call_opened_at, onboarding_call_booked_at, last_seen_at')),
       teamApi.adminListEmails(),
-    ]).then(([rows, { data: em }]) => {
+      allRows(() => profilesApi.onboardingProgress().select('id, profile_id, person, step, signed_up, country_code').order('id')),
+    ]).then(([rows, { data: em }, prog]) => {
       if (!alive) return
+      setProgress(prog || [])
       setPeople((rows || []).filter((p) => !p.is_admin && !p.is_test && !p.deletion_requested_at))
       setEmails(Object.fromEntries((em || []).map((r) => [r.id, r.email])))
     })
@@ -74,7 +82,8 @@ export default function Recruitment({ raw, market, markets, scopeLabel, range })
 
   const d = useMemo(() => {
     if (!people) return null
-    const all = people.filter((p) => !market || codes.has(String(p.country_code || '').toUpperCase()))
+    const all = people.filter((p) => (!market || codes.has(String(p.country_code || '').toUpperCase()))
+      && (aud === 'all' || (aud === 'vip') === !!p.is_vip))
     // The window: the page's period, or the last 30 days against the 30 before.
     const win = range || { start: new Date(now - 30 * DAY), end: new Date(now), prev: { start: new Date(now - 60 * DAY), end: new Date(now - 30 * DAY) }, label: 'Last 30 days', short: 'the 30 days before' }
     const inWin = all.filter((p) => inRange(p.created_at, win))
@@ -107,7 +116,18 @@ export default function Recruitment({ raw, market, markets, scopeLabel, range })
     const languages = count(cohort, (p) => p.languages || [])
     const sources = count(cohort, sourceOf)
     const stuck = all.filter((p) => !p.onboarded && p.status !== 'active')
-    const dropoff = STAGES.map(([k, label]) => ({ key: k, label, n: stuck.filter((p) => stageOf(p) === k).length }))
+    // WHERE PEOPLE STOP, EVER (migration 423): every step anybody reached, kept after they finish or are deleted. A
+    // person "stopped" at the last step they reached unless they reached the next. Deleted accounts count in Worldwide
+    // and by their country; the VIP split only knows the people still here.
+    const ids = new Set(all.map((p) => p.id))
+    const prog = (progress || []).filter((r) => (r.profile_id ? ids.has(r.profile_id)
+      : aud === 'all' && (!market || codes.has(String(r.country_code || '').toUpperCase()))))
+    const furthest = new Map()
+    for (const r of prog) { const k = r.profile_id || r.person || `gone-${r.id}`; furthest.set(k, Math.max(furthest.get(k) || 0, r.step)) }
+    for (const p of stuck) if (!furthest.has(p.id)) furthest.set(p.id, 0)
+    const stoppedAt = (i) => [...furthest.values()].filter((v) => v === i).length
+    const everStarted = furthest.size
+    const dropoff = STAGES.map(([k, label], i) => ({ key: k, label, n: stoppedAt(i), now: stuck.filter((p) => stageOf(p) === k).length }))
     const callMarket = all.some((p) => p.onboarding_call_opened_at || p.onboarding_call_booked_at)
 
     const funnel = [
@@ -119,13 +139,13 @@ export default function Recruitment({ raw, market, markets, scopeLabel, range })
     ]
 
     const lists = {
-      unfinished: stuck.filter((p) => now - Date.parse(p.created_at) > DAY).sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at)),
-      waiting: all.filter((p) => p.status === 'pending' && p.onboarded).sort((a, b) => Date.parse(a.submitted_at || a.created_at) - Date.parse(b.submitted_at || b.created_at)),
-      silent: all.filter((p) => p.status === 'active' && !p.is_vip && !posted.has(p.id) && p.accepted_at && now - Date.parse(p.accepted_at) > 7 * DAY)
-        .sort((a, b) => Date.parse(b.accepted_at) - Date.parse(a.accepted_at)),
+      // EVERY LIST IN SIGN-UP ORDER, NEWEST FIRST (15 Oct 2026: "I'm not sure what order this is in"), and each row says the date.
+      unfinished: stuck.filter((p) => now - Date.parse(p.created_at) > DAY).sort(bySignup),
+      waiting: all.filter((p) => p.status === 'pending' && p.onboarded).sort(bySignup),
+      silent: all.filter((p) => p.status === 'active' && !p.is_vip && !posted.has(p.id) && p.accepted_at && now - Date.parse(p.accepted_at) > 7 * DAY).sort(bySignup),
     }
     return {
-      win, weekly, funnel, countries, languages, sources, dropoff, lists, median,
+      win, weekly, funnel, countries, languages, sources, dropoff, lists, median, everStarted,
       kpis: {
         signups: [inWin.length, inPrev.length],
         finished: [finishedIn(inWin), finishedIn(inPrev)],
@@ -133,7 +153,7 @@ export default function Recruitment({ raw, market, markets, scopeLabel, range })
         rate: inWin.length ? Math.round((approvedIn(inWin) / inWin.length) * 100) : null,
       },
     }
-  }, [people, market, codes, range, now, posted])
+  }, [people, market, codes, range, now, posted, aud, progress])
 
   if (!d) {
     return (
@@ -155,13 +175,24 @@ export default function Recruitment({ raw, market, markets, scopeLabel, range })
   const LISTS = [
     ['unfinished', 'Never finished', d.lists.unfinished.length],
     ['waiting', 'Waiting on review', d.lists.waiting.length],
-    ['silent', 'Approved, no video yet', d.lists.silent.length],
+    ['silent', 'In, no first video yet', d.lists.silent.length],
   ]
   const rows = d.lists[list]
 
   return (
     <div className="space-y-8">
-      <div>
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="flex gap-0.5 rounded-full bg-cloud p-1">
+          {[['all', 'Everybody', 'users'], ['community', 'General community', 'users'], ['vip', 'VIP', 'star']].map(([k, label, icon]) => (
+            <button key={k} type="button" onClick={() => setAud(k)} aria-pressed={aud === k}
+              className={cx('inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-semibold transition-all duration-200', aud === k ? 'bg-brand text-white shadow-card' : 'text-smoke hover:text-ink')}>
+              <Icon name={icon} className="h-3.5 w-3.5" />{label}
+            </button>
+          ))}
+        </div>
+        <span className="text-xs text-smoke">{aud === 'vip' ? 'People who signed up with the VIP link' : aud === 'community' ? 'Everybody except VIP sign-ups' : 'General community and VIP sign-ups together'}</span>
+      </div>
+      <div key={aud} className="animate-tab-in">
         <p className="mb-3 flex flex-wrap items-baseline gap-x-2 text-sm text-smoke">
           <span className="text-base font-semibold text-ink">{d.win.label}</span>
           <span>{scopeLabel}</span>
@@ -197,7 +228,7 @@ export default function Recruitment({ raw, market, markets, scopeLabel, range })
               <CartesianGrid {...gridProps} />
               <XAxis dataKey="week" {...xAxisProps} />
               <YAxis {...yAxisProps} allowDecimals={false} />
-              <Tooltip contentStyle={tooltipStyle} cursor={cursorFill} />
+              <Tooltip contentStyle={tooltipStyle} cursor={false} />
               <Legend wrapperStyle={{ fontSize: 11 }} iconType="circle" />
               <Bar dataKey="approved" name="Approved" stackId="s" fill={FILL.brand} maxBarSize={32} shape={stackShape(pulseKeys, 'approved')} />
               <Bar dataKey="waiting" name="Waiting on review" stackId="s" fill={FILL.light} maxBarSize={32} shape={stackShape(pulseKeys, 'waiting')} />
@@ -237,7 +268,7 @@ export default function Recruitment({ raw, market, markets, scopeLabel, range })
 
       <section className="card animate-rise" style={{ animationDelay: '280ms' }}>
         <h2 className="font-semibold">Where people stop</h2>
-        <p className="mb-5 mt-1 text-xs text-smoke">The step each unfinished application is stuck on ({d.dropoff.reduce((n, x) => n + x.n, 0)} people)</p>
+        <p className="mb-5 mt-1 text-xs text-smoke">The last step reached by everybody who never finished, since tracking began: {d.dropoff.reduce((n, x) => n + x.n, 0)} of {d.everStarted} people who started. The small number is how many are on that step right now.</p>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-7">
           {d.dropoff.map((x, i) => {
             const max = Math.max(1, ...d.dropoff.map((y) => y.n))
@@ -249,6 +280,7 @@ export default function Recruitment({ raw, market, markets, scopeLabel, range })
                 </div>
                 <span className="text-xl font-bold tabular-nums">{x.n}</span>
                 <span className="text-[11px] leading-tight text-smoke">{x.label}</span>
+                {x.now > 0 && <span className="mt-1 rounded-full bg-white px-2 py-0.5 text-[10px] font-semibold text-brand">{x.now} now</span>}
               </div>
             )
           })}
@@ -259,7 +291,7 @@ export default function Recruitment({ raw, market, markets, scopeLabel, range })
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 className="font-semibold">Follow up</h2>
-            <p className="mt-1 text-xs text-smoke">Message them, copy the email, and tick them off once you have.</p>
+            <p className="mt-1 text-xs text-smoke">Newest sign-ups first. Copy the email, message them, tick them off, or delete an old application.</p>
           </div>
           <button type="button" onClick={() => downloadCsv(`follow-up-${list}.csv`, rows.map((p) => ({ name: p.name, email: emails[p.id] || '', country: p.country || p.country_code || '', signed_up: p.created_at?.slice(0, 10), stage: STAGES.find(([k]) => k === stageOf(p))?.[1] || stageOf(p), followed_up: p.followed_up_at ? 'yes' : '' })))}
             className="btn-secondary !px-3 !py-2 text-xs"><Icon name="download" className="h-4 w-4" /> CSV</button>
@@ -278,7 +310,8 @@ export default function Recruitment({ raw, market, markets, scopeLabel, range })
           <ul key={list} className="divide-y divide-gray-50 animate-tab-in">
             {rows.slice(0, 60).map((p) => (
               <FollowRow key={p.id} p={p} email={emails[p.id]} list={list}
-                onFollowed={(at) => setPeople((cur) => cur.map((x) => (x.id === p.id ? { ...x, followed_up_at: at } : x)))} />
+                onFollowed={(at) => setPeople((cur) => cur.map((x) => (x.id === p.id ? { ...x, followed_up_at: at } : x)))}
+                onDeleted={() => setPeople((cur) => cur.filter((x) => x.id !== p.id))} />
             ))}
           </ul>
         )}
@@ -290,10 +323,18 @@ export default function Recruitment({ raw, market, markets, scopeLabel, range })
 
 function BarList({ title, sub, rows, csv, foot, delay }) {
   const [all, setAll] = useState(false)
+  const ref = useRef(null)
+  // SHOW FEWER BRINGS YOU BACK (15 Oct 2026): collapsing a long list left the page scrolled to where its end had been,
+  // far below the card. Back to the card's top, if it is above the screen now.
+  const toggleAll = () => {
+    const closing = all
+    setAll(!all)
+    if (closing) setTimeout(() => { const r = ref.current?.getBoundingClientRect(); if (r && r.top < 0) ref.current.scrollIntoView({ block: 'start', behavior: 'instant' }) }, 0)
+  }
   const max = Math.max(1, ...rows.map((r) => r.n))
   const shown = all ? rows : rows.slice(0, 8)
   return (
-    <section className="card flex flex-col animate-rise" style={{ animationDelay: `${delay}ms` }}>
+    <section ref={ref} className="card flex scroll-mt-24 flex-col animate-rise" style={{ animationDelay: `${delay}ms` }}>
       <div className="mb-4 flex items-start justify-between gap-2">
         <div><h2 className="font-semibold">{title}</h2><p className="mt-1 text-xs text-smoke">{sub}</p></div>
         {rows.length > 0 && (
@@ -312,13 +353,13 @@ function BarList({ title, sub, rows, csv, foot, delay }) {
           ))}
         </ul>
       )}
-      {rows.length > 8 && <button type="button" onClick={() => setAll((x) => !x)} className="mt-3 self-start text-xs font-semibold text-brand hover:underline">{all ? 'Show fewer' : `Show all ${rows.length}`}</button>}
+      {rows.length > 8 && <button type="button" onClick={toggleAll} className="mt-3 self-start text-xs font-semibold text-brand hover:underline">{all ? 'Show fewer' : `Show all ${rows.length}`}</button>}
       {foot && <p className="mt-auto pt-3 text-[11px] text-gray-400">{foot}</p>}
     </section>
   )
 }
 
-function FollowRow({ p, email, list, onFollowed }) {
+function FollowRow({ p, email, list, onFollowed, onDeleted }) {
   const [busy, setBusy] = useState(false)
   const stage = STAGES.find(([k]) => k === stageOf(p))?.[1]
   async function toggle() {
@@ -329,7 +370,18 @@ function FollowRow({ p, email, list, onFollowed }) {
     if (error) { await notice(`Could not save: ${error.message}`); return }
     onFollowed(next)
   }
-  const when = list === 'silent' ? `approved ${timeAgo(p.accepted_at)}` : list === 'waiting' ? `applied ${timeAgo(p.submitted_at || p.created_at)}` : `signed up ${timeAgo(p.created_at)}`
+  async function remove() {
+    const who = p.name?.trim() || 'this application'
+    if (!await confirm(`Delete ${who}? This permanently removes the account and cannot be undone.`)) return
+    setBusy(true)
+    const { error } = await teamApi.adminDeclineApplication({ target: p.id })
+    setBusy(false)
+    if (error) { await notice(`Could not delete: ${error.message}`); return }
+    toastSuccess(`${who} deleted.`)
+    onDeleted()
+  }
+  const signed = new Date(p.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+  const when = list === 'silent' ? `signed up ${signed} · in ${timeAgo(p.accepted_at)}` : list === 'waiting' ? `signed up ${signed} · applied ${timeAgo(p.submitted_at || p.created_at)}` : `signed up ${signed}`
   return (
     <li className="flex flex-wrap items-center gap-3 py-3">
       <Avatar src={p.photo_url} name={p.name || '?'} size="sm" />
@@ -358,8 +410,14 @@ function FollowRow({ p, email, list, onFollowed }) {
         )}
         <button type="button" onClick={toggle} disabled={busy} aria-pressed={!!p.followed_up_at}
           className={cx('rounded-full px-3 py-1.5 text-xs font-semibold transition-colors', p.followed_up_at ? 'bg-brand text-white' : 'border border-gray-200 text-smoke hover:border-brand hover:text-brand')}>
-          <Icon name="check" className="mr-1 inline h-3.5 w-3.5" />{p.followed_up_at ? 'Followed up' : 'Mark followed up'}
+          <Icon name="check" className="mr-1 inline h-3.5 w-3.5" />{list === 'silent' ? (p.followed_up_at ? 'Nudged' : 'Mark nudged') : (p.followed_up_at ? 'Followed up' : 'Mark followed up')}
         </button>
+        {list !== 'silent' && (
+          <button type="button" onClick={remove} disabled={busy} aria-label="Delete this application" title="Delete this application"
+            className="rounded-full p-2 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-500">
+            <Icon name="trash" className="h-4 w-4" />
+          </button>
+        )}
       </div>
     </li>
   )
