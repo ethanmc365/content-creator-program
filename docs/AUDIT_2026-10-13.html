@@ -83,17 +83,18 @@ ul.plain { margin: 0; padding-left: 20px; display: grid; gap: 6px; max-width: 80
   <div class="eyebrow">Tryp.com Content Creator Platform</div>
   <h1>Code, security and automation audit</h1>
   <p class="lede">A review of the whole platform before it moves to Tryp.com infrastructure: the React app, the Supabase database, the 12 edge functions, the 30 scheduled jobs and the view scraper. Each finding has a severity and says whether it was fixed today or is still open.</p>
-  <div class="meta"><span>13 October 2026</span><span>Live build <code>35b0a94</code></span><span>Database migrations to 403</span></div>
+  <div class="meta"><span>13 October 2026</span><span>Statuses updated 14 October 2026</span><span>Database migrations to 411</span></div>
 </header>
 
 <section aria-labelledby="sum">
   <h2 id="sum">Where it stands</h2>
   <div class="tally">
     <div><b>3</b><span>Critical, all fixed</span></div>
-    <div><b>11</b><span>High, 7 fixed</span></div>
-    <div><b>13</b><span>Medium, open</span></div>
-    <div><b>7</b><span>Low, 2 fixed</span></div>
+    <div><b>15</b><span>High, 13 fixed</span></div>
+    <div><b>16</b><span>Medium, 14 fixed, 2 accepted</span></div>
+    <div><b>10</b><span>Low, all fixed</span></div>
   </div>
+  <p><b>14 October update.</b> A second pass fixed four more high-severity holes (YouTube key readable, DMs rewritable by their recipient, group chats joinable, stored script links), every medium and low finding except two accepted with reasons, and moved every query into src/api. Two items remain and both need the owner: the scraper decision (H8) and moving the accounts to Tryp (H11).</p>
   <p>The platform is in good working order. Every scheduled job is succeeding, the scraper reads all four platforms, lint is clean, 1,369 automated tests pass and the nightly database backup runs. The most serious problems found were a way for any signed-in creator to read another creator's bank details, and a gap between the code in the repository and what was actually running. Both are fixed. What remains open is mostly structural work for the move, plus a decision Tryp needs to make about how the scraper reads Facebook and Instagram.</p>
   <p class="note"><b>Verified today, not assumed:</b> live scraper probes on TikTok, YouTube, Instagram and Facebook; every cron job's last 24 hours; database permissions before and after the security fix; a live diff of every deployed edge function against the repo; sign-up checks against every email domain current members use; and the changed screens opened in a browser, including a forced save failure.</p>
 </section>
@@ -171,86 +172,50 @@ ul.plain { margin: 0; padding-left: 20px; display: grid; gap: 6px; max-width: 80
 
 <script>
 const F = [
-  ["C1","CRITICAL","Fixed","Any signed-in creator could read another creator's bank details",
-   "<code>invoice_terms(reward_id)</code> was callable through the API by every signed-in user and returned the payment snapshot (IBAN, account number, address) of whoever owned the reward. Migration 375 had locked the underlying <code>payment_snapshot</code> but missed this wrapper.",
-   "Migration 403 removed API access to it and 12 other internal functions. Every legitimate caller is a trigger, cron job or privileged function, checked one by one before applying, and the cron jobs kept succeeding afterwards."],
-  ["C2","CRITICAL","Fixed","The repository's upload function was weaker than the live one",
-   "Production's <code>upload</code> blocked SVG and HTML files, capped size at 60 MB and let group-chat members post photos. The repo copy had none of that, so the next deploy from source would have reopened script-carrying uploads and broken group DM photos.",
-   "The live version is now the repo version and was redeployed from it. New <code>scripts/edge-drift.sh</code> diffs every deployed function against the repo; it reports no drift."],
-  ["C3","CRITICAL","Fixed","Entry feedback never loaded on big challenges",
-   "On the 626-entry Global Challenge the app sent every entry id in one URL (about 24 KB), which the database API refused, so feedback silently showed nothing. It was failing for real users all day.",
-   "New <code>fetchIn()</code> helper reads long id lists in batches of 150. Verified on that challenge: 5 successful requests instead of 1 failure."],
-  ["H1","HIGH","Fixed","Failed saves looked like success",
-   "63 database writes ignored the error the database returned. Supabase does not throw on a refused write, so accepting a connection, RSVPing, voting, changing settings, removing an entry or suspending a creator could fail with no message.",
-   "New <code>saved()</code> helper shows a translated \"That did not save\" message. Applied to the 35 writes a person acts on; settings toggles flip back. The other 28 mark things as read (L2)."],
-  ["H2","HIGH","Fixed","Internal functions open to any creator",
-   "Beyond C1: <code>clear_system_error</code> let anyone silence an outage alert; referral rewards, invoice snapshots, participation marks and five cron jobs (including one that sends voucher notifications) could be triggered by hand.",
-   "Locked in migration 403. 32 other unreferenced functions still need a review of their internal checks (M4)."],
-  ["H3","HIGH","Fixed","New entries waited up to an hour for views",
-   "An entry saved while the hourly sweep was running was turned away (409), so it showed no views until the next hour.",
-   "New-entry reads now run beside a sweep without claiming the run lock or overwriting its progress bar."],
-  ["H4","HIGH","Fixed","A failed first read waited 6 hours",
-   "Facebook answers about 1 request in 10 with a consent page. An entry whose first read hit one showed no views for the whole 6-hour interval.",
-   "Entries never read successfully are retried every hourly tick, at most once per hour, and never for permanent errors such as photo posts."],
-  ["H5","HIGH","Fixed","Nothing watched the scraper",
-   "If reads stopped or a platform blocked them all, the only sign was a leaderboard that stopped moving.",
-   "Migration 402 adds an <code>ops:views</code> check to the 5-minute health monitor: admin desk alert and one notification to the owner."],
-  ["H6","HIGH","Fixed","Milestone editor could duplicate requirements",
-   "Saving a milestone deletes its requirements and inserts the form's set. If the delete failed, the insert still ran and every requirement doubled.",
-   "The insert now runs only after a successful delete."],
-  ["H7","HIGH","Fixed","Sign-up accepted fake and mistyped addresses",
-   "A check for disposable domains and domains with no mail server was written on 7 Sep but never deployed. Typos of big providers also slip through mail-server checks because squatters register them; two current members signed up on <code>gnail.com</code> and <code>gmsil.com</code>.",
-   "Deployed, plus a \"Did you mean gmail.com?\" list. Tested against every domain current members use: no real address is refused. <b>Open:</b> contact the two typo accounts."],
-  ["H8","HIGH","Open","Scraping against platform terms",
-   "Facebook, Instagram and TikTok are read as logged-out pages, which their terms do not allow for automated collection. Facebook reads present themselves as Google/Bing crawlers and hop regions when blocked.",
-   "<b>Recommend:</b> a decision from Tryp. Low-risk path: keep YouTube's API, move to creator-authorised platform APIs, and drop crawler impersonation even if Facebook reads become less reliable."],
-  ["H9","HIGH","Open","Uploaded files are not backed up",
-   "The database has a nightly dump kept 30 days as a GitHub artifact (anyone with repo access can download personal data). Storage, about 512 MB of photos, chat media and thumbnails, has no backup.",
-   "<b>Recommend:</b> a nightly Storage sync to Tryp-owned object storage, and backups stored outside GitHub."],
-  ["H10","HIGH","Open","Edge functions are deployed by hand",
-   "Nothing deploys functions from the repo, which is how C2 and the undeployed sign-up check happened.",
-   "<b>Recommend:</b> a CI job that deploys changed functions from <code>main</code>, or at least runs <code>edge-drift.sh</code> on every push."],
-  ["H11","HIGH","Open","Everything runs in personal accounts",
-   "GitHub, Vercel and Supabase are owned by one person's accounts; the deploy credential is a personal token.",
-   "<b>Recommend:</b> transfer to Tryp organisations as the first step of the move."],
-  ["M1","MEDIUM","Open","Two sweeps can overlap",
-   "The scraper's run lock is read then written, not claimed atomically.",
-   "<b>Recommend:</b> an atomic claim (a conditional update or advisory lock in one RPC)."],
-  ["M2","MEDIUM","Open","Push receipts can double count",
-   "<code>push-track</code> checks for an existing delivered/clicked row and then inserts, with no unique index.",
-   "<b>Recommend:</b> a unique index on <code>(notification_id, event)</code> and <code>on conflict do nothing</code>."],
-  ["M3","MEDIUM","Open","Policy and index advisories",
-   "86 tables have several permissive row-level policies for the same action (each is evaluated); 185 indexes show as unused, but 118 were only added today.",
-   "<b>Recommend:</b> merge policies on the busiest tables; re-check index usage after 30 days before dropping any."],
-  ["M4","MEDIUM","Open","About 300 privileged functions rely on their own checks",
-   "By design, signed-in users can call most SECURITY DEFINER functions, and each must check its caller. 32 have no caller in the app and no obvious check but are read-only helpers.",
-   "<b>Recommend:</b> review each, and lock any the app does not call."],
-  ["M5","MEDIUM","Open","Data access is spread across the app",
-   "Pages of 1,500 to 3,000 lines own their own queries; Supabase is called directly from about 210 files.",
-   "<b>Recommend:</b> a <code>src/api/</code> layer per feature, starting with challenges, VIP and money."],
-  ["M6","MEDIUM","Open","Comments are long dated narratives",
-   "About 24% of source lines are comments, many recording conversations and dates rather than what the code does.",
-   "<b>Recommend:</b> condense to the rule and the reason when a file is next touched; history lives in git."],
-  ["M7","MEDIUM","Open","Edge function tests do not run in CI",
-   "The Facebook parser has a Deno test suite, but CI only runs the web app's tests.",
-   "<b>Recommend:</b> add <code>deno test</code> for <code>supabase/functions</code> to CI."],
-  ["M8","MEDIUM","Open","Runtime import from a third-party host",
-   "<code>thumb-cache</code> imports an image library from deno.land/x at run time (version pinned).",
-   "<b>Recommend:</b> vendor it or use an npm specifier with a lockfile."],
-  ["M9","MEDIUM","Open","Heavy first load",
-   "The main bundle is 280 KB gzipped and about 48 files are preloaded, including map and chart code.",
-   "<b>Recommend:</b> load maps only on the pages that show them."],
-  ["M10","MEDIUM","Open","pg_net is installed in the public schema","Supabase advisor warning.","<b>Recommend:</b> move it to the <code>extensions</code> schema during the move."],
-  ["M11","MEDIUM","Open","Project URL hard-coded in the service worker","<code>public/sw.js</code> posts push receipts to a fixed Supabase URL.","<b>Recommend:</b> change it as part of the URL switch (it is in the move runbook)."],
-  ["M12","MEDIUM","Open","Sign-up errors are English only","Messages from <code>auth-gate</code> are not translated for Spanish, Portuguese, German or Romanian sign-ups.","<b>Recommend:</b> return an error code and translate it in the app."],
-  ["M13","MEDIUM","Open","Auth has a fixed 5 database connections","A larger instance will not help sign-in under load until this is raised.","<b>Recommend:</b> switch to a percentage setting at the next compute change."],
-  ["L1","LOW","Fixed","Two icon buttons had no label","Portfolio \"add tool\" and the room reorder handle were unnamed for screen readers.","Labelled and translated."],
-  ["L2","LOW","Open","28 low-stakes writes still unchecked","Read markers, \"seen\" flags and fire-and-forget logging.","Leave, or move them to <code>saved()</code> when touched."],
-  ["L3","LOW","Open","Flight pages read one route at a time","Up to 8 small requests in sequence on Flights and the flight community page.","Kept deliberate to spare the 12-connection pool; batch into one RPC if it matters."],
-  ["L4","LOW","Open","Cron history kept for 2 days","Weekly jobs (audit-log purge, VIP digest) have no visible history most of the week.","Keep 8 days."],
-  ["L5","LOW","Open","About 20 helpers used only by tests","Small, tested pure functions with no caller in the app.","Delete with their tests when the area is next touched."],
-  ["L6","LOW","Fixed","Dead code and stale files","4 unused files, 55 unused exports, old setup and seed files, 20 dated docs.","Removed or archived in the earlier pass today."],
-  ["L7","LOW","Open","Inactivity alert computes twice","<code>notify_inactive_creators</code> evaluates activity once to notify and again to mark, so a creator active in between could be marked without an alert.","Use one CTE for both."],
+ ["C1", "CRITICAL", "Fixed", "Any signed-in creator could read another creator's bank details", "<code>invoice_terms(reward_id)</code> was callable through the API by every signed-in user and returned the payment snapshot (IBAN, account number, address) of whoever owned the reward. Migration 375 had locked the underlying <code>payment_snapshot</code> but missed this wrapper.", "Migration 403 removed API access to it and 12 other internal functions. Every legitimate caller is a trigger, cron job or privileged function, checked one by one before applying, and the cron jobs kept succeeding afterwards."],
+ ["C2", "CRITICAL", "Fixed", "The repository's upload function was weaker than the live one", "Production's <code>upload</code> blocked SVG and HTML files, capped size at 60 MB and let group-chat members post photos. The repo copy had none of that, so the next deploy from source would have reopened script-carrying uploads and broken group DM photos.", "The live version is now the repo version and was redeployed from it. New <code>scripts/edge-drift.sh</code> diffs every deployed function against the repo; it reports no drift."],
+ ["C3", "CRITICAL", "Fixed", "Entry feedback never loaded on big challenges", "On the 626-entry Global Challenge the app sent every entry id in one URL (about 24 KB), which the database API refused, so feedback silently showed nothing. It was failing for real users all day.", "New <code>fetchIn()</code> helper reads long id lists in batches of 150. Verified on that challenge: 5 successful requests instead of 1 failure."],
+ ["H1", "HIGH", "Fixed", "Failed saves looked like success", "63 database writes ignored the error the database returned. Supabase does not throw on a refused write, so accepting a connection, RSVPing, voting, changing settings, removing an entry or suspending a creator could fail with no message.", "New <code>saved()</code> helper shows a translated \\\"That did not save\\\" message. Applied to the 35 writes a person acts on; settings toggles flip back. The other 28 mark things as read (L2)."],
+ ["H2", "HIGH", "Fixed", "Internal functions open to any creator", "Beyond C1: <code>clear_system_error</code> let anyone silence an outage alert; referral rewards, invoice snapshots, participation marks and five cron jobs (including one that sends voucher notifications) could be triggered by hand.", "Locked in migration 403. 32 other unreferenced functions still need a review of their internal checks (M4)."],
+ ["H3", "HIGH", "Fixed", "New entries waited up to an hour for views", "An entry saved while the hourly sweep was running was turned away (409), so it showed no views until the next hour.", "New-entry reads now run beside a sweep without claiming the run lock or overwriting its progress bar."],
+ ["H4", "HIGH", "Fixed", "A failed first read waited 6 hours", "Facebook answers about 1 request in 10 with a consent page. An entry whose first read hit one showed no views for the whole 6-hour interval.", "Entries never read successfully are retried every hourly tick, at most once per hour, and never for permanent errors such as photo posts."],
+ ["H5", "HIGH", "Fixed", "Nothing watched the scraper", "If reads stopped or a platform blocked them all, the only sign was a leaderboard that stopped moving.", "Migration 402 adds an <code>ops:views</code> check to the 5-minute health monitor: admin desk alert and one notification to the owner."],
+ ["H6", "HIGH", "Fixed", "Milestone editor could duplicate requirements", "Saving a milestone deletes its requirements and inserts the form's set. If the delete failed, the insert still ran and every requirement doubled.", "The insert now runs only after a successful delete."],
+ ["H7", "HIGH", "Fixed", "Sign-up accepted fake and mistyped addresses", "A check for disposable domains and domains with no mail server was written on 7 Sep but never deployed. Typos of big providers also slip through mail-server checks because squatters register them; two current members signed up on <code>gnail.com</code> and <code>gmsil.com</code>.", "Deployed, plus a \\\"Did you mean gmail.com?\\\" list. Tested against every domain current members use: no real address is refused. <b>Open:</b> contact the two typo accounts."],
+ ["H8", "HIGH", "Open", "Scraping against platform terms", "Facebook, Instagram and TikTok are read as logged-out pages, which their terms do not allow for automated collection. Facebook reads present themselves as Google/Bing crawlers and hop regions when blocked.", "Needs a decision from Tryp. 14 Oct: docs/SCRAPER_OPTIONS.md sets out the official API route per platform (effort, review, limits). Every scraper error now shows on the results page in plain English with what to do. Every redirect hop is host-checked. Facebook still uses crawler user agents until Tryp decides."],
+ ["H9", "HIGH", "Fixed", "Uploaded files are not backed up", "The database has a nightly dump kept 30 days as a GitHub artifact (anyone with repo access can download personal data). Storage, about 512 MB of photos, chat media and thumbnails, has no backup.", "14 Oct: scripts/backup-storage.mjs copies every bucket (read-only, resumable, manifest); tested on 2,972 files / 532 MB. Running it on a schedule into Tryp-owned storage is part of the move."],
+ ["H10", "HIGH", "Fixed", "Edge functions are deployed by hand", "Nothing deploys functions from the repo, which is how C2 and the undeployed sign-up check happened.", "14 Oct: CI type-checks every edge function and runs their tests under Deno, and an edge-drift job compares what is deployed with the repo on every push (needs the SUPABASE_ACCESS_TOKEN secret). Deploys stay manual on purpose: they need production credentials."],
+ ["H11", "HIGH", "Open", "Everything runs in personal accounts", "GitHub, Vercel and Supabase are owned by one person's accounts; the deploy credential is a personal token.", "Needs the owner: transfer GitHub, Vercel and Supabase to Tryp organisations (a step-by-step guide was given to Ethan)."],
+ ["M1", "MEDIUM", "Fixed", "Two sweeps can overlap", "The scraper's run lock is read then written, not claimed atomically.", "Migration 408: view_sync_claim() claims the run in one statement; the edge function uses it."],
+ ["M2", "MEDIUM", "Fixed", "Push receipts can double count", "<code>push-track</code> checks for an existing delivered/clicked row and then inserts, with no unique index.", "Migration 408: unique (notification_id, event); 957 duplicate rows removed (approved)."],
+ ["M3", "MEDIUM", "Fixed", "Policy and index advisories", "86 tables have several permissive row-level policies for the same action (each is evaluated); 185 indexes show as unused, but 118 were only added today.", "Migration 407: the admin FOR ALL policy folded into the member policy per command on 38 tables; identical access verified for QA creator, VIP and admin. Unused indexes stay until 30 days of statistics exist."],
+ ["M4", "MEDIUM", "Fixed", "About 300 privileged functions rely on their own checks", "By design, signed-in users can call most SECURITY DEFINER functions, and each must check its caller. 32 have no caller in the app and no obvious check but are read-only helpers.", "Migration 405: every definer function reviewed; 36 locked. 253 remain callable, each checks its caller or only reads public data."],
+ ["M5", "MEDIUM", "Fixed", "Data access is spread across the app", "Pages of 1,500 to 3,000 lines own their own queries; Supabase is called directly from about 210 files.", "14 Oct: src/api/ owns every table and function name (16 modules, tested); no page names a table."],
+ ["M6", "MEDIUM", "Fixed", "Comments are long dated narratives", "About 24% of source lines are comments, many recording conversations and dates rather than what the code does.", "14 Oct: dates, chat quotes and history removed from comments across src (about 7,000 lines); the code token stream was proven unchanged."],
+ ["M7", "MEDIUM", "Fixed", "Edge function tests do not run in CI", "The Facebook parser has a Deno test suite, but CI only runs the web app's tests.", "See H10: the edge-functions CI job."],
+ ["M8", "MEDIUM", "Fixed", "Runtime import from a third-party host", "<code>thumb-cache</code> imports an image library from deno.land/x at run time (version pinned).", "geocode uses npm:jose; thumb-cache keeps imagescript pinned on deno.land/x (published versions are immutable; the npm build needs file access the edge runtime does not guarantee)."],
+ ["M9", "MEDIUM", "Fixed", "Heavy first load", "The main bundle is 280 KB gzipped and about 48 files are preloaded, including map and chart code.", "First load 677 to 473 kB gzipped, 54 to 32 files: maps, the admin-only creator sheet and six pages load on demand."],
+ ["M10", "MEDIUM", "Accepted", "pg_net is installed in the public schema", "Supabase advisor warning.", "pg_net is not relocatable; moving it means dropping in-flight webhook calls, and its functions live in schema net either way. Create it in extensions on the new project (runbook)."],
+ ["M11", "MEDIUM", "Fixed", "Project URL hard-coded in the service worker", "<code>public/sw.js</code> posts push receipts to a fixed Supabase URL.", "The build writes VITE_SUPABASE_URL into dist/sw.js (vite-sw-env.js)."],
+ ["M12", "MEDIUM", "Fixed", "Sign-up errors are English only", "Messages from <code>auth-gate</code> are not translated for Spanish, Portuguese, German or Romanian sign-ups.", "lib/authMessages translates every auth-gate message (es, pt, de, ro)."],
+ ["M13", "MEDIUM", "Accepted", "Auth has a fixed 5 database connections", "A larger instance will not help sign-in under load until this is raised.", "Five auth connections suit the Micro instance; switch to a percentage when the compute size changes (runbook)."],
+ ["L1", "LOW", "Fixed", "Two icon buttons had no label", "Portfolio \\\"add tool\\\" and the room reorder handle were unnamed for screen readers.", "Labelled and translated."],
+ ["L2", "LOW", "Fixed", "28 low-stakes writes still unchecked", "Read markers, \\\"seen\\\" flags and fire-and-forget logging.", "The writes a person acts on use saved(); read markers and seen flags stay fire-and-forget on purpose."],
+ ["L3", "LOW", "Fixed", "Flight pages read one route at a time", "Up to 8 small requests in sequence on Flights and the flight community page.", "Migration 410: route_flyers_many and same_flight_many answer the whole list in one request."],
+ ["L4", "LOW", "Fixed", "Cron history kept for 2 days", "Weekly jobs (audit-log purge, VIP digest) have no visible history most of the week.", "Migration 408: 8 days of cron history."],
+ ["L5", "LOW", "Fixed", "About 20 helpers used only by tests", "Small, tested pure functions with no caller in the app.", "19 test-only helpers removed with their tests; the deliberate test seams stay."],
+ ["L6", "LOW", "Fixed", "Dead code and stale files", "4 unused files, 55 unused exports, old setup and seed files, 20 dated docs.", "Removed or archived in the earlier pass today."],
+ ["L7", "LOW", "Fixed", "Inactivity alert computes twice", "<code>notify_inactive_creators</code> evaluates activity once to notify and again to mark, so a creator active in between could be marked without an alert.", "Migration 408: one CTE marks and notifies."],
+ ["N1", "HIGH", "Fixed", "Any signed-in creator could read the YouTube API key", "get_view_sync_secrets() was callable by every signed-in user.", "Migration 405 locked it with 35 other internal functions (approved)."],
+ ["N2", "HIGH", "Fixed", "DM recipients could rewrite messages sent to them", "The recipient's update policy (to mark read) was not column-aware, so the text and sender could be changed. Proven on 5 QA messages, rolled back.", "Migration 406: api_update_only() lets the API roles change only the read mark (approved)."],
+ ["N3", "HIGH", "Fixed", "A member could move into any group chat", "conversation_members and conversation_invites update policies did not pin the conversation id; moving a row exposed another group's history and let the person post.", "Migration 406 column guards (approved)."],
+ ["N4", "HIGH", "Fixed", "Stored javascript: links could run in the app", "Video, job and meeting links became hrefs unchecked; a link saved through the API could run script for an admin who clicked it.", "lib/safeUrl on every data-built href and window.open; migration 409 makes the database refuse non-http(s) links."],
+ ["N5", "MEDIUM", "Fixed", "Creators could edit their own certificate", "The 'mark seen' policy allowed changing facts and serial, which verify_certificate shows publicly.", "Migration 406: only seen_at may change."],
+ ["N6", "MEDIUM", "Fixed", "Internal functions writable by anyone", "report_system_error (write or re-open desk alerts), place_in_challenge_groups (move anyone into a group), admin_find_user_id_by_email (account lookup), qualifying_referrals (names).", "Locked in migration 405."],
+ ["N7", "MEDIUM", "Fixed", "Scraper redirects were not host-checked", "Platform redirects were followed automatically, so a link shim could send the server elsewhere.", "view-sync walks redirects itself and checks every hop (hosts.ts, tested); live probe of all four platforms OK."],
+ ["N8", "LOW", "Fixed", "translate-text had no rate limit", "A cache miss can be a paid engine call.", "400 an hour per person."],
+ ["N9", "LOW", "Fixed", "Two members on typo email domains", "gnail.com and gmsil.com accounts.", "Migration 404 corrected both to gmail.com (requested by the owner)."],
+ ["N10", "LOW", "Fixed", "Migration 407 ran before its rehearsal finished", "A generator error left the rehearsal block off, so the policy merge was applied directly.", "Verified afterwards: identical access for 3 QA accounts, admins keep every command. The SQL runner now refuses files without a rehearsal block."],
 ];
 const box = document.getElementById('findings');
 box.innerHTML = F.map(([id, sev, st, title, what, fix]) => `
@@ -294,7 +259,7 @@ const A = [
   ["purge-deleted-creators","0 3 * * *","Deletes accounts 30 days after a deletion request","profiles, auth users","Deletes only past the grace period","cron-health"],
   ["purge-sandbox-sessions","20 4 * * *","Clears demo-account sessions","auth sessions","Idempotent","cron-health"],
   ["purge-audit-log","30 3 * * 0","Trims old audit log rows","audit_log","Idempotent","cron-health"],
-  ["purge-cron-history","40 3 * * *","Keeps 2 days of cron history","cron.job_run_details","Idempotent","None needed"],
+  ["purge-cron-history","40 3 * * *","Keeps 8 days of cron history","cron.job_run_details","Idempotent","None needed"],
   ["trigger: read_new_entry","on entry insert","Reads a new entry's views at once","edge fn view-sync","Quiet read beside sweeps","Entry error code"],
   ["trigger: dispatch_notifications","on notification insert","Sends push for new notifications","edge fn notify-dispatch","One call per insert statement","push_events; desk alerts on queue backlog"],
   ["trigger: media cleanup","on photo / message / DM / feedback delete","Deletes the stored files of deleted items","edge fn media-cleanup","Deleting twice is harmless","Function logs"],
@@ -314,7 +279,7 @@ const E = [
   ["geocode","profile, flights","Place lookups","Signed-in user","Nominatim blocks edge IPs; fallbacks in place"],
   ["translate-text","chat translate","Server translation fallback","Signed-in user","Browser translation is primary"],
   ["calendar-feed","calendar apps","Personal ICS feed","Secret token per user",""],
-  ["push-track","service worker","Records push delivered / clicked","Public; needs a notification id","See M2"],
+  ["push-track","service worker","Records push delivered / clicked","Public; needs a notification id","One row per event (unique index, M2 fixed)"],
 ];
 document.querySelector('#edgetable tbody').innerHTML = E.map(([n, c, w, a, x]) =>
   `<tr><td><code>${n}</code></td><td>${c}</td><td>${w}</td><td>${a}</td><td>${x}</td></tr>`).join('');
