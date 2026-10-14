@@ -44,3 +44,6 @@ deno.lock
 
 # Storage backups hold personal data: never commit them (scripts/backup-storage.mjs)
 storage-backup/
+
+# Personal handover notes for the owner (not part of the codebase)
+handover/
