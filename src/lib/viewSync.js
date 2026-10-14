@@ -176,7 +176,7 @@ export const CADENCES = [
   { hours: 3, label: 'Every 3 hours', short: '3 hours' },
   { hours: 6, label: 'Every 6 hours', short: '6 hours' },
   { hours: 12, label: 'Twice a day', short: '12 hours' },
-  { hours: 24, label: 'Once a day', short: 'day' },
+  { hours: 24, label: 'Once a day', short: '1 day' },
   { hours: 72, label: 'Every 3 days', short: '3 days' },
-  { hours: 168, label: 'Once a week', short: 'week' },
+  { hours: 168, label: 'Once a week', short: '1 week' },
 ]

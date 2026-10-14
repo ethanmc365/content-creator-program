@@ -66,6 +66,9 @@ html {
   top: 50%;
   animation: pass-plane-fly 7s linear infinite;
 }
+/* The offer rotator's dot fills over the time until the next offer (ChallengeKickers.OfferRotator). */
+@keyframes offer-fill { from { width: 0% } to { width: 100% } }
+
 @keyframes pass-plane-fly {
   0%   { left: -2%;   opacity: 0; }
   12%  {              opacity: 1; }

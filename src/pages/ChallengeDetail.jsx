@@ -140,6 +140,21 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
   const [results, setResults] = useState(seed?.results ?? [])
   const [loading, setLoading] = useState(!seed)
   const [tab, setTab] = useState('brief') // brief | leaderboard | entries | countries
+  // THE PAGE KEEPS ITS HEIGHT WHILE A TAB SWAPS (14 Oct 2026). Opening the Country leaderboard from far down the page
+  // briefly showed a short skeleton; the page got shorter, the browser pulled the scroll up, then the board landed and
+  // it went back down. The page is held at its old height until the new tab has had time to draw.
+  const pageRef = useRef(null)
+  const [holdH, setHoldH] = useState(0)
+  const holdTimer = useRef(null)
+  const switchTab = (next) => {
+    if (next === tab) return
+    const h = pageRef.current?.offsetHeight || 0
+    if (h) setHoldH(h)
+    clearTimeout(holdTimer.current)
+    holdTimer.current = setTimeout(() => setHoldH(0), 1200)
+    setTab(next)
+  }
+  useEffect(() => () => clearTimeout(holdTimer.current), [])
   // The offer whose card is open from the dark callout beside the tabs (joining bonus, boost, voucher day).
   const [offerOpen, setOfferOpen] = useState(null)
   // MY ENTRIES AND A NAME SEARCH ON THE ENTRIES TAB.
@@ -816,7 +831,7 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
   ]
 
   return (
-    <div className={shellClass}>
+    <div ref={pageRef} className={shellClass} style={holdH ? { minHeight: holdH } : undefined}>
       {!embedded && (
         <Link to="/challenges" className="mb-6 inline-block text-sm font-medium text-smoke hover:text-brand">← {tr("All challenges")}</Link>
       )}
@@ -1058,7 +1073,7 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
             key={t.key}
             role="tab"
             aria-selected={tab === t.key}
-            onClick={() => setTab(t.key)}
+            onClick={() => switchTab(t.key)}
             className={cx(
               // ROOM ON EITHER SIDE OF THE WORDS: the four tabs were crowded - wider pills, more air between glyph, word
               // and count.

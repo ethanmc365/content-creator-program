@@ -30,6 +30,7 @@ import { OtherLinks } from './OnboardingOtherLinks'
 import { BucketList } from './OnboardingBucketList'
 import { Review } from './OnboardingReview'
 import OnboardingCall from './OnboardingCall'
+import { storedSignupSource } from '../lib/signupSource'
 
 export default function Onboarding() {
   const tr = useT()
@@ -507,6 +508,8 @@ export default function Onboarding() {
       // local clock on a profile honest for the countries that span several
       // zones, where a guess from the country alone would be a wrong fact.
       timezone: browserTimezone(),
+      // First touch, once (migration 415): Recruitment analytics reads where sign-ups come from.
+      ...(!auth.profile?.signup_source && storedSignupSource() ? { signup_source: storedSignupSource() } : null),
     }
 
     const coords = (draft.city.trim() || draft.country.trim())

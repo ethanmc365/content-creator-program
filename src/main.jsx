@@ -16,6 +16,7 @@ import { installNavReturn } from './lib/navReturn'
 import { installTranslationGuard } from './lib/translationGuard'
 import { goCanonical } from './lib/canonicalHost'
 import { reloadForStaleChunk } from './lib/lazyRoute'
+import { rememberSignupSource } from './lib/signupSource'
 import './index.css'
 
 // ONE URL FOR BROWSERS, AND NEVER A WORD TO AN INSTALLED APP.
@@ -30,6 +31,8 @@ import './index.css'
 // a few milliseconds of React booting under a page that is being replaced costs
 // nothing. Throwing here would only put noise in the console and in Sentry.
 goCanonical()
+// Where a sign-up came from (lib/signupSource): the first page somebody lands on, kept on this device until onboarding.
+rememberSignupSource()
 
 // THE PAGE TRANSLATOR CANNOT BE ALLOWED TO KILL A SIGNUP.
 //

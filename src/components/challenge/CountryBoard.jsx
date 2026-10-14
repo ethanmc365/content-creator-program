@@ -81,10 +81,14 @@ function Badge({ market, size = 'h-9 w-9', glyph = 'text-xl' }) {
   return <FlagTile codes={market.codes} size={size} glyph={glyph} title={market.name} />
 }
 
+const BOARD_CACHE = new Map()
+
 export default function CountryBoard({ challenge, refreshKey, meId }) {
   const tr = useT()
   const scoring = challenge?.scoring
-  const [data, setData] = useState(undefined)
+  // THE LAST BOARD IS KEPT FOR THE SESSION, so going back to this tab draws at once instead of a skeleton that
+  // shortened the page and threw the reader's scroll up (14 Oct 2026). It refreshes underneath.
+  const [data, setData] = useState(() => BOARD_CACHE.get(challenge.id))
   const [measure, setMeasure] = useState(scoring === 'points' ? 'points' : 'views')
   const [open, setOpen] = useState(null)
   const listRef = useRef(null)
@@ -93,7 +97,10 @@ export default function CountryBoard({ challenge, refreshKey, meId }) {
 
   useEffect(() => {
     let alive = true
-    challengesApi.challengeMarketBoard({ p_challenge: challenge.id }).then(({ data: d, error }) => { if (alive) setData(error ? null : d) })
+    challengesApi.challengeMarketBoard({ p_challenge: challenge.id }).then(({ data: d, error }) => {
+      if (!error) BOARD_CACHE.set(challenge.id, d)
+      if (alive) setData((cur) => (error ? (cur ?? null) : d))
+    })
     return () => { alive = false }
   }, [challenge.id, refreshKey])
 

@@ -750,7 +750,8 @@ const IG_REELS_DOC_IDS_DEFAULT = '27838951732404191'
 const IG_POST_DOC_IDS_DEFAULT = '27128499623469141'
 
 const IG_PAGE_SIZE = 12
-const IG_MAX_PAGES = 8 // 96 reels back; older than that is not a live entry
+const IG_MAX_PAGES = 8 // 96 reels back on the first pass
+const IG_DEEP_PAGES = 30 // 360 back, read only for a known owner's reel the first pass missed (igReelsDeeper)
 
 export function igShortcodeFrom(url: string): string | null {
   return url.match(/instagram\.com\/(?:[^/]+\/)?(?:reels?|p|tv)\/([A-Za-z0-9_-]{5,})/)?.[1] ?? null
@@ -850,8 +851,10 @@ async function igGraphql(
 
 // Per-RUN state. It must not outlive the request: an isolate is reused between
 // invocations and a cached page would serve yesterday's counts as today's.
+// A tab read so far: the counts, and where to carry on from if a reel is further back than the first pass went.
+type IgTab = { map: Map<string, number>; after: string | null; more: boolean; pages: number }
 export type IgCache = {
-  reels: Map<string, Promise<Map<string, number>>>
+  reels: Map<string, Promise<IgTab>>
   owners: Map<string, Promise<IgOwner | null | typeof IG_FAILED>>
 }
 export const newIgCache = (): IgCache => ({ reels: new Map(), owners: new Map() })
@@ -879,13 +882,16 @@ async function igDocIds(which: 'reels' | 'post'): Promise<string[]> {
 // Every reel on a profile's public tab, code -> play count, paging until the
 // tab runs out or IG_MAX_PAGES. Pinned reels come first, so the order is not
 // chronological and there is no early exit on "we have gone far enough back".
-async function igFetchReels(username: string): Promise<Map<string, number>> {
-  const out = new Map<string, number>()
+// `tab` carries on from a previous read (see `igReelsDeeper`); `untilCode` stops as soon as that reel turns up.
+async function igFetchReels(username: string, tab: IgTab | null = null, maxPages = IG_MAX_PAGES, untilCode: string | null = null): Promise<IgTab> {
+  const out = tab?.map ?? new Map<string, number>()
   const docIds = await igDocIds('reels')
   const referer = `https://www.instagram.com/${username}/reels/`
 
-  let after: string | null = null
-  for (let page = 0; page < IG_MAX_PAGES; page++) {
+  let after: string | null = tab?.after ?? null
+  let more = true
+  let page = tab?.pages ?? 0
+  for (; page < maxPages; page++) {
     let user: Record<string, unknown> | null = null
     for (const docId of docIds) {
       const json = await igGraphql(docId, { after, first: IG_PAGE_SIZE, username }, referer)
@@ -898,6 +904,7 @@ async function igFetchReels(username: string): Promise<Map<string, number>> {
     }
     if (!user) {
       if (page === 0) throw new IgNoProfileError('instagram returned no profile for that handle')
+      more = false
       break
     }
     const conn = (user.polaris_clips_connection ?? {}) as Record<string, unknown>
@@ -909,14 +916,15 @@ async function igFetchReels(username: string): Promise<Map<string, number>> {
       if (code && views != null) out.set(code, views)
     }
     const info = (conn.page_info ?? {}) as { end_cursor?: string; has_next_page?: boolean }
-    if (!info.has_next_page || !info.end_cursor || edges.length === 0) break
+    if (!info.has_next_page || !info.end_cursor || edges.length === 0) { more = false; page++; break }
     after = info.end_cursor
+    if (untilCode && out.has(untilCode)) { page++; break }
     await sleep(IG_GAP_MS)
   }
-  return out
+  return { map: out, after, more, pages: page }
 }
 
-function igReels(cache: IgCache, username: string): Promise<Map<string, number>> {
+function igReels(cache: IgCache, username: string): Promise<IgTab> {
   const key = username.toLowerCase()
   const hit = cache.reels.get(key)
   if (hit) return hit
@@ -925,6 +933,20 @@ function igReels(cache: IgCache, username: string): Promise<Map<string, number>>
   const p = igFetchReels(key).catch((e) => { cache.reels.delete(key); throw e })
   cache.reels.set(key, p)
   return p
+}
+
+// A PROLIFIC CREATOR'S REEL CAN BE MORE THAN 96 BACK (14 Oct 2026). Kimberly posts several reels a day, and her Global
+// Challenge entry from 27 Sep was the 100th on her tab, so it read "not on the public reels tab" while it was plainly
+// there. When the owner is known and the reel was not in the first pass, the same tab is read on from where it stopped,
+// up to IG_DEEP_PAGES, stopping the moment the reel turns up. Only the creators who need it pay for it.
+async function igReelsDeeper(cache: IgCache, username: string, code: string): Promise<number | null> {
+  const key = username.toLowerCase()
+  const tab = await igReels(cache, key)
+  if (tab.map.has(code)) return tab.map.get(code) ?? null
+  if (!tab.more || tab.pages >= IG_DEEP_PAGES) return null
+  const p = igFetchReels(key, tab, IG_DEEP_PAGES, code)
+  cache.reels.set(key, p.catch(() => tab))
+  return (await p).map.get(code) ?? null
 }
 
 // Who owns this shortcode, and is it even a video. Works logged out, and is the
@@ -995,7 +1017,7 @@ async function instagramReadHere(
   let refused = false
   const lookIn = async (username: string): Promise<number | null> => {
     try {
-      return (await igReels(cache, username)).get(code) ?? null
+      return (await igReels(cache, username)).map.get(code) ?? null
     } catch (e) {
       if (!(e instanceof IgNoProfileError)) refused = true
       return null
@@ -1055,6 +1077,15 @@ async function instagramReadHere(
   if (!guess || owner.username.toLowerCase() !== guess) {
     const views = await lookIn(owner.username)
     if (views != null) return { ...base, views, error: null, ...extras }
+  }
+  // A reel, by its owner, not in the first 96: read further back before calling it missing.
+  if (!refused && (!owner.productType || owner.productType === 'clips')) {
+    try {
+      const deep = await igReelsDeeper(cache, owner.username, code)
+      if (deep != null) return { ...base, views: deep, error: null, ...extras }
+    } catch (e) {
+      if (!(e instanceof IgNoProfileError)) refused = true
+    }
   }
   // The reels tab was refused rather than read, so "not on the tab" would be a guess.
   if (refused) {

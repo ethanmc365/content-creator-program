@@ -1,8 +1,7 @@
 import { useEffect, useMemo, useRef, useState, useTransition } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import {
-  Bar, BarChart, CartesianGrid, ComposedChart, Legend, Line, LineChart,
-  Cell, ResponsiveContainer, Tooltip, XAxis, YAxis,
+  Area, Bar, BarChart, CartesianGrid, ComposedChart, Legend, Line, Tooltip, XAxis, YAxis,
 } from 'recharts'
 import { format, startOfMonth, startOfWeek, subWeeks } from 'date-fns'
 import { allRows as allRowsSeq } from '../../lib/fetchAll'
@@ -18,12 +17,11 @@ let MARKETS_CACHE = null
 const RAW_TTL_MS = 10 * 60 * 1000
 import { PageHeader, Skeleton, StatCard } from '../../components/ui'
 import PeriodPicker from '../../components/PeriodPicker'
-import { downloadCsv, formatMoney, formatViewsTotal, cx } from '../../lib/utils'
+import { formatMoney, formatViewsTotal, cx } from '../../lib/utils'
 import ProgrammePerformance from './analytics/ProgrammePerformance'
 import { challengeSpend } from '../../lib/challengeSpend'
 import CommunityHealth from './analytics/CommunityHealth'
 import Referrals from './analytics/Referrals'
-import ErrorWatch from '../../components/admin/ErrorWatch'
 import Growth from './analytics/Growth'
 import MarketLeague from './analytics/MarketLeague'
 import VipAnalytics from './analytics/VipAnalytics'
@@ -32,7 +30,10 @@ import PerCreator from './analytics/PerCreator'
 import { scopeToMarket } from '../../lib/analyticsScope'
 import { PERIODS, applyPeriod, bucketFor, bucketKey, buckets, change, inRange, periodHeadline, periodRange } from '../../lib/analyticsPeriod'
 import { convert } from '../../lib/programme'
-import { FILL } from '../../components/charts/chartTheme'
+import { FILL, BAR_END, gridProps, xAxisProps, yAxisProps, lineProps, barProps, cursorFill, stackShape, tooltipStyle } from '../../components/charts/chartTheme'
+import ChartPanel from '../../components/charts/ChartPanel'
+import Icon from '../../components/Icon'
+import Recruitment from './analytics/Recruitment'
 import { moneyApi } from '../../api/money'
 import { challengesApi } from '../../api/challenges'
 import { submissionsApi } from '../../api/submissions'
@@ -63,6 +64,9 @@ import { teamApi } from '../../api/team'
 // label, and the longer name was the widest thing on the strip.
 const TABS = [
   { key: 'overview', label: 'Overview' },
+  // RECRUITMENT (14 Oct 2026), for Lorenzo: where sign-ups come from, what they speak, where they drop off and who to
+  // follow up with. The application funnel moved here from the Overview.
+  { key: 'recruitment', label: 'Recruitment' },
   // VIEWS GAINED PER WEEK, COMMUNITY / VIP / BOTH, AND THE WEEKLY SNAPSHOT. See analytics/ViewsReport.
   { key: 'views', label: 'Weekly views' },
   { key: 'programme', label: 'Challenges' },
@@ -77,9 +81,8 @@ const TABS = [
   { key: 'referrals', label: 'Referrals' },
   { key: 'community', label: 'Community health' },
   { key: 'creators', label: 'Per creator' },
-  // ERRORS GET THEIR OWN TAB. It was a panel at the foot of a long page, which is the one place a usually-empty list is
-  // guaranteed not to be looked at on the day it stops being empty.
-  { key: 'errors', label: 'Error monitoring' },
+  // ERROR MONITORING LEFT ANALYTICS (14 Oct 2026): a crash is not a statistic. It lives on the admin desk, where the
+  // team looks every day.
 ]
 
 // Admin analytics: the community's health at a glance. Recharts (free) for the
@@ -87,67 +90,9 @@ const TABS = [
 // destination is clickable.
 // A family of orange shades - no yellows or off-brand colours anywhere.
 const BRAND = '#d94407'       // core Tryp orange
-const BRAND_LIGHT = '#f5853f' // lighter orange
 
-const tooltipStyle = {
-  borderRadius: 12, border: '1px solid #F1F1F2', fontFamily: 'Poppins',
-  fontSize: 12, boxShadow: '0 4px 16px rgba(26,26,26,0.08)',
-}
 
-function ChartCard({ title, subtitle, onExport, children }) {
-  return (
-    <section className="card">
-      <div className="mb-6 flex items-start justify-between gap-3">
-        <div>
-          <h2 className="font-semibold">{title}</h2>
-          {subtitle && <p className="mt-1 text-xs text-smoke">{subtitle}</p>}
-        </div>
-        {onExport && <button onClick={onExport} className="btn-ghost !py-1.5 !px-3 text-xs">CSV ↓</button>}
-      </div>
-      <div className="h-64">{children}</div>
-    </section>
-  )
-}
 
-// Horizontal funnel: each stage shows its count, a bar sized against the top
-// stage, and the conversion rate from the previous stage.
-function Funnel({ stages }) {
-  const max = Math.max(1, ...stages.map((s) => s.count))
-  return (
-    <div className="space-y-3">
-      {stages.map((s, i) => {
-        const prev = i > 0 ? stages[i - 1].count : null
-        const rate = prev ? Math.round((s.count / prev) * 100) : null
-        return (
-          <button
-            key={s.label}
-            type="button"
-            onClick={s.onClick}
-            disabled={!s.onClick}
-            className="group block w-full text-left disabled:cursor-default"
-          >
-            <div className="mb-1 flex items-baseline justify-between gap-3 text-sm">
-              <span className="min-w-0">
-                <span className={s.onClick ? 'font-medium transition-colors group-hover:text-brand' : 'font-medium'}>{s.label}</span>
-                {s.hint && <span className="ml-2 text-xs text-smoke">{s.hint}</span>}
-              </span>
-              <span className="shrink-0 tabular-nums">
-                <span className="font-semibold">{s.count}</span>
-                {rate != null && <span className="ml-2 text-xs text-smoke">{rate}% of previous</span>}
-              </span>
-            </div>
-            <div className="h-3 overflow-hidden rounded-full bg-cloud">
-              <div
-                className="h-full rounded-full bg-gradient-to-r from-brand to-brand-light transition-all duration-500"
-                style={{ width: `${Math.max(2, (s.count / max) * 100)}%` }}
-              />
-            </div>
-          </button>
-        )
-      })}
-    </div>
-  )
-}
 
 export default function AdminAnalytics() {
   const navigate = useNavigate()
@@ -164,12 +109,6 @@ export default function AdminAnalytics() {
       .then(({ data }) => { MARKETS_CACHE = data || []; if (alive) setQuickMarkets(MARKETS_CACHE) })
     return () => { alive = false }
   }, [])
-  // Clicking any per-challenge bar opens that challenge's deep-dive page.
-  const openChallenge = (data) => {
-    const id = data?.activePayload?.[0]?.payload?.id
-    if (id) navigate(`/admin/analytics/${id}`)
-  }
-
   useEffect(() => {
     if (RAW_CACHE && Date.now() - RAW_CACHE.loadedAt < RAW_TTL_MS / 3) return
     async function load() {
@@ -320,6 +259,13 @@ export default function AdminAnalytics() {
   )
   const periodOn = !!(range.start || range.end)
   // The eight headline figures for the period and for the one before it, worked out the same way.
+  // THIS MONTH SO FAR AGAINST THE SAME DAYS LAST MONTH, for the All time overview.
+  const monthCompare = useMemo(() => {
+    if (!scoped || periodOn || !loadedAt) return null
+    const money = (n, from) => convert(Number(n) || 0, from || 'EUR', currency) || 0
+    const r = periodRange('this_month', new Date(loadedAt))
+    return { now: periodHeadline(scoped, r, money), prev: r.prev ? periodHeadline(scoped, r.prev, money) : null }
+  }, [scoped, periodOn, loadedAt, currency])
   const headline = useMemo(() => {
     if (!scoped || !periodOn) return null
     const money = (n, from) => convert(Number(n) || 0, from || 'EUR', currency) || 0
@@ -351,7 +297,7 @@ export default function AdminAnalytics() {
     const money = (n, from) => convert(Number(n) || 0, from || 'EUR', currency) || 0
     const {
       profiles, challenges, history, submissions, rewards, messages, results, feedback,
-      reactionCount, pollVoteCount, gameScores, connections, tripCount, decisions,
+      reactionCount, pollVoteCount, gameScores, connections, tripCount,
       seenRows, voucherCounts, loadedAt,
     } = raw
 
@@ -451,32 +397,6 @@ export default function AdminAnalytics() {
         })(),
       }
     })
-    // Charts stay readable by showing only the most recent 8 challenges;
-    // the full clickable list below covers every challenge, however many.
-    const perChallengeRecent = perChallenge.slice(-8)
-
-    // 4. Most active creators (submissions + chat messages).
-    const nameById = Object.fromEntries(profiles.map((p) => [p.id, p.name]))
-    const activity = {}
-    for (const s of submissions) activity[s.creator_id] = (activity[s.creator_id] || 0) + 3 // a submission is worth more
-    for (const m of messages) activity[m.sender_id] = (activity[m.sender_id] || 0) + 1
-    const mostActive = Object.entries(activity)
-      .map(([id, score]) => ({
-        id,
-        name: (nameById[id] || '?').split(' ')[0],
-        fullName: nameById[id],
-        score,
-        submissions: submissions.filter((s) => s.creator_id === id).length,
-        chatMessages: messages.filter((m) => m.sender_id === id).length,
-      }))
-      .sort((a, b) => b.score - a.score)
-      .slice(0, 8)
-
-    // 5. Chat activity per channel.
-    const chat = ['general', 'announcements', 'content_tips'].map((ch) => ({
-      name: { general: 'General', announcements: 'Announcements', content_tips: 'Content Tips' }[ch],
-      messages: messages.filter((m) => m.channel === ch).length,
-    }))
 
     // ---- Money and reach ----
     // Keep cash prizes and Tryp.com voucher value separate so the split between
@@ -522,32 +442,6 @@ export default function AdminAnalytics() {
     const histMeasuredPosts = histMeasured.reduce((n, h) => n + Number(h.posts || 0), 0)
     const viewedCount = liveViewed + histMeasuredPosts
     const avgViewsPerEntry = viewedCount ? Math.round(totalViews / viewedCount) : 0
-
-    // ---- Application funnel ----
-    // Counts only live accounts: anything deleted (declined applications,
-    // removed test accounts) no longer has a profile row, and QA/admin/
-    // deletion-requested rows are filtered out of realCreators above.
-    const declined = decisions.filter((d) => d.decision === 'declined').length
-    const approvedEver = decisions.filter((d) => d.decision === 'approved').length
-    // Over a period the funnel follows the people who SIGNED UP in it, from sign-up to first video.
-    let periodFunnel = null
-    if (periodOn) {
-      const cohort = realCreators.filter((p) => inRange(p.created_at, range))
-      const postedIds = new Set(whole.submissions.map((s) => s.creator_id))
-      const cohortActive = cohort.filter((p) => p.status === 'active')
-      periodFunnel = [
-        { label: 'Signed up', count: cohort.length, to: '/admin/creators', hint: `${cohortActive.length} approved so far` },
-        { label: 'Completed their profile', count: cohort.filter((p) => p.onboarded).length, to: '/admin/creators' },
-        { label: 'Approved', count: cohortActive.length, to: '/admin/applications' },
-        { label: 'Posted a video', count: cohortActive.filter((p) => postedIds.has(p.id)).length, to: null },
-      ]
-    }
-    const funnel = periodFunnel || [
-      { label: 'Signed up', count: realCreators.length, to: '/admin/creators', hint: `${active.length} members + ${pendingReview.length + notCompleted.length} still pending` },
-      { label: 'Completed their profile', count: realCreators.filter((p) => p.onboarded).length, to: '/admin/creators' },
-      { label: 'Approved', count: active.length, to: '/admin/applications' },
-      { label: 'Posted a video', count: participating, to: null },
-    ]
 
     // ---- Platform activity ----
     // "Active" = in-app heartbeat OR a login, whichever is newer (the RPC
@@ -613,9 +507,8 @@ export default function AdminAnalytics() {
     const openFeedback = feedback.filter((f) => f.status === 'new').length
 
     return {
-      growth, momentum, perChallenge, perChallengeRecent, mostActive, chat,
-      totalPaid, cashPaid: programmeCash, voucherPaid, totalViews, verifiedViews, costPer1k, combinedCpm, funnel,
-      applications: { declined, approvedEver },
+      growth, momentum,
+      totalPaid, cashPaid: programmeCash, voucherPaid, totalViews, verifiedViews, costPer1k, combinedCpm,
       activity7d: { activeThisWeek, activeInPeriod, connectionsMade, tripsPosted: tripCount, gamesPlayed: realGameScores.length },
       gamesByMode, weeklyPulse,
       engagement: {
@@ -832,6 +725,7 @@ export default function AdminAnalytics() {
     </div>
   )
 
+  if (tab === 'recruitment') return shell(<Recruitment raw={scoped} market={market} markets={markets} scopeLabel={scopeLabel} range={periodOn ? range : null} />, { period: true })
   if (tab === 'views') return shell(<ViewsReport />, { filters: false })
   if (tab === 'vip') return shell(<VipAnalytics />, { filters: false })
   if (tab === 'markets') return shell(<MarketLeague raw={raw} currency={currency} />, { markets: false })
@@ -840,7 +734,6 @@ export default function AdminAnalytics() {
   if (tab === 'creators') return shell(<PerCreator raw={applyPeriod(scoped, range)} currency={currency} scopeLabel={periodOn ? `${scopeLabel} · ${range.label}` : scopeLabel} />, { period: true })
   if (tab === 'programme') return shell(<ProgrammePerformance market={marketName} currency={currency} mode="list" />)
   if (tab === 'community') return shell(<CommunityHealth market={market} memberRows={raw?.memberRows || []} scopeLabel={scopeLabel} />)
-  if (tab === 'errors') return shell(<ErrorWatch />, { filters: false })
 
   if (!derived) {
     return shell(
@@ -852,15 +745,10 @@ export default function AdminAnalytics() {
     )
   }
 
+  const pulseKeys = ['messages', 'games', 'submissions']
   return shell(
     <>
       {/* ---- Headline numbers ---- */}
-      {/* EIGHT TILES, SO THE COLUMN COUNTS ARE THE ONES THAT DIVIDE EIGHT.
-          `sm:grid-cols-3` left two tiles alone on a third row at tablet width,
-          and a part-filled row of cards reads as something that failed to
-          load. `auto-rows-fr` makes every row the same height, which with the
-          card filling its cell (see ui/StatCard) is the whole of "some of the
-          squares are different sizes". */}
       {periodOn && headline ? (
         <PeriodTiles
           now={headline.now}
@@ -874,303 +762,176 @@ export default function AdminAnalytics() {
           onMoney={() => navigate('/admin/rewards')}
         />
       ) : (
-        <div className="mb-10 grid auto-rows-fr grid-cols-2 gap-4 lg:grid-cols-4">
-          <StatCard label="Creators" value={derived.totals.creators} hint={derived.totals.newLast30 > 0 ? `+${derived.totals.newLast30} in last 30 days` : undefined} onClick={() => navigate('/admin/creators')} />
-          <StatCard
-            label="Challenges run"
-            value={derived.totals.challenges}
-            hint={derived.totals.unmeasuredChallenges
-              ? `${derived.totals.unmeasuredChallenges} with no views logged`
-              : 'live and logged'}
-            onClick={() => setTab('programme')}
-          />
-          <StatCard label="Submissions" value={derived.totals.submissions} hint={derived.totals.avgViewsPerEntry > 0 ? `${formatViewsTotal(derived.totals.avgViewsPerEntry)} avg views/entry` : undefined} />
-          <StatCard
-            label="Total views"
-            value={formatViewsTotal(derived.totalViews)}
-            hint={derived.verifiedViews > 0 ? `${formatViewsTotal(derived.verifiedViews)} verified` : 'logged by creators'}
-          />
-          <StatCard label="Cash prizes paid" value={formatMoney(derived.cashPaid, currency)} hint="the whole programme" onClick={() => navigate('/admin/rewards')} />
-          <StatCard label="Voucher value given" value={formatMoney(derived.voucherPaid, currency)} hint="Tryp.com vouchers" onClick={() => navigate('/admin/rewards')} />
-          <StatCard
-            label="Cash CPM"
-            value={derived.costPer1k != null ? formatMoney(derived.costPer1k, currency) : '·'}
-            hint="cash spend per 1,000 views"
-          />
-          {/* THE FOURTH CARD, which the row was missing - seven tiles in a
-              four-column grid left a hole on the right, and a hole in a grid
-              reads as something that failed to load. It is also the number the
-              brief actually asked for: what a thousand views costs once the
-              vouchers are counted as spend, not just the cash. */}
-          <StatCard
-            label="Total CPM"
-            value={derived.combinedCpm != null ? formatMoney(derived.combinedCpm, currency) : '·'}
-            hint="cash and vouchers per 1,000 views"
-          />
-        </div>
+        <>
+          <div className="mb-6 grid auto-rows-fr grid-cols-2 gap-4 lg:grid-cols-4">
+            {[
+              <StatCard key="c" label="Creators" value={derived.totals.creators} hint={derived.totals.newLast30 > 0 ? `+${derived.totals.newLast30} in last 30 days` : undefined} onClick={() => navigate('/admin/creators')} />,
+              <StatCard key="ch" label="Challenges run" value={derived.totals.challenges} hint={derived.totals.unmeasuredChallenges ? `${derived.totals.unmeasuredChallenges} with no views logged` : 'live and logged'} onClick={() => setTab('programme')} />,
+              <StatCard key="s" label="Submissions" value={derived.totals.submissions} hint={derived.totals.avgViewsPerEntry > 0 ? `${formatViewsTotal(derived.totals.avgViewsPerEntry)} avg views/entry` : undefined} />,
+              <StatCard key="v" label="Total views" value={formatViewsTotal(derived.totalViews)} hint={derived.verifiedViews > 0 ? `${formatViewsTotal(derived.verifiedViews)} verified` : 'logged by creators'} />,
+              <StatCard key="cp" label="Cash prizes paid" value={formatMoney(derived.cashPaid, currency)} hint="the whole programme" onClick={() => navigate('/admin/rewards')} />,
+              <StatCard key="vo" label="Voucher value given" value={formatMoney(derived.voucherPaid, currency)} hint="Tryp.com vouchers" onClick={() => navigate('/admin/rewards')} />,
+              <StatCard key="cc" label="Cash CPM" value={derived.costPer1k != null ? formatMoney(derived.costPer1k, currency) : '·'} hint="cash spend per 1,000 views" />,
+              <StatCard key="tc" label="Total CPM" value={derived.combinedCpm != null ? formatMoney(derived.combinedCpm, currency) : '·'} hint="cash and vouchers per 1,000 views" />,
+            ].map((el, i) => <div key={i} className="animate-rise" style={{ animationDelay: `${i * 35}ms` }}>{el}</div>)}
+          </div>
+          {monthCompare?.prev && <MonthCompare data={monthCompare} currency={currency} onPick={() => setPeriod('this_month')} />}
+        </>
       )}
 
-      {/* ---- Programme economics ---- Was the Challenges tab's "Summary" view, and nearly all of it repeated these
-           tiles. What it had that the Overview did not - the ratios, the month-by-month charts and the breakdowns - is
-           here now, under the tiles, and the Challenges tab is just the list. */}
-      <div className="mb-10">
+      {/* ---- Programme economics: ratios, month by month, every challenge ---- */}
+      <div className="mb-10 mt-10">
         <ProgrammePerformance market={marketName} currency={currency} mode="summary" range={periodOn ? range : null} />
       </div>
 
-      {/* ---- Funnel + community health ---- */}
+      {/* ---- Growth ---- */}
       <div className="mb-10 grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <section className="card">
-          <h2 className="mb-1 font-semibold">Application funnel{periodOn ? ` · ${range.label}` : ''}</h2>
-          <p className="mb-6 text-xs text-smoke">{periodOn
-            ? 'Everybody who signed up in this period, and how far they have got since'
-            : 'From sign-up to first video · tap a stage to manage it · live accounts only, deleted and test accounts never counted'}</p>
-          <Funnel
-            stages={derived.funnel.map((s) => ({
-              label: s.label, count: s.count, hint: s.hint,
-              onClick: s.to ? () => navigate(s.to) : undefined,
-            }))}
-          />
-          <div className="mt-5 flex flex-wrap gap-x-6 gap-y-1 border-t border-gray-50 pt-4 text-xs text-smoke">
-            <span><span className="font-semibold text-green-600">{derived.applications.approvedEver}</span> applications approved all-time</span>
-            <span><span className="font-semibold text-red-500">{derived.applications.declined}</span> declined and removed</span>
-          </div>
-        </section>
-
-        <section className="card">
-          <h2 className="mb-1 font-semibold">Community health</h2>
-          <p className="mb-6 text-xs text-smoke">{periodOn ? 'As it stands today, whatever the period · tap a tile to jump to the right page' : 'Tap a tile to jump straight to the right page'}</p>
-          <div className="grid auto-rows-fr grid-cols-2 gap-4">
-            <StatCard label="Active members" value={derived.community.active} accent onClick={() => navigate('/admin/creators')} />
-            <StatCard label="Awaiting review" value={derived.community.pendingReview} onClick={() => navigate('/admin/applications')} />
-            <StatCard label="Incomplete signups" value={derived.community.notCompleted} onClick={() => navigate('/admin/creators')} />
-            <StatCard label="Participation" value={`${derived.community.participationRate}%`} hint={`${derived.community.participating} have submitted`} />
-          </div>
-        </section>
-      </div>
-
-      {/* ---- Platform activity this week ---- */}
-      <div className="mb-10">
-        <h2 className="mb-4 text-lg font-semibold">Platform activity{periodOn && <span className="font-normal text-smoke"> · {range.label}</span>}</h2>
-        <div className="grid auto-rows-fr grid-cols-2 gap-4 lg:grid-cols-4">
-          {periodOn
-            ? <StatCard label="Active creators" value={derived.activity7d.activeInPeriod} hint="posted, wrote, played, reacted or voted" accent onClick={() => navigate('/admin/creators')} />
-            : <StatCard label="Active this week" value={derived.activity7d.activeThisWeek} hint="opened the app in the last 7 days" accent onClick={() => navigate('/admin/creators')} />}
-          <StatCard label="Games played" value={derived.activity7d.gamesPlayed} hint={periodOn ? 'all modes, in this period' : 'all-time, all modes'} onClick={() => navigate('/game')} />
-          <StatCard label="Connections made" value={derived.activity7d.connectionsMade} onClick={() => setTab('community')} />
-          <StatCard label="Trips posted" value={derived.activity7d.tripsPosted} hint="collab board" onClick={() => navigate('/collab')} />
-        </div>
-      </div>
-
-      {/* ---- Engagement snapshot ---- */}
-      <div className="mb-10">
-        <h2 className="mb-4 text-lg font-semibold">Engagement{periodOn && <span className="font-normal text-smoke"> · {range.label}</span>}</h2>
-        <div className="grid auto-rows-fr grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
-          <StatCard label="Chat messages" value={derived.engagement.chatMessages} />
-          <StatCard label="Reactions" value={derived.engagement.reactions} />
-          <StatCard label="Poll votes" value={derived.engagement.pollVotes} />
-          <StatCard
-            label="Feedback"
-            value={derived.engagement.feedbackTotal}
-            hint={derived.engagement.openFeedback > 0 ? `${derived.engagement.openFeedback} awaiting triage` : 'all triaged'}
-            onClick={() => navigate('/admin/feedback')}
-          />
-          <StatCard label="Vouchers given" value={derived.engagement.vouchersGiven} hint="participation vouchers" onClick={() => navigate('/admin/challenges')} />
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <ChartCard
+        <ChartPanel
           title="Creator growth"
-          subtitle={periodOn ? `New sign-ups per ${bucketFor(range)} (bars) and running total (line)` : 'New sign-ups per month (bars) and running total (line)'}
-          onExport={() => downloadCsv('creator-growth.csv', derived.growth.map(({ month, newCreators, creators }) => ({ month, new_signups: newCreators, cumulative: creators })))}
-        >
-          <ResponsiveContainer>
-            <ComposedChart data={derived.growth} margin={{ top: 4, right: 8, left: -20, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#F1F1F2" />
-              <XAxis dataKey="month" tick={{ fontSize: 11, fill: '#6B7280' }} />
-              <YAxis tick={{ fontSize: 11, fill: '#6B7280' }} allowDecimals={false} />
-              <Tooltip contentStyle={tooltipStyle} cursor={{ fill: 'rgba(217,68,7,0.06)' }} />
-              <Bar animationDuration={600} dataKey="newCreators" name="New sign-ups" fill={FILL.light} radius={[8, 8, 0, 0]} maxBarSize={32} />
-              <Line animationDuration={600} type="monotone" dataKey="creators" name="Total creators" stroke={BRAND} strokeWidth={2.5} dot={{ fill: BRAND, r: 3 }} />
+          subtitle={periodOn ? `New sign-ups per ${bucketFor(range)} (bars) and members in total (line)` : 'New sign-ups per month (bars) and creators in total (line)'}
+          data={derived.growth} minPoint={30}
+          csv={{ name: 'creator-growth.csv', rows: derived.growth.map(({ month, newCreators, creators }) => ({ month, new_signups: newCreators, cumulative: creators })) }}
+          render={(rows) => (
+            <ComposedChart data={rows} margin={{ top: 8, right: 4, left: 0, bottom: 0 }}>
+              <CartesianGrid {...gridProps} />
+              <XAxis dataKey="month" {...xAxisProps} />
+              <YAxis yAxisId="l" {...yAxisProps} allowDecimals={false} />
+              <YAxis yAxisId="r" orientation="right" {...yAxisProps} allowDecimals={false} />
+              <Tooltip contentStyle={tooltipStyle} cursor={cursorFill} />
+              <Legend wrapperStyle={{ fontSize: 11 }} iconType="circle" />
+              <Bar yAxisId="l" dataKey="newCreators" name="New sign-ups" fill={FILL.light} {...barProps} />
+              <Line yAxisId="r" dataKey="creators" name="Creators in total" stroke={BRAND} {...lineProps} />
             </ComposedChart>
-          </ResponsiveContainer>
-        </ChartCard>
-
-        <ChartCard
+          )}
+        />
+        <ChartPanel
           title="Submission momentum"
           subtitle={periodOn ? `Videos submitted per ${bucketFor(range)}` : 'Videos submitted per month'}
-          onExport={() => downloadCsv('submission-momentum.csv', derived.momentum)}
-        >
-          <ResponsiveContainer>
-            <LineChart data={derived.momentum} margin={{ top: 4, right: 8, left: -20, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#F1F1F2" />
-              <XAxis dataKey="month" tick={{ fontSize: 11, fill: '#6B7280' }} />
-              <YAxis tick={{ fontSize: 11, fill: '#6B7280' }} allowDecimals={false} />
-              <Tooltip contentStyle={tooltipStyle} cursor={{ fill: 'rgba(217,68,7,0.06)' }} />
-              <Line animationDuration={600} type="monotone" dataKey="submissions" name="Submissions" stroke={BRAND} strokeWidth={2.5} dot={{ fill: BRAND, r: 3 }} />
-            </LineChart>
-          </ResponsiveContainer>
-        </ChartCard>
-
-        <ChartCard
-          title={periodOn ? 'Activity pulse' : 'Weekly pulse'}
-          subtitle={periodOn ? `Chat messages, game plays and submissions per ${bucketFor(range)} · ${range.label}` : 'Chat messages, game plays and submissions per week, last 8 weeks'}
-          onExport={() => downloadCsv('weekly-pulse.csv', derived.weeklyPulse)}
-        >
-          <ResponsiveContainer>
-            <BarChart data={derived.weeklyPulse} margin={{ top: 4, right: 8, left: -20, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#F1F1F2" />
-              <XAxis dataKey="week" tick={{ fontSize: 11, fill: '#6B7280' }} />
-              <YAxis tick={{ fontSize: 11, fill: '#6B7280' }} allowDecimals={false} />
-              <Tooltip contentStyle={tooltipStyle} cursor={{ fill: 'rgba(217,68,7,0.06)' }} />
-              <Legend wrapperStyle={{ fontSize: 11 }} />
-              <Bar dataKey="messages" name="Messages" stackId="pulse" fill={FILL.pale} maxBarSize={32} animationDuration={700} />
-              <Bar dataKey="games" name="Game plays" stackId="pulse" fill={FILL.light} maxBarSize={32} animationDuration={700} />
-              <Bar dataKey="submissions" name="Submissions" stackId="pulse" fill={FILL.brand} radius={[6, 6, 0, 0]} maxBarSize={32} animationDuration={700} />
-            </BarChart>
-          </ResponsiveContainer>
-        </ChartCard>
-
-        <ChartCard
-          title="Games played by mode"
-          subtitle="Which travel games the community actually plays"
-          onExport={() => downloadCsv('games-by-mode.csv', derived.gamesByMode.map(({ name, plays }) => ({ mode: name, plays })))}
-        >
-          <ResponsiveContainer>
-            <BarChart data={derived.gamesByMode} layout="vertical" margin={{ top: 4, right: 16, left: 30, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#F1F1F2" horizontal={false} />
-              <XAxis type="number" tick={{ fontSize: 11, fill: '#6B7280' }} allowDecimals={false} />
-              <YAxis type="category" dataKey="name" tick={{ fontSize: 11, fill: '#6B7280' }} width={100} />
-              <Tooltip contentStyle={tooltipStyle} cursor={{ fill: 'rgba(217,68,7,0.06)' }} />
-              <Bar dataKey="plays" name="Plays" fill={FILL.brandH} radius={[0, 8, 8, 0]} maxBarSize={20} animationDuration={700} />
-            </BarChart>
-          </ResponsiveContainer>
-        </ChartCard>
-
-        <ChartCard
-          title="Submissions per challenge"
-          subtitle="Recent challenges · tap a bar for the full breakdown"
-          onExport={() => downloadCsv('submissions-per-challenge.csv', derived.perChallenge.map(({ fullTitle, submissions }) => ({ challenge: fullTitle, submissions })))}
-        >
-          <ResponsiveContainer>
-            <BarChart data={derived.perChallengeRecent} onClick={openChallenge} style={{ cursor: 'pointer' }} margin={{ top: 4, right: 8, left: -20, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#F1F1F2" />
-              <XAxis dataKey="name" tick={{ fontSize: 10, fill: '#6B7280' }} />
-              <YAxis tick={{ fontSize: 11, fill: '#6B7280' }} allowDecimals={false} />
-              <Tooltip contentStyle={tooltipStyle} cursor={{ fill: 'rgba(217,68,7,0.06)' }} />
-              <Bar animationDuration={600} dataKey="submissions" fill={FILL.brand} radius={[8, 8, 0, 0]} maxBarSize={48} />
-            </BarChart>
-          </ResponsiveContainer>
-        </ChartCard>
-
-        <ChartCard
-          title="Logged views per challenge"
-          subtitle="Total (orange) and average per entry (light) · tap a bar"
-          onExport={() => downloadCsv('views-per-challenge.csv', derived.perChallenge.map(({ fullTitle, totalViews, avgViews }) => ({ challenge: fullTitle, total_views: totalViews, avg_views: avgViews })))}
-        >
-          <ResponsiveContainer>
-            <BarChart data={derived.perChallengeRecent} onClick={openChallenge} style={{ cursor: 'pointer' }} margin={{ top: 4, right: 8, left: -8, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#F1F1F2" />
-              <XAxis dataKey="name" tick={{ fontSize: 10, fill: '#6B7280' }} />
-              <YAxis tick={{ fontSize: 11, fill: '#6B7280' }} tickFormatter={formatViewsTotal} />
-              <Tooltip contentStyle={tooltipStyle} cursor={{ fill: 'rgba(217,68,7,0.06)' }} formatter={(v) => formatViewsTotal(v)} />
-              <Bar animationDuration={600} dataKey="totalViews" name="Total views" fill={FILL.brand} radius={[8, 8, 0, 0]} maxBarSize={40} />
-              <Bar animationDuration={600} dataKey="avgViews" name="Avg per entry" fill={FILL.light} radius={[8, 8, 0, 0]} maxBarSize={40} />
-            </BarChart>
-          </ResponsiveContainer>
-        </ChartCard>
-
-        {/* The CSV column is named after the currency actually in it. It was
-            hard-coded `prizes_paid_gbp` over figures in the reporting currency,
-            which is a spreadsheet that lies about its own units. */}
-        {/* CPM PER CHALLENGE, next to what it cost. A running challenge's bar
-            is its spend so far and moves with every sync; a finished one is
-            what was awarded. Light bar = still running. */}
-        <ChartCard
-          title="CPM per challenge"
-          subtitle="Cost per 1,000 views · running challenges in light orange, spend so far"
-          onExport={() => downloadCsv('cpm-per-challenge.csv', derived.perChallenge.map(({ fullTitle, cpm, status }) => ({ challenge: fullTitle, status, [`cpm_${currency.toLowerCase()}`]: cpm == null ? '' : cpm.toFixed(2) })))}
-        >
-          <ResponsiveContainer>
-            <BarChart data={derived.perChallengeRecent} onClick={openChallenge} style={{ cursor: 'pointer' }} margin={{ top: 16, right: 8, left: -16, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#F1F1F2" />
-              <XAxis dataKey="name" tick={{ fontSize: 10, fill: '#6B7280' }} />
-              <YAxis tick={{ fontSize: 11, fill: '#6B7280' }} tickFormatter={(v) => `${currency === 'GBP' ? '£' : '€'}${v}`} />
-              <Tooltip contentStyle={tooltipStyle} cursor={{ fill: 'rgba(217,68,7,0.06)' }} formatter={(v) => (v == null ? 'No views yet' : formatMoney(v, currency))} />
-              <Bar animationDuration={600} dataKey="cpm" name="CPM" radius={[8, 8, 0, 0]} maxBarSize={48}
-                label={{ position: 'top', fontSize: 11, fill: '#6B7280', formatter: (v) => (v == null ? '' : formatMoney(Math.round(v * 100) / 100, currency)) }}>
-                {derived.perChallengeRecent.map((c) => (
-                  <Cell key={c.id} fill={c.status === 'active' ? BRAND_LIGHT : BRAND} />
-                ))}
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
-        </ChartCard>
-
-        <ChartCard
-          title="Prize money per challenge"
-          subtitle="Recent challenges · tap a bar for the full breakdown"
-          onExport={() => downloadCsv('prizes-per-challenge.csv', derived.perChallenge.map(({ fullTitle, prizesPaid }) => ({ challenge: fullTitle, [`prizes_paid_${currency.toLowerCase()}`]: prizesPaid })))}
-        >
-          <ResponsiveContainer>
-            <BarChart data={derived.perChallengeRecent} onClick={openChallenge} style={{ cursor: 'pointer' }} margin={{ top: 4, right: 8, left: -16, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#F1F1F2" />
-              <XAxis dataKey="name" tick={{ fontSize: 10, fill: '#6B7280' }} />
-              {/* The axis followed the currency toggle nowhere: it was a
-                  hard-coded "£" over figures this page had already converted
-                  into the reporting currency. */}
-              <YAxis tick={{ fontSize: 11, fill: '#6B7280' }} tickFormatter={(v) => `${currency === 'GBP' ? '£' : '€'}${v}`} />
-              <Tooltip contentStyle={tooltipStyle} cursor={{ fill: 'rgba(217,68,7,0.06)' }} formatter={(v) => formatMoney(v, currency)} />
-              <Bar animationDuration={600} dataKey="prizesPaid" name="Paid out" fill={FILL.brand} radius={[8, 8, 0, 0]} maxBarSize={48} />
-            </BarChart>
-          </ResponsiveContainer>
-        </ChartCard>
-
-        <ChartCard
-          title="Most active creators"
-          subtitle="Submissions (×3) + chat messages · tap a bar to open their profile"
-          onExport={() => downloadCsv('most-active-creators.csv', derived.mostActive.map(({ fullName, submissions, chatMessages }) => ({ creator: fullName, submissions, chat_messages: chatMessages })))}
-        >
-          <ResponsiveContainer>
-            <BarChart
-              data={derived.mostActive} layout="vertical" style={{ cursor: 'pointer' }}
-              onClick={(d) => { const id = d?.activePayload?.[0]?.payload?.id; if (id) navigate(`/profile/${id}`) }}
-              margin={{ top: 4, right: 16, left: 8, bottom: 0 }}
-            >
-              <CartesianGrid strokeDasharray="3 3" stroke="#F1F1F2" horizontal={false} />
-              <XAxis type="number" tick={{ fontSize: 11, fill: '#6B7280' }} allowDecimals={false} />
-              <YAxis type="category" dataKey="name" tick={{ fontSize: 11, fill: '#6B7280' }} width={70} />
-              <Tooltip contentStyle={tooltipStyle} cursor={{ fill: 'rgba(217,68,7,0.06)' }} />
-              <Bar animationDuration={600} dataKey="score" name="Activity score" fill={FILL.brandH} radius={[0, 8, 8, 0]} maxBarSize={20} />
-            </BarChart>
-          </ResponsiveContainer>
-        </ChartCard>
-
-        <ChartCard
-          title="Chat activity by channel"
-          onExport={() => downloadCsv('chat-activity.csv', derived.chat.map(({ name, messages }) => ({ channel: name, messages })))}
-        >
-          <ResponsiveContainer>
-            <BarChart data={derived.chat} margin={{ top: 4, right: 8, left: -20, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#F1F1F2" />
-              <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#6B7280' }} />
-              <YAxis tick={{ fontSize: 11, fill: '#6B7280' }} allowDecimals={false} />
-              <Tooltip contentStyle={tooltipStyle} cursor={{ fill: 'rgba(217,68,7,0.06)' }} />
-              <Bar animationDuration={600} dataKey="messages" fill={FILL.brand} radius={[8, 8, 0, 0]} maxBarSize={48} />
-            </BarChart>
-          </ResponsiveContainer>
-        </ChartCard>
+          data={derived.momentum} minPoint={30}
+          csv={{ name: 'submission-momentum.csv' }}
+          render={(rows) => (
+            <ComposedChart data={rows} margin={{ top: 8, right: 4, left: 0, bottom: 0 }}>
+              <CartesianGrid {...gridProps} />
+              <XAxis dataKey="month" {...xAxisProps} />
+              <YAxis {...yAxisProps} allowDecimals={false} />
+              <Tooltip contentStyle={tooltipStyle} cursor={cursorFill} />
+              <Area dataKey="submissions" name="Videos" stroke={BRAND} fill={FILL.area} {...lineProps} />
+            </ComposedChart>
+          )}
+        />
       </div>
 
-      {/* THE ALL-CHALLENGES TABLE IS GONE FROM THE OVERVIEW.
-
-          Right, and it was worse than redundant. It listed the platform's
-          `challenges` rows only - one of them - under a heading that says "all",
-          while the Challenges tab next door lists all fifty including the
-          logged ones. Two tables, one honest. */}
+      {/* ---- Community activity: kept, but quiet. The team: "not really important stuff, but we should still have it
+           somewhere". One strip of plain numbers (no highlighted box) and two charts. ---- */}
+      <section className="mb-4">
+        <h2 className="mb-3 text-lg font-semibold">Community activity{periodOn && <span className="font-normal text-smoke"> · {range.label}</span>}</h2>
+        <div className="grid grid-cols-2 gap-x-4 gap-y-4 rounded-card border border-gray-100 bg-white px-5 py-4 shadow-card animate-rise sm:grid-cols-3 lg:grid-cols-5">
+          <QuietStat label={periodOn ? 'Active creators' : 'Active this week'} value={periodOn ? derived.activity7d.activeInPeriod : derived.activity7d.activeThisWeek} onClick={() => navigate('/admin/creators')} />
+          <QuietStat label="Games played" value={derived.activity7d.gamesPlayed} />
+          <QuietStat label="Connections made" value={derived.activity7d.connectionsMade} onClick={() => setTab('community')} />
+          <QuietStat label="Trips posted" value={derived.activity7d.tripsPosted} onClick={() => navigate('/collab')} />
+          <QuietStat label="Chat messages" value={derived.engagement.chatMessages} />
+          <QuietStat label="Reactions" value={derived.engagement.reactions} />
+          <QuietStat label="Poll votes" value={derived.engagement.pollVotes} />
+          <QuietStat label="Feedback" value={derived.engagement.feedbackTotal} hint={derived.engagement.openFeedback > 0 ? `${derived.engagement.openFeedback} to triage` : null} onClick={() => navigate('/admin/feedback')} />
+          <QuietStat label="Vouchers given" value={derived.engagement.vouchersGiven} />
+          <QuietStat label="Participation" value={`${derived.community.participationRate}%`} hint={`${derived.community.participating} have posted`} />
+        </div>
+      </section>
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <ChartPanel
+          title={periodOn ? 'Activity pulse' : 'Weekly pulse'}
+          subtitle={periodOn ? `Messages, game plays and videos per ${bucketFor(range)}` : 'Messages, game plays and videos per week, last 8 weeks'}
+          data={derived.weeklyPulse} minPoint={36}
+          csv={{ name: 'weekly-pulse.csv' }}
+          render={(rows) => (
+            <BarChart data={rows} margin={{ top: 8, right: 4, left: 0, bottom: 0 }}>
+              <CartesianGrid {...gridProps} />
+              <XAxis dataKey="week" {...xAxisProps} />
+              <YAxis {...yAxisProps} allowDecimals={false} />
+              <Tooltip contentStyle={tooltipStyle} cursor={cursorFill} />
+              <Legend wrapperStyle={{ fontSize: 11 }} iconType="circle" />
+              <Bar dataKey="messages" name="Messages" stackId="pulse" fill={FILL.pale} maxBarSize={36} animationDuration={600} shape={stackShape(pulseKeys, 'messages')} />
+              <Bar dataKey="games" name="Game plays" stackId="pulse" fill={FILL.light} maxBarSize={36} animationDuration={600} shape={stackShape(pulseKeys, 'games')} />
+              <Bar dataKey="submissions" name="Videos" stackId="pulse" fill={FILL.brand} maxBarSize={36} animationDuration={600} shape={stackShape(pulseKeys, 'submissions')} />
+            </BarChart>
+          )}
+        />
+        <ChartPanel
+          title="Games played by mode"
+          subtitle="Which travel games the community plays"
+          data={derived.gamesByMode} height={220}
+          csv={{ name: 'games-by-mode.csv' }}
+          render={(rows) => (
+            <BarChart data={rows} layout="vertical" margin={{ top: 4, right: 16, left: 8, bottom: 0 }}>
+              <CartesianGrid {...gridProps} vertical horizontal={false} />
+              <XAxis type="number" {...xAxisProps} allowDecimals={false} />
+              <YAxis type="category" dataKey="name" {...yAxisProps} width={110} />
+              <Tooltip contentStyle={tooltipStyle} cursor={cursorFill} />
+              <Bar dataKey="plays" name="Plays" fill={FILL.brandH} radius={BAR_END} maxBarSize={18} animationDuration={600} />
+            </BarChart>
+          )}
+        />
+      </div>
     </>,
     { period: true },
   )
+}
+
+// THIS MONTH AGAINST LAST (14 Oct 2026). "We don't seem to have month versus month for ... the main overview." Month to
+// date against the same days of last month, so the comparison is fair on the 14th as on the 30th. Pressing it switches
+// the page to This month for the full picture.
+function MonthCompare({ data, currency, onPick }) {
+  const { now, prev } = data
+  const items = [
+    ['New creators', now.newCreators, prev.newCreators, (v) => v],
+    ['Videos', now.submissions, prev.submissions, (v) => v],
+    ['Views', now.views, prev.views, formatViewsTotal],
+    ['Cash paid', now.cash, prev.cash, (v) => formatMoney(v, currency)],
+    ['Total CPM', now.totalCpm, prev.totalCpm, (v) => (v == null ? '·' : formatMoney(v, currency)), true],
+  ]
+  return (
+    <button type="button" onClick={onPick} className="group block w-full rounded-card border border-gray-100 bg-white px-5 py-4 text-left shadow-card transition-all duration-200 animate-rise hoverable:hover:-translate-y-0.5 hoverable:hover:shadow-lift" style={{ animationDelay: '280ms' }}>
+      <p className="mb-3 flex items-baseline gap-2 text-sm">
+        <span className="font-semibold text-ink">This month so far</span>
+        <span className="text-xs text-smoke">against the same days last month</span>
+        <Icon name="chevronRight" className="ml-auto h-4 w-4 text-gray-300 transition-transform group-hover:translate-x-0.5 group-hover:text-brand" />
+      </p>
+      <div className="grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-5">
+        {items.map(([label, a, b, f, lowerIsBetter]) => {
+          const pct = change(a, b)
+          const good = pct == null || pct === 0 ? null : (pct > 0) !== !!lowerIsBetter
+          return (
+            <span key={label} className="block min-w-0">
+              <span className="block text-[11px] font-semibold uppercase tracking-wide text-smoke">{label}</span>
+              <span className="mt-0.5 flex items-baseline gap-1.5">
+                <span className="text-lg font-bold tabular-nums">{f(a)}</span>
+                {pct != null && (
+                  <span className={cx('text-[11px] font-bold tabular-nums', good == null ? 'text-smoke' : good ? 'text-emerald-600' : 'text-red-500')}>
+                    {pct === 0 ? '=' : pct > 0 ? `\u2191${Math.min(pct, 999)}%` : `\u2193${Math.abs(pct)}%`}
+                  </span>
+                )}
+              </span>
+              <span className="block truncate text-[11px] text-gray-400">was {f(b)}</span>
+            </span>
+          )
+        })}
+      </div>
+    </button>
+  )
+}
+
+function QuietStat({ label, value, hint, onClick }) {
+  const body = (
+    <>
+      <span className="block text-[11px] font-semibold uppercase tracking-wide text-smoke">{label}</span>
+      <span className="mt-0.5 block text-xl font-bold tabular-nums text-ink">{typeof value === 'number' ? value.toLocaleString() : value}</span>
+      {hint && <span className="block text-[11px] text-gray-400">{hint}</span>}
+    </>
+  )
+  return onClick
+    ? <button type="button" onClick={onClick} className="block min-w-0 text-left transition-colors hover:text-brand">{body}</button>
+    : <span className="block min-w-0">{body}</span>
 }
 
 // THE HEADLINE OVER A PERIOD. The same eight tiles in the same places as All time, each with how it moved against

@@ -132,15 +132,60 @@ export function JoinBonusCallout({ points, from, onOpen }) {
   )
 }
 
-/** Several offers in one slot take turns, a few seconds each. */
+/**
+ * Several offers in one slot take turns, a few seconds each.
+ *
+ * SMOOTH, NOT A FLASH (14 Oct 2026). Every offer used to be remounted in place, so the switch was a blink. Now all of them
+ * sit stacked in one grid cell: the one leaving lifts and blurs away while the next rises into place on the same curve,
+ * so the dark card looks like it is turning its words over rather than being replaced. Dots under it show which offer
+ * and fill with the time until the next; hovering pauses, a dot jumps to that offer.
+ */
+const ROTATE_MS = 6000
 export function OfferRotator({ items }) {
   const [i, setI] = useState(0)
+  const [paused, setPaused] = useState(false)
   useEffect(() => {
-    if (items.length < 2) return undefined
-    const t = setInterval(() => setI((n) => n + 1), 6000)
-    return () => clearInterval(t)
-  }, [items.length])
+    if (items.length < 2 || paused) return undefined
+    const t = setTimeout(() => setI((n) => n + 1), ROTATE_MS)
+    return () => clearTimeout(t)
+  }, [items.length, paused, i])
   if (!items.length) return null
-  const k = i % items.length
-  return <div key={k} className="animate-tab-in flex w-full min-w-0 sm:flex-1">{items[k]}</div>
+  const n = items.length
+  const k = i % n
+  const prev = (k - 1 + n) % n
+  return (
+    <div className="relative flex w-full min-w-0 flex-col sm:flex-1" onMouseEnter={() => setPaused(true)} onMouseLeave={() => setPaused(false)}>
+      <div className="grid w-full min-w-0">
+        {items.map((item, idx) => {
+          const on = idx === k
+          const leaving = n > 1 && idx === prev
+          return (
+            <div
+              key={idx}
+              aria-hidden={!on || undefined}
+              className={cx(
+                'flex w-full min-w-0 [grid-area:1/1] transition-[opacity,transform,filter] duration-700 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none',
+                on ? 'z-10 translate-y-0 scale-100 opacity-100 blur-0' : leaving ? 'pointer-events-none -translate-y-3 scale-[0.97] opacity-0 blur-[3px]' : 'pointer-events-none translate-y-3 scale-[0.97] opacity-0 blur-[3px]',
+              )}
+            >
+              {item}
+            </div>
+          )
+        })}
+      </div>
+      {n > 1 && (
+        <div className="absolute bottom-1 left-1/2 z-20 flex -translate-x-1/2 gap-1" role="tablist" aria-label="Offers">
+          {items.map((_, idx) => (
+            <button key={idx} type="button" role="tab" aria-selected={idx === k} aria-label={`Offer ${idx + 1} of ${n}`}
+              onClick={() => setI(idx)} className="relative h-1 w-4 overflow-hidden rounded-full bg-white/25">
+              {idx === k && (
+                <span key={`${i}-${paused}`} className="absolute inset-y-0 left-0 rounded-full bg-brand-light"
+                  style={paused ? { width: '100%' } : { animation: `offer-fill ${ROTATE_MS}ms linear forwards` }} />
+              )}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
 }

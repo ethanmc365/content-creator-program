@@ -3,8 +3,8 @@ import { challengeSpend } from '../../../lib/challengeSpend'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../../../context/AuthContext'
 import {
-  Area, AreaChart, Bar, BarChart, CartesianGrid, ComposedChart, Legend, Line,
-  ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis,
+  Area, Bar, BarChart, CartesianGrid, Cell, ComposedChart, Legend, Line,
+  ReferenceLine, Tooltip, XAxis, YAxis,
 } from 'recharts'
 import { format, startOfMonth } from 'date-fns'
 import { supabase } from '../../../lib/supabase'
@@ -12,14 +12,16 @@ import { EmptyState, Skeleton, Select } from '../../../components/ui'
 import Icon from '../../../components/Icon'
 import { downloadCsv, formatViewsTotal, cx } from '../../../lib/utils'
 import {
-  challengeEconomics, blendEconomics, groupBy, label, filterChallenges,
+  challengeEconomics, blendEconomics, label, filterChallenges,
   runningChallenges, FALLBACK_RATES, publishFxRates,
 } from '../../../lib/programme'
 import HistoryForm from '../../../components/admin/HistoryForm'
 import { deleteHistory } from '../../../lib/challengeHistory'
 import { confirm, notice } from '../../../lib/confirm'
 import { loadMarkets } from '../../../lib/markets'
-import { FILL } from '../../../components/charts/chartTheme'
+import { FILL, CHART, SCOPE_COLORS, BAR_TOP, gridProps, xAxisProps, yAxisProps, lineProps, barProps, cursorFill, tooltipStyle as chartTooltip } from '../../../components/charts/chartTheme'
+import ChartPanel from '../../../components/charts/ChartPanel'
+import { useNavigate } from 'react-router-dom'
 import { overlaps } from '../../../lib/analyticsPeriod'
 import { challengesApi } from '../../../api/challenges'
 import { teamApi } from '../../../api/team'
@@ -30,15 +32,8 @@ import { teamApi } from '../../../api/team'
 // question in different cuts: for £X of prize pot, how many creators posted how
 // many videos, and what did a thousand views cost.
 
-const BRAND = '#d94407'
-const BRAND_LIGHT = '#f5853f'
-const BRAND_PALE = '#f9b98a'
 const GOOD = '#16a34a'
 
-const tooltipStyle = {
-  borderRadius: 12, border: '1px solid #F1F1F2', fontFamily: 'Poppins',
-  fontSize: 12, boxShadow: '0 4px 16px rgba(26,26,26,0.08)',
-}
 
 const BAND_STYLE = {
   on_target: 'bg-green-50 text-green-700',
@@ -214,22 +209,6 @@ export default function ProgrammePerformance({ market: scopeMarket = null, curre
       markets,
       blended: blendEconomics(scoped, { currency }),
       years,
-      // `byMarket` is over `all` deliberately - comparing markets is the whole
-      // point of that card, and scoping it to one market leaves it with a
-      // single row. It DOES honour the date filter, because "which market did
-      // best in August" is a real question and "which market did best, ever,
-      // while the rest of the page shows August" is not.
-      byMarket: groupBy(all.filter(inRange), (r) => r.market, { currency }),
-      byFormat: groupBy(scoped, (r) => label('format', r.format), { currency }),
-      // BY CONTENT TYPE IS GONE.
-      //
-      // Prize type takes the slot because it is the one cut of the same money
-      // that changes what the money COSTS: a travel voucher is redeemed against
-      // a booking we make margin on, so it does not cost its face value, and
-      // the headline tiles already separate cash from vouchers for exactly that
-      // reason. This card is that split per challenge shape rather than in
-      // total.
-      byPrize: groupBy(scoped, (r) => label('prize_type', r.prize_type), { currency }),
       monthly,
       // WHAT THE PROGRAMME HAS ADDED UP TO, NOT WHAT IT DID THAT MONTH.
       //
@@ -395,106 +374,7 @@ export default function ProgrammePerformance({ market: scopeMarket = null, curre
       </div>
 
       {view === 'summary' ? (
-        <>
-          {/* ---- The four numbers, then the ratios ----
-              It was ten StatCards in one grid, every one the same size, so the
-              spend and "posts per creator" carried identical weight. Four
-              headline figures at full size and the rest as a quiet strip is the
-              same information with a hierarchy on it. */}
-          {/* THE HEADLINE FOUR ARE THE OVERVIEW'S OWN TILES (Cash CPM, Total
-              CPM, views, prizes) now, so this block starts at the ratios. */}
-          <div>
-            <div className="grid grid-cols-2 gap-x-4 gap-y-3 rounded-card border border-gray-100 bg-white px-5 py-4 shadow-card sm:grid-cols-3 lg:grid-cols-6">
-              <Ratio label="Cash CPM" value={money(b.cashCpm, currency, 2)} />
-              <Ratio label="Total CPM" value={money(b.combinedCpm, currency, 2)} />
-              <Ratio label="Cost / post" value={money(b.costPerPost, currency, 2)} />
-              <Ratio label="Cost / creator" value={money(b.costPerCreator, currency, 2)} />
-              <Ratio label="Posts / creator" value={num(b.postsPerCreator, 1)} />
-              <Ratio label="Views / post" value={b.viewsPerPost ? formatViewsTotal(Math.round(b.viewsPerPost)) : '-'} />
-            </div>
-          </div>
-
-          {/* ---- Month by month ---- */}
-          {data.monthly.length > 0 && (
-            <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
-              <Card
-                title="Spend against reach"
-                sub={`Prize spend (bars) and views (line) per month`}
-                onExport={() => downloadCsv('monthly-performance.csv', data.monthly)}
-              >
-                <ComposedChart data={data.monthly} margin={{ top: 18, right: 12, left: -8, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#F1F1F2" />
-                  <XAxis dataKey="month" tick={{ fontSize: 11, fill: '#6B7280' }} />
-                  <YAxis yAxisId="l" tick={{ fontSize: 11, fill: '#6B7280' }} />
-                  <YAxis yAxisId="r" orientation="right" tick={{ fontSize: 11, fill: '#6B7280' }} tickFormatter={formatViewsTotal} />
-                  <Tooltip contentStyle={tooltipStyle} cursor={{ fill: 'rgba(217,68,7,0.06)' }} />
-                  <Legend wrapperStyle={{ fontSize: 11 }} />
-                  <Bar animationDuration={600} yAxisId="l" dataKey="spend" name={`Prize spend (${currency})`} fill={FILL.light} radius={[8, 8, 0, 0]} maxBarSize={32} />
-                  <Line animationDuration={600} yAxisId="r" type="monotone" dataKey="views" name="Views" stroke={BRAND} strokeWidth={2.5} dot={{ fill: BRAND, r: 3 }} />
-                </ComposedChart>
-              </Card>
-
-              <Card title="CPM against target" sub="Blended cost per 1,000 views each month. Under the line is the goal.">
-                <BarChart data={data.monthly} margin={{ top: 18, right: 12, left: -8, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#F1F1F2" />
-                  <XAxis dataKey="month" tick={{ fontSize: 11, fill: '#6B7280' }} />
-                  <YAxis tick={{ fontSize: 11, fill: '#6B7280' }} tickFormatter={(v) => money(v, currency, 2)} width={64} domain={[0, (max) => Math.max(0.6, Math.ceil(max * 1.15 * 100) / 100)]} />
-                  <Tooltip contentStyle={tooltipStyle} cursor={{ fill: 'rgba(217,68,7,0.06)' }} formatter={(v) => money(v, currency, 2)} />
-                  <ReferenceLine y={0.5} stroke={GOOD} strokeDasharray="4 4" label={{ value: 'target', fontSize: 10, fill: GOOD, position: 'right' }} />
-                  <Bar animationDuration={600} dataKey="cpm" name="Blended CPM" fill={FILL.brand} radius={[8, 8, 0, 0]} maxBarSize={32} />
-                </BarChart>
-              </Card>
-            </div>
-          )}
-
-          {/* ---- What it has added up to, and who took part ---- */}
-          {data.monthly.length > 1 && (
-            <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
-              <Card
-                title="The programme, adding up"
-                sub="Every month is the whole programme to date, not that month alone"
-                onExport={() => downloadCsv('cumulative-programme.csv', data.cumulative)}
-              >
-                <ComposedChart data={data.cumulative} margin={{ top: 18, right: 12, left: -8, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#F1F1F2" />
-                  <XAxis dataKey="month" tick={{ fontSize: 10, fill: '#6B7280' }} interval="preserveStartEnd" />
-                  <YAxis yAxisId="l" tick={{ fontSize: 11, fill: '#6B7280' }} tickFormatter={formatViewsTotal} />
-                  <YAxis yAxisId="r" orientation="right" tick={{ fontSize: 11, fill: '#6B7280' }} />
-                  <Tooltip contentStyle={tooltipStyle} />
-                  <Legend wrapperStyle={{ fontSize: 11 }} />
-                  <Area animationDuration={600} yAxisId="l" type="monotone" dataKey="views" name="Views to date" stroke={BRAND} fill={FILL.area} strokeWidth={2.5} />
-                  <Line animationDuration={600} yAxisId="r" type="monotone" dataKey="spend" name={`Spend to date (${currency})`} stroke={BRAND_LIGHT} strokeWidth={2.5} dot={false} />
-                </ComposedChart>
-              </Card>
-
-              {/* Same stacked-area shape as Community health's weekly chart, on
-                  purpose: two charts that mean "how much of this happened over
-                  time" should look alike. */}
-              <Card
-                title="Who took part each month"
-                sub="Creator entries and the posts they made"
-                onExport={() => downloadCsv('participation-by-month.csv', data.monthly.map(({ month: m, creators, posts, challenges }) => ({ month: m, creators, posts, challenges })))}
-              >
-                <AreaChart data={data.monthly} margin={{ top: 18, right: 12, left: -8, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#F1F1F2" />
-                  <XAxis dataKey="month" tick={{ fontSize: 10, fill: '#6B7280' }} interval="preserveStartEnd" />
-                  <YAxis tick={{ fontSize: 11, fill: '#6B7280' }} allowDecimals={false} />
-                  <Tooltip contentStyle={tooltipStyle} />
-                  <Legend wrapperStyle={{ fontSize: 11 }} />
-                  <Area animationDuration={600} type="monotone" dataKey="posts" name="Posts" stroke={BRAND_LIGHT} fill={BRAND_PALE} fillOpacity={0.85} />
-                  <Area animationDuration={600} type="monotone" dataKey="creators" name="Creator entries" stroke={BRAND} fill={BRAND} fillOpacity={0.55} />
-                </AreaChart>
-              </Card>
-            </div>
-          )}
-
-          {/* ---- Breakdowns ---- */}
-          <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
-            <Breakdown title="By market" rows={data.byMarket} currency={currency} />
-            <Breakdown title="By format" rows={data.byFormat} currency={currency} />
-            <Breakdown title="By prize type" rows={data.byPrize} currency={currency} />
-          </div>
-        </>
+        <SummaryView data={data} b={b} currency={currency} />
       ) : (
         <ChallengeList rows={data.scoped} running={data.running} currency={currency} onChanged={() => { setRows(null); setReloadKey((n) => n + 1) }} />
       )}
@@ -523,27 +403,6 @@ function Ratio({ label: text, value }) {
   )
 }
 
-// A chart in a card. Every chart on this tab was its own copy of the same
-// six lines of wrapper markup, which is how two of them ended up with a CSV
-// button and two without.
-function Card({ title, sub, onExport, children }) {
-  return (
-    <section className="card">
-      <div className="mb-6 flex items-start justify-between gap-3">
-        <div>
-          <h2 className="font-semibold">{title}</h2>
-          {sub && <p className="mt-1 text-xs text-smoke">{sub}</p>}
-        </div>
-        {onExport && (
-          <button onClick={onExport} className="btn-ghost !px-3 !py-1.5 text-xs">CSV ↓</button>
-        )}
-      </div>
-      <div className="h-64">
-        <ResponsiveContainer>{children}</ResponsiveContainer>
-      </div>
-    </section>
-  )
-}
 
 // The month select's options. Named rather than numbered because "08" in a
 // dropdown beside a year reads as a day.
@@ -942,37 +801,171 @@ function ChallengeCard({ r, currency, i = 0, onChanged }) {
   )
 }
 
-// One breakdown card: a dimension, its spend, and what that spend bought.
-function Breakdown({ title, rows, currency }) {
-  const visible = rows.filter((g) => g.blended.challenges > 0)
-  if (visible.length === 0) return null
-  const maxSpend = Math.max(...visible.map((g) => g.blended.spend), 1)
+
+// THE OVERVIEW'S ECONOMICS, REBUILT (14 Oct 2026). Every chart is a ChartPanel (one look, the title opens the whole
+// history with a zoom and the downloads). "Who took part each month" and the three breakdown cards (by market, by format,
+// by prize type) are gone: format and prize type are mixed on every challenge now, and the Market league tab is the
+// better by-market view. In their place: what a post is worth and costs month by month, and ONE per-challenge chart with a
+// measure switch that scrolls through every challenge the programme has run instead of squeezing the latest eight.
+const MEASURES = [
+  { key: 'views', label: 'Views', fmt: (v) => formatViewsTotal(v) },
+  { key: 'posts', label: 'Posts', fmt: (v) => Number(v).toLocaleString() },
+  { key: 'creators', label: 'Creators', fmt: (v) => Number(v).toLocaleString() },
+  { key: 'cpm', label: 'CPM', money: 2 },
+  { key: 'spend', label: 'Prize money', money: 0 },
+]
+
+function SummaryView({ data, b, currency }) {
+  const navigate = useNavigate()
+  const [measure, setMeasure] = useState('views')
+  const m = MEASURES.find((x) => x.key === measure)
+  const fmt = (v) => (v == null ? '-' : m.money != null ? money(v, currency, m.money) : m.fmt(v))
+  const marketColor = useMemo(() => {
+    const names = [...new Set(data.all.map((r) => r.market).filter(Boolean))].sort()
+    return (name) => (name ? SCOPE_COLORS[(names.indexOf(name) + 1) % SCOPE_COLORS.length] : CHART.brand)
+  }, [data.all])
+  const perChallenge = [...data.scoped]
+    .filter((r) => r.start_date)
+    .sort((x, y) => String(x.start_date).localeCompare(String(y.start_date)))
+    .map((r) => ({
+      id: r.id, name: r.title.length > 16 ? `${r.title.slice(0, 15)}…` : r.title, title: r.title, market: r.market || 'Global',
+      when: format(new Date(r.start_date), 'MMM yy'), running: r.status === 'active',
+      views: r.views ?? 0, posts: r.posts ?? 0, creators: r.creators ?? 0,
+      cpm: r.cpm != null ? Number(r.cpm.toFixed(2)) : null, spend: r.spend != null ? Math.round(r.spend) : 0,
+    }))
+  const monthlyValue = data.monthly.map((x) => ({
+    ...x,
+    perPost: x.posts ? Math.round(x.views / x.posts) : 0,
+    costPerPost: x.posts && x.spend ? Number((x.spend / x.posts).toFixed(2)) : null,
+  }))
+  const sym = currency === 'GBP' ? '£' : '€'
+  const tip = (fmtV) => <Tooltip contentStyle={chartTooltip} cursor={cursorFill} formatter={fmtV} />
+
   return (
-    <section className="card">
-      <h2 className="mb-4 font-semibold">{title}</h2>
-      <div className="space-y-4">
-        {visible.map((g) => (
-          <div key={g.key}>
-            <div className="mb-1 flex items-baseline justify-between gap-3 text-sm">
-              <span className="min-w-0 truncate font-medium">{g.key}</span>
-              <span className="shrink-0 tabular-nums text-xs text-smoke">
-                {money(g.blended.spend, currency, 0)} · {formatViewsTotal(g.blended.views)} views
-              </span>
-            </div>
-            <div className="h-2.5 overflow-hidden rounded-full bg-cloud">
-              <div
-                className="h-full rounded-full bg-gradient-to-r from-brand to-brand-light"
-                style={{ width: `${Math.max(3, (g.blended.spend / maxSpend) * 100)}%` }}
-              />
-            </div>
-            <p className="mt-1 text-[11px] text-smoke">
-              {g.blended.challenges} challenge{g.blended.challenges === 1 ? '' : 's'}
-              {g.blended.cpm != null && ` · CPM ${money(g.blended.cpm, currency, 2)}`}
-              {g.blended.postsPerCreator != null && ` · ${num(g.blended.postsPerCreator, 1)} posts/creator`}
-            </p>
-          </div>
-        ))}
+    <>
+      <div className="grid grid-cols-2 gap-x-4 gap-y-3 rounded-card border border-gray-100 bg-white px-5 py-4 shadow-card animate-rise sm:grid-cols-3 lg:grid-cols-6">
+        <Ratio label="Cash CPM" value={money(b.cashCpm, currency, 2)} />
+        <Ratio label="Total CPM" value={money(b.combinedCpm, currency, 2)} />
+        <Ratio label="Cost / post" value={money(b.costPerPost, currency, 2)} />
+        <Ratio label="Cost / creator" value={money(b.costPerCreator, currency, 2)} />
+        <Ratio label="Posts / creator" value={num(b.postsPerCreator, 1)} />
+        <Ratio label="Views / post" value={b.viewsPerPost ? formatViewsTotal(Math.round(b.viewsPerPost)) : '-'} />
       </div>
-    </section>
+
+      {data.monthly.length > 0 && (
+        <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
+          <ChartPanel
+            title="Spend against reach"
+            subtitle={`Prize spend (${currency}) as bars, views as the line, per month`}
+            data={data.monthly} recent={12} minPoint={30} delay={40}
+            csv={{ name: 'spend-against-reach.csv', rows: data.monthly.map(({ month: mo, spend, views, cpm }) => ({ month: mo, [`spend_${currency.toLowerCase()}`]: spend, views, cpm })) }}
+            render={(rows) => (
+              <ComposedChart data={rows} margin={{ top: 12, right: 4, left: 0, bottom: 0 }}>
+                <CartesianGrid {...gridProps} />
+                <XAxis dataKey="month" {...xAxisProps} />
+                <YAxis yAxisId="l" {...yAxisProps} tickFormatter={(v) => `${sym}${formatViewsTotal(v)}`} />
+                <YAxis yAxisId="r" orientation="right" {...yAxisProps} tickFormatter={formatViewsTotal} />
+                {tip((v, name) => (name === 'Views' ? formatViewsTotal(v) : money(v, currency, 0)))}
+                <Legend wrapperStyle={{ fontSize: 11 }} iconType="circle" />
+                <Bar yAxisId="l" dataKey="spend" name="Prize spend" fill={FILL.light} {...barProps} />
+                <Area yAxisId="r" dataKey="views" name="Views" stroke={CHART.brand} fill={FILL.area} {...lineProps} />
+              </ComposedChart>
+            )}
+          />
+          <ChartPanel
+            title="CPM against target"
+            subtitle="Blended cost per 1,000 views each month · green is under the 0.50 target"
+            data={data.monthly} recent={12} minPoint={30} delay={80}
+            csv={{ name: 'cpm-by-month.csv', rows: data.monthly.map(({ month: mo, cpm }) => ({ month: mo, cpm })) }}
+            render={(rows) => (
+              <BarChart data={rows} margin={{ top: 18, right: 4, left: 0, bottom: 0 }}>
+                <CartesianGrid {...gridProps} />
+                <XAxis dataKey="month" {...xAxisProps} />
+                <YAxis {...yAxisProps} tickFormatter={(v) => money(v, currency, 2)} width={56} domain={[0, (mx) => Math.max(0.6, Math.ceil(mx * 1.15 * 100) / 100)]} />
+                {tip((v) => money(v, currency, 2))}
+                <ReferenceLine y={0.5} stroke={GOOD} strokeDasharray="4 4" label={{ value: 'target', fontSize: 10, fill: GOOD, position: 'insideTopRight' }} />
+                <Bar dataKey="cpm" name="Blended CPM" {...barProps}>
+                  {rows.map((r) => <Cell key={r.key} fill={r.cpm != null && r.cpm <= 0.5 ? FILL.green : FILL.brand} />)}
+                </Bar>
+              </BarChart>
+            )}
+          />
+        </div>
+      )}
+
+      {data.monthly.length > 1 && (
+        <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
+          <ChartPanel
+            title="The programme, adding up"
+            subtitle="Views and spend to date, month by month"
+            data={data.cumulative} minPoint={30} delay={120}
+            csv={{ name: 'programme-to-date.csv' }}
+            render={(rows) => (
+              <ComposedChart data={rows} margin={{ top: 12, right: 4, left: 0, bottom: 0 }}>
+                <CartesianGrid {...gridProps} />
+                <XAxis dataKey="month" {...xAxisProps} interval="preserveStartEnd" />
+                <YAxis yAxisId="l" {...yAxisProps} tickFormatter={formatViewsTotal} />
+                <YAxis yAxisId="r" orientation="right" {...yAxisProps} tickFormatter={(v) => `${sym}${formatViewsTotal(v)}`} />
+                {tip((v, name) => (name === 'Views to date' ? formatViewsTotal(v) : money(v, currency, 0)))}
+                <Legend wrapperStyle={{ fontSize: 11 }} iconType="circle" />
+                <Area yAxisId="l" dataKey="views" name="Views to date" stroke={CHART.brand} fill={FILL.area} {...lineProps} dot={false} />
+                <Line yAxisId="r" dataKey="spend" name="Spend to date" stroke={CHART.light} {...lineProps} dot={false} />
+              </ComposedChart>
+            )}
+          />
+          <ChartPanel
+            title="What a post is worth"
+            subtitle={`Average views per post (bars) and what each post cost (line), per month`}
+            data={monthlyValue} recent={12} minPoint={30} delay={160}
+            csv={{ name: 'value-per-post.csv', rows: monthlyValue.map(({ month: mo, perPost, costPerPost, posts }) => ({ month: mo, posts, views_per_post: perPost, [`cost_per_post_${currency.toLowerCase()}`]: costPerPost })) }}
+            render={(rows) => (
+              <ComposedChart data={rows} margin={{ top: 12, right: 4, left: 0, bottom: 0 }}>
+                <CartesianGrid {...gridProps} />
+                <XAxis dataKey="month" {...xAxisProps} />
+                <YAxis yAxisId="l" {...yAxisProps} tickFormatter={formatViewsTotal} />
+                <YAxis yAxisId="r" orientation="right" {...yAxisProps} tickFormatter={(v) => money(v, currency, 0)} />
+                {tip((v, name) => (name === 'Views per post' ? formatViewsTotal(v) : money(v, currency, 2)))}
+                <Legend wrapperStyle={{ fontSize: 11 }} iconType="circle" />
+                <Bar yAxisId="l" dataKey="perPost" name="Views per post" fill={FILL.brand} {...barProps} />
+                <Line yAxisId="r" dataKey="costPerPost" name="Cost per post" stroke={CHART.ink} {...lineProps} dot={{ r: 3, fill: CHART.ink, strokeWidth: 0 }} connectNulls />
+              </ComposedChart>
+            )}
+          />
+        </div>
+      )}
+
+      <ChartPanel
+        title="Every challenge"
+        subtitle="Oldest on the left, newest on the right · coloured by market · press a bar for the challenge"
+        data={perChallenge} minPoint={58} height={300} delay={200}
+        csv={{ name: `every-challenge-${measure}.csv`, rows: perChallenge.map((r) => ({ challenge: r.title, market: r.market, started: r.when, views: r.views, posts: r.posts, creators: r.creators, cpm: r.cpm, [`prize_${currency.toLowerCase()}`]: r.spend })) }}
+        actions={(
+          <div className="mr-1 flex gap-0.5 rounded-full bg-cloud p-0.5">
+            {MEASURES.map((x) => (
+              <button key={x.key} type="button" onClick={() => setMeasure(x.key)} aria-pressed={measure === x.key}
+                className={cx('rounded-full px-2.5 py-1 text-[11px] font-semibold transition-colors', measure === x.key ? 'bg-brand text-white' : 'text-smoke hover:text-ink')}>
+                {x.label}
+              </button>
+            ))}
+          </div>
+        )}
+        render={(rows) => (
+          <BarChart data={rows} margin={{ top: 18, right: 4, left: 0, bottom: 0 }} style={{ cursor: 'pointer' }}
+            onClick={(e) => { const id = e?.activePayload?.[0]?.payload?.id; if (id) navigate(`/admin/analytics/${id}`) }}>
+            <CartesianGrid {...gridProps} />
+            <XAxis dataKey="name" {...xAxisProps} interval={0} tick={{ fontSize: 10, fill: '#6B7280' }} height={58} angle={-35} textAnchor="end" />
+            <YAxis {...yAxisProps} tickFormatter={(v) => (m.money != null ? `${sym}${v}` : formatViewsTotal(v))} />
+            <Tooltip contentStyle={chartTooltip} cursor={cursorFill}
+              labelFormatter={(_, p) => { const r = p?.[0]?.payload; return r ? `${r.title} · ${r.market} · ${r.when}${r.running ? ' · running' : ''}` : '' }}
+              formatter={(v) => [fmt(v), m.label]} />
+            {measure === 'cpm' && <ReferenceLine y={0.5} stroke={GOOD} strokeDasharray="4 4" />}
+            <Bar dataKey={measure} name={m.label} radius={BAR_TOP} maxBarSize={36} animationDuration={500}
+              label={rows.length <= 40 ? { position: 'top', fontSize: 10, fill: '#6B7280', formatter: (v) => (v == null || v === 0 ? '' : m.money != null ? `${sym}${Number(v).toFixed(m.money)}` : formatViewsTotal(v)) } : false}>
+              {rows.map((r) => <Cell key={r.id} fill={marketColor(r.market === 'Global' ? null : r.market)} fillOpacity={r.running ? 0.6 : 1} />)}
+            </Bar>
+          </BarChart>
+        )}
+      />
+    </>
   )
 }
