@@ -19,6 +19,7 @@ import HistoryForm from '../../../components/admin/HistoryForm'
 import { deleteHistory } from '../../../lib/challengeHistory'
 import { confirm, notice } from '../../../lib/confirm'
 import { loadMarkets } from '../../../lib/markets'
+import { flagFromIso } from '../../../lib/flags'
 import { FILL, CHART, SCOPE_COLORS, BAR_TOP, gridProps, xAxisProps, yAxisProps, lineProps, barProps, cursorFill, tooltipStyle as chartTooltip } from '../../../components/charts/chartTheme'
 import ChartPanel from '../../../components/charts/ChartPanel'
 import { useNavigate } from 'react-router-dom'
@@ -73,18 +74,6 @@ export default function ProgrammePerformance({ market: scopeMarket = null, curre
   const [rows, setRows] = useState(null)
   const [loadError, setLoadError] = useState('')
   const [rates, setRates] = useState(FALLBACK_RATES)
-  // WHEN, AS WELL AS WHERE.
-  //
-  // Forty-nine challenges over nine months is past the point where a single
-  // list answers a question: "what did Spain cost us in Q2" was a thing you had
-  // to work out by reading. Two selects - a year, and a month within it - are
-  // enough, because the programme is nine months old and both cuts people
-  // actually ask for ("this year", "August") are one press.
-  //
-  // 'all' IS A VALUE, NOT AN ABSENCE, so the filter can be reasoned about
-  // without null checks scattered through the memo below.
-  const [year, setYear] = useState('all')
-  const [month, setMonth] = useState('all')
   // WHICH OF THE TWO DOCUMENTS THIS TAB HOLDS IS ON SCREEN. See the note on the
   // segmented control below: the report and the list of challenges are read at
   // different times, and stacking them meant scrolling past whichever you did
@@ -169,14 +158,8 @@ export default function ProgrammePerformance({ market: scopeMarket = null, curre
     // is how a page comes to show "Spain, August" over a total for the year.
     // THE OVERVIEW'S PERIOD WINS when it is handed one: a challenge belongs to every period it was open in, the same
     // rule as the tiles above it (lib/analyticsPeriod.overlaps).
-    const inRange = (r) => {
-      if (range) return overlaps(r.start_date, r.end_date || r.start_date, range)
-      if (year === 'all') return true
-      if (!r.start_date) return false
-      const d = new Date(r.start_date)
-      if (String(d.getFullYear()) !== year) return false
-      return month === 'all' || String(d.getMonth() + 1).padStart(2, '0') === month
-    }
+    // ONE PERIOD: the page's picker (14 Oct 2026; the tab's own year and month selects are gone).
+    const inRange = (r) => (range ? overlaps(r.start_date, r.end_date || r.start_date, range) : true)
     const scoped = all
       .filter((r) => (effectiveMarket === 'all' ? true : (r.market ?? 'Unspecified') === effectiveMarket))
       .filter(inRange)
@@ -235,7 +218,7 @@ export default function ProgrammePerformance({ market: scopeMarket = null, curre
       // were sitting under a heading that said "Running now".
       running: runningChallenges(scoped, now),
     }
-  }, [rows, currency, rates, effectiveMarket, year, month, now, range])
+  }, [rows, currency, rates, effectiveMarket, now, range])
 
   if (!data) {
     return (
@@ -329,34 +312,6 @@ export default function ProgrammePerformance({ market: scopeMarket = null, curre
           {/* The month select only appears once a year is chosen, because
               "August" across every year the programme has run is not a period
               anybody means. */}
-          {!range && <>
-          <Select
-            value={year}
-            onChange={(v) => { setYear(v); if (v === 'all') setMonth('all') }}
-            variant="chip"
-            className="w-32"
-            ariaLabel="Filter by year"
-            options={[{ value: 'all', label: 'All time' }, ...data.years.map((y) => ({ value: y, label: y }))]}
-          />
-          {year !== 'all' && (
-            <Select
-              value={month}
-              onChange={setMonth}
-              variant="chip"
-              className="w-36"
-              ariaLabel="Filter by month"
-              options={[{ value: 'all', label: 'Whole year' }, ...MONTHS]}
-            />
-          )}
-          {year !== 'all' && (
-            <button
-              onClick={() => { setYear('all'); setMonth('all') }}
-              className="rounded-lg px-2 py-1.5 text-xs font-semibold text-smoke transition-colors hover:text-brand"
-            >
-              Clear
-            </button>
-          )}
-          </>}
           {view === 'list' && <>
           <span className="mx-1 hidden h-6 w-px bg-gray-100 sm:block" />
           <button onClick={() => downloadCsv(`challenge-log-${currency}.csv`, exportRows)} className="btn-secondary !py-2 text-xs">
@@ -404,39 +359,9 @@ function Ratio({ label: text, value }) {
 }
 
 
-// The month select's options. Named rather than numbered because "08" in a
-// dropdown beside a year reads as a day.
-const MONTHS = [
-  ['01', 'January'], ['02', 'February'], ['03', 'March'], ['04', 'April'],
-  ['05', 'May'], ['06', 'June'], ['07', 'July'], ['08', 'August'],
-  ['09', 'September'], ['10', 'October'], ['11', 'November'], ['12', 'December'],
-].map(([value, labelText]) => ({ value, label: labelText }))
 
-// ---------------------------------------------------------------------------
-// EVERY CHALLENGE, AS A THING YOU CAN ACTUALLY SEARCH.
-//
-// It began as a fourteen-column table 1,100px wide that scrolled sideways -
-// "an Excel copy" - and the trouble was never the width. Fourteen numbers side
-// by side have no hierarchy, so a challenge that cost EUR 1.42 per thousand
-// views and one that cost EUR 14.20 looked exactly alike until you found the
-// column and read the digits. It became a list of cards, which fixed that.
-//
-// WHAT IT STILL WAS NOT WAS FINDABLE. Fifty cards sorted by date is fine for reading down and useless for "open the
-// Spain one from June", which is what somebody actually wants from a list.
-//
-// So the list has the three controls a list of fifty needs and had none of:
-//
-//   SEARCH      by title, market or country. Matching on more than the title
-//               matters because half these rows are named "Spain Monthly ·
-//               2026-08" and the other half are not named at all.
-//   STATUS      derived from the rows present, so it never offers a filter
-//               that would empty the list.
-//   SORT        which it had, and which was the only way to reorder fifty
-//               things.
-//
-// AND WHAT IS RUNNING IS PINNED ABOVE WHAT IS FINISHED. A live challenge is not the fiftieth-most-interesting row in a
-// list sorted by date; it is the reason somebody opened the page. It gets its own block at the top and is not repeated
-// below.
+// EVERY CHALLENGE, AS A THING YOU CAN SEARCH: by title, market or country, a status filter derived from the rows, and a
+// sort. What is running is pinned above what is finished.
 const SORTS = [
   { value: 'recent', label: 'Most recent' },
   { value: 'cpm', label: 'Cheapest CPM' },
@@ -623,7 +548,7 @@ function LogCard({ r, currency, live = false, phase = 'live' }) {
             {r.title}
           </p>
           <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-smoke">
-            <span>{r.market || 'Unspecified'}</span>
+            <MarketMark name={r.market} />
             <span aria-hidden>·</span>
             <span>{r.start_date?.slice(0, 10)}</span>
             <span aria-hidden>·</span>
@@ -730,8 +655,9 @@ function ChallengeCard({ r, currency, i = 0, onChanged }) {
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <p className="text-[15px] font-semibold leading-snug transition-colors group-hover:text-brand [overflow-wrap:anywhere]">{r.title}</p>
-            <p className="mt-0.5 text-xs text-smoke">
-              {[r.market || 'Unspecified', r.start_date?.slice(0, 10), `${r.days} days`, label('format', r.format)].filter(Boolean).join(' · ')}
+            <p className="mt-0.5 flex flex-wrap items-center gap-x-1.5 text-xs text-smoke">
+              <MarketMark name={r.market} />
+              <span>· {[r.start_date?.slice(0, 10), `${r.days} days`, label('format', r.format)].filter(Boolean).join(' · ')}</span>
             </p>
           </div>
           <span className={cx('shrink-0 rounded-full px-2.5 py-1 text-[11px] font-semibold', BAND_STYLE[r.band])}>{BAND_LABEL[r.band]}</span>
@@ -967,5 +893,29 @@ function SummaryView({ data, b, currency }) {
         )}
       />
     </>
+  )
+}
+
+// A MARKET AT A GLANCE (14 Oct 2026): the flag of its country (the first, for a multi-country market), or the globe for
+// a global challenge, before the name. Markets are read once for the whole list.
+let MARKET_FLAGS = null
+function MarketMark({ name }) {
+  const [list, setList] = useState(MARKET_FLAGS)
+  useEffect(() => {
+    if (MARKET_FLAGS) return undefined
+    let alive = true
+    loadMarkets().then((m) => { MARKET_FLAGS = m || []; if (alive) setList(MARKET_FLAGS) })
+    return () => { alive = false }
+  }, [])
+  const m = (list || []).find((x) => x.name === name)
+  const global = !name || /worldwide|global/i.test(name) || m?.kind === 'network'
+  const code = m?.country_codes?.[0]
+  return (
+    <span className="inline-flex items-center gap-1 font-medium text-ink">
+      {global
+        ? <Icon name="globe" className="h-3.5 w-3.5 text-brand" />
+        : <span className="text-[13px] leading-none">{code ? flagFromIso(code) : ''}</span>}
+      {global ? (name || 'Global') : name}
+    </span>
   )
 }

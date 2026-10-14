@@ -34,6 +34,7 @@ import { FILL, BAR_END, gridProps, xAxisProps, yAxisProps, lineProps, barProps, 
 import ChartPanel from '../../components/charts/ChartPanel'
 import Icon from '../../components/Icon'
 import Recruitment from './analytics/Recruitment'
+import { TABS } from './analytics/tabs'
 import { moneyApi } from '../../api/money'
 import { challengesApi } from '../../api/challenges'
 import { submissionsApi } from '../../api/submissions'
@@ -62,28 +63,6 @@ import { teamApi } from '../../api/team'
 // "Challenge performance" became "Challenges" for the same reason the market
 // filter became a chip: the tab does not need to explain itself in its own
 // label, and the longer name was the widest thing on the strip.
-const TABS = [
-  { key: 'overview', label: 'Overview' },
-  // RECRUITMENT (14 Oct 2026), for Lorenzo: where sign-ups come from, what they speak, where they drop off and who to
-  // follow up with. The application funnel moved here from the Overview.
-  { key: 'recruitment', label: 'Recruitment' },
-  // VIEWS GAINED PER WEEK, COMMUNITY / VIP / BOTH, AND THE WEEKLY SNAPSHOT. See analytics/ViewsReport.
-  { key: 'views', label: 'Weekly views' },
-  { key: 'programme', label: 'Challenges' },
-  // MARKET AGAINST MARKET, THIRD. It reads the same datasets the Challenges tab
-  // does and answers the question straight after it - "and how does that split
-  // by market" - so it sits next to it rather than at the far end of the strip.
-  { key: 'markets', label: 'Market league' },
-  // THE VIP PROGRAMME'S OWN NUMBERS, all markets together and then each market.
-  { key: 'vip', label: 'VIP' },
-  { key: 'growth', label: 'Growth' },
-  // REFERRALS, ITS OWN TAB: it was a card at the foot of the Overview, which the team had to scroll to find.
-  { key: 'referrals', label: 'Referrals' },
-  { key: 'community', label: 'Community health' },
-  { key: 'creators', label: 'Per creator' },
-  // ERROR MONITORING LEFT ANALYTICS (14 Oct 2026): a crash is not a statistic. It lives on the admin desk, where the
-  // team looks every day.
-]
 
 // Admin analytics: the community's health at a glance. Recharts (free) for the
 // charts, every dataset exportable to CSV, and every tile that has a natural
@@ -732,7 +711,7 @@ export default function AdminAnalytics() {
   if (tab === 'growth') return shell(<Growth raw={scoped} scopeLabel={scopeLabel} onDrill={drillTo} />)
   if (tab === 'referrals') return shell(<Referrals market={market} memberRows={raw?.memberRows || []} scopeLabel={scopeLabel} />)
   if (tab === 'creators') return shell(<PerCreator raw={applyPeriod(scoped, range)} currency={currency} scopeLabel={periodOn ? `${scopeLabel} · ${range.label}` : scopeLabel} />, { period: true })
-  if (tab === 'programme') return shell(<ProgrammePerformance market={marketName} currency={currency} mode="list" />)
+  if (tab === 'programme') return shell(<ProgrammePerformance market={marketName} currency={currency} mode="list" range={periodOn ? range : null} />, { period: true })
   if (tab === 'community') return shell(<CommunityHealth market={market} memberRows={raw?.memberRows || []} scopeLabel={scopeLabel} />)
 
   if (!derived) {

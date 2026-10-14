@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
 import { fetchAll } from '../../lib/fetchAll'
 import { marketSplit, NO_MARKET } from '../../lib/marketSplit'
-import { formatViews, cx } from '../../lib/utils'
+import { createPortal } from 'react-dom'
+import { Link } from 'react-router-dom'
+import { formatViews, cx, timeAgo } from '../../lib/utils'
 import Segmented from '../network/Segmented'
 import FlagTile from '../network/FlagTile'
-import { Skeleton } from '../ui'
+import { Avatar, Skeleton } from '../ui'
 import { marketsApi } from '../../api/markets'
 
 // PARTICIPATION BY MARKET.
@@ -29,6 +31,7 @@ const pct = (x) => (x == null ? '-' : `${Math.round(x * 100)}%`)
 
 export default function MarketSplit({ subs = [], results = [], markets = [], scoring }) {
   const [metric, setMetric] = useState('creators')
+  const [openMarket, setOpenMarket] = useState(null)
   const [homes, setHomes] = useState(null) // [{ community_id, profile_id, profiles }]
 
   // Every home placement, once. ~130 rows today; `fetchAll` so the count stays
@@ -38,7 +41,7 @@ export default function MarketSplit({ subs = [], results = [], markets = [], sco
     fetchAll(
       () => marketsApi
         .communityMembers()
-        .select('community_id, profile_id, profiles:profile_id(status, is_admin, is_test)')
+        .select('community_id, profile_id, profiles:profile_id(id, name, photo_url, last_seen_at, status, is_admin, is_test, is_vip)')
         .eq('is_home', true)
         .eq('status', 'active'),
       { orderBy: ['community_id', 'profile_id'] },
@@ -102,7 +105,7 @@ export default function MarketSplit({ subs = [], results = [], markets = [], sco
           <p className="mt-0.5 text-sm text-smoke">
             {totals.marketsTakingPart} of {rows.filter((r) => r.id !== NO_MARKET).length} markets have entered
             {lead ? <> · <span className="font-semibold text-ink">{lead.name}</span> leads with {pct(lead.shareEntries)} of entries</> : null}.
-            Each creator counts in their home market.
+            Each creator counts in their home market. <span className="font-semibold text-brand">Press a market to see who has and has not posted.</span>
           </p>
         </div>
         <Segmented value={metric} onChange={setMetric} options={metrics} size="sm" label="Measure" />
@@ -116,7 +119,11 @@ export default function MarketSplit({ subs = [], results = [], markets = [], sco
           return (
             <li
               key={r.id}
-              className="group grid grid-cols-[8.5rem_1fr_4.5rem] items-center gap-3 sm:grid-cols-[11rem_1fr_6rem]"
+              role="button"
+              tabIndex={0}
+              onClick={() => setOpenMarket(r)}
+              onKeyDown={(e) => { if (e.key === 'Enter') setOpenMarket(r) }}
+              className="group grid cursor-pointer grid-cols-[8.5rem_1fr_4.5rem] items-center gap-3 rounded-lg transition-colors hover:bg-cloud/50 sm:grid-cols-[11rem_1fr_6rem]"
               title={`${r.name}: ${r.creators} creators, ${r.entries} entries, ${formatViews(r.views)} views${r.members ? `, ${pct(r.rate)} of ${r.members} members took part` : ''}`}
             >
               <span className="flex min-w-0 items-center gap-2">
@@ -169,7 +176,7 @@ export default function MarketSplit({ subs = [], results = [], markets = [], sco
           <tbody>
             {rows.map((r) => (
               <tr key={r.id} className={cx('border-b border-gray-50 last:border-0', !r.entries && 'text-smoke')}>
-                <td className="py-2.5 pr-4 font-semibold">{r.name}</td>
+                <td className="py-2.5 pr-4 font-semibold"><button type="button" onClick={() => setOpenMarket(r)} className="hover:text-brand hover:underline">{r.name}</button></td>
                 <td className="py-2.5 pr-4 text-right tabular-nums">{r.creators}</td>
                 <td className="py-2.5 pr-4 text-right tabular-nums">
                   {r.members ? <>{pct(r.rate)} <span className="text-xs text-smoke">of {r.members}</span></> : '-'}
@@ -199,6 +206,93 @@ export default function MarketSplit({ subs = [], results = [], markets = [], sco
           </tbody>
         </table>
       </div>
+      {openMarket && (
+        <MarketPeople market={openMarket} homes={homes} subs={subs} results={results} scoring={scoring} onClose={() => setOpenMarket(null)} />
+      )}
     </section>
+  )
+}
+
+// ONE MARKET'S CREATORS IN THIS CHALLENGE (14 Oct 2026). "Clicking on that, I want to see each creator that has
+// participated and the ones that haven't, see how many videos they posted, and even what creators are online and haven't
+// posted." Every approved home member of the market, with their videos, views and points here, when they were last in
+// the app, and a Message button - so the follow-up is one press from the number that prompted it.
+const ONLINE_MS = 15 * 60000
+const TODAY_MS = 24 * 3600000
+function MarketPeople({ market, homes, subs, results, scoring, onClose }) {
+  const [filter, setFilter] = useState('all')
+  const [now] = useState(() => Date.now())
+  const people = useMemo(() => {
+    const byCreator = new Map()
+    for (const s of subs) {
+      const x = byCreator.get(s.creator_id) || { videos: 0, views: 0 }
+      x.videos += 1
+      x.views += Number(s.logged_views) || 0
+      byCreator.set(s.creator_id, x)
+    }
+    const pts = new Map(results.map((r) => [r.creator_id, Number(r.final_views) || 0]))
+    const rank = new Map(results.map((r) => [r.creator_id, r.rank]))
+    const inMarket = market.id === NO_MARKET
+      ? [...byCreator.keys()].filter((id) => !(homes || []).some((h) => h.profile_id === id)).map((id) => ({ id, name: subs.find((s) => s.creator_id === id)?.profiles?.name || 'Creator' }))
+      : (homes || []).filter((h) => h.community_id === market.id && h.profiles && h.profiles.status === 'active' && !h.profiles.is_admin && !h.profiles.is_test && !h.profiles.is_vip)
+        .map((h) => h.profiles)
+    return inMarket.map((p) => {
+      const seen = p.last_seen_at ? now - Date.parse(p.last_seen_at) : Infinity
+      return { ...p, ...(byCreator.get(p.id) || { videos: 0, views: 0 }), points: pts.get(p.id) ?? null, rank: rank.get(p.id) ?? null, online: seen < ONLINE_MS, today: seen < TODAY_MS }
+    }).sort((a, b) => (b.videos - a.videos) || (b.views - a.views) || (Number(b.today) - Number(a.today)) || String(a.name).localeCompare(String(b.name)))
+  }, [market, homes, subs, results, now])
+  const counts = {
+    all: people.length,
+    posted: people.filter((p) => p.videos > 0).length,
+    not: people.filter((p) => p.videos === 0).length,
+    active: people.filter((p) => p.videos === 0 && p.today).length,
+  }
+  const shown = people.filter((p) => (filter === 'posted' ? p.videos > 0 : filter === 'not' ? p.videos === 0 : filter === 'active' ? p.videos === 0 && p.today : true))
+  const FILTERS = [['all', 'Everyone'], ['posted', 'Posted'], ['not', 'Not posted'], ['active', 'In the app today, not posted']]
+  return createPortal(
+    <div className="fixed inset-0 z-[90] flex items-end justify-center bg-ink/40 animate-page-in sm:items-center sm:p-6" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose() }}>
+      <div role="dialog" aria-modal="true" className="flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-t-3xl bg-white shadow-lift animate-pop-in sm:rounded-3xl">
+        <div className="flex items-center gap-3 border-b border-gray-100 px-5 py-4">
+          {market.codes?.length ? <FlagTile codes={market.codes} size="h-8 w-8" /> : <span className="text-2xl">🌍</span>}
+          <div className="min-w-0 flex-1">
+            <h2 className="text-lg font-bold">{market.name}</h2>
+            <p className="text-xs text-smoke">{counts.posted} of {counts.all} have posted · {subs.filter((s) => people.some((p) => p.id === s.creator_id)).length} videos</p>
+          </div>
+          <button type="button" onClick={onClose} aria-label="Close" className="rounded-full p-2 text-smoke hover:bg-cloud hover:text-ink">✕</button>
+        </div>
+        <div className="flex gap-1 overflow-x-auto px-5 py-3 scrollbar-none">
+          {FILTERS.map(([k, label]) => (
+            <button key={k} type="button" onClick={() => setFilter(k)} aria-pressed={filter === k}
+              className={cx('shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold transition-colors', filter === k ? 'bg-brand text-white' : 'bg-cloud text-smoke hover:text-ink')}>
+              {label} <span className="ml-0.5 tabular-nums opacity-80">{counts[k]}</span>
+            </button>
+          ))}
+        </div>
+        <ul key={filter} className="min-h-0 flex-1 divide-y divide-gray-50 overflow-y-auto px-5 pb-4 animate-tab-in">
+          {shown.length === 0 && <li className="py-10 text-center text-sm text-smoke">Nobody here.</li>}
+          {shown.map((p) => (
+            <li key={p.id} className="flex items-center gap-3 py-3">
+              <span className="relative shrink-0">
+                <Avatar src={p.photo_url} name={p.name || '?'} size="sm" />
+                {p.online && <span className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full bg-emerald-500 ring-2 ring-white" title="In the app now" />}
+              </span>
+              <div className="min-w-0 flex-1">
+                <Link to={`/profile/${p.id}`} className="block truncate text-sm font-semibold hover:text-brand">{p.name}</Link>
+                <p className="truncate text-xs text-smoke">
+                  {p.videos > 0
+                    ? `${p.videos} ${p.videos === 1 ? 'video' : 'videos'} · ${formatViews(p.views)} views${p.rank ? ` · #${p.rank}` : ''}${scoring === 'points' && p.points != null ? ` · ${p.points} pts` : ''}`
+                    : 'No video yet'}
+                  {p.online ? ' · online now' : p.last_seen_at ? ` · seen ${timeAgo(p.last_seen_at)}` : ''}
+                </p>
+              </div>
+              <Link to={`/messages?to=${p.id}`} className={cx('shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold transition-colors', p.videos === 0 ? 'bg-brand text-white' : 'border border-gray-200 text-smoke hover:border-brand hover:text-brand')}>
+                Message
+              </Link>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </div>,
+    document.body,
   )
 }

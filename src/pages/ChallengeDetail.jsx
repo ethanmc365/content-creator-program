@@ -116,7 +116,7 @@ function parseParticipationPrize(prizes) {
 // same thing as the `participation` computed below, which is the voucher
 // threshold ("post 3+ videos"). Two very different numbers that both wanted the
 // same word.
-export default function ChallengeDetail({ challengeId = null, embedded = false, marketParticipation = null }) {
+export default function ChallengeDetail({ challengeId = null, embedded = false, marketParticipation = null, initialTab = null }) {
   const tr = useT()
   const { id: routeId } = useParams()
   const id = challengeId || routeId
@@ -139,7 +139,7 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
   const [submissions, setSubmissions] = useState(seed?.submissions ?? [])
   const [results, setResults] = useState(seed?.results ?? [])
   const [loading, setLoading] = useState(!seed)
-  const [tab, setTab] = useState('brief') // brief | leaderboard | entries | countries
+  const [tab, setTab] = useState(initialTab || 'brief') // brief | leaderboard | entries | countries
   // THE PAGE KEEPS ITS HEIGHT WHILE A TAB SWAPS (14 Oct 2026). Opening the Country leaderboard from far down the page
   // briefly showed a short skeleton; the page got shorter, the browser pulled the scroll up, then the board landed and
   // it went back down. The page is held at its old height until the new tab has had time to draw.

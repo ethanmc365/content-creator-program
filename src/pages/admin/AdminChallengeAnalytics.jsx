@@ -15,6 +15,9 @@ import { loadMarkets } from '../../lib/markets'
 import { usePrizeStandings } from '../../components/admin/PrizeStandingsPanel'
 import { challengeSpend } from '../../lib/challengeSpend'
 import MarketSplit from '../../components/admin/MarketSplit'
+import AnalyticsTabs from './analytics/AnalyticsTabs'
+import { TABS as ANALYTICS_TABS } from './analytics/tabs'
+import ChallengeDetail from '../ChallengeDetail'
 import ChallengeReach from '../../components/admin/ChallengeReach'
 import EntryPreview from '../../components/challenge/EntryPreview'
 import { useEntryPoints } from '../../lib/entryPoints'
@@ -210,15 +213,6 @@ export default function AdminChallengeAnalytics() {
   const memberCount = new Map()
   for (const m of groupMembers) memberCount.set(m.group_id, (memberCount.get(m.group_id) || 0) + 1)
 
-  // The saved results, split the same way. `results.group_id` is written by
-  // `rebuild_challenge_results`, so this reads the board a row was actually
-  // ranked on rather than re-deriving it from the membership - a creator moved
-  // between groups after the board was built belongs where they were ranked.
-  const resultBoards = groups.length > 0
-    ? [...groups, { id: null, name: 'Not in a group' }]
-      .map((g) => ({ group: g, rows: results.filter((r) => (r.group_id ?? null) === g.id) }))
-      .filter((b) => b.rows.length > 0)
-    : [{ group: null, rows: results }]
 
   function exportSubs() {
     downloadCsv(`${challenge.title}-submissions.csv`, subs.map((s) => ({
@@ -240,6 +234,8 @@ export default function AdminChallengeAnalytics() {
           </div>
         }
       />
+
+      <AnalyticsTabs tabs={ANALYTICS_TABS} active="programme" />
 
       {/* COMBINED OR ONE GROUP. Only on a split challenge. */}
       {groups.length > 0 && (
@@ -426,46 +422,16 @@ export default function AdminChallengeAnalytics() {
            back at the top. ---------- */}
       {challenge.status === 'active' && <ChallengeReach challenge={challenge} />}
 
-      {/* ---------- Leaderboard ---------- */}
-      {results.length > 0 && (
-        <section className="mt-10">
-          <h2 className="mb-4 text-lg font-semibold">
-            {challenge.status === 'active' ? 'Leaderboard right now' : resultBoards.length > 1 ? 'Final leaderboards' : 'Final leaderboard'}
-          </h2>
-          {/* ONE LIST PER BOARD.
-              Ranks are stored per group (migration 154), so a flat list of a
-              two-group challenge's results reads 1, 1, 2 - three rows with two
-              gold medals and no explanation. They are separate contests and
-              they have to be drawn as separate lists. A challenge with no
-              groups produces exactly one list, which is what was here. */}
-          <div className="space-y-6">
-            {resultBoards.map(({ group, rows }) => (
-              <div key={group?.id ?? 'all'}>
-                {group && (
-                  <p className="mb-2 text-sm font-semibold text-brand">{group.name}</p>
-                )}
-                <div className="overflow-hidden rounded-card border border-gray-100 shadow-card">
-                  {rows.map((r) => (
-                    <Link key={r.id} to={`/profile/${r.profiles?.id}`} className="flex items-center gap-4 border-b border-gray-50 px-5 py-3 transition-colors last:border-0 hover:bg-cloud/60 sm:px-7">
-                      <span className={cx('flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold tabular-nums', r.rank <= 3 ? 'bg-brand text-white' : 'bg-cloud text-smoke')}>{r.rank}</span>
-                      <Avatar src={r.profiles?.photo_url} name={r.profiles?.name} size="sm" />
-                      <span className="min-w-0 flex-1 truncate text-sm font-semibold">{r.profiles?.name}</span>
-                      {challenge.scoring === 'points' ? (
-                        <span className="text-right">
-                          <span className="block text-sm font-bold tabular-nums">{Number(r.final_views || 0).toLocaleString()} pts</span>
-                          <span className="block text-[11px] tabular-nums text-smoke">{formatViewsTotal(r.total_views || 0)} views</span>
-                        </span>
-                      ) : (
-                        <span className="text-sm font-bold tabular-nums">{formatViewsTotal(r.final_views)}</span>
-                      )}
-                    </Link>
-                  ))}
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
-      )}
+      {/* ---------- The leaderboard, as creators see it (14 Oct 2026) ----------
+          "It's showing a really plain version of it, but it makes sense to show the actual leaderboard." So it is the
+          creator-facing challenge itself, opened on its leaderboard: podium, groups, the country board on a global
+          challenge, every tab a creator has. */}
+      <section className="mt-10">
+        <h2 className="mb-4 text-lg font-semibold">{challenge.status === 'active' ? 'Leaderboard right now' : 'Final leaderboard'}</h2>
+        <div className="rounded-card border border-gray-100 bg-white p-4 shadow-card sm:p-6">
+          <ChallengeDetail challengeId={id} embedded initialTab="leaderboard" />
+        </div>
+      </section>
 
       {/* ---------- All submissions ----------
           THE SAME CARDS AS THE CHALLENGE'S OWN ENTRIES: the cover with its views and points on it, the creator under it,
