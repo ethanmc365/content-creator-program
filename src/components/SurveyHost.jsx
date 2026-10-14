@@ -300,7 +300,7 @@ export function SurveyCard({ survey, onDone = () => {}, preview = false, stage: 
 const STAR = 'M11.48 3.499a.562.562 0 0 1 1.04 0l2.125 5.111a.563.563 0 0 0 .475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 0 0-.182.557l1.285 5.385a.562.562 0 0 1-.84.61l-4.725-2.885a.563.563 0 0 0-.586 0L6.982 20.54a.562.562 0 0 1-.84-.61l1.285-5.386a.562.562 0 0 0-.182-.557l-4.204-3.602a.563.563 0 0 1 .321-.988l5.518-.442a.563.563 0 0 0 .475-.345L11.48 3.5Z'
 const SPARKS = Array.from({ length: 8 }, (_, k) => {
   const a = (k / 8) * Math.PI * 2
-  return { x: Math.round(Math.cos(a) * 34), y: Math.round(Math.sin(a) * 34), c: ['#fbbf24', '#f59e0b', '#d94407', '#fde68a'][k % 4] }
+  return { x: Math.round(Math.cos(a) * 34), y: Math.round(Math.sin(a) * 34), c: ['#ffd60a', '#fde047', '#fbbf24', '#fff176'][k % 4] }
 })
 const STAR_LABELS = ['Not good', 'Could be better', 'It is okay', 'Good', 'Loved it']
 
@@ -314,9 +314,11 @@ function RatingAnswer({ q, value, onChange }) {
       <svg width="0" height="0" aria-hidden className="absolute">
         <defs>
           <linearGradient id={`${gid}-on`} x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0%" stopColor="#fde047" />
-            <stop offset="45%" stopColor="#f59e0b" />
-            <stop offset="100%" stopColor="#d94407" />
+            {/* BRIGHT YELLOW (14 Oct 2026): the stars ran gold to brand orange and "look really dull ... a really dark
+                colour. It should be like a bright yellow". */}
+            <stop offset="0%" stopColor="#fff176" />
+            <stop offset="55%" stopColor="#ffd60a" />
+            <stop offset="100%" stopColor="#fbbf24" />
           </linearGradient>
         </defs>
       </svg>
@@ -330,7 +332,7 @@ function RatingAnswer({ q, value, onChange }) {
           // 55%, a chosen one at full strength, and only the star you press pops.
           const chosen = (value || 0) >= n
           const lit = shown >= n
-          const bright = chosen && (!hover || hover >= n) ? 1 : lit ? 0.55 : 0
+          const bright = chosen && (!hover || hover >= n) ? 1 : lit ? 0.8 : 0
           return (
             <button
               key={n}
@@ -354,10 +356,10 @@ function RatingAnswer({ q, value, onChange }) {
                 <svg
                   viewBox="0 0 24 24"
                   className="absolute inset-0 h-10 w-10 sm:h-11 sm:w-11"
-                  style={{ opacity: bright, transform: `scale(${bright === 1 ? 1 : 0.92})`, transition: `opacity 260ms ease, transform 260ms ease`, transitionDelay: bright ? `${(n - 1) * 45}ms` : '0ms', filter: bright === 1 ? 'drop-shadow(0 5px 7px rgba(217,68,7,0.35))' : 'none' }}
+                  style={{ opacity: bright, transform: `scale(${bright === 1 ? 1 : 0.92})`, transition: `opacity 260ms ease, transform 260ms ease`, transitionDelay: bright ? `${(n - 1) * 45}ms` : '0ms', filter: bright ? 'drop-shadow(0 4px 10px rgba(251,191,36,0.6))' : 'none' }}
                   aria-hidden
                 >
-                  <path d={STAR} fill={`url(#${gid}-on)`} stroke="#d94407" strokeWidth="0.6" strokeLinejoin="round" />
+                  <path d={STAR} fill={`url(#${gid}-on)`} stroke="#f59e0b" strokeWidth="0.7" strokeLinejoin="round" />
                 </svg>
               </span>
             </button>
@@ -399,7 +401,7 @@ function ScaleAnswer({ q, value, onChange }) {
       </div>
       <div className="mt-4 h-1.5 overflow-hidden rounded-full bg-gray-100">
         <div
-          className={cx('h-full rounded-full bg-gradient-to-r from-brand-light to-brand transition-[width] duration-500 ease-out', value != null && 'survey-shine')}
+          className={cx('h-full rounded-full bg-brand transition-[width] duration-500 ease-out', value != null && 'survey-shine')}
           style={{ width: value == null ? '0%' : `${(value / 10) * 100}%` }}
         />
       </div>
@@ -434,7 +436,7 @@ function YesNoAnswer({ q, value, onChange }) {
             )}
           >
             <span aria-hidden className={cx('absolute inset-0 rounded-2xl border-2 bg-white transition-colors duration-300', on ? 'border-transparent' : 'border-gray-100 group-hover:border-brand/40')} />
-            <span aria-hidden className={cx('absolute inset-0 rounded-2xl bg-gradient-to-br from-brand-light to-brand shadow-card transition-opacity duration-300', on ? 'opacity-100' : 'opacity-0')} />
+            <span aria-hidden className={cx('absolute inset-0 rounded-2xl bg-brand shadow-card transition-opacity duration-300', on ? 'opacity-100' : 'opacity-0')} />
             {on && <span key={value} aria-hidden className="survey-ripple absolute left-1/2 top-1/2 -ml-8 -mt-8 h-16 w-16 rounded-full bg-white/60" />}
             <span className={cx('relative flex h-9 w-9 items-center justify-center rounded-full transition-colors duration-300', on ? 'bg-white/25 text-white' : 'bg-cloud text-smoke group-hover:text-brand')}>
               <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
@@ -469,7 +471,7 @@ function ChoiceAnswer({ q, value, onChange }) {
               on ? 'border-transparent' : 'border-gray-100 hoverable:hover:translate-x-0.5 hoverable:hover:border-brand/40',
             )}
           >
-            <span aria-hidden className={cx('absolute inset-0 origin-left bg-gradient-to-r from-brand to-brand-light transition-transform duration-400 ease-out', on ? 'scale-x-100' : 'scale-x-0')} />
+            <span aria-hidden className={cx('absolute inset-0 origin-left bg-brand transition-transform duration-400 ease-out', on ? 'scale-x-100' : 'scale-x-0')} />
             <span className={cx('relative flex h-6 w-6 shrink-0 items-center justify-center border-2 transition-all duration-300', multi ? 'rounded-md' : 'rounded-full', on ? 'scale-110 border-white bg-white text-brand' : 'border-gray-300')}>
               {on && <Icon name="check" className="survey-pop h-3.5 w-3.5" strokeWidth={3} />}
             </span>
