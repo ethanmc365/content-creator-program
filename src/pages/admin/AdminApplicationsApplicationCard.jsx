@@ -151,6 +151,20 @@ export function ApplicationCard({
             )}
           </div>
 
+          {/* THE ONBOARDING CALL (migration 413), for a market that requires one: ticked = they say they booked it,
+              opened = they looked at the booking page and did not tick. */}
+          {(app.onboarding_call_booked_at || app.onboarding_call_opened_at) && (
+            <div className="mt-2.5">
+              <span className={cx('inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold',
+                app.onboarding_call_booked_at ? 'bg-brand text-white' : 'bg-cloud text-smoke')}>
+                <Icon name="calendar" className="h-3.5 w-3.5" />
+                {app.onboarding_call_booked_at
+                  ? `Booked their onboarding call · ${new Date(app.onboarding_call_booked_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}`
+                  : 'Opened the booking page, has not booked'}
+              </span>
+            </div>
+          )}
+
           {/* LANGUAGES: THE FIRST ONE IS THEIR MAIN LANGUAGE. The orange meant "spoken in one of our markets", which
               nobody could guess. Now the one colour means the one thing a reader expects: the language they picked FIRST
               is their main language, solid and labelled; the rest are grey. Which market a language points at is still

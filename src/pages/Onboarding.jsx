@@ -29,6 +29,7 @@ import { MarketCard } from './OnboardingMarketCard'
 import { OtherLinks } from './OnboardingOtherLinks'
 import { BucketList } from './OnboardingBucketList'
 import { Review } from './OnboardingReview'
+import OnboardingCall from './OnboardingCall'
 
 export default function Onboarding() {
   const tr = useT()
@@ -55,7 +56,13 @@ export default function Onboarding() {
   const [done, setDone] = useState(false)
 
   const [draft, setDraft] = useState(() => {
-    if (demo) return prefilled ? { ...DEMO_DRAFT } : { ...EMPTY, name: 'Alex Test' }
+    // `?country=ES` walks the demo as an applicant from that country, so the team can see a market's own steps (the
+    // Spanish onboarding call) from Applications > Sign-up.
+    if (demo) {
+      const cc = (params.get('country') || '').toUpperCase()
+      const base = prefilled ? { ...DEMO_DRAFT } : { ...EMPTY, name: 'Alex Test' }
+      return cc ? { ...base, country_code: cc, country: new Intl.DisplayNames(['en'], { type: 'region' }).of(cc) || cc } : base
+    }
     return {
       ...EMPTY,
       name: auth.profile?.name || '',
@@ -292,8 +299,31 @@ export default function Onboarding() {
     return () => { alive = false }
   }, [vipApplication, demo, draft.country_code])
 
-  const steps = useMemo(() => stepsFor(teamApplication), [teamApplication])
-  const problems = draftProblems(draft, contact, { team: teamApplication })
+  // THE MARKET'S ONBOARDING CALL (migration 413). Spain switches it on: a new Spanish creator books 15 minutes with
+  // Marta before review. Never for the team, a VIP sign-up, or somebody already in.
+  const [signupCalls, setSignupCalls] = useState([])
+  useEffect(() => {
+    let alive = true
+    marketsApi.signupCalls().then(({ data }) => { if (alive) setSignupCalls(data || []) })
+    return () => { alive = false }
+  }, [])
+  const call = (!teamApplication && !vipApplication && pending && market.market)
+    ? signupCalls.find((c) => c.community_id === market.market.id) || null
+    : null
+  const [callOpened, setCallOpened] = useState(() => !!auth.profile?.onboarding_call_opened_at)
+  const [callBooked, setCallBooked] = useState(() => !demo && !!auth.profile?.onboarding_call_booked_at)
+  const markCall = (state) => { if (!demo) marketsApi.onboardingCallMark({ p_state: state }) }
+
+  const steps = useMemo(() => {
+    const list = stepsFor(teamApplication)
+    if (!call) return list
+    const at = list.findIndex((st) => st.key === 'review')
+    return [...list.slice(0, at), { key: 'call', title: 'Onboarding call', part: 'Finish', need: true }, ...list.slice(at)]
+  }, [teamApplication, call])
+  const problems = [
+    ...draftProblems(draft, contact, { team: teamApplication }),
+    ...(call && !callBooked ? [{ step: 'call', text: 'Book your onboarding call' }] : []),
+  ]
   const problemsFor = (key) => problems.filter((p) => p.step === key)
   const complete = problems.length === 0
 
@@ -763,6 +793,16 @@ export default function Onboarding() {
                 </div>
                 {!teamApplication && <BucketList rows={draft.bucket_list} onChange={(bucket_list) => set({ bucket_list })} />}
               </div>
+            )}
+
+            {current.key === 'call' && call && (
+              <OnboardingCall
+                call={call}
+                opened={callOpened}
+                booked={callBooked}
+                onOpen={() => { setCallOpened(true); markCall('opened') }}
+                onBooked={(yes) => { setError(''); setCallBooked(yes); markCall(yes ? 'booked' : 'unbooked') }}
+              />
             )}
 
             {current.key === 'review' && (

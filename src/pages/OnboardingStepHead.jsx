@@ -24,6 +24,7 @@ export function StepHead({ step, pending, team = false }) {
     extras: team
       ? ['Add some travel photos', 'Totally optional. A few photos make your profile feel like yours on the team page. Press Continue to skip.']
       : ['Your travels', ''],
+    call: ['Book your onboarding call', 'One last step: a short call to welcome you in.'],
     review: [pending ? 'Ready to submit' : 'Almost done', 'Check it over. You can change any of it later from your profile.'],
   }
   const [title, sub] = COPY[step.key] || [step.title, '']

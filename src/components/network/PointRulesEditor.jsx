@@ -496,7 +496,12 @@ function AddBonus({ onAdd }) {
 // out from the challenge's own dates, so "Week 2" means the same thing here as
 // it does to a creator), or two dates. It counts for entries SUBMITTED inside
 // the window, and ending it early keeps every point already earned.
-const dayMonth = (iso) => new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
+// The year is said whenever it is not this one, so a typo'd 2029 is visible at a glance (14 Oct 2026: a bonus saved
+// ending "14 Oct" was really 14 Oct 2029).
+const dayMonth = (iso) => {
+  const d = new Date(iso)
+  return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', ...(d.getFullYear() !== new Date().getFullYear() ? { year: 'numeric' } : null) })
+}
 const toLocalYmd = (iso) => {
   if (!iso) return ''
   const d = new Date(iso)
@@ -519,6 +524,7 @@ function BonusWindow({ rule, onChange, weeks }) {
     { value: 'custom', label: tr('Pick the dates') },
   ]
   const state = ruleWindowState(rule)
+  const bounds = { min: weeks.length ? toLocalYmd(weeks[0].starts_at) : undefined, max: weeks.length ? toLocalYmd(weeks[weeks.length - 1].ends_at) : undefined }
   const STATE = {
     upcoming: { text: tr('Starts {d}', { d: rule.starts_at ? dayMonth(rule.starts_at) : '' }), cls: 'bg-white text-smoke ring-1 ring-gray-200' },
     live: { text: rule.ends_at ? tr('Running, ends {d}', { d: dayMonth(rule.ends_at) }) : tr('Running'), cls: 'bg-brand text-white' },
@@ -549,19 +555,25 @@ function BonusWindow({ rule, onChange, weeks }) {
         />
         {choice === 'custom' && (
           <div className="mt-2 grid grid-cols-2 gap-2">
+            {/* INSIDE THE CHALLENGE, ALWAYS. The challenge's first and last day bound both fields, so a typed year
+                that is out by three shows an error instead of saving a bonus that "runs until Sunday" in 2029. */}
             <DateField
               id={`bonus-from-${rule.id}`}
               label={tr('From')}
               value={toLocalYmd(rule.starts_at)}
+              min={bounds.min}
+              max={bounds.max}
               onChange={(ymd) => onChange({ ...rule, starts_at: dayStart(ymd) })}
+              futureError={tr('Pick a day inside the challenge.')}
             />
             <DateField
               id={`bonus-until-${rule.id}`}
               label={tr('Until the end of')}
               value={toLocalYmd(rule.ends_at)}
-              min={toLocalYmd(rule.starts_at) || undefined}
+              min={toLocalYmd(rule.starts_at) || bounds.min}
+              max={bounds.max}
               onChange={(ymd) => onChange({ ...rule, ends_at: dayEnd(ymd) })}
-              futureError="The bonus would end before it starts."
+              futureError={tr('Pick a day inside the challenge, after the start.')}
             />
           </div>
         )}

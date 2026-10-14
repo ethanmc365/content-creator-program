@@ -1,6 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 import { cx } from '../lib/utils'
 import { useT } from '../lib/i18n'
+import Icon from './Icon'
+import CalendarPicker from './CalendarPicker'
+import { Floating } from './ui'
 
 // TYPED DATES AND TIMES, WITHOUT THE NATIVE CONTROL.
 //
@@ -91,10 +94,11 @@ function Part({ id, label, value, onChange, onOverflow, onBack, width, max, inpu
   )
 }
 
-const Frame = ({ children, invalid, id, label, hint, error, onMouseDown }) => (
+const Frame = ({ children, invalid, id, label, hint, error, onMouseDown, frameRef }) => (
   <div>
     {label && <label htmlFor={id} className="label">{label}</label>}
     <div
+      ref={frameRef}
       onMouseDown={onMouseDown}
       className={cx(
         'flex w-full items-center gap-0.5 rounded-xl border bg-white px-3.5 py-2.5 transition-colors',
@@ -160,10 +164,32 @@ export function DateField({ id, label, value, onChange, max, min, hint, futureEr
   const tooEarly = value && min && value < min
   const bad = tooLate || tooEarly
 
+  // TYPE IT, OR PICK IT (14 Oct 2026). The calendar button at the end of the box opens a month to click a day on.
+  const frameRef = useRef(null)
+  const popRef = useRef(null)
+  const [cal, setCal] = useState(false)
+  useEffect(() => {
+    if (!cal) return undefined
+    const away = (e) => {
+      if (frameRef.current?.contains(e.target) || popRef.current?.contains(e.target)) return
+      setCal(false)
+    }
+    const esc = (e) => { if (e.key === 'Escape') setCal(false) }
+    document.addEventListener('pointerdown', away, true)
+    document.addEventListener('keydown', esc)
+    return () => { document.removeEventListener('pointerdown', away, true); document.removeEventListener('keydown', esc) }
+  }, [cal])
+  const pick = (iso) => {
+    setCal(false)
+    if (!iso) { setD(''); setM(''); setY(''); return }
+    setD(iso.slice(8, 10)); setM(iso.slice(5, 7)); setY(iso.slice(0, 4))
+  }
+
   return (
     <Frame
-      id={`${id}-d`} label={label} hint={hint} invalid={bad}
+      id={`${id}-d`} label={label} hint={hint} invalid={bad} frameRef={frameRef}
       onMouseDown={(e) => {
+        if (e.target.closest?.('[data-cal-btn]')) return
         const first = focusFirstUnfinished([dRef, mRef, yRef], [2, 2, 4])
         if (!first || first === e.target) return
         e.preventDefault()
@@ -180,6 +206,14 @@ export function DateField({ id, label, value, onChange, max, min, hint, futureEr
       <span className="text-gray-300">/</span>
       <Part id={`${id}-y`} inputRef={yRef} label={tr("YYYY")} max={4} width="w-12" value={y}
         onChange={setY} onBack={() => mRef.current?.focus()} />
+      <button type="button" data-cal-btn onClick={() => setCal((o) => !o)} aria-label={tr('Pick from a calendar')} aria-expanded={cal}
+        className={cx('-my-1 -mr-1.5 ml-auto flex h-8 w-8 shrink-0 items-center justify-center rounded-lg transition-colors',
+          cal ? 'text-brand' : 'text-gray-400 hoverable:hover:text-brand')}>
+        <Icon name="calendar" className="h-[18px] w-[18px]" />
+      </button>
+      <Floating anchor={frameRef} open={cal} innerRef={popRef} offset={6} estimate={340}>
+        <CalendarPicker value={value} min={min} max={max} onPick={pick} />
+      </Floating>
     </Frame>
   )
 }

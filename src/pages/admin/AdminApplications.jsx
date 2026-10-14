@@ -18,6 +18,7 @@ import { teamApi } from '../../api/team'
 import { appliedAt, marketLanguages } from './AdminApplicationsParts'
 import { ApplicationCard } from './AdminApplicationsApplicationCard'
 import { UnfinishedCard } from './AdminApplicationsUnfinishedCard'
+import SignupSettings from '../../components/admin/SignupSettings'
 
 export default function AdminApplications() {
   const [apps, setApps] = useState(null)
@@ -43,7 +44,7 @@ export default function AdminApplications() {
   //   here, so it is a separate list rather than a filter on the same one.
   // ?tab=markets is where a market request's notification lands (migration 378).
   const [params] = useSearchParams()
-  const [bucket, setBucket] = useState(() => (params.get('tab') === 'markets' ? 'markets' : 'applied'))
+  const [bucket, setBucket] = useState(() => (['markets', 'signup'].includes(params.get('tab')) ? params.get('tab') : 'applied'))
   const [marketAsks, reloadMarketAsks] = usePendingMarketRequests()
   const [zoom, setZoom] = useState(null)
   // The thumbnail that was pressed, so the photo grows out of it (PhotoLightbox).
@@ -444,6 +445,7 @@ export default function AdminApplications() {
         ['applied', 'Waiting on you', counts.applied],
         ['incomplete', 'Never finished', counts.incomplete],
         ['markets', 'Market requests', marketAsks ?? 0],
+        ['signup', 'Sign-up', null],
       ].map(([key, label, n]) => (
         <button
           key={key}
@@ -457,13 +459,24 @@ export default function AdminApplications() {
         >
           {key === 'markets' && <Icon name="globe" className="mr-1.5 inline h-4 w-4 -translate-y-px text-brand" />}
           {label}
-          {key === 'markets' && n > 0
+          {key === 'signup' && <Icon name="sliders" className="mr-1.5 inline h-4 w-4 -translate-y-px text-brand" />}
+          {n == null ? null : key === 'markets' && n > 0
             ? <span className="ml-1.5 inline-flex min-w-5 items-center justify-center rounded-full bg-brand px-1.5 text-[11px] font-bold tabular-nums text-white animate-pop-in">{n}</span>
             : <span className={cx('ml-1.5 tabular-nums', bucket === key ? 'text-brand' : 'text-gray-400')}>{n}</span>}
         </button>
       ))}
     </div>
   ) : null
+
+  if (bucket === 'signup') {
+    return (
+      <div className="page max-w-4xl">
+        <PageHeader back="/admin" title="Applications" />
+        {bucketSwitch}
+        <div key="signup" className="animate-tab-in"><SignupSettings /></div>
+      </div>
+    )
+  }
 
   if (bucket === 'markets') {
     return (

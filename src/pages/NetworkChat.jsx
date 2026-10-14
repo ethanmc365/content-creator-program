@@ -838,6 +838,20 @@ export default function NetworkChat() {
   }, [visible, openedReadAt, search, user?.id])
   const unreadSince = firstUnread ? visible.filter((m) => m.created_at >= firstUnread.created_at && m.sender_id !== user?.id).length : 0
   const [farFromEnd, setFarFromEnd] = useState(false)
+  // WHICH WAY THE NEW MESSAGES ARE. The pointer used to be a fixed up-arrow, so once you scrolled above the "New
+  // messages" line it still pointed up at something that was now below you. 'up' / 'down' while the line is off
+  // screen, null while it is in view (the line itself is the pointer then).
+  const [unreadDir, setUnreadDir] = useState('up')
+  const measureUnread = useCallback(() => {
+    const el = scrollerRef.current
+    const row = firstUnread && document.getElementById(`msg-${firstUnread.id}`)
+    if (!el || !row) return
+    const box = el.getBoundingClientRect()
+    const r = row.getBoundingClientRect()
+    const next = r.bottom < box.top + 8 ? 'up' : r.top > box.bottom - 8 ? 'down' : null
+    setUnreadDir((d) => (d === next ? d : next))
+  }, [firstUnread])
+  useEffect(() => { const t = setTimeout(measureUnread, 400); return () => clearTimeout(t) }, [measureUnread])
   const scrollToMessage = useCallback((id) => {
     const el = scrollerRef.current
     const row = document.getElementById(`msg-${id}`)
@@ -880,6 +894,7 @@ export default function NetworkChat() {
     // the pin itself, or by content growing under it, was being read as "they scrolled up" and it switched the pin off
     // for the rest of the room's life. The thread is at opacity-0 for the whole of that window - there is nothing on
     // screen for anybody to have scrolled.
+    if (firstUnread) measureUnread()
     if (!isPinning(el)) {
       atBottomRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80
       const far = el.scrollHeight - el.scrollTop - el.clientHeight > 600
@@ -1200,12 +1215,12 @@ export default function NetworkChat() {
         )}>
           <RoomSearch value={search} onChange={setSearch} count={visible.length} total={messages.length} />
           {/* THE ROOM'S OWN CONTROLS, ON THE RIGHT. */}
-          {!search && (firstUnread || farFromEnd) && (
+          {!search && ((firstUnread && unreadDir) || farFromEnd) && (
             <span className="order-last ml-auto flex shrink-0 items-center gap-1.5">
-              {firstUnread && (
+              {firstUnread && unreadDir && (
                 <button type="button" onClick={() => scrollToMessage(firstUnread.id)}
                   className="inline-flex items-center gap-1.5 rounded-full bg-brand px-3 py-1 text-[12px] font-bold text-white shadow-card transition-transform duration-200 animate-pop-in hoverable:hover:-translate-y-px">
-                  <Icon name="chevronUp" className="h-3.5 w-3.5" />{unreadSince === 1 ? tr('1 new message') : tr('{n} new messages', { n: unreadSince })}
+                  <Icon name={unreadDir === 'down' ? 'chevronDown' : 'chevronUp'} className="h-3.5 w-3.5" />{unreadSince === 1 ? tr('1 new message') : tr('{n} new messages', { n: unreadSince })}
                 </button>
               )}
               {farFromEnd && (
@@ -1245,6 +1260,9 @@ export default function NetworkChat() {
         editingId={editingId}
         farFromEnd={farFromEnd}
         firstUnread={firstUnread}
+        unreadDir={unreadDir}
+        unreadSince={unreadSince}
+        onJumpUnread={() => firstUnread && scrollToMessage(firstUnread.id)}
         introOf={introOf}
         introducing={introducing}
         isAdmin={isAdmin}

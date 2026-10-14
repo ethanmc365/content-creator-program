@@ -9,6 +9,8 @@ export const makeMarketsApi = (db = supabase) => ({
   communityStandings: () => db.from('community_standings'),
   kpiTargets: () => db.from('kpi_targets'),
   marketJoinRequests: () => db.from('market_join_requests'),
+  marketSignupSettings: () => db.from('market_signup_settings'),
+  adminSetSignupCall: (args, opts) => db.rpc('admin_set_signup_call', args, opts),
   askJoinRequestDetails: (args, opts) => db.rpc('ask_join_request_details', args, opts),
   createMarket: (args, opts) => db.rpc('create_market', args, opts),
   decideJoinRequest: (args, opts) => db.rpc('decide_join_request', args, opts),
@@ -23,6 +25,8 @@ export const makeMarketsApi = (db = supabase) => ({
   requestJoinMarket: (args, opts) => db.rpc('request_join_market', args, opts),
   setMarketLeads: (args, opts) => db.rpc('set_market_leads', args, opts),
   setMarketRetired: (args, opts) => db.rpc('set_market_retired', args, opts),
+  signupCalls: (args, opts) => db.rpc('signup_calls', args, opts),
+  onboardingCallMark: (args, opts) => db.rpc('onboarding_call_mark', args, opts),
   /** A function in this area chosen at run time. */
   call: (fn, args, opts) => db.rpc(fn, args, opts),
 })

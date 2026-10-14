@@ -1,0 +1,162 @@
+import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
+import Icon from '../Icon'
+import { Select, Skeleton } from '../ui'
+import { cx } from '../../lib/utils'
+import { notice } from '../../lib/confirm'
+import { marketsApi } from '../../api/markets'
+import { profilesApi } from '../../api/profiles'
+import { flagFromIso } from '../../lib/flags'
+import OnboardingCall from '../../pages/OnboardingCall'
+import PhoneFrame from './PhoneFrame'
+
+// APPLICATIONS > SIGN-UP (14 Oct 2026). Everything about joining that the team sets per market, starting with the
+// onboarding call: Spain sends every new creator to book 15 minutes with Marta before review. Switch it on for another
+// market (UK, Germany) when somebody there can take the calls. Each market previews exactly what an applicant sees,
+// and "Walk the sign-up" opens the real flow as an applicant from that country, with nothing saved.
+export default function SignupSettings() {
+  const [markets, setMarkets] = useState(null)
+  const [rows, setRows] = useState({})
+  const [team, setTeam] = useState([])
+  const [open, setOpen] = useState(null)
+
+  async function load() {
+    const [{ data: m }, { data: s }, { data: t }] = await Promise.all([
+      marketsApi.communities().select('id, slug, name, kind, country_codes, retired_at').eq('kind', 'chapter').is('retired_at', null).order('name'),
+      marketsApi.marketSignupSettings().select('*'),
+      profilesApi.profiles().select('id, name, photo_url, role_title').eq('is_admin', true).eq('is_test', false).order('name'),
+    ])
+    setMarkets(m || [])
+    setRows(Object.fromEntries((s || []).map((r) => [r.community_id, r])))
+    setTeam(t || [])
+  }
+  useEffect(() => { load() }, [])
+
+  if (!markets) return <div className="space-y-3"><Skeleton className="h-20" /><Skeleton className="h-20" /><Skeleton className="h-20" /></div>
+
+  return (
+    <div className="space-y-4">
+      <div className="rounded-card border border-gray-100 bg-white p-5 shadow-card">
+        <h2 className="font-semibold">Onboarding call</h2>
+        <p className="mt-1 text-sm text-smoke">
+          A market with a call switched on adds one last required step to sign-up: book a short call with the host, then tick
+          that it is booked. The application card shows who opened the booking page and who ticked it.
+        </p>
+        <p className="mt-2 text-xs text-smoke">
+          The welcome email sent after approval is edited in <Link to="/admin/email" className="font-semibold text-brand hover:underline">Emails</Link>.
+        </p>
+      </div>
+      {markets.map((m, i) => (
+        <MarketRow key={m.id} market={m} row={rows[m.id]} team={team} i={i}
+          open={open === m.id} onToggle={() => setOpen((o) => (o === m.id ? null : m.id))} onSaved={load} />
+      ))}
+    </div>
+  )
+}
+
+function MarketRow({ market, row, team, open, onToggle, onSaved, i }) {
+  const [draft, setDraft] = useState(() => ({
+    enabled: !!row?.call_enabled, url: row?.call_url || '', minutes: row?.call_minutes || 15,
+    host: row?.host_profile_id || '', note: row?.note || '',
+  }))
+  const [busy, setBusy] = useState(false)
+  const host = team.find((p) => p.id === draft.host)
+  const on = !!row?.call_enabled
+  const country = (market.country_codes || [])[0]
+  const urlOk = !draft.url || /^https?:\/\//i.test(draft.url.trim())
+
+  async function save() {
+    if (draft.enabled && !draft.url.trim()) { await notice('Add the booking link before switching the call on.'); return }
+    if (!urlOk) { await notice('The booking link has to start with https://'); return }
+    setBusy(true)
+    const { error } = await marketsApi.adminSetSignupCall({
+      p_community: market.id, p_enabled: draft.enabled, p_url: draft.url.trim() || null,
+      p_minutes: Number(draft.minutes) || 15, p_host: draft.host || null, p_note: draft.note,
+    })
+    setBusy(false)
+    if (error) { await notice(`Could not save: ${error.message}`); return }
+    onSaved()
+  }
+
+  return (
+    <section className="overflow-hidden rounded-card border border-gray-100 bg-white shadow-card animate-rise" style={{ animationDelay: `${i * 40}ms` }}>
+      <button type="button" onClick={onToggle} aria-expanded={open} className="flex w-full items-center gap-3 px-5 py-4 text-left">
+        <span className="text-2xl leading-none">{flagFromIso(country) || '🌍'}</span>
+        <span className="min-w-0 flex-1">
+          <span className="block font-semibold">{market.name}</span>
+          <span className="block truncate text-xs text-smoke">
+            {on ? `Onboarding call on · ${row.call_minutes} min${host ? ` with ${host.name}` : ''}` : 'No onboarding call'}
+          </span>
+        </span>
+        <span className={cx('rounded-full px-2.5 py-1 text-[11px] font-bold', on ? 'bg-brand text-white' : 'bg-cloud text-smoke')}>{on ? 'On' : 'Off'}</span>
+        <Icon name="chevronDown" className={cx('h-4 w-4 text-smoke transition-transform duration-200', open && 'rotate-180')} />
+      </button>
+      {open && (
+        <div className="grid gap-6 border-t border-gray-50 p-5 animate-tab-in lg:grid-cols-[minmax(0,1fr)_300px]">
+          <div className="space-y-4">
+            <label className="flex items-center justify-between gap-3 rounded-xl bg-cloud/60 px-4 py-3">
+              <span>
+                <span className="block text-sm font-semibold">Require an onboarding call</span>
+                <span className="block text-xs text-smoke">New applicants from {market.name} must book it before they can submit.</span>
+              </span>
+              <button type="button" role="switch" aria-checked={draft.enabled} onClick={() => setDraft((d) => ({ ...d, enabled: !d.enabled }))}
+                className={cx('relative h-7 w-12 shrink-0 rounded-full transition-colors', draft.enabled ? 'bg-brand' : 'bg-gray-200')}>
+                <span className={cx('absolute top-1 h-5 w-5 rounded-full bg-white shadow transition-transform', draft.enabled ? 'translate-x-6' : 'translate-x-1')} />
+              </button>
+            </label>
+            <div>
+              <label className="label" htmlFor={`call-url-${market.id}`}>Booking link</label>
+              <input id={`call-url-${market.id}`} className="input" value={draft.url} placeholder="https://calendar.google.com/calendar/appointments/..."
+                onChange={(e) => setDraft((d) => ({ ...d, url: e.target.value }))} />
+              {!urlOk && <p className="mt-1 text-[11px] font-medium text-brand">Starts with https://</p>}
+              {draft.url && urlOk && (
+                <a href={draft.url} target="_blank" rel="noopener noreferrer" className="mt-1 inline-flex items-center gap-1 text-xs font-semibold text-brand hover:underline">
+                  Test the link <Icon name="link" className="h-3 w-3" />
+                </a>
+              )}
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div>
+                <span className="label">Who they meet</span>
+                <Select value={draft.host} onChange={(v) => setDraft((d) => ({ ...d, host: v }))} className="w-full" ariaLabel="Host"
+                  options={[{ value: '', label: 'Nobody named' }, ...team.map((p) => ({ value: p.id, label: p.role_title ? `${p.name} · ${p.role_title}` : p.name }))]} />
+              </div>
+              <div>
+                <span className="label">Length</span>
+                <Select value={String(draft.minutes)} onChange={(v) => setDraft((d) => ({ ...d, minutes: Number(v) }))} className="w-full" ariaLabel="Length" search={false}
+                  options={[10, 15, 20, 30, 45].map((n) => ({ value: String(n), label: `${n} minutes` }))} />
+              </div>
+            </div>
+            <div>
+              <label className="label" htmlFor={`call-note-${market.id}`}>Extra line for applicants (optional)</label>
+              <textarea id={`call-note-${market.id}`} rows={2} className="input" value={draft.note}
+                placeholder="Shown under the explanation. Applicants read it in their own language."
+                onChange={(e) => setDraft((d) => ({ ...d, note: e.target.value }))} />
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <button type="button" onClick={save} disabled={busy} className="btn-primary">{busy ? 'Saving…' : 'Save'}</button>
+              {country && (
+                <a href={`/onboarding?demo=1&prefill=full&country=${country}`} target="_blank" rel="noopener noreferrer" className="btn-secondary">
+                  <Icon name="eye" className="h-4 w-4" /> Walk the sign-up as an applicant
+                </a>
+              )}
+            </div>
+            {on && draft.enabled && <p className="text-xs text-smoke">The walk-through uses what is saved. Save first to see changes there.</p>}
+          </div>
+          <div>
+            <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-smoke">What applicants see</p>
+            <PhoneFrame>
+              <div className="p-4">
+                <h3 className="mb-1 text-center text-lg font-bold">Book your onboarding call</h3>
+                <p className="mb-4 text-center text-xs text-smoke">One last step: a short call to welcome you in.</p>
+                <OnboardingCall preview
+                  call={{ call_url: draft.url, call_minutes: draft.minutes, note: draft.note, host_name: host?.name, host_photo_url: host?.photo_url, host_title: host?.role_title }}
+                  opened={false} booked={false} />
+              </div>
+            </PhoneFrame>
+          </div>
+        </div>
+      )}
+    </section>
+  )
+}

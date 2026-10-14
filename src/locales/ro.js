@@ -4929,7 +4929,7 @@ export default {
   'Working right now': 'Ce merge acum',
   'Workshop': 'Atelier',
   'World map of countries visited': 'Harta lumii cu țările vizitate',
-  'Worldwide': 'La nivel mondial',
+  'Worldwide': 'Global',
   'Worldwide and markets': 'Worldwide și piețe',
   'Worldwide community': 'Comunitatea mondială',
   'Worldwide community only for now. No market covers {country} yet.': 'Deocamdată doar comunitatea mondială. Nicio piață nu acoperă încă {country}.',

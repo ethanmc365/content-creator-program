@@ -578,7 +578,7 @@ export default function AppLayout() {
   // Desktop nav item: icon on top of label, matching the mobile tab bar.
   const navLinkClass = (to) =>
     cx(
-      'relative flex flex-col items-center gap-0.5 rounded-xl px-4 py-1.5 text-[11px] font-medium transition-colors',
+      'relative flex flex-col items-center gap-0.5 whitespace-nowrap rounded-xl px-4 py-1.5 text-[11px] font-medium transition-colors',
       currentTab === to ? 'text-brand' : 'text-smoke hover:text-ink'
     )
 
@@ -1005,7 +1005,7 @@ export default function AppLayout() {
               to={tab.to}
               data-tour={tourAnchor(tab.to)}
               className={cx(
-                'relative flex flex-1 flex-col items-center gap-1 rounded-xl px-1 py-1 text-[10px] font-medium',
+                'relative flex min-w-0 flex-1 flex-col items-center gap-1 whitespace-nowrap rounded-xl px-1 py-1 text-[10px] font-medium',
                 currentTab === tab.to ? 'text-brand' : 'text-smoke',
               )}
             >
@@ -1028,7 +1028,9 @@ export default function AppLayout() {
                   </span>
                 )}
               </span>
-              {tr(tab.label)}
+              {/* ONE LINE, ALWAYS. Romanian's "La nivel mondial" wrapped every tab onto two lines (Maxi). The label is cut
+                  with an ellipsis rather than ever wrapping; navLabels.test.js keeps every translation short enough. */}
+              <span className="block max-w-full truncate">{tr(tab.label)}</span>
             </NavLink>
           ))}
         </div>

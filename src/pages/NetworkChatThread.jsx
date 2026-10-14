@@ -28,6 +28,9 @@ export default function NetworkChatThread({
   editingId,
   farFromEnd,
   firstUnread,
+  unreadDir,
+  unreadSince = 0,
+  onJumpUnread,
   introOf,
   introducing,
   isAdmin,
@@ -464,6 +467,17 @@ export default function NetworkChatThread({
       )}
     </div>
 
+    {/* THE NEW MESSAGES, on a phone: a pill pointing the way they actually are (up or down), gone once the line is
+        on screen. The desktop bar has its own. */}
+    {firstUnread && unreadDir && !search && (
+      <div className="pointer-events-none absolute inset-x-0 top-3 z-10 flex justify-center lg:hidden">
+        <button type="button" onClick={onJumpUnread}
+          className="pointer-events-auto inline-flex items-center gap-1.5 rounded-full bg-brand px-3.5 py-2 text-[12px] font-bold text-white shadow-lift animate-pop-in active:scale-95">
+          <Icon name={unreadDir === 'down' ? 'chevronDown' : 'chevronUp'} className="h-4 w-4" />
+          {unreadSince === 1 ? tr('1 new message') : tr('{n} new messages', { n: unreadSince })}
+        </button>
+      </div>
+    )}
     {/* BACK TO THE LATEST, on a phone (the desktop bar has its own button). */}
     {farFromEnd && !search && (
       <div className="pointer-events-none absolute inset-x-0 bottom-3 z-10 flex justify-center lg:hidden">
