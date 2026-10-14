@@ -1,7 +1,5 @@
-import { useEffect, useId, useRef } from 'react'
-import { motion } from 'motion/react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { cx } from '../../lib/utils'
-import { SPRING } from '../../lib/motion'
 
 // A segmented control: every option visible, the current one obvious.
 //
@@ -31,11 +29,24 @@ import { SPRING } from '../../lib/motion'
 // hidden overflow outside it, so nothing is clipped by a parent; each tab is a rounded square and the one that is on is
 // scrolled into view. AS WIDE AS ITS TABS: "the grey bar shouldn't be fully expanded unless there are actually more
 // markets" - it ends after the last tab, and scrolls only once the tabs are wider than the page.
-export default function Segmented({ value, onChange, options, size = 'md', id, label, className, shape = 'pill' }) {
+export default function Segmented({ value, onChange, options, size = 'md', label, className, shape = 'pill' }) {
   const tabs = shape === 'tabs'
-  const autoId = useId()
-  const key = id || autoId
   const root = useRef(null)
+  // THE PICKED PILL SLIDES INSIDE ITS OWN ROW (14 Oct 2026). It was a shared-layout animation, which measures against
+  // the whole page: inside a card that was itself still animating in (or a list re-rendering beneath it) the pill
+  // "jumps all over the place" (Money > Every balance). Now it is one span positioned from the picked button's own
+  // offset in this row, so nothing outside the row can move it.
+  const [pill, setPill] = useState(null)
+  useLayoutEffect(() => {
+    const measure = () => {
+      const el = root.current?.querySelector('[aria-checked="true"]')
+      if (el) setPill({ left: el.offsetLeft, top: el.offsetTop, width: el.offsetWidth, height: el.offsetHeight })
+    }
+    measure()
+    const t = setTimeout(measure, 250)
+    window.addEventListener('resize', measure)
+    return () => { clearTimeout(t); window.removeEventListener('resize', measure) }
+  }, [value, options.length])
   // A LONG CONTROL IN A SCROLLING ROW (the VIP tabs on a phone) must show which option is on. Only the row's own
   // horizontal scroll moves - never the page - and only when the row actually overflows.
   useEffect(() => {
@@ -44,7 +55,7 @@ export default function Segmented({ value, onChange, options, size = 'md', id, l
     if (!el || !row || row.scrollWidth <= row.clientWidth + 1) return
     const a = el.getBoundingClientRect()
     const b = row.getBoundingClientRect()
-    row.scrollLeft += a.left - b.left - (b.width - a.width) / 2
+    row.scrollTo({ left: row.scrollLeft + a.left - b.left - (b.width - a.width) / 2 })
   }, [value, tabs])
   return (
     <div
@@ -52,11 +63,16 @@ export default function Segmented({ value, onChange, options, size = 'md', id, l
       role="radiogroup"
       aria-label={label}
       className={cx(
+        'relative',
         tabs ? 'scrollbar-none inline-flex w-auto max-w-full overflow-x-auto rounded-xl bg-cloud p-1 align-top' : 'inline-flex rounded-full bg-cloud p-1',
         size === 'sm' ? 'gap-0.5' : 'gap-1',
         className,
       )}
     >
+      {pill && (
+        <span aria-hidden className={cx('pointer-events-none absolute left-0 top-0 bg-brand shadow-card transition-[transform,width,height] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]', tabs ? 'rounded-lg' : 'rounded-full')}
+          style={{ width: pill.width, height: pill.height, transform: `translate(${pill.left}px, ${pill.top}px)` }} />
+      )}
       {options.map((o) => {
         const on = value === o.value
         return (
@@ -74,13 +90,7 @@ export default function Segmented({ value, onChange, options, size = 'md', id, l
               on ? 'text-white' : 'text-smoke hover:text-ink',
             )}
           >
-            {on && (
-              <motion.span
-                layoutId={`seg-${key}`}
-                transition={SPRING}
-                className={cx('absolute inset-0 bg-brand', tabs ? 'rounded-lg' : 'rounded-full')}
-              />
-            )}
+            {on && !pill && <span className={cx('absolute inset-0 bg-brand', tabs ? 'rounded-lg' : 'rounded-full')} />}
             <span className="relative flex items-center gap-1.5 whitespace-nowrap">{o.label}</span>
           </button>
         )

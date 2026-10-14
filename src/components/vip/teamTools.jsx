@@ -136,8 +136,9 @@ export function VipWalletsTab({ programme }) {
                     <span className="flex items-center gap-2 text-sm font-semibold text-ink">
                       <span className="truncate">{r.name}</span>
                       {r.status !== 'active' && <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-bold uppercase text-smoke">{tr(r.status)}</span>}
-                      {r.auto_payout && <span title={tr('Paid automatically')}><Icon name="refresh" className="h-3.5 w-3.5 text-brand" /></span>}
-                      {!r.payment_ready && <span title={tr('No payment details')}><Icon name="alert" className="h-3.5 w-3.5 text-amber-500" /></span>}
+                      {/* SAID IN WORDS (14 Oct 2026): a yellow "!" and a circular arrow with no label left the team guessing. */}
+                      {r.auto_payout && <span className="shrink-0 rounded-full bg-cloud px-2 py-0.5 text-[10px] font-semibold text-smoke">{tr('Paid automatically')}</span>}
+                      {!r.payment_ready && <span className="shrink-0 rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-700">{tr('No bank details yet')}</span>}
                     </span>
                     <span className="mt-1.5 block h-1.5 w-full max-w-[14rem] overflow-hidden rounded-full bg-gray-100">
                       <span className={cx('block h-full rounded-full transition-[width] duration-700', pct >= 1 ? 'bg-emerald-500' : 'bg-brand')} style={{ width: `${Math.round(pct * 100)}%` }} />

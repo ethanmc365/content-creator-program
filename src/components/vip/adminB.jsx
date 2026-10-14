@@ -473,23 +473,55 @@ function ClaimsReview({ claims }) {
   const statusOf = (c) => local[`${c.video_id}:${c.rule_id}`] ?? c.status
   const open = claims.filter((c) => statusOf(c) === 'claimed')
   const list = show === 'open' ? open : claims
-  async function decide(c, status) {
-    const k = `${c.video_id}:${c.rule_id}`
+  // SEVERAL AT ONCE (14 Oct 2026): "there should be a button to approve all or to select them quickly". Tick rows (or
+  // Select all) and confirm or reject them in one go; each is still its own decision, so one failure does not undo the rest.
+  const [picked, setPicked] = useState(() => new Set())
+  const keyOf = (c) => `${c.video_id}:${c.rule_id}`
+  const openKeys = open.map(keyOf)
+  const allPicked = openKeys.length > 0 && openKeys.every((k) => picked.has(k))
+  async function decide(c, status, quiet = false) {
+    const k = keyOf(c)
     setBusy(k); setLocal((l) => ({ ...l, [k]: status }))
-    try { await vipRpc('vip_review_claim', { p_video: c.video_id, p_rule: c.rule_id, p_status: status }); toastSuccess(status === 'rejected' ? tr('Taken out. They have been told.') : tr('Confirmed')) }
-    catch (e) { setLocal((l) => ({ ...l, [k]: c.status })); notice(e.message) }
+    try {
+      await vipRpc('vip_review_claim', { p_video: c.video_id, p_rule: c.rule_id, p_status: status })
+      if (!quiet) toastSuccess(status === 'rejected' ? tr('Taken out. They have been told.') : tr('Confirmed'))
+      return true
+    } catch (e) { setLocal((l) => ({ ...l, [k]: c.status })); if (!quiet) notice(e.message); return false }
     finally { setBusy(null) }
+  }
+  async function decideMany(status) {
+    const todo = open.filter((c) => picked.has(keyOf(c)))
+    if (!todo.length) return
+    if (status === 'rejected' && !await confirm(tr('Reject {n} answers? Each creator is told.', { n: todo.length }), { danger: true, confirmLabel: tr('Reject them') })) return
+    let ok = 0
+    for (const c of todo) if (await decide(c, status, true)) ok++
+    setPicked(new Set())
+    toastSuccess(status === 'rejected' ? tr('{n} taken out. They have been told.', { n: ok }) : tr('{n} confirmed', { n: ok }))
   }
   return (
     <section className="overflow-hidden rounded-card border border-brand/20 bg-white shadow-card animate-rise">
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-50 bg-gradient-to-r from-brand-tint/70 to-white px-4 py-3">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-50 bg-white px-4 py-3">
         <div className="min-w-0">
           <h3 className="flex items-center gap-2 text-[15px] font-bold text-ink"><Icon name="flag" className="h-4 w-4 text-brand" />{tr('Answers to check')}
             {open.length > 0 && <span className="rounded-full bg-brand px-2 py-0.5 text-[11px] font-bold text-white">{open.length}</span>}</h3>
-          <p className="text-xs text-smoke">{tr('Creators said these videos fit a bonus question. A yes counts until you reject it.')}</p>
+          <p className="text-xs text-smoke">{tr('When a VIP adds a video they can say it fits one of your bonus questions (for example "Is this a Christmas market video?"). Check each one: Fits keeps the bonus, Does not takes it away. A yes counts until you reject it.')}</p>
         </div>
         <Segmented size="sm" value={show} onChange={setShow} label={tr('Which answers')} options={[{ value: 'open', label: tr('To check') }, { value: 'all', label: tr('All this month') }]} />
       </div>
+      {open.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2 border-b border-gray-50 px-4 py-2.5">
+          <button type="button" onClick={() => setPicked(allPicked ? new Set() : new Set(openKeys))} className="inline-flex items-center gap-2 text-xs font-semibold text-ink">
+            <span className={cx('flex h-4 w-4 items-center justify-center rounded border', allPicked ? 'border-brand bg-brand text-white' : 'border-gray-300')}>{allPicked && <Icon name="check" className="h-3 w-3" />}</span>
+            {allPicked ? tr('Clear selection') : tr('Select all {n}', { n: open.length })}
+          </button>
+          {picked.size > 0 && (
+            <span className="ml-auto flex items-center gap-1.5 animate-rise">
+              <button type="button" disabled={!!busy} onClick={() => decideMany('confirmed')} className="inline-flex items-center gap-1 rounded-full bg-brand px-3.5 py-1.5 text-xs font-bold text-white shadow-card disabled:opacity-50"><Icon name="check" className="h-3.5 w-3.5" />{tr('Confirm {n}', { n: picked.size })}</button>
+              <button type="button" disabled={!!busy} onClick={() => decideMany('rejected')} className="inline-flex items-center gap-1 rounded-full border border-gray-200 px-3.5 py-1.5 text-xs font-bold text-smoke hover:text-red-500 disabled:opacity-50"><Icon name="close" className="h-3.5 w-3.5" />{tr('Reject {n}', { n: picked.size })}</button>
+            </span>
+          )}
+        </div>
+      )}
       {list.length === 0 ? <p className="px-4 py-6 text-center text-sm text-smoke">{tr('All checked. Nice.')}</p> : (
         <ul className="max-h-[32rem] divide-y divide-gray-50 overflow-y-auto">
           {list.map((c, i) => {
@@ -497,6 +529,12 @@ function ClaimsReview({ claims }) {
             const st = statusOf(c)
             return (
               <li key={k} className="flex items-center gap-3 px-4 py-3 animate-rise" style={{ animationDelay: `${Math.min(i, 8) * 35}ms` }}>
+                {st === 'claimed' && (
+                  <button type="button" aria-pressed={picked.has(k)} aria-label={tr('Select')} onClick={() => setPicked((p) => { const n = new Set(p); if (n.has(k)) n.delete(k); else n.add(k); return n })}
+                    className={cx('flex h-5 w-5 shrink-0 items-center justify-center rounded border transition-colors', picked.has(k) ? 'border-brand bg-brand text-white' : 'border-gray-300 hover:border-brand')}>
+                    {picked.has(k) && <Icon name="check" className="h-3.5 w-3.5" />}
+                  </button>
+                )}
                 <div className="relative w-12 shrink-0 overflow-hidden rounded-lg">
                   <a href={safeUrl(c.url)} target="_blank" rel="noopener noreferrer" aria-label={tr('Open the video')}><VideoThumb url={c.url} platform={c.platform} thumbnailUrl={c.thumb} className="aspect-[9/16] w-full rounded-none" /></a>
                 </div>
