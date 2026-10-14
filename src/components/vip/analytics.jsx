@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { cloneElement, useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Area, Bar, CartesianGrid, ComposedChart, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
+import { Area, Bar, CartesianGrid, ComposedChart, Line, Tooltip, XAxis, YAxis } from 'recharts'
+import ChartPanel from '../charts/ChartPanel'
 import { format } from 'date-fns'
 import { Avatar, Select, Skeleton, StatCard } from '../ui'
 import Segmented from '../network/Segmented'
@@ -23,7 +24,7 @@ import { safeUrl } from '../../lib/safeUrl'
 // dimmed on them rather than removed (the bar never changes shape). Every number comes from `vip_range_analytics`, which reads the
 // videos and their readings themselves, so it is true the moment a video is read - not when a month closes.
 
-const VIP_PERIODS = ['last_3', 'last_7', 'this_week', 'last_week', 'this_month', 'last_month', 'last_30', 'last_90', 'this_year', 'custom']
+export const VIP_PERIODS = ['last_3', 'last_7', 'this_week', 'last_week', 'this_month', 'last_month', 'last_30', 'last_90', 'this_year', 'custom']
 const PICKER_PERIODS = VIP_PERIODS.map((k) => PERIODS.find((p) => p.key === k))
 const WHOLE_MONTHS = new Set(['months', 'compare', 'markets'])
 
@@ -45,18 +46,23 @@ function fold(daily, mode) {
   return [...out.values()]
 }
 
-export function VipAnalyticsTab({ programme, programmes = [], isAdmin }) {
+export function VipAnalyticsTab({ programme, programmes = [], isAdmin, outer = null }) {
+  // `outer` (14 Oct 2026): inside the main analytics the page's own bar picks the market and the dates, so this tab draws
+  // neither control and follows { scope, periodKey, range } instead.
   const tr = useKindT()
   const mine = programmes.length ? programmes : [programme]
   const canAll = !!isAdmin && mine.length > 1 && programme.kind !== 'official'
-  const [scope, setScope] = useState(canAll ? 'all' : programme.id)
+  const [innerScope, setScope] = useState(canAll ? 'all' : programme.id)
+  const scope = outer ? (outer.scope && mine.some((p) => p.id === outer.scope) ? outer.scope : (canAll ? 'all' : programme.id)) : innerScope
   const all = canAll && scope === 'all'
   const shown = all ? null : (mine.find((p) => p.id === scope) || programme)
   const cur = (shown || mine[0] || programme).currency || 'EUR'
   const [view, setView] = useState('overview')
-  const [periodKey, setPeriodKey] = useState('last_30')
+  const [innerKey, setPeriodKey] = useState('last_30')
   const [custom, setCustom] = useState({ from: '', to: '' })
-  const range = useMemo(() => periodRange(periodKey, new Date(), custom), [periodKey, custom])
+  const periodKey = outer ? outer.periodKey : innerKey
+  const innerRange = useMemo(() => periodRange(innerKey, new Date(), custom), [innerKey, custom])
+  const range = outer ? outer.range : innerRange
   const from = range.start ? ymd(range.start) : null
   const to = range.end ? ymd(new Date(range.end.getTime() - 1)) : null
 
@@ -102,10 +108,10 @@ export function VipAnalyticsTab({ programme, programmes = [], isAdmin }) {
           { value: 'compare', label: tr('Month vs Month') },
           { value: 'markets', label: tr('Markets') },
         ]} />
-        <PeriodPicker value={periodKey} from={custom.from} to={custom.to} periods={PICKER_PERIODS} disabled={whole} className="" width="w-44"
-          onChange={(k, f, t) => { setPeriodKey(k); if (k === 'custom') setCustom({ from: f, to: t }) }} />
+        {!outer && <PeriodPicker value={periodKey} from={custom.from} to={custom.to} periods={PICKER_PERIODS} disabled={whole} className="" width="w-44"
+          onChange={(k, f, t) => { setPeriodKey(k); if (k === 'custom') setCustom({ from: f, to: t }) }} />}
       </div>
-      {mine.length > 1 && <VipScopeSwitch programmes={mine} value={all ? 'all' : shown.id} onChange={setScope} allowAll={canAll} />}
+      {!outer && mine.length > 1 && <VipScopeSwitch programmes={mine} value={all ? 'all' : shown.id} onChange={setScope} allowAll={canAll} />}
       {!whole && range.start && (
         <p className="-mt-1 flex flex-wrap items-center gap-x-2 text-xs text-smoke">
           <span className="font-semibold text-ink">{range.label}</span>
@@ -132,12 +138,15 @@ export function VipAnalyticsTab({ programme, programmes = [], isAdmin }) {
 }
 
 // ----------------------------------------------------------------------------------------------------------------- shared bits
+// THE SHARED CHART CARD (14 Oct 2026): the same card as every other analytics chart, so the title opens the chart full
+// screen with its whole history, a zoom and the downloads. The chart element passed in is redrawn with whatever slice of
+// its own data the explorer is showing.
 function ChartCard({ title, total, children, className }) {
+  const rows = children?.props?.data || []
   return (
-    <div className={cx('rounded-card border border-gray-100 bg-white p-4 shadow-card animate-rise sm:p-5', className)}>
-      <div className="mb-3 flex items-baseline justify-between gap-3"><p className="text-[13.5px] font-bold text-ink">{title}</p>{total && <p className="text-xs font-semibold text-smoke">{total}</p>}</div>
-      <div className="h-64"><ResponsiveContainer>{children}</ResponsiveContainer></div>
-    </div>
+    <ChartPanel title={title} subtitle={total} data={rows} minPoint={22} className={className}
+      csv={{ name: `${String(title).toLowerCase().replace(/[^a-z0-9]+/g, '-')}.csv` }}
+      render={(slice) => cloneElement(children, { data: slice })} />
   )
 }
 const bucketMode = (days) => (days <= 45 ? 'day' : days <= 200 ? 'week' : 'month')
@@ -222,10 +231,10 @@ function Overview({ data, cur, range }) {
             <ul className="space-y-3">
               {creators.map((c, i) => (
                 <li key={c.profile_id} className="flex items-center gap-3">
-                  <span className={cx('flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-extrabold tabular-nums', i === 0 ? 'bg-gradient-to-br from-brand to-brand-light text-white' : 'bg-cloud text-smoke')}>{i + 1}</span>
+                  <span className={cx('flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-extrabold tabular-nums', i === 0 ? 'bg-brand text-white' : 'bg-cloud text-smoke')}>{i + 1}</span>
                   <div className="min-w-0 flex-1">
                     <PersonLink id={c.profile_id} name={c.name} photo={c.photo} size="xs" />
-                    <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-cloud"><div className="h-full rounded-full bg-gradient-to-r from-brand to-brand-light transition-[width] duration-700" style={{ width: `${Math.max(4, (c.views / lead) * 100)}%` }} /></div>
+                    <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-cloud"><div className="h-full rounded-full bg-brand transition-[width] duration-700" style={{ width: `${Math.max(4, (c.views / lead) * 100)}%` }} /></div>
                   </div>
                   <span className="shrink-0 text-sm font-bold tabular-nums text-ink">{formatViews(c.views)}</span>
                 </li>
@@ -238,9 +247,9 @@ function Overview({ data, cur, range }) {
       {data.top_videos.length > 0 && (
         <section>
           <h3 className="mb-3 text-[13.5px] font-bold text-ink">{tr('The videos that gained the most')}</h3>
-          <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+          <ul className="scrollbar-none -mx-1 flex snap-x gap-3 overflow-x-auto px-1 pb-2">
             {data.top_videos.map((v, i) => (
-              <li key={v.id} className="group relative animate-rise transition-transform duration-300 hoverable:hover:-translate-y-1" style={{ animationDelay: `${i * 45}ms` }}>
+              <li key={v.id} className="group relative w-[150px] shrink-0 snap-start animate-rise transition-transform duration-300 hoverable:hover:-translate-y-1" style={{ animationDelay: `${i * 45}ms` }}>
                 <a href={safeUrl(v.url)} target="_blank" rel="noopener noreferrer" className="block overflow-hidden rounded-card border border-gray-100 bg-white shadow-card transition-shadow duration-300 hoverable:group-hover:shadow-lift" aria-label={tr('Open on the platform')}>
                   <div className="relative"><VideoThumb url={v.url} platform={v.platform} thumbnailUrl={v.thumb} />
                     <span className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-ink/80 to-transparent px-2.5 pb-2 pt-7 text-white"><span className="block text-lg font-bold tabular-nums leading-none">{formatViews(v.views)}</span><span className="block text-[10px] font-semibold uppercase tracking-wide text-white/80">{tr('gained')}</span></span>
@@ -314,7 +323,7 @@ function Growth({ data, range, all }) {
             {steps.map((s, i) => (
               <li key={s.label}>
                 <div className="mb-1 flex items-baseline justify-between text-sm"><span className="font-semibold text-ink">{s.label}</span><span className="font-bold tabular-nums text-ink">{nf(s.n)}<span className="ml-1.5 text-xs font-medium text-smoke">{steps[0].n ? `${Math.round((s.n / steps[0].n) * 100)}%` : ''}</span></span></div>
-                <div className="h-3 overflow-hidden rounded-full bg-cloud"><div className={cx('h-full rounded-full transition-[width] duration-700', i === 0 ? 'bg-gray-300' : 'bg-gradient-to-r from-brand to-brand-light')} style={{ width: `${steps[0].n ? Math.max(3, (s.n / steps[0].n) * 100) : 0}%` }} /></div>
+                <div className="h-3 overflow-hidden rounded-full bg-cloud"><div className={cx('h-full rounded-full transition-[width] duration-700', i === 0 ? 'bg-gray-300' : 'bg-brand')} style={{ width: `${steps[0].n ? Math.max(3, (s.n / steps[0].n) * 100) : 0}%` }} /></div>
               </li>
             ))}
           </ol>
@@ -371,10 +380,10 @@ function CreatorsTable({ data, cur, all }) {
         <ul className="divide-y divide-gray-50">
           {rows.map((r, i) => (
             <li key={r.profile_id} className="grid grid-cols-[2rem_minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1 px-4 py-3 animate-rise sm:grid-cols-[2rem_minmax(0,1fr)_6.5rem_4rem_5.5rem_6rem]" style={{ animationDelay: `${Math.min(i, 10) * 30}ms` }}>
-              <span className={cx('flex h-7 w-7 items-center justify-center rounded-full text-xs font-extrabold tabular-nums', i === 0 && r.views > 0 ? 'bg-gradient-to-br from-brand to-brand-light text-white' : 'bg-cloud text-smoke')}>{i + 1}</span>
+              <span className={cx('flex h-7 w-7 items-center justify-center rounded-full text-xs font-extrabold tabular-nums', i === 0 && r.views > 0 ? 'bg-brand text-white' : 'bg-cloud text-smoke')}>{i + 1}</span>
               <div className="min-w-0">
                 <PersonLink id={r.profile_id} name={r.name} photo={r.photo} sub={all ? r.programme : r.status === 'paused' ? tr('Paused') : null} />
-                <span className="mt-1.5 block h-1 max-w-[12rem] overflow-hidden rounded-full bg-gray-100"><span className="block h-full rounded-full bg-gradient-to-r from-brand to-brand-light" style={{ width: `${r.views > 0 ? Math.max(3, (r.views / lead) * 100) : 0}%` }} /></span>
+                <span className="mt-1.5 block h-1 max-w-[12rem] overflow-hidden rounded-full bg-gray-100"><span className="block h-full rounded-full bg-brand" style={{ width: `${r.views > 0 ? Math.max(3, (r.views / lead) * 100) : 0}%` }} /></span>
               </div>
               <div className="text-right sm:hidden">
                 <p className="text-sm font-bold tabular-nums text-ink">{formatViews(r.views)}</p>
@@ -658,7 +667,7 @@ function MonthCompare({ series, cur }) {
                   {pct == null ? <span className="text-xs text-gray-300">-</span> : <span className={cx('inline-flex rounded-full px-2 py-0.5 text-[11px] font-bold tabular-nums', good == null ? 'bg-cloud text-smoke' : good ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-600')}>{pct > 0 ? '+' : ''}{pct}%</span>}
                 </div>
                 <div className="mt-2 space-y-1.5">
-                  {[[r.a, 'bg-gradient-to-r from-brand to-brand-light', 'text-ink font-bold'], [r.b, 'bg-gray-300', 'text-smoke']].map(([v, bar, text], i) => (
+                  {[[r.a, 'bg-brand', 'text-ink font-bold'], [r.b, 'bg-gray-300', 'text-smoke']].map(([v, bar, text], i) => (
                     <div key={i} className="flex items-center gap-3">
                       <div className="h-2 flex-1 overflow-hidden rounded-full bg-cloud"><div className={cx('h-full rounded-full transition-[width] duration-700 ease-out', bar)} style={{ width: `${v > 0 ? Math.max(2, (v / top) * 100) : 0}%` }} /></div>
                       <span className={cx('w-24 shrink-0 text-right text-sm tabular-nums', text)}>{r.f(v)}</span>

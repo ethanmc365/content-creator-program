@@ -3,6 +3,7 @@ import { flagEmoji } from '../../../lib/countries'
 import { downloadCsv, formatViewsTotal, formatMoney, cx } from '../../../lib/utils'
 import { marketStandings, monthsInRecord, monthLabel, previousRanks } from '../../../lib/marketStandings'
 import Icon from '../../../components/Icon'
+import { Select } from '../../../components/ui'
 
 // THE MARKET LEAGUE.
 //
@@ -112,6 +113,8 @@ export default function MarketLeague({ raw, currency }) {
 
   const months = useMemo(() => monthsInRecord(raw), [raw])
   const month = openingMonth(chosenMonth)
+  // Months are newest first; the stepper walks along them.
+  const monthIdx = month ? months.indexOf(month) : -1
   const rows = useMemo(() => marketStandings(raw, { currency, month }), [raw, currency, month])
   const prev = useMemo(() => previousRanks(raw, month, { currency }), [raw, month, currency])
   // Every month, oldest first, for the sparklines - they read left to right.
@@ -189,76 +192,59 @@ export default function MarketLeague({ raw, currency }) {
           <button onClick={exportCsv} className="btn-ghost !py-1.5 !px-3 text-xs">CSV ↓</button>
         </div>
 
-        {/* THE PERIOD AND THE METRIC SCROLL, THEY DO NOT WRAP.
-            Nine months of pills wrapped to FOUR ROWS on a phone - a screen and
-            a half of furniture between the heading and the table it controls -
-            and the list only grows: twelve by December, twenty-four a year
-            after that. One row that scrolls is the shape the tab strip above
-            already uses for the same reason. `-mx-*` lets a pill bleed to the
-            card's edge so it is obvious there is more. */}
-        <div className="-mx-5 mt-5 flex gap-1.5 overflow-x-auto px-5 pb-1 pt-1 [-ms-overflow-style:none] [scrollbar-width:none] sm:mx-0 sm:flex-wrap sm:px-0 [&::-webkit-scrollbar]:hidden">
-          {[['', 'All time'], ...months.map((m) => [m, monthLabel(m)])].map(([key, label]) => {
-            const on = month === key
-            return (
-              <button
-                key={key || 'all'}
-                type="button"
-                onClick={() => setMonth(key)}
-                aria-pressed={on}
-                className={cx(
-                  'shrink-0 whitespace-nowrap rounded-full border px-3 py-1.5 text-xs font-semibold transition-all duration-200',
-                  on
-                    ? 'border-brand bg-brand text-white shadow-card'
-                    : 'border-gray-200 bg-white text-smoke hoverable:hover:-translate-y-0.5 hoverable:hover:border-brand hoverable:hover:text-brand',
-                )}
-              >
-                {label}
-              </button>
-            )
-          })}
-        </div>
-
-        {/* ------------------------------------------------------ the metric */}
-        <div className="-mx-5 mt-3 flex gap-1.5 overflow-x-auto px-5 pb-1 pt-1 [-ms-overflow-style:none] [scrollbar-width:none] sm:mx-0 sm:flex-wrap sm:px-0 [&::-webkit-scrollbar]:hidden">
-          {METRICS.map((m) => {
-            const on = metricKey === m.key
-            return (
-              <button
-                key={m.key}
-                type="button"
-                onClick={() => setMetricKey(m.key)}
-                aria-pressed={on}
-                className={cx(
-                  'inline-flex shrink-0 whitespace-nowrap items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold transition-all duration-200',
-                  on
-                    ? 'border-brand bg-brand-tint text-brand'
-                    : 'border-gray-200 bg-white text-gray-400 hoverable:hover:border-brand hoverable:hover:text-brand',
-                )}
-              >
-                <Icon name={m.icon} className="h-3.5 w-3.5" />
-                {m.label}
-                {m.lowerWins && on && <span className="text-[9px] font-bold uppercase tracking-wide">low wins</span>}
-              </button>
-            )
-          })}
+        {/* ONE COMPACT ROW (14 Oct 2026). The team: "I don't like the way the market league is showing November,
+            October, December... We don't want an infinite amount of buttons." The month is a stepper - back, the menu,
+            forward - so a year of months is one control, and the measure is one segmented switch beside it. */}
+        <div className="mt-5 flex flex-wrap items-center gap-2">
+          <div className="flex items-center gap-1 rounded-full border border-gray-100 bg-cloud/60 p-1">
+            <button type="button" aria-label="Earlier month" disabled={monthIdx >= months.length - 1}
+              onClick={() => setMonth(months[monthIdx + 1] ?? months[0])}
+              className="flex h-8 w-8 items-center justify-center rounded-full text-smoke transition-colors hover:bg-white hover:text-ink disabled:opacity-30">
+              <Icon name="chevronLeft" className="h-4 w-4" />
+            </button>
+            <Select value={month} onChange={setMonth} variant="chip" className="w-40" ariaLabel="Month" search={false}
+              options={[{ value: '', label: 'All time' }, ...months.map((m) => ({ value: m, label: monthLabel(m) }))]} />
+            <button type="button" aria-label="Later month" disabled={!month}
+              onClick={() => setMonth(monthIdx <= 0 ? '' : months[monthIdx - 1])}
+              className="flex h-8 w-8 items-center justify-center rounded-full text-smoke transition-colors hover:bg-white hover:text-ink disabled:opacity-30">
+              <Icon name="chevronRight" className="h-4 w-4" />
+            </button>
+          </div>
+          <div className="-mx-1 flex min-w-0 gap-0.5 overflow-x-auto rounded-full bg-cloud/60 p-1 px-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            {METRICS.map((m) => {
+              const on = metricKey === m.key
+              return (
+                <button key={m.key} type="button" onClick={() => setMetricKey(m.key)} aria-pressed={on}
+                  className={cx('inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-3 py-1.5 text-xs font-semibold transition-colors duration-200',
+                    on ? 'bg-brand text-white shadow-card' : 'text-smoke hover:text-ink')}>
+                  <Icon name={m.icon} className="h-3.5 w-3.5" />{m.label}
+                  {m.lowerWins && on && <span className="text-[9px] font-bold uppercase tracking-wide opacity-80">low wins</span>}
+                </button>
+              )
+            })}
+          </div>
         </div>
 
         {/* ------------------------------------------------------- the table */}
-        <div className="mt-5 space-y-2">
+        <div key={`${month}|${metricKey}`} className="mt-5 space-y-2">
           {ranked.length === 0 && (
             <p className="py-8 text-center text-sm text-smoke">No market ran a challenge in {monthLabel(month)}.</p>
           )}
           {ranked.map((r, i) => (
             <div
               key={r.id}
-              className="group relative overflow-hidden rounded-card border border-gray-100 bg-white px-3 py-3 shadow-card transition-all duration-300 hoverable:hover:-translate-y-0.5 hoverable:hover:shadow-lift sm:px-4"
+              className="group relative overflow-hidden rounded-card border border-gray-100 bg-white px-3 py-3 shadow-card transition-all duration-300 animate-rise hoverable:hover:-translate-y-0.5 hoverable:hover:shadow-lift sm:px-4"
+              style={{ animationDelay: `${Math.min(i, 8) * 45}ms` }}
             >
               {/* THE BAR IS THE BACKGROUND, NOT A COLUMN. A league table where
                   the ranking metric is also the width of the row is readable at
                   a glance from across a desk, which a column of numbers is not. */}
+              {/* THE MEASURE AS A SLIM SOLID BAR along the foot of the row (14 Oct 2026: the orange wash behind the
+                  whole row was "really not a nice colour"). It grows in on arrival. */}
+              <span aria-hidden="true" className="absolute inset-x-0 bottom-0 h-[3px] bg-cloud" />
               <span
                 aria-hidden="true"
-                className="absolute inset-y-0 left-0 bg-gradient-to-r from-brand/[0.14] to-brand/[0.03] transition-all duration-500"
+                className="absolute bottom-0 left-0 h-[3px] rounded-r-full bg-brand transition-[width] duration-700 ease-out"
                 style={{ width: `${barWidth(r)}%` }}
               />
               {/* TWO LINES, NOT ONE WRAPPING LINE.
