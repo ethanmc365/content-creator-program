@@ -1476,8 +1476,12 @@ const ROW_COLS = 'id, video_url, platform, logged_views, platform_video_id, crea
 // stubborn link would be re-read by every chunk up to MAX_CHUNKS_PER_CHAIN.
 const PERMANENT_ERRORS = 'not_a_video,bad_url,unsupported'
 const RETRY_GAP_MS = 45 * 60_000
+// THE CRON IS EARLY BY A FEW SECONDS, SO THE INTERVAL ALLOWS FOR IT (15 Oct 2026). Sweeps start on the hour's tick and a
+// row read a minute into the last sweep is not yet "older than 2 hours" when the next due one starts - so a 2-hour VIP
+// setting read every 3 hours and a 6-hour one every 7. A quarter of an hour of slack makes the setting mean what it says.
+const STALE_SLACK_MS = 15 * 60_000
 function staleFilter(intervalHours: number): string {
-  const staleBefore = new Date(Date.now() - intervalHours * 3600_000).toISOString()
+  const staleBefore = new Date(Date.now() - Math.max(intervalHours * 3600_000 - STALE_SLACK_MS, intervalHours * 1800_000)).toISOString()
   const retryBefore = new Date(Date.now() - RETRY_GAP_MS).toISOString()
   return `views_synced_at.is.null,views_synced_at.lt.${staleBefore},` +
     `and(logged_views.is.null,views_sync_error.not.is.null,views_sync_error.not.in.(${PERMANENT_ERRORS}),views_synced_at.lt.${retryBefore})`
