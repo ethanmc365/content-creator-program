@@ -308,7 +308,8 @@ function releaseCaret(el) {
  * Applied only to a field inside `ref` and only on iOS. Replaces the 13 Oct touchstart pre-shrink, which jumped the
  * message bar to the middle of the screen on any stray touch and ran ahead of the keyboard on a real tap.
  */
-export function useNoFocusPan(ref, enabled) {
+// `caretMs`: how long the caret stays hidden while the chat glides. A dialog does not glide, so it passes 0.
+export function useNoFocusPan(ref, enabled, caretMs = 1200) {
   useEffect(() => {
     const root = ref.current
     if (!enabled || !root || !isIOS()) return undefined
@@ -317,7 +318,7 @@ export function useNoFocusPan(ref, enabled) {
       const el = e.target
       if (!isEditable(el) || !root.contains(el)) return
       // Until the chat has finished moving for the keyboard (useChatOverlayHeight releases it), or 1.2s if it never does.
-      holdCaret(root, 1200)
+      if (caretMs > 0) holdCaret(root, caretMs)
       const { opacity, transform } = el.style
       el.style.opacity = '0'
       el.style.transform = 'translate3d(0, -100vh, 0)'
@@ -336,7 +337,7 @@ export function useNoFocusPan(ref, enabled) {
       timers.forEach(clearTimeout)
       root.removeEventListener('focusin', onFocus, true)
     }
-  }, [ref, enabled])
+  }, [ref, enabled, caretMs])
 }
 
 // THE KEYBOARD'S LAST MEASURED HEIGHT ON THIS PHONE (iOS only), so the chat can start moving the moment the field takes

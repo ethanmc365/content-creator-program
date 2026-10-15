@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react'
 import { Modal, Spinner } from '../components/ui'
 import { detectPlatform, cx } from '../lib/utils'
 import Icon from '../components/Icon'
@@ -28,14 +29,34 @@ export default function ChallengeDetailSubmitModal({
   urlProblem,
   videoUrl,
 }) {
+  // A "this video is already in" notice lands in the scrolling body, which may be scrolled away from it: bring it in.
+  const dupRef = useRef(null)
+  useEffect(() => { if (dupInfo) dupRef.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' }) }, [dupInfo])
+  // THE BUTTON IS PINNED, NOT AT THE END OF THE FORM (15 Oct 2026). On a phone with the keyboard up the form ran past
+  // the screen, so posting meant scrolling a sheet that shook as it moved, and a creator could not get his entry in.
+  // The sheet's footer holds the button (and any error) where a thumb can always reach it; the form above is compact
+  // enough that nothing needs scrolling but the caption box itself.
+  const footer = (
+    <div className="space-y-2.5">
+      {submitError && (
+        <div id="submit-error" role="alert" className="flex items-start gap-2.5 rounded-xl border border-red-100 bg-red-50 px-3.5 py-2.5 text-sm text-red-600">
+          <Icon name="alert" className="mt-0.5 h-4 w-4 shrink-0" />
+          <span>{submitError}</span>
+        </div>
+      )}
+      <button type="submit" form="submit-entry-form" disabled={submitting} className="btn-primary w-full justify-center !py-3.5 text-base shadow-card">
+        {submitting ? <Spinner /> : <><Icon name="video" className="h-5 w-5" /> {tr('Enter the challenge')}</>}
+      </button>
+    </div>
+  )
   return (
-    <Modal open={showSubmit} onClose={() => setShowSubmit(false)} title={tr("Submit your entry")}>
-      <form onSubmit={submitEntry} noValidate className="space-y-5">
+    <Modal open={showSubmit} onClose={() => setShowSubmit(false)} title={tr("Submit your entry")} footer={footer}>
+      <form id="submit-entry-form" onSubmit={submitEntry} noValidate className="space-y-3.5">
         {/* THE SUBMIT FORM, REDRAWN. Numbered steps, a link box with its own Paste button, and bonus rows that turn
             solid brand when ticked - the platform's one rule for a picked option - instead of the browser's own tick
             box. */}
         <div>
-          <label htmlFor="video_url" className="mb-2 flex items-center gap-2 text-sm font-semibold text-ink">
+          <label htmlFor="video_url" className="mb-1.5 flex items-center gap-2 text-sm font-semibold text-ink">
             <span className="flex h-6 w-6 items-center justify-center rounded-full bg-brand text-[11px] font-bold text-white">1</span>
             {tr("Your video link")}
           </label>
@@ -84,8 +105,8 @@ export default function ChallengeDetailSubmitModal({
               their own handle is the same reassurance made of the thing they
               actually care about: that we found the right post. */}
           {videoUrl.trim() && !urlProblem(videoUrl) && (
-            <div className="mt-3 flex items-center gap-3 rounded-xl border border-gray-100 bg-cloud/50 p-2.5">
-              <div className="h-16 w-[3.2rem] shrink-0 overflow-hidden rounded-lg bg-white ring-1 ring-black/5">
+            <div className="mt-2 flex items-center gap-3 rounded-xl border border-gray-100 bg-cloud/50 p-2">
+              <div className="h-12 w-10 shrink-0 overflow-hidden rounded-lg bg-white ring-1 ring-black/5">
                 {linkMeta?.thumbnail
                   ? <img src={linkMeta.thumbnail} alt="" referrerPolicy="no-referrer" className="h-full w-full object-cover" />
                   : (
@@ -113,16 +134,18 @@ export default function ChallengeDetailSubmitModal({
           )}
         </div>
         <div>
-          <label htmlFor="caption" className="mb-2 flex items-center gap-2 text-sm font-semibold text-ink">
+          <label htmlFor="caption" className="mb-1.5 flex items-center gap-2 text-sm font-semibold text-ink">
             <span className="flex h-6 w-6 items-center justify-center rounded-full bg-brand text-[11px] font-bold text-white">2</span>
             {tr("Caption")}
           </label>
+          {/* A fixed height that scrolls inside itself: a long caption never makes the sheet grow past the screen. */}
           <textarea
             id="caption"
             rows={3}
+            style={{ height: '5rem' }}
             aria-invalid={errorField === 'caption'}
             aria-describedby={submitError ? 'submit-error' : undefined}
-            className={cx('input', errorField === 'caption' && '!border-red-300 !ring-2 !ring-red-100')}
+            className={cx('input no-ios-zoom resize-none overflow-y-auto overscroll-contain', errorField === 'caption' && '!border-red-300 !ring-2 !ring-red-100')}
             placeholder={tr("The caption you used, or a note for the team…")}
             value={caption}
             onChange={(e) => {
@@ -188,7 +211,7 @@ export default function ChallengeDetailSubmitModal({
         )}
 
         {dupInfo && (
-          <div id="submit-error" role="alert" className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3.5 text-sm text-amber-900">
+          <div ref={dupRef} role="alert" className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3.5 text-sm text-amber-900">
             <div className="flex items-start gap-3">
               <Icon name="alert" className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
               <div>
@@ -207,19 +230,6 @@ export default function ChallengeDetailSubmitModal({
             </div>
           </div>
         )}
-        {submitError && (
-          <div
-            id="submit-error"
-            role="alert"
-            className="flex items-start gap-3 rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-600"
-          >
-            <Icon name="alert" className="mt-0.5 h-4 w-4 shrink-0" />
-            <span>{submitError}</span>
-          </div>
-        )}
-        <button type="submit" disabled={submitting} className="btn-primary w-full justify-center !py-3.5 text-base shadow-card">
-          {submitting ? <Spinner /> : <><Icon name="video" className="h-5 w-5" /> {tr('Enter the challenge')}</>}
-        </button>
       </form>
     </Modal>
   )

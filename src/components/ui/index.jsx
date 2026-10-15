@@ -10,7 +10,7 @@ import { lockScroll } from '../../lib/scrollLock'
 import { useBootLoaderSlot } from '../../lib/bootLoader'
 import Icon from '../Icon'
 import Flame from '../games/Flame'
-import { useVisualViewport } from '../../lib/useKeyboardInset'
+import { useVisualViewport, useNoFocusPan } from '../../lib/useKeyboardInset'
 import { useT } from '../../lib/i18n'
 
 /** Circular profile photo with an initials fallback. */
@@ -388,8 +388,11 @@ function DeltaPill({ pct, vs, lowerIsBetter = false }) {
 // How long a dialog takes to leave. Keep in step with `.scrim-out` / `.sheet-out` in index.css.
 const EXIT_MS = 190
 
-export function Modal({ open, onClose, title, children, wide = false, sheet = true, dismissible = true }) {
+// `footer`: controls pinned to the bottom of the dialog, outside its scrolling body - the submit button of a form that
+// must never be scrolled to (the challenge entry sheet, 15 Oct 2026). Without one the whole card scrolls, as before.
+export function Modal({ open, onClose, title, children, wide = false, sheet = true, dismissible = true, footer = null }) {
   const tr = useT()
+  const rootRef = useRef(null)
   // A DIALOG IS AS TALL AS WHAT YOU CAN SEE, NOT AS TALL AS THE PAGE.
   //
   // `max-h-[90vh]` is measured against the LAYOUT viewport, and on iOS the
@@ -438,6 +441,38 @@ export function Modal({ open, onClose, title, children, wide = false, sheet = tr
     return lockScroll()
   }, [present])
 
+  // THE PAGE BEHIND NEVER MOVES (15 Oct 2026). With the keyboard up, iOS lets a drag anywhere pan the visual viewport
+  // over the page, and the dialog chased that pan a frame behind - the "shaking and flashing" a creator saw on the entry
+  // sheet when they scrolled a little. A drag inside the dialog now moves only something that can itself scroll (the
+  // caption box, a long form's body); anything else is held still. And a field taking focus gives Safari nothing to pan.
+  useNoFocusPan(rootRef, open && sheet, 0)
+  useEffect(() => {
+    const root = rootRef.current
+    if (!present || !root) return undefined
+    let startY = 0
+    const onStart = (e) => { startY = e.touches[0]?.clientY ?? 0 }
+    const onMove = (e) => {
+      if (e.touches.length !== 1) return
+      const dy = (e.touches[0]?.clientY ?? 0) - startY
+      for (let node = e.target; node && node !== root; node = node.parentElement) {
+        const st = getComputedStyle(node)
+        if (!/(auto|scroll)/.test(st.overflowY) || node.scrollHeight <= node.clientHeight + 1) continue
+        // A scroller at its end hands the drag on, and the page would take it: hold it there instead.
+        const atTop = node.scrollTop <= 0
+        const atEnd = node.scrollTop + node.clientHeight >= node.scrollHeight - 1
+        if ((dy > 0 && atTop) || (dy < 0 && atEnd)) break
+        return
+      }
+      if (e.cancelable) e.preventDefault()
+    }
+    root.addEventListener('touchstart', onStart, { passive: true })
+    root.addEventListener('touchmove', onMove, { passive: false })
+    return () => {
+      root.removeEventListener('touchstart', onStart)
+      root.removeEventListener('touchmove', onMove)
+    }
+  }, [present])
+
   if (!present) return null
   const shownChildren = open ? children : snap.children
   const shownTitle = open ? title : snap.title
@@ -453,6 +488,7 @@ export function Modal({ open, onClose, title, children, wide = false, sheet = tr
   // claiming the whole screen has to be a child of the body to get it.
   return createPortal(
     <div
+      ref={rootRef}
       className={cx('fixed inset-x-0 top-0 z-50 flex justify-center', sheet ? 'items-end sm:items-center' : 'items-center p-4', closing && 'pointer-events-none')}
       role="dialog" aria-modal="true" aria-label={shownTitle}
       aria-hidden={closing || undefined}
@@ -479,9 +515,16 @@ export function Modal({ open, onClose, title, children, wide = false, sheet = tr
           same half. Locking the body stops the page moving when the gesture
           starts outside the card; this stops the card handing its own leftover
           scroll to the page once it reaches its end. Both were needed. */}
+      {/* WHITE UNDER THE KEYBOARD (15 Oct 2026). The dialog is sized to what is visible above the keyboard, and iOS's
+          keyboard and its accessory bar are see-through - so the page showed in a band between the sheet and the keys.
+          The sheet now carries on, white, underneath them. Phones only: above `sm` the dialog is a floating card. */}
+      {sheet && keyboard > 0 && (
+        <div aria-hidden className="pointer-events-none absolute inset-x-0 top-full bg-white sm:hidden" style={{ height: keyboard + 240, marginTop: -2 }} />
+      )}
       <div
         className={cx(
-          'relative overflow-y-auto overscroll-contain bg-white shadow-lift',
+          'relative bg-white shadow-lift',
+          footer ? 'flex flex-col overflow-hidden' : 'overflow-y-auto overscroll-contain',
           // A SHEET COMES UP FROM THE EDGE IT IS ATTACHED TO; A CARD RISES A
           // LITTLE WHERE IT STANDS. `.sheet-in` is both - the full-height
           // travel below `sm` and the 12px rise above it - because that is one
@@ -489,26 +532,37 @@ export function Modal({ open, onClose, title, children, wide = false, sheet = tr
           // the bottom of a phone reads as a flicker rather than as a sheet.
           closing ? 'sheet-out' : sheet ? 'sheet-in' : 'animate-fade-up',
           sheet
-            ? 'w-full rounded-t-card p-6 sm:rounded-card sm:p-8 sm:pb-8'
-            : 'w-full rounded-card p-5 sm:p-7',
+            ? cx('w-full rounded-t-card sm:rounded-card', footer ? '' : 'p-6 sm:p-8 sm:pb-8')
+            : cx('w-full rounded-card', footer ? '' : 'p-5 sm:p-7'),
           // The tab-bar allowance is only right when there is a tab bar to
           // clear. With the keyboard up the bar is behind it, and the extra
-          // 6rem is just a hole under the last control.
-          sheet && keyboard === 0 && 'pb-[calc(6rem+env(safe-area-inset-bottom))]',
+          // 6rem is just a hole under the last control. A footer carries it itself.
+          sheet && keyboard === 0 && !footer && 'pb-[calc(6rem+env(safe-area-inset-bottom))]',
           keyboard === 0 && (sheet ? 'max-h-[90vh]' : 'max-h-[min(85vh,44rem)]'),
           wide ? 'sm:max-w-3xl' : 'sm:max-w-lg',
         )}
         style={keyboard > 0 ? { maxHeight: '100%' } : undefined}
       >
-        <div className="mb-5 flex items-center justify-between">
-          <h2 className="text-xl font-semibold">{shownTitle}</h2>
+        <div className={cx('flex items-center justify-between', footer ? 'shrink-0 px-5 pb-2 pt-4 sm:px-8 sm:pb-4 sm:pt-7' : 'mb-5')}>
+          <h2 className={cx('font-semibold', footer ? 'text-lg sm:text-xl' : 'text-xl')}>{shownTitle}</h2>
           {dismissible && (
-            <button onClick={onClose} className="rounded-full p-2 text-smoke hover:bg-cloud hover:text-ink" aria-label={tr("Close dialog")}>
+            <button onClick={onClose} className="-mr-2 rounded-full p-2 text-smoke hover:bg-cloud hover:text-ink" aria-label={tr("Close dialog")}>
               <svg className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" d="M6 6l12 12M18 6L6 18" /></svg>
             </button>
           )}
         </div>
-        {shownChildren}
+        {footer ? (
+          <>
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 pb-3 pt-0.5 sm:px-8">{shownChildren}</div>
+            <div className={cx(
+              'shrink-0 border-t border-gray-100 bg-white px-5 pt-2.5 sm:px-8 sm:pb-7',
+              // The tab bar sits UNDER a dialog (z-30 to z-50), so the footer clears only the home indicator.
+              sheet && keyboard === 0 ? 'pb-[calc(0.75rem+env(safe-area-inset-bottom))]' : 'pb-2.5',
+            )}>
+              {footer}
+            </div>
+          </>
+        ) : shownChildren}
       </div>
     </div>,
     document.body,
