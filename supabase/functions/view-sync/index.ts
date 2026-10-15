@@ -534,7 +534,11 @@ async function facebookShareTarget(url: string): Promise<{ post: string; owner: 
 // Page as `/share/r/`, which lands on `story.php` - a login wall from every server - and the embed plugin draws nothing
 // for that post, so the entry sat "blocked" holding the POST id. But Facebook answers `/<owner>/posts/<post>/` and
 // `/<post>` with a redirect to `/<owner>/videos/<slug>/<video id>/` before any wall, and that video reads like any reel.
-async function facebookPostRedirectId(post: { post: string; owner: string | null }): Promise<string | null> {
+// `isPost`: Facebook sent the post to `/<owner>/posts/...` rather than to a video - a photo or text post (15 Oct 2026:
+// Evelin's `/share/p/` entry was eighteen photos and sat "blocked" for eleven days, because from a server the post page
+// itself is a login wall).
+async function facebookPostRedirectId(post: { post: string; owner: string | null }): Promise<{ id: string | null; isPost: boolean }> {
+  let isPost = false
   const urls = [
     ...(post.owner ? [`https://www.facebook.com/${post.owner}/posts/${post.post}/`] : []),
     `https://www.facebook.com/${post.post}`,
@@ -547,8 +551,10 @@ async function facebookPostRedirectId(post: { post: string; owner: string | null
         const { res } = await checkedFetch(u, { headers: { 'User-Agent': ua, 'Accept-Language': 'en-GB,en;q=0.9' }, redirect: 'manual', signal: ctrl.signal })
         await res.body?.cancel()
         const location = res.headers.get('location') ?? ''
-        const id = /facebook\.com\/(?:login|checkpoint)/.test(location) ? null : facebookIdFrom(location)
-        if (id && id !== post.post) return id
+        if (/facebook\.com\/(?:login|checkpoint)/.test(location)) continue
+        const id = facebookIdFrom(location)
+        if (id && id !== post.post) return { id, isPost: false }
+        if (/facebook\.com\/[^/?#]+\/posts\//.test(location)) isPost = true
       } catch {
         // try the next agent
       } finally {
@@ -556,7 +562,7 @@ async function facebookPostRedirectId(post: { post: string; owner: string | null
       }
     }
   }
-  return null
+  return { id: null, isPost }
 }
 
 type FbLocal = Resolved & { walled?: boolean; region?: string | null }
@@ -576,6 +582,8 @@ async function facebookResolveIds(url: string): Promise<{ ids: string[]; walled:
     `https://www.facebook.com/plugins/video.php?href=${encodeURIComponent(url)}&show_text=false&width=500`, UA)
   if (plugin) add(pluginVideoId(plugin.html))
   if (ids.length) return { ids, walled }
+  // A post Facebook redirects to `/posts/` and whose embed player (which answered) names no video is not a video.
+  let notVideo = false
 
   // A POST FROM A PERSONAL PROFILE (13 Oct 2026). Its share link redirects to story.php, a login wall from every
   // region, so two VIP videos sat "blocked" for days. The redirect names the post and its owner before any wall, and
@@ -586,8 +594,10 @@ async function facebookResolveIds(url: string): Promise<{ ids: string[]; walled:
     const viaPost = await fbFetch(`https://www.facebook.com/plugins/video.php?href=${encodeURIComponent(href)}&show_text=false&width=500`, UA)
     if (viaPost) add(pluginVideoId(viaPost.html))
     if (ids.length) return { ids, walled }
-    add(await facebookPostRedirectId(post))
+    const redirect = await facebookPostRedirectId(post)
+    add(redirect.id)
     if (ids.length) return { ids, walled }
+    notVideo = redirect.isPost && !!plugin && plugin.status === 200 && !!viaPost && viaPost.status === 200
   }
 
   // A crawler is REDIRECTED from a share link straight to /reel/<id>/.
@@ -613,6 +623,7 @@ async function facebookResolveIds(url: string): Promise<{ ids: string[]; walled:
       for (const c of facebookIdCandidates(bounced.html).slice(0, 3)) add(c)
     }
   }
+  if (!ids.length && notVideo) return { ids, walled: false, photo: true }
   return { ids, walled }
 }
 
@@ -1342,7 +1353,9 @@ async function syncChunk(rows: Row[], progress: Progress, quiet = false): Promis
     const table = row.vip ? 'vip_videos' : 'submissions'
     if (r.views == null) {
       // A number the team typed by hand stands when the platform still will not answer: no error flag to chase.
-      const typed = row.vip && row.views_source === 'manual'
+      // A challenge entry that is a PHOTO post too (15 Oct 2026): no platform states its views, so the number the team
+      // types from the creator's Insights is the only one there will ever be, and the sync must stop flagging it.
+      const typed = row.views_source === 'manual' && (row.vip || (r.error === 'not_a_video' && row.logged_views != null))
       await supabase.from(table).update({
         views_sync_error: typed ? null : r.error,
         views_synced_at: now,
@@ -1448,7 +1461,7 @@ async function eligibleChallengeIds(): Promise<string[]> {
   return (data ?? []).map((c: { id: string }) => c.id)
 }
 
-const ROW_COLS = 'id, video_url, platform, logged_views, platform_video_id, creator_id, posted_at, screen_text, views_synced_at'
+const ROW_COLS = 'id, video_url, platform, logged_views, platform_video_id, creator_id, posted_at, screen_text, views_synced_at, views_source'
 
 // Due for a reading: never read, read longer ago than the interval, or never
 // read SUCCESSFULLY. The last group is retried on every hourly tick instead of

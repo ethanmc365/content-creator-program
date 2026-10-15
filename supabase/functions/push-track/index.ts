@@ -28,9 +28,13 @@ Deno.serve(async (req) => {
     if (!UUID.test(id) || !['delivered', 'clicked'].includes(event)) return ok()
     const { data: n } = await supabase.from('notifications').select('id, recipient_id, type').eq('id', id).maybeSingle()
     if (!n) return ok()
-    const { data: dup } = await supabase.from('push_events').select('id').eq('notification_id', id).eq('event', event).limit(1)
-    if (dup?.length) return ok()
-    await supabase.from('push_events').insert({ notification_id: n.id, recipient_id: n.recipient_id, type: n.type, event })
+    // ONE STATEMENT, NOT CHECK-THEN-INSERT (15 Oct 2026). A phone reports the same event twice at once (the service
+    // worker and the page), both checks found nothing, and the second insert hit `push_events_one_per_event`: 21
+    // unique-violation errors a day in the database log. The index already says "once"; this just lets it.
+    await supabase.from('push_events').upsert(
+      { notification_id: n.id, recipient_id: n.recipient_id, type: n.type, event },
+      { onConflict: 'notification_id,event', ignoreDuplicates: true },
+    )
   } catch (e) {
     console.error('push-track', String(e))
   }

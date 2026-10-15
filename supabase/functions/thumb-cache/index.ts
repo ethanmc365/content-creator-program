@@ -124,7 +124,7 @@ async function followTo(start: string, hops = 5): Promise<string | null> {
         method: 'HEAD',
         redirect: 'manual',
         headers: { 'user-agent': UA, accept: '*/*' },
-        signal: AbortSignal.timeout(8000),
+        signal: AbortSignal.timeout(4500),
       })
       // Some endpoints refuse HEAD outright. One retry, still no body read.
       if (res.status === 405 || res.status === 501) {
@@ -207,10 +207,60 @@ function tiktokIdFrom(u: string): string | null {
   return u.match(/\/(?:video|photo)\/(\d{6,})/)?.[1] ?? u.match(/[?&]item_id=(\d{6,})/)?.[1] ?? null
 }
 
+// TIKTOK'S oEMBED SOMETIMES SIMPLY DOES NOT ANSWER (15 Oct 2026). Measured: one request in six hung for ten seconds
+// while the rest came back in under one, and a hung one left the entry form saying "We could not read a preview" -
+// the screenshot a creator sent. So it is asked with a short clock, and if that fails it is asked again ALONGSIDE
+// TikTok's embed page, which carries the same cover and the handle. Whichever answers first fills the preview.
+type TikTokBits = { thumbnail: string | null; caption: string | null; author: string | null; handle: string | null }
+
+async function tiktokOembed(target: string, ms: number): Promise<TikTokBits | null> {
+  try {
+    const res = await fetch(`https://www.tiktok.com/oembed?url=${encodeURIComponent(target)}`, {
+      headers: { accept: 'application/json', 'user-agent': UA },
+      signal: AbortSignal.timeout(ms),
+    })
+    if (!res.ok) { await res.body?.cancel(); return null }
+    const b = await res.json()
+    const thumbnail = typeof b?.thumbnail_url === 'string' ? b.thumbnail_url : null
+    if (!thumbnail) return null
+    return {
+      thumbnail,
+      caption: typeof b?.title === 'string' ? b.title : null,
+      author: typeof b?.author_name === 'string' ? b.author_name : null,
+      handle: handleFromAuthorUrl(b?.author_url),
+    }
+  } catch {
+    return null
+  }
+}
+
+// The embed player's page state: `"covers…":["https://…tiktokcdn…"]` and the author's `uniqueId`. Built from the
+// numeric id alone, so nothing a caller typed steers the request; the cover must still pass the CDN allow-list.
+async function tiktokEmbed(id: string, ms: number): Promise<TikTokBits | null> {
+  try {
+    const res = await fetch(`https://www.tiktok.com/embed/v2/${id}`, {
+      headers: { accept: 'text/html', 'user-agent': UA, 'accept-language': 'en-GB,en;q=0.9' },
+      signal: AbortSignal.timeout(ms),
+    })
+    if (!res.ok) { await res.body?.cancel(); return null }
+    const html = await res.text()
+    const unescape = (v: string) => v.replace(/\\u0026/g, '&').replace(/\\u002F/gi, '/').replace(/\\\//g, '/')
+    const raw = html.match(/"covers(?:Origin|Dynamic)?":\["(https:[^"]+)"/)?.[1] ?? html.match(/"(?:originCover|cover)":"(https:[^"]+)"/)?.[1]
+    const thumbnail = raw ? unescape(raw) : null
+    if (!thumbnail || !hostAllowed(thumbnail)) return null
+    const handle = html.match(/"uniqueId":"([A-Za-z0-9._-]+)"/)?.[1] ?? null
+    const author = html.match(/"nickName":"([^"]{1,80})"/)?.[1] ?? null
+    return { thumbnail, caption: null, author, handle }
+  } catch {
+    return null
+  }
+}
+
 async function tiktokMeta(url: string): Promise<Meta> {
   let target = url
   if (/(?:vm|vt)\.tiktok\.com/i.test(url)) {
-    const resolved = await followTo(url)
+    // A short link that does not answer is asked once more before the preview gives up on it.
+    const resolved = (await followTo(url)) ?? (await followTo(url))
     if (!resolved) return NOTHING
     target = resolved
   }
@@ -218,27 +268,19 @@ async function tiktokMeta(url: string): Promise<Meta> {
   // shared link carries - and ask for the id as a video whatever it is called.
   target = target.split('?')[0].replace('/photo/', '/video/')
   if (!pageAllowed(target)) return NOTHING
-  // THE ID IS REPORTED EVEN IF oEmbed THEN SAYS NOTHING. The cover and the
+  // THE ID IS REPORTED EVEN IF NOTHING ELSE ANSWERS. The cover and the
   // caption are a nicety; the id is what stops a repeat entry scoring, and it is
   // already known here whether or not TikTok feels like answering.
   const identity = { canonical: target, videoId: tiktokIdFrom(target) }
-  try {
-    const res = await fetch(`https://www.tiktok.com/oembed?url=${encodeURIComponent(target)}`, {
-      headers: { accept: 'application/json', 'user-agent': UA },
-      signal: AbortSignal.timeout(8000),
-    })
-    if (!res.ok) return { ...NOTHING, ...identity }
-    const b = await res.json()
-    return {
-      ...identity,
-      thumbnail: typeof b?.thumbnail_url === 'string' ? b.thumbnail_url : null,
-      caption: typeof b?.title === 'string' ? b.title : null,
-      author: typeof b?.author_name === 'string' ? b.author_name : null,
-      handle: handleFromAuthorUrl(b?.author_url),
-    }
-  } catch {
-    return { ...NOTHING, ...identity }
-  }
+  const first = await tiktokOembed(target, 3500)
+  if (first) return { ...NOTHING, ...identity, ...first }
+  const [again, embed] = await Promise.all([
+    tiktokOembed(target, 5000),
+    identity.videoId ? tiktokEmbed(identity.videoId, 6000) : Promise.resolve(null),
+  ])
+  const got = again ?? embed
+  if (!got) return { ...NOTHING, ...identity }
+  return { ...NOTHING, ...identity, ...got, caption: again?.caption ?? null, handle: got.handle ?? embed?.handle ?? null }
 }
 
 async function youtubeMeta(url: string): Promise<Meta> {
