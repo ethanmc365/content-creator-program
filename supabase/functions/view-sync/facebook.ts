@@ -35,8 +35,10 @@ export const FB_REGIONS = [
   'ap-northeast-1', 'ap-northeast-2', 'ap-south-1', 'ap-southeast-2', 'us-west-2', 'eu-central-2',
 ]
 
+// A Page's video link can carry a title slug before the id (15 Oct 2026): `/<page>/videos/<slug>/<id>/`. That is the
+// form Facebook's own redirect from a post names its video in, so the slug is skipped rather than read as "no id".
 export function facebookIdFrom(url: string): string | null {
-  return url.match(/\/(?:videos|reel|reels|video)\/(\d{6,})/)?.[1] ?? url.match(/[?&]v=(\d{6,})/)?.[1] ?? null
+  return url.match(/\/(?:videos|reel|reels|video)\/(?:[^/?#]*\/)?(\d{6,})/)?.[1] ?? url.match(/[?&]v=(\d{6,})/)?.[1] ?? null
 }
 
 // "5.7K" -> 5700, "8.9M" -> 8900000, "1,234" -> 1234.
@@ -138,8 +140,8 @@ export function facebookIdCandidates(html: string): string[] {
   // while the community's reels read fine. The video the post carries is named in its `associated_video` blocks, and
   // `/reel/<that id>/` states the count like any reel. Taken first, because it describes THIS post.
   push(facebookAssociatedVideoId(html))
-  push(html.match(/rel="canonical"\s+href="[^"]*\/(?:videos|reel|video)\/(\d{6,})/)?.[1])
-  push(html.match(/property="og:url"\s+content="[^"]*\/(?:videos|reel|video)\/(\d{6,})/)?.[1])
+  push(html.match(/rel="canonical"\s+href="[^"]*\/(?:videos|reel|video)\/(?:[^"/]*\/)?(\d{6,})/)?.[1])
+  push(html.match(/property="og:url"\s+content="[^"]*\/(?:videos|reel|video)\/(?:[^"/]*\/)?(\d{6,})/)?.[1])
   push(html.match(/params:\{video_id:"(\d{6,})"\}/)?.[1])
   push(html.match(/"pageID"\s*:\s*"?(\d{6,})"?/)?.[1])
   push(html.match(/"video_id"\s*:\s*"(\d{6,})"/)?.[1])

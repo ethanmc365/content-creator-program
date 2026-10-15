@@ -224,11 +224,10 @@ export default function VipHub() {
   const cur = programme.currency
   const left = daysLeft(month.ends_at)
   const paused = member.status !== 'active'
-  // EVERY VIDEO EVER, in cards: the first rows sit beside the section column (three across); once the column has ended the rest take
-  // the whole width (four across).
+  // EVERY VIDEO EVER, in ONE grid of cards, three across beside the section column (15 Oct 2026). The rows past the sixth
+  // used to drop below the column four across, and a four-across card is a different size from a three-across one, so the
+  // page read as two mismatched grids. One grid, one card size; the section column stays in view beside it.
   const allVideos = (overview.videos || []).filter((v) => v.status !== 'removed')
-  const videosBeside = allVideos.slice(0, 6)
-  const videosBelow = allVideos.slice(6)
 
   const programmes = staffOv?.programmes || overview.programmes || []
   const space = programme.kind || 'vip'
@@ -377,7 +376,7 @@ export default function VipHub() {
                 <>
                   <h2 className="flex items-baseline gap-2 text-[15px] font-bold text-ink">{tr('Every video you have added')}<span className="text-xs font-semibold text-smoke">{allVideos.length}</span></h2>
                   <ul className="grid grid-cols-2 gap-3.5 sm:grid-cols-3">
-                    {videosBeside.map((v, i) => <VipVideoCard key={v.id} video={v} cpm={stats.effective_cpm} currency={cur} onRemoved={refresh} delay={Math.min(i, 8) * 45} rules={rules} month={month} />)}
+                    {allVideos.map((v, i) => <VipVideoCard key={v.id} video={v} cpm={stats.effective_cpm} currency={cur} onRemoved={refresh} delay={Math.min(i, 8) * 45} rules={rules} month={month} />)}
                   </ul>
                 </>
               )}
@@ -443,15 +442,10 @@ export default function VipHub() {
       {/* Desktop: the sections, in a column that stays in view. */}
       {/* NO QUICK LINKS CARD. The team: the links to the VIP rooms "are unnecessary. You can remove the quick link card
           entirely and just have the other right column"; a VIP's recap and portfolio join the sections. */}
-      <aside className={cx('hidden space-y-4 lg:block', tab !== 'videos' && 'lg:sticky lg:top-24')}>
+      <aside className="hidden space-y-4 lg:sticky lg:top-24 lg:block">
         <VipSideNav value={tab} onChange={go} hidden={hiddenTabs} links={isStaff ? null : VIP_LINKS} official={official} />
         {!isStaff && <VipBalanceMini onOpen={() => go('payouts')} />}
       </aside>
-      {tab === 'videos' && videosBelow.length > 0 && (
-        <ul className="mt-3.5 grid grid-cols-2 gap-3.5 sm:grid-cols-3 lg:col-span-2 lg:grid-cols-4">
-          {videosBelow.map((v, i) => <VipVideoCard key={v.id} video={v} cpm={stats.effective_cpm} currency={cur} onRemoved={refresh} delay={Math.min(i, 8) * 45} rules={rules} month={month} />)}
-        </ul>
-      )}
       </div>
 
       </div>)}

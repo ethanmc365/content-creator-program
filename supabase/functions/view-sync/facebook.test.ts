@@ -64,6 +64,10 @@ describe('ids', () => {
   it('reads ids off every URL shape that carries one', () => {
     expect(facebookIdFrom(`https://www.facebook.com/reel/${ID}/`)).toBe(ID)
     expect(facebookIdFrom(`https://www.facebook.com/someone/videos/${ID}/`)).toBe(ID)
+    // Facebook's redirect from a Page post names the video after a title slug (Roxana, 15 Oct 2026).
+    expect(facebookIdFrom('https://www.facebook.com/61566174517085/videos/a-zis-cineva-laponia-de-c%C3%A2nd-%C3%AEmi-doresctravel-travelling/2118608678754384/'))
+      .toBe('2118608678754384')
+    expect(facebookIdFrom('https://www.facebook.com/61566174517085/videos/2118608678754384/')).toBe('2118608678754384')
     expect(facebookIdFrom(`https://www.facebook.com/watch/?v=${ID}`)).toBe(ID)
     expect(facebookIdFrom('https://www.facebook.com/share/r/1BKpq4JCDZ/')).toBeNull()
     expect(facebookIdFrom('https://m.facebook.com/story.php?story_fbid=pfbid02eZ&id=100002021784159')).toBeNull()

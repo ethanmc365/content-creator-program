@@ -530,6 +530,35 @@ async function facebookShareTarget(url: string): Promise<{ post: string; owner: 
   return null
 }
 
+// WHERE A POST SENDS YOU, read off the redirect and never followed (15 Oct 2026). Roxana's VIP reel was shared from her
+// Page as `/share/r/`, which lands on `story.php` - a login wall from every server - and the embed plugin draws nothing
+// for that post, so the entry sat "blocked" holding the POST id. But Facebook answers `/<owner>/posts/<post>/` and
+// `/<post>` with a redirect to `/<owner>/videos/<slug>/<video id>/` before any wall, and that video reads like any reel.
+async function facebookPostRedirectId(post: { post: string; owner: string | null }): Promise<string | null> {
+  const urls = [
+    ...(post.owner ? [`https://www.facebook.com/${post.owner}/posts/${post.post}/`] : []),
+    `https://www.facebook.com/${post.post}`,
+  ]
+  for (const u of urls) {
+    for (const ua of FB_CRAWLER_UAS) {
+      const ctrl = new AbortController()
+      const timer = setTimeout(() => ctrl.abort(), FETCH_TIMEOUT_MS)
+      try {
+        const { res } = await checkedFetch(u, { headers: { 'User-Agent': ua, 'Accept-Language': 'en-GB,en;q=0.9' }, redirect: 'manual', signal: ctrl.signal })
+        await res.body?.cancel()
+        const location = res.headers.get('location') ?? ''
+        const id = /facebook\.com\/(?:login|checkpoint)/.test(location) ? null : facebookIdFrom(location)
+        if (id && id !== post.post) return id
+      } catch {
+        // try the next agent
+      } finally {
+        clearTimeout(timer)
+      }
+    }
+  }
+  return null
+}
+
 type FbLocal = Resolved & { walled?: boolean; region?: string | null }
 
 // Every route that can turn a link into a video id, cheapest first. Returns as
@@ -556,6 +585,8 @@ async function facebookResolveIds(url: string): Promise<{ ids: string[]; walled:
     const href = `https://www.facebook.com/${post.owner}/posts/${post.post}/`
     const viaPost = await fbFetch(`https://www.facebook.com/plugins/video.php?href=${encodeURIComponent(href)}&show_text=false&width=500`, UA)
     if (viaPost) add(pluginVideoId(viaPost.html))
+    if (ids.length) return { ids, walled }
+    add(await facebookPostRedirectId(post))
     if (ids.length) return { ids, walled }
   }
 
