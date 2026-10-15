@@ -173,3 +173,41 @@ describe('monthLabel', () => {
     expect(monthLabel('2026-01')).toBe('Jan 26')
   })
 })
+
+describe('earned creator costs', () => {
+  const base = {
+    profiles: [{ id: 'a', name: 'Ann' }],
+    submissions: [{ id: 's', creator_id: 'a', challenge_id: 'global', logged_views: 10000 }],
+    liveStandings: { global: [
+      { creator_id: 'a', slot: 'participation', status: 'earned', reward_type: 'voucher', amount: 20, currency: 'EUR' },
+      { creator_id: 'a', slot: 'award:committed', status: 'earned', reward_type: 'cash', amount: 30, currency: 'EUR' },
+      { creator_id: 'a', slot: 'award:other', status: 'contender', reward_type: 'cash', amount: 100, currency: 'EUR' },
+    ] },
+  }
+  it('includes earned prizes before a running challenge issues its reward ledger', () => {
+    const [row] = perCreator(base)
+    expect(row.vouchers).toBe(20)
+    expect(row.cash).toBe(30)
+    expect(row.unawarded).toBe(50)
+    expect(row.combinedCpm).toBe(5)
+  })
+  it('does not count an issued prize twice, and does not use a podium prize to cancel a different cash bonus', () => {
+    const [row] = perCreator({ ...base, rewards: [
+      { creator_id: 'a', challenge_id: 'global', prize_slot: 'participation', reward_type: 'voucher', amount: 20, currency: 'EUR', status: 'pending' },
+      { creator_id: 'a', challenge_id: 'global', prize_slot: 'place', reward_type: 'cash', amount: 100, currency: 'EUR', status: 'pending' },
+    ] })
+    expect(row.vouchers).toBe(20)
+    expect(row.cash).toBe(130)
+    expect(row.unawarded).toBe(30)
+    expect(row.combinedCpm).toBe(15)
+  })
+  it('keeps worldwide earnings when viewing the creator’s home market', () => {
+    const scoped = scopeToMarket(base, 'uk', [{ profile_id: 'a', community_id: 'uk' }])
+    expect(perCreator(scoped)[0].combinedCpm).toBe(5)
+  })
+  it('shows unknown cost rather than a misleading zero CPM when no prize is recorded', () => {
+    const [row] = perCreator({ ...base, liveStandings: {} })
+    expect(row.cashCpm).toBeNull()
+    expect(row.combinedCpm).toBeNull()
+  })
+})

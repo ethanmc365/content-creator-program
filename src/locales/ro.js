@@ -5334,4 +5334,9 @@ export default {
   'Zoom': 'Zoom',
   'Zoom in': 'Mărește',
   'Zoom out': 'Micșorează',
+  "Winning prizes": "Câștigarea premiilor",
+  "Videos with the most new views": "Videoclipuri cu cele mai multe vizualizări noi",
+  "Creators with the most new views": "Creatori cu cele mai multe vizualizări noi",
+  "Deck order: Worldwide, markets, then challenges. Files are numbered in that order.": "Ordinea diapozitivelor: Worldwide, piețe, apoi provocări. Fișierele sunt numerotate în această ordine.",
+  "Meet your manager": "Cunoaște-ți managerul",
 }

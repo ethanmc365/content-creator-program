@@ -1511,6 +1511,26 @@ alter table public.market_join_requests enable row level security;
 comment on column public.market_join_requests.language_level is 'How well they say they speak the market''s language: native, fluent, some, none.';
 comment on column public.market_join_requests.ties is 'What ties them to the market: live, part_time, study, work, family, audience.';
 
+create table public.market_signup_settings (
+  community_id uuid not null,
+  call_enabled boolean default false not null,
+  call_url text,
+  call_minutes integer default 15 not null,
+  host_profile_id uuid,
+  note text,
+  updated_at timestamp with time zone default now() not null,
+  updated_by uuid,
+  audience text default 'community'::text not null,
+  constraint market_signup_settings_audience_check CHECK ((audience = ANY (ARRAY['community'::text, 'vip'::text]))),
+  constraint market_signup_settings_call_minutes_check CHECK (((call_minutes >= 5) AND (call_minutes <= 120))),
+  constraint market_signup_settings_call_url_check CHECK (((call_url IS NULL) OR (call_url ~* '^https?://'::text))),
+  constraint market_signup_settings_community_id_fkey FOREIGN KEY (community_id) REFERENCES communities(id) ON DELETE CASCADE,
+  constraint market_signup_settings_host_profile_id_fkey FOREIGN KEY (host_profile_id) REFERENCES profiles(id) ON DELETE SET NULL,
+  constraint market_signup_settings_updated_by_fkey FOREIGN KEY (updated_by) REFERENCES profiles(id) ON DELETE SET NULL,
+  constraint market_signup_settings_pkey PRIMARY KEY (community_id, audience)
+);
+alter table public.market_signup_settings enable row level security;
+
 create table public.message_reports (
   id uuid default gen_random_uuid() not null,
   reporter_id uuid not null,
@@ -1634,6 +1654,20 @@ create table public.notifications (
   constraint notifications_pkey PRIMARY KEY (id)
 );
 alter table public.notifications enable row level security;
+
+create table public.onboarding_progress (
+  id bigint generated always as identity not null,
+  profile_id uuid,
+  step smallint not null,
+  reached_at timestamp with time zone default now() not null,
+  signed_up timestamp with time zone,
+  country_code text,
+  person uuid,
+  constraint onboarding_progress_step_check CHECK (((step >= 1) AND (step <= 8))),
+  constraint onboarding_progress_profile_id_fkey FOREIGN KEY (profile_id) REFERENCES profiles(id) ON DELETE SET NULL,
+  constraint onboarding_progress_pkey PRIMARY KEY (id)
+);
+alter table public.onboarding_progress enable row level security;
 
 create table public.ops_health_samples (
   taken_at timestamp with time zone default now() not null,
@@ -1828,6 +1862,11 @@ create table public.profiles (
   team_invite_id uuid,
   is_vip boolean default false not null,
   vip_kind text,
+  onboarding_call_opened_at timestamp with time zone,
+  onboarding_call_booked_at timestamp with time zone,
+  signup_source jsonb,
+  onboarding_call_at timestamp with time zone,
+  onboarding_call_ref text,
   constraint profiles_age_check CHECK (((age IS NULL) OR ((age >= 16) AND (age <= 100)))),
   constraint profiles_locale_check CHECK (((locale IS NULL) OR (locale = ANY (ARRAY['en'::text, 'es'::text, 'pt'::text, 'de'::text, 'ro'::text])))),
   constraint profiles_platform_role_check CHECK ((platform_role = ANY (ARRAY['none'::text, 'global_admin'::text, 'owner'::text]))),
@@ -1855,6 +1894,7 @@ comment on column public.profiles.followed_up_at is 'When an admin recorded send
 comment on column public.profiles.submitted_at is 'When the creator finished and submitted their application (onboarded false -> true). Null for rows that predate migration 218; fall back to created_at.';
 comment on column public.profiles.team_application is 'Signed up through a team invite link. Marks them in the applications queue; grants nothing.';
 comment on column public.profiles.vip_kind is 'Read-only mirror: the kind of the paid programme this creator is active in (vip | official), or null.';
+comment on column public.profiles.signup_source is 'First-touch source of the sign-up: {source, medium, campaign, landing, at}. Written once by the applicant.';
 
 -- The ONLY functions anon may execute. Adding a row here is a deliberate decision to publish data to the open internet; the event trigger no_new_function_is_public enforces everything else.
 create table public.public_rpc_allowlist (
@@ -2027,6 +2067,20 @@ create table public.scheduled_announcements (
 );
 alter table public.scheduled_announcements enable row level security;
 
+create table public.scheduled_approvals (
+  profile_id uuid not null,
+  market_slugs text[] default '{}'::text[] not null,
+  vip_programme uuid,
+  approve_at timestamp with time zone not null,
+  scheduled_by uuid,
+  created_at timestamp with time zone default now() not null,
+  constraint scheduled_approvals_profile_id_fkey FOREIGN KEY (profile_id) REFERENCES profiles(id) ON DELETE CASCADE,
+  constraint scheduled_approvals_scheduled_by_fkey FOREIGN KEY (scheduled_by) REFERENCES profiles(id) ON DELETE SET NULL,
+  constraint scheduled_approvals_vip_programme_fkey FOREIGN KEY (vip_programme) REFERENCES vip_programmes(id) ON DELETE SET NULL,
+  constraint scheduled_approvals_pkey PRIMARY KEY (profile_id)
+);
+alter table public.scheduled_approvals enable row level security;
+
 create table public.streak_freezes (
   profile_id uuid not null,
   day_key integer not null,
@@ -2113,6 +2167,7 @@ create table public.submissions (
   posted_at timestamp with time zone,
   collab_of uuid,
   screen_text text,
+  removed_seen_at timestamp with time zone,
   constraint submissions_platform_check CHECK ((platform = ANY (ARRAY['Instagram'::text, 'TikTok'::text, 'YouTube'::text, 'Facebook'::text, 'Other'::text]))),
   constraint submissions_video_url_is_web CHECK ((video_url ~* '^https?://'::text)),
   constraint submissions_views_source_check CHECK ((views_source = ANY (ARRAY['manual'::text, 'tiktok'::text, 'instagram'::text, 'youtube'::text, 'facebook'::text]))),
@@ -2708,6 +2763,17 @@ create table public.vip_statements (
 );
 alter table public.vip_statements enable row level security;
 
+create table public.vip_video_answers (
+  video_id uuid not null,
+  question_id uuid not null,
+  answers text[] default '{}'::text[] not null,
+  answered_at timestamp with time zone default now() not null,
+  constraint vip_video_answers_question_id_fkey FOREIGN KEY (question_id) REFERENCES vip_video_questions(id) ON DELETE CASCADE,
+  constraint vip_video_answers_video_id_fkey FOREIGN KEY (video_id) REFERENCES vip_videos(id) ON DELETE CASCADE,
+  constraint vip_video_answers_pkey PRIMARY KEY (video_id, question_id)
+);
+alter table public.vip_video_answers enable row level security;
+
 create table public.vip_video_claims (
   video_id uuid not null,
   rule_id uuid not null,
@@ -2724,6 +2790,30 @@ create table public.vip_video_claims (
   constraint vip_video_claims_pkey PRIMARY KEY (video_id, rule_id)
 );
 alter table public.vip_video_claims enable row level security;
+
+create table public.vip_video_questions (
+  id uuid default gen_random_uuid() not null,
+  programme_id uuid,
+  kind text default 'vip'::text not null,
+  question text not null,
+  options text[] default '{}'::text[] not null,
+  multiple boolean default false not null,
+  required boolean default true not null,
+  audience text default 'all'::text not null,
+  profile_ids uuid[] default '{}'::uuid[] not null,
+  active boolean default true not null,
+  position integer default 0 not null,
+  created_by uuid,
+  created_at timestamp with time zone default now() not null,
+  updated_at timestamp with time zone default now() not null,
+  constraint vip_video_questions_audience_check CHECK ((audience = ANY (ARRAY['all'::text, 'some'::text]))),
+  constraint vip_video_questions_kind_check CHECK ((kind = ANY (ARRAY['vip'::text, 'official'::text]))),
+  constraint vip_video_questions_question_check CHECK (((length(btrim(question)) >= 3) AND (length(btrim(question)) <= 200))),
+  constraint vip_video_questions_created_by_fkey FOREIGN KEY (created_by) REFERENCES profiles(id) ON DELETE SET NULL,
+  constraint vip_video_questions_programme_id_fkey FOREIGN KEY (programme_id) REFERENCES vip_programmes(id) ON DELETE CASCADE,
+  constraint vip_video_questions_pkey PRIMARY KEY (id)
+);
+alter table public.vip_video_questions enable row level security;
 
 create table public.vip_videos (
   id uuid default gen_random_uuid() not null,

@@ -128,7 +128,7 @@ export function snapshotSvg(r, scope = 'both', title = 'Weekly snapshot', opts =
   </g>`
 
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" font-family="Poppins, 'Helvetica Neue', Arial, sans-serif" role="img" aria-label="${esc(title)}">
-  <defs><linearGradient id="hg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${ORANGE}"/><stop offset="1" stop-color="${ORANGE_LIGHT}"/></linearGradient></defs>
+  ${opts.header ? '' : `<defs><linearGradient id="hg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${ORANGE}"/><stop offset="1" stop-color="${ORANGE_LIGHT}"/></linearGradient></defs>`}
   <rect width="${W}" height="${H}" fill="#faf7f4"/>
   ${opts.header || `<rect width="${W}" height="108" fill="url(#hg)"/>
   <text x="48" y="46" font-size="14" font-weight="700" letter-spacing="2" fill="#ffe3d2">TRYP.COM CREATOR COMMUNITY</text>
@@ -147,7 +147,7 @@ export function snapshotSvg(r, scope = 'both', title = 'Weekly snapshot', opts =
     ${scope !== 'community' ? `<rect x="${scope === 'vip' ? 48 : 200}" y="${cy0 + chh + 42}" width="12" height="12" rx="3" fill="${INK}"/><text x="${scope === 'vip' ? 66 : 218}" y="${cy0 + chh + 52}">VIP ${compact(t.vip)}</text>` : ''}
   </g>
 
-  <text x="676" y="290" font-size="13" font-weight="700" letter-spacing="1.4" fill="${SMOKE}">${one ? 'CREATORS WHO GAINED MOST' : 'BY MARKET'}</text>
+  <text x="676" y="290" font-size="13" font-weight="700" letter-spacing="1.4" fill="${SMOKE}">${one ? 'CREATORS WITH MOST NEW VIEWS' : 'BY MARKET'}</text>
   ${table}
 
   <text x="48" y="${H - 28}" font-size="13" fill="${SMOKE}">Views gained inside the dates shown, not lifetime totals. ${scope === 'both' ? 'Community and VIP added together.' : ''}</text>

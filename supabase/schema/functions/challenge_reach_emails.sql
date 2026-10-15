@@ -33,7 +33,7 @@ begin
      where p.status = 'active' and not p.is_admin and not p.is_test and not coalesce(p.is_sandbox, false) and p.deletion_requested_at is null
        and u.email is not null
        and (v_net or exists (select 1 from public.community_members cm where cm.profile_id = p.id and cm.community_id = ch.community_id and cm.status = 'active'))
-       and not exists (select 1 from public.submissions s where s.creator_id = p.id and s.challenge_id = p_challenge)
+       and (case when p_segment = 'posted' then exists (select 1 from public.submissions s where s.creator_id = p.id and s.challenge_id = p_challenge) else not exists (select 1 from public.submissions s where s.creator_id = p.id and s.challenge_id = p_challenge) end)
        and (p_market is null or coalesce((select c.name from public.community_members m join public.communities c on c.id = m.community_id
                                             where m.profile_id = p.id and m.is_home and m.status = 'active' and c.kind = 'chapter' limit 1), 'Rest of the world') = p_market)
        and case p_segment

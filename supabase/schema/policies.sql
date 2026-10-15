@@ -1025,6 +1025,11 @@ create policy "join requests: withdraw own" on public.market_join_requests
   as permissive for delete to authenticated
   using (((profile_id = ( SELECT auth.uid() AS gate)) AND (status = 'pending'::text)));
 
+create policy market_signup_settings_admin on public.market_signup_settings
+  as permissive for all to authenticated
+  using (( SELECT is_admin() AS is_admin))
+  with check (( SELECT is_admin() AS is_admin));
+
 create policy "reports: admins delete" on public.message_reports
   as permissive for delete to authenticated
   using (( SELECT is_admin() AS gate));
@@ -1121,6 +1126,10 @@ create policy "notifications: mark own read" on public.notifications
 create policy "notifications: read own" on public.notifications
   as permissive for select to authenticated
   using ((recipient_id = ( SELECT auth.uid() AS uid)));
+
+create policy onboarding_progress_admin on public.onboarding_progress
+  as permissive for select to authenticated
+  using (( SELECT is_admin() AS is_admin));
 
 create policy point_awards_manage on public.point_awards
   as permissive for all to authenticated
@@ -1319,6 +1328,15 @@ create policy "scheduled_announcements: admin update" on public.scheduled_announ
   as permissive for update to authenticated
   using (( SELECT is_admin() AS is_admin))
   with check (( SELECT is_admin() AS is_admin));
+
+create policy scheduled_approvals_admin on public.scheduled_approvals
+  as permissive for all to authenticated
+  using (( SELECT is_admin() AS is_admin))
+  with check (( SELECT is_admin() AS is_admin));
+
+create policy scheduled_approvals_own on public.scheduled_approvals
+  as permissive for select to authenticated
+  using ((profile_id = ( SELECT auth.uid() AS uid)));
 
 create policy "streak_freezes: admin delete" on public.streak_freezes
   as permissive for delete to authenticated
@@ -1573,11 +1591,30 @@ create policy "vip statements: read" on public.vip_statements
   as permissive for select to public
   using ((((profile_id = ( SELECT auth.uid() AS uid)) AND (status = 'approved'::text)) OR vip_can_see(programme_id)));
 
+create policy vip_video_answers_read on public.vip_video_answers
+  as permissive for select to authenticated
+  using ((EXISTS ( SELECT 1
+   FROM vip_videos v
+  WHERE ((v.id = vip_video_answers.video_id) AND ((v.profile_id = ( SELECT auth.uid() AS uid)) OR vip_can_see(v.programme_id))))));
+
 create policy "vip claims: read" on public.vip_video_claims
   as permissive for select to public
   using ((EXISTS ( SELECT 1
    FROM vip_videos v
   WHERE ((v.id = vip_video_claims.video_id) AND ((v.profile_id = ( SELECT auth.uid() AS uid)) OR vip_can_see(v.programme_id))))));
+
+create policy vip_video_questions_staff on public.vip_video_questions
+  as permissive for all to authenticated
+  using (
+CASE
+    WHEN (programme_id IS NULL) THEN (( SELECT is_owner() AS is_owner) OR ( SELECT vip_has_access() AS vip_has_access))
+    ELSE vip_can_manage(programme_id)
+END)
+  with check (
+CASE
+    WHEN (programme_id IS NULL) THEN ( SELECT is_owner() AS is_owner)
+    ELSE vip_can_manage(programme_id)
+END);
 
 create policy "vip videos: read" on public.vip_videos
   as permissive for select to public

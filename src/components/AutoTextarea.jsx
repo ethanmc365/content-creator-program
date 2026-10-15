@@ -44,7 +44,7 @@ function measure(el, rows) {
   for (const k of COPIED) twin.style[k] = cs[k]
   twin.style.width = `${el.getBoundingClientRect().width}px`
   twin.rows = rows
-  twin.value = el.value
+  twin.value = el.value || el.placeholder || ''
   const borders = cs.boxSizing === 'border-box'
     ? (parseFloat(cs.borderTopWidth) || 0) + (parseFloat(cs.borderBottomWidth) || 0)
     : 0
@@ -77,15 +77,18 @@ export default function AutoTextarea({ value, minRows = 3, maxHeight, className,
 
   useLayoutEffect(() => {
     let alive = true
-    if (document.fonts?.ready) document.fonts.ready.then(() => { if (alive) fit() })
+    if (document.fonts?.ready) document.fonts.ready.then(() => { if (alive) { last.current.width = -1; fit() } })
     // A window resize changes where the text wraps, so a paragraph that was
     // four lines on a wide column becomes six on a narrow one.
     let queued = 0
     const onResize = () => { if (!queued) queued = requestAnimationFrame(() => { queued = 0; fit() }) }
+    const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(onResize)
+    if (ref.current) observer?.observe(ref.current)
     window.addEventListener('resize', onResize)
     return () => {
       alive = false
       cancelAnimationFrame(queued)
+      observer?.disconnect()
       window.removeEventListener('resize', onResize)
     }
   }, [fit])

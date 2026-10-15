@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { supabase } from './supabase'
+import { parseLegacyIntro, translateIntro } from './intro'
 import { getLocale, useLocale, DEFAULT_LOCALE } from './i18n'
 
 // TRANSLATE THIS, ON REQUEST.
@@ -256,8 +257,9 @@ export function useMessageTranslations() {
     if (cur?.on) { patch(m.id, { on: false }); return }
     if (cur?.value != null && cur.body === m.body) { patch(m.id, { on: true }); return }
     patch(m.id, { busy: true })
-    const r = await translateNow(m.body, locale)
-    patch(m.id, { busy: false, on: !r.failed, failed: !!r.failed, value: r.value, body: m.body, same: r.src === locale })
+    const intro = m.intro || parseLegacyIntro(m.body)
+    const r = intro ? await translateIntro(intro, (text) => translateNow(text, locale)) : await translateNow(m.body, locale)
+    patch(m.id, { busy: false, on: !r.failed, failed: !!r.failed, value: r.value, intro: r.intro, body: m.body, same: intro ? r.same : r.src === locale })
     // The failure note clears itself after a few seconds, so it never sits on a message for good.
     if (r.failed) setTimeout(() => patch(m.id, { failed: false }), 6000)
   }, [state, locale])
@@ -273,6 +275,10 @@ export function useMessageTranslations() {
     isOn: (m) => !!state.get(m.id)?.on && state.get(m.id)?.body === m.body,
     isBusy: (m) => !!state.get(m.id)?.busy,
     isSame: (m) => !!state.get(m.id)?.same,
+    introFor: (m) => {
+      const s = state.get(m.id)
+      return s?.on && s.body === m.body ? s.intro : null
+    },
     textFor: (m) => {
       const s = state.get(m.id)
       return s?.on && s.body === m.body ? s.value : m.body

@@ -172,7 +172,7 @@ export function VipVideosTab({ programme }) {
       {shown.length === 0 && <p className="rounded-card border border-dashed border-gray-200 px-6 py-12 text-center text-sm text-smoke">{tr('No videos match that.')}</p>}
 
       {view === 'recent' && shown.length > 0 && (
-        <div key={`${platform}|${month}|${creator}|${answer?.q}|${answer?.a}`} className="grid grid-cols-2 gap-3 animate-tab-in sm:grid-cols-3 lg:grid-cols-5">
+        <div key={`${platform}|${month}|${creator}|${answer?.q}|${answer?.a}`} className="grid grid-cols-2 gap-4 animate-tab-in md:grid-cols-3 xl:grid-cols-4">
           {shown.slice(0, 120).map((v, i) => <VideoTile key={v.id} v={v} answers={byVideo.get(v.id)} qById={qById} delay={Math.min(i, 10) * 30} />)}
         </div>
       )}
@@ -189,7 +189,7 @@ export function VipVideosTab({ programme }) {
                 </span>
               </div>
               <div className="scrollbar-none -mx-1 flex snap-x gap-2.5 overflow-x-auto px-1 pb-1">
-                {vids.map((v) => <div key={v.id} className="w-[132px] shrink-0 snap-start"><VideoTile v={v} answers={byVideo.get(v.id)} qById={qById} compact /></div>)}
+                {vids.map((v) => <div key={v.id} className="w-[168px] sm:w-[184px] shrink-0 snap-start"><VideoTile v={v} answers={byVideo.get(v.id)} qById={qById} compact /></div>)}
               </div>
             </section>
           ))}

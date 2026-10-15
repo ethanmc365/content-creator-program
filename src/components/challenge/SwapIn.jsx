@@ -6,7 +6,7 @@ import { useEffect, useRef, useState } from 'react'
 // team wanted it "expanding in and out" like the leaderboard card. Entrances are CSS (`board-status`); an exit needs the
 // old node kept on screen for the length of its animation, which is all this does: when `swapKey` changes it holds the
 // previous children, marks them `board-status-out`, and swaps once they have gone.
-const OUT_MS = 200
+const OUT_MS = 120
 
 // ONE SHAPE FOR WHATEVER IS IN THE SLOT.
 //
@@ -29,21 +29,16 @@ export default function SwapIn({ swapKey, children }) {
   useEffect(() => { latest.current = children })
 
   useEffect(() => {
-    if (swapKey === shown.key) {
-      // Same slot, new props: follow them without an animation.
-      if (!shown.leaving && shown.node !== children) setShown((s) => ({ ...s, node: children }))
-      return undefined
-    }
-    if (!shown.node) { setShown({ key: swapKey, node: children, leaving: false }); return undefined }
-    setShown((s) => ({ ...s, leaving: true }))
-    const t = setTimeout(() => setShown({ key: swapKey, node: latest.current, leaving: false }), OUT_MS)
-    return () => clearTimeout(t)
-  }, [swapKey, children, shown.key, shown.node, shown.leaving])
+    setShown((previous) => ({ ...previous, leaving: previous.key !== swapKey }))
+    const timer = setTimeout(() => setShown({ key: swapKey, node: latest.current, leaving: false }), OUT_MS)
+    return () => clearTimeout(timer)
+  }, [swapKey])
 
-  if (!shown.node) return null
+  const node = shown.key === swapKey && !shown.leaving ? children : shown.node
+  if (!node) return null
   return (
     <div key={shown.key} className={shown.leaving ? 'board-status-out contents' : 'contents'}>
-      {shown.node}
+      {node}
     </div>
   )
 }

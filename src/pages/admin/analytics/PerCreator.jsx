@@ -2,10 +2,10 @@ import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { perCreator } from '../../../lib/analyticsScope'
 import { cpmBand } from '../../../lib/programme'
-import { Avatar } from '../../../components/ui'
+import { Avatar, Skeleton } from '../../../components/ui'
 import Icon from '../../../components/Icon'
 import Segmented from '../../../components/network/Segmented'
-import { cx, downloadCsv, formatMoney, formatViews } from '../../../lib/utils'
+import { cx, downloadCsv, formatCpm, formatMoney, formatViews } from '../../../lib/utils'
 
 // WHO DELIVERS, AND WHAT THEY COST.
 //
@@ -79,8 +79,8 @@ export default function PerCreator({ raw, currency = 'EUR', scopeLabel, target =
       vouchers,
       posted: rows.filter((r) => r.videos > 0).length,
       silent: rows.filter((r) => r.videos === 0).length,
-      cashCpm: views > 0 ? (cash / views) * 1000 : null,
-      combinedCpm: views > 0 ? ((cash + vouchers) / views) * 1000 : null,
+      cashCpm: views > 0 && cash > 0 ? (cash / views) * 1000 : null,
+      combinedCpm: views > 0 && cash + vouchers > 0 ? ((cash + vouchers) / views) * 1000 : null,
       costPerCreator: rows.length ? (cash + vouchers) / rows.length : 0,
     }
   }, [rows])
@@ -121,31 +121,34 @@ export default function PerCreator({ raw, currency = 'EUR', scopeLabel, target =
     )
   }
 
+  if (!raw) return <Skeleton className="h-72 w-full rounded-card" />
+
   if (!rows.length) {
     return <p className="card text-sm text-smoke">No creators in {scopeLabel || 'this view'} yet.</p>
   }
 
   return (
     <div className="space-y-6">
+      <p className="rounded-xl border border-brand/10 bg-brand-tint/40 px-4 py-3 text-xs leading-relaxed text-smoke">Creator costs include awarded prizes and rewards earned in running challenges. Historical challenge totals have no creator breakdown and cannot be assigned to individual creators.</p>
       <div className="grid auto-rows-fr gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <div className="rounded-card border border-gray-100 bg-white px-5 py-4 shadow-card">
           <p className="text-[11px] font-semibold uppercase tracking-widest text-smoke">Cash CPM</p>
           <p className="mt-1.5 text-2xl font-bold tabular-nums">
-            {totals.cashCpm === null ? '—' : formatMoney(totals.cashCpm, currency)}
+            {totals.cashCpm === null ? '—' : formatCpm(totals.cashCpm, currency)}
           </p>
-          <p className="mt-0.5 text-[11px] text-smoke">per 1,000 views, cash prizes only</p>
+          <p className="mt-0.5 text-[11px] text-smoke">per 1,000 views, cash prizes, including earned awards</p>
         </div>
         <div className="rounded-card border border-gray-100 bg-white px-5 py-4 shadow-card">
           <p className="text-[11px] font-semibold uppercase tracking-widest text-smoke">Combined CPM</p>
           <p className="mt-1.5 text-2xl font-bold tabular-nums">
-            {totals.combinedCpm === null ? '—' : formatMoney(totals.combinedCpm, currency)}
+            {totals.combinedCpm === null ? '—' : formatCpm(totals.combinedCpm, currency)}
           </p>
-          <p className="mt-0.5 text-[11px] text-smoke">cash and vouchers together</p>
+          <p className="mt-0.5 text-[11px] text-smoke">cash and vouchers, including earned rewards</p>
         </div>
         <div className="rounded-card border border-gray-100 bg-white px-5 py-4 shadow-card">
           <p className="text-[11px] font-semibold uppercase tracking-widest text-smoke">Cost per creator</p>
           <p className="mt-1.5 text-2xl font-bold tabular-nums">{formatMoney(totals.costPerCreator, currency)}</p>
-          <p className="mt-0.5 text-[11px] text-smoke">everything paid, across everyone</p>
+          <p className="mt-0.5 text-[11px] text-smoke">awarded and earned prizes, across everyone</p>
         </div>
         <div className="rounded-card border border-gray-100 bg-white px-5 py-4 shadow-card">
           <p className="text-[11px] font-semibold uppercase tracking-widest text-smoke">Posting</p>
@@ -153,7 +156,7 @@ export default function PerCreator({ raw, currency = 'EUR', scopeLabel, target =
             {totals.posted}<span className="text-base text-smoke"> / {rows.length}</span>
           </p>
           <p className={cx('mt-0.5 text-[11px]', totals.silent > 0 ? 'text-amber-600' : 'text-smoke')}>
-            {totals.silent} have never posted
+            {totals.silent} have not posted in this view
           </p>
         </div>
       </div>
@@ -168,7 +171,7 @@ export default function PerCreator({ raw, currency = 'EUR', scopeLabel, target =
             <p className="mt-1 text-xs text-smoke">
               {mode === 'table'
                 ? 'Sort by any column. Click a name to open their own pages as they see them.'
-                : <>What each creator&apos;s videos brought in, against what they were paid. The colour is their cost per 1,000 views against the {formatMoney(target, currency)} target.</>}
+                : <>What each creator&apos;s videos brought in, against awarded and earned prizes. The colour is their cost per 1,000 views against the {formatMoney(target, currency)} target.</>}
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
@@ -200,7 +203,7 @@ export default function PerCreator({ raw, currency = 'EUR', scopeLabel, target =
         </div>
         <div className="flex flex-wrap items-center gap-2 px-6 pb-4">
           <Segmented size="sm" value={mode === 'table' ? 'table' : plotSort} label="View" onChange={(v) => { if (v === 'table') setMode('table'); else { setMode('ranked'); setPlotSort(v) } }} options={[
-            { value: 'views', label: 'Most views' }, { value: 'value', label: 'Best value' }, { value: 'spend', label: 'Most paid' }, { value: 'table', label: 'Every number' },
+            { value: 'views', label: 'Most views' }, { value: 'value', label: 'Best value' }, { value: 'spend', label: 'Highest cost' }, { value: 'table', label: 'Every number' },
           ]} />
           {mode === 'table' && (
             <button type="button" onClick={() => setOnlyActive((v) => !v)} aria-pressed={onlyActive}
@@ -223,24 +226,24 @@ export default function PerCreator({ raw, currency = 'EUR', scopeLabel, target =
                   <Avatar src={r.photo_url} name={r.name} size="xs" />
                   <span className="truncate text-[13px] font-semibold text-ink">{r.name}</span>
                 </span>
-                <span className="min-w-0">
+                <span className="col-span-2 col-start-2 row-start-2 min-w-0 sm:col-span-1 sm:col-start-auto sm:row-start-auto">
                   <span className="block h-2.5 origin-left overflow-hidden rounded-full bg-cloud transition-transform duration-200 group-hover:scale-y-150 group-hover:shadow-[0_3px_8px_rgba(217,68,7,0.25)]">
                     <span className="block h-full rounded-full bg-gradient-to-r from-brand to-brand-light transition-[width] duration-700" style={{ width: `${Math.max(2, (r.views / maxViews) * 100)}%` }} />
                   </span>
                   <span className="mt-1 flex flex-wrap gap-x-2 text-[11px] text-smoke">
                     <span className="font-semibold tabular-nums text-ink">{formatViews(r.views)} views</span>
                     <span>{r.videos} {r.videos === 1 ? 'video' : 'videos'}</span>
-                    <span className="tabular-nums">paid {formatMoney(r.spend, currency)}</span>
+                    <span className="tabular-nums">cost {formatMoney(r.spend, currency)}</span>
                   </span>
                 </span>
-                <span className={cx('rounded-full px-2.5 py-1 text-[11px] font-bold tabular-nums', TONE[band])} title="Cost per 1,000 views">
-                  {!paid || r.combinedCpm === null ? 'Not paid yet' : `${formatMoney(r.combinedCpm, currency)} CPM`}
+                <span className={cx('col-start-3 row-start-1 rounded-full px-2.5 py-1 text-[11px] font-bold tabular-nums sm:col-start-auto sm:row-start-auto', TONE[band])} title="Cost per 1,000 views">
+                  {!paid || r.combinedCpm === null ? 'No cost recorded' : `${formatCpm(r.combinedCpm, currency)} CPM`}
                 </span>
               </li>
             )
           })}
         </ul>
-        {plotAll.length > plotRows.length && (
+        {plotAll.length > 10 && (
           <button type="button" onClick={() => setPlotMore((v) => !v)} className="mt-3 text-xs font-semibold text-brand hover:underline">
             {plotMore ? 'Show the top 10' : `Show all ${plotAll.length}`}
           </button>
@@ -268,7 +271,7 @@ export default function PerCreator({ raw, currency = 'EUR', scopeLabel, target =
                     "what did this person cost us against what they delivered",
                     which is the fully-loaded number. The cash-only CPM stays on
                     the summary above, where it is a programme-level decision. */}
-                {head('combinedCpm', 'CPM', 'Everything paid, per 1,000 views')}
+                {head('combinedCpm', 'CPM', 'Awarded and earned prizes, per 1,000 views')}
                 <th className="px-6 py-2 text-right font-semibold" />
               </tr>
             </thead>
@@ -292,7 +295,7 @@ export default function PerCreator({ raw, currency = 'EUR', scopeLabel, target =
                         <span className="text-gray-300">—</span>
                       ) : (
                         <span className={cx('inline-block rounded-full px-2 py-0.5 font-semibold tabular-nums', TONE[toneOf(r.combinedCpm)])}>
-                          {formatMoney(r.combinedCpm, currency)}
+                          {formatCpm(r.combinedCpm, currency)}
                         </span>
                       )}
                     </td>

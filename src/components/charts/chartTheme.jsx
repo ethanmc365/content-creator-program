@@ -99,14 +99,17 @@ export const cursorFill = false
  * hard corners, and some of them have rounded corners"). `stackShape(keys, key)` rounds a segment only when it is the
  * highest non-zero one in its column.
  */
-export function stackShape(keys, key, r = 6) {
+export function stackShape(keys, key, r = 6, activeIndex = null) {
   return function StackSegment(props) {
-    const { x, y, width, height, fill, payload } = props
+    const { y, height, fill, payload } = props
+    const active = activeIndex !== null && String(props.index) === String(activeIndex)
+    const width = props.width * (active ? 1.14 : 1)
+    const x = props.x - (width - props.width) / 2
     if (!height || height <= 0) return null
     const above = keys.slice(keys.indexOf(key) + 1).some((k) => Number(payload?.[k]) > 0)
     const rr = above ? 0 : Math.min(r, width / 2, height)
-    if (!rr) return <rect x={x} y={y} width={width} height={height} fill={fill} />
+    if (!rr) return <rect className="recharts-stack-segment" x={x} y={y} width={width} height={height} fill={fill} />
     const d = `M${x},${y + height} L${x},${y + rr} Q${x},${y} ${x + rr},${y} L${x + width - rr},${y} Q${x + width},${y} ${x + width},${y + rr} L${x + width},${y + height} Z`
-    return <path d={d} fill={fill} />
+    return <path className="recharts-stack-segment" d={d} fill={fill} />
   }
 }

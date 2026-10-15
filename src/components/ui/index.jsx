@@ -695,10 +695,13 @@ export function Floating({ anchor, open, align = 'left', offset = 6, innerRef, c
     else if (r.left < 8) setShift((x) => x + (8 - r.left))
   }, [open, box])
   if (!open || !box) return null
-  const up = box.bottom + estimate > window.innerHeight && box.top > estimate
+  const below = window.innerHeight - box.bottom - offset - 8
+  const above = box.top - offset - 8
+  const constrained = estimate > Math.max(below, above)
+  const up = !constrained && estimate > below && above > below
   const style = {
     position: 'fixed', zIndex: 1000, maxWidth: 'calc(100vw - 16px)',
-    ...(up ? { bottom: window.innerHeight - box.top + offset } : { top: box.bottom + offset }),
+    ...(constrained ? { top: 8, maxHeight: 'calc(100dvh - 16px)', overflowY: 'auto' } : up ? { bottom: window.innerHeight - box.top + offset } : { top: box.bottom + offset }),
     ...(align === 'right' ? { right: window.innerWidth - box.right - shift } : { left: box.left + shift }),
     ...(align === 'stretch' ? { width: box.width } : null),
   }
@@ -744,7 +747,7 @@ function SelectSheet({ children, onClose }) {
   return (
     <div className="fixed inset-0 z-[1000]">
       <button type="button" tabIndex={-1} aria-label="Close" className="absolute inset-0 bg-ink/40" onClick={onClose} />
-      <div className="absolute inset-x-2 flex flex-col" style={{ top: vp.offsetTop + 8, maxHeight: Math.max(200, vp.height - 16) }}>
+      <div className="absolute inset-x-2 flex flex-col" style={{ top: vp.offsetTop + Math.max(8, vp.height - Math.min(window.innerHeight * 0.52, vp.height - 16) - 8), height: Math.min(window.innerHeight * 0.52, vp.height - 16), maxHeight: vp.height - 16 }}>
         {children}
       </div>
     </div>

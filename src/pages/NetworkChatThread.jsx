@@ -280,7 +280,7 @@ export default function NetworkChatThread({
                   // none of them apply to it.
                   actions={m.pending || m.failed ? [] : [
                     ...(mt.canFor(m) && !mine
-                      ? [{ icon: 'language', label: mt.isOn(m) ? 'Show original' : 'Translate', title: mt.isOn(m) ? 'Show the original' : 'Translate this message', onClick: () => mt.toggle(m) }]
+                      ? [{ icon: 'language', label: mt.isOn(m) ? 'Show original' : 'Translate', title: mt.isOn(m) ? 'Show the original' : 'Translate this message', onClick: () => mt.toggle({ ...m, intro: introOf(m) || m.intro }) }]
                       : []),
                     // MEDIA GETS TWO MORE, AND THEY LEAD. On a message that
                     // is a photograph, "look at it properly" and "keep it"
@@ -399,8 +399,9 @@ export default function NetworkChatThread({
                         />
                       </div>
                     ) : introOf(m) && !search ? (
+                      <div>
                       <IntroCard
-                        intro={introOf(m)}
+                        intro={mt.introFor(m) || introOf(m)}
                         sender={m.profiles}
                         myId={user?.id}
                         relation={relations.get(m.sender_id) || null}
@@ -410,6 +411,11 @@ export default function NetworkChatThread({
                           return copy
                         })}
                       />
+                      {mt.isOn(m) && <button type="button" onClick={() => mt.toggle(m)} className="mt-2 inline-flex min-h-9 items-center gap-1 text-xs font-semibold text-brand"><Icon name="language" className="h-3.5 w-3.5" />{tr('Translated')} · {tr('Show original')}</button>}
+                      {mt.isBusy(m) && <span className="mt-2 block text-xs text-smoke">{tr('Translating…')}</span>}
+                      {mt.isOn(m) && mt.isSame(m) && <span className="mt-1 block text-xs text-smoke">{tr('Already in your language.')}</span>}
+                      {mt.isFailed(m) && <span className="mt-2 block text-xs text-smoke">{tr("This message can't be translated right now.")}</span>}
+                      </div>
                     ) : cardOnly(m) && !framed(m) ? (
                       <AttachedCard message={m} />
                     ) : framed(m) ? (

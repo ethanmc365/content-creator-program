@@ -2616,10 +2616,10 @@ html[data-theme='dark'] .tour-card--sheet::before { background: #3a3a3e; }
 
 /* The leaderboard's status badge beside the challenge tabs slides in from the right when the Leaderboard tab opens. */
 .board-status {
-  animation: board-status-in 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: board-status-in 0.28s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 @keyframes board-status-in {
-  from { opacity: 0; transform: translateX(14px) scale(0.96); }
+  from { opacity: 0; transform: perspective(600px) rotateX(-8deg) scale(0.94); filter: blur(3px); }
   to { opacity: 1; transform: none; }
 }
 @media (prefers-reduced-motion: reduce) {
@@ -2747,9 +2747,9 @@ html[data-theme='dark'] .tour-card--sheet::before { background: #3a3a3e; }
 }
 
 /* The exit half of `board-status` (see components/challenge/SwapIn). */
-.board-status-out > * { animation: board-status-out 0.2s ease-in both; }
+.board-status-out > * { animation: board-status-out 0.12s ease-in both; }
 @keyframes board-status-out {
-  to { opacity: 0; transform: translateX(14px) scale(0.96); }
+  to { opacity: 0; transform: scale(0.96); filter: blur(2px); }
 }
 @media (prefers-reduced-motion: reduce) {
   .board-status-out > * { animation: none; }
@@ -3480,3 +3480,16 @@ html[data-nav-return] header.glass-bar {
 /* The VIP announcement stack (vip/mine AnnouncementStack): the next note slides in from the side it was swiped from. */
 @keyframes stack-in-r { from { opacity: 0.2; transform: translateX(28px) scale(0.98) } to { opacity: 1; transform: none } }
 @keyframes stack-in-l { from { opacity: 0.2; transform: translateX(-28px) scale(0.98) } to { opacity: 1; transform: none } }
+
+
+.scroll-edge-fade {
+  --scroll-fade: 12px;
+  -webkit-mask-image: linear-gradient(to right, transparent, #000 var(--scroll-fade), #000 calc(100% - var(--scroll-fade)), transparent);
+  mask-image: linear-gradient(to right, transparent, #000 var(--scroll-fade), #000 calc(100% - var(--scroll-fade)), transparent);
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
+}
+@media (min-width: 640px) { .scroll-edge-fade { --scroll-fade: 24px; } }
+/* Stack segments widen together through stackShape, rather than separating on hover. */
+.recharts-bar-rectangle:has(.recharts-stack-segment):hover path,
+.recharts-bar-rectangle:has(.recharts-stack-segment):hover rect { transform: none; filter: none; }

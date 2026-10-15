@@ -34,10 +34,11 @@ AS $function$
     select r2.video_id, v.profile_id, v.programme_id, r2.views,
            (least(v.posted, r2.read_at) at time zone v.tz)::date d0, (r2.read_at at time zone v.tz)::date d1
       from r2 join v on v.id = r2.video_id
-     where r2.first_ever and r2.views > 0 and v.posted >= r2.read_at - interval '31 days'
+     where r2.first_ever and r2.views > 0 and v.posted >= r2.read_at - interval '62 days'
   ), spread as (
-    select gs::date d, f.profile_id, f.video_id, f.programme_id, f.views::numeric / (f.d1 - f.d0 + 1) gained
-      from fst f cross join lateral generate_series(f.d0, f.d1, interval '1 day') gs
+    -- THE FIRST READING BELONGS TO THE DAY IT WENT UP (422): a video added late counts in the month it was posted.
+    select f.d0 d, f.profile_id, f.video_id, f.programme_id, f.views::numeric gained
+      from fst f
   )
   select s.d, s.profile_id, s.video_id, s.programme_id, s.gained
     from (select * from inc union all select * from spread) s

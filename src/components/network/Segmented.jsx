@@ -43,9 +43,12 @@ export default function Segmented({ value, onChange, options, size = 'md', label
       if (el) setPill({ left: el.offsetLeft, top: el.offsetTop, width: el.offsetWidth, height: el.offsetHeight })
     }
     measure()
-    const t = setTimeout(measure, 250)
-    window.addEventListener('resize', measure)
-    return () => { clearTimeout(t); window.removeEventListener('resize', measure) }
+    const observer = new ResizeObserver(measure)
+    if (root.current) {
+      observer.observe(root.current)
+      root.current.querySelectorAll('button').forEach((button) => observer.observe(button))
+    }
+    return () => observer.disconnect()
   }, [value, options.length])
   // A LONG CONTROL IN A SCROLLING ROW (the VIP tabs on a phone) must show which option is on. Only the row's own
   // horizontal scroll moves - never the page - and only when the row actually overflows.

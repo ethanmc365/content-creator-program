@@ -191,7 +191,10 @@ export default class ErrorBoundary extends Component {
       return (
         <ErrorScreen
           detail={this.state.error?.message}
-          onRetry={() => this.setState({ error: null })}
+          onRetry={() => {
+            if (/importing a module script failed|dynamically imported module|loading chunk|module script/i.test(this.state.error?.message || '')) window.location.reload()
+            else this.setState({ error: null })
+          }}
         />
       )
     }

@@ -193,6 +193,7 @@ CREATE INDEX messages_community_idx ON public.messages USING btree (community_id
 CREATE INDEX milestone_criteria_by_milestone ON public.milestone_criteria USING btree (milestone_id);
 CREATE UNIQUE INDEX milestone_criteria_one_per_metric ON public.milestone_criteria USING btree (milestone_id, metric);
 CREATE INDEX idx_notifications_recipient ON public.notifications USING btree (recipient_id, created_at DESC);
+CREATE UNIQUE INDEX onboarding_progress_once ON public.onboarding_progress USING btree (profile_id, step) WHERE (profile_id IS NOT NULL);
 CREATE INDEX ops_stat_snapshots_taken_idx ON public.ops_stat_snapshots USING btree (taken_at DESC);
 CREATE INDEX point_awards_awarded_by_fk_idx ON public.point_awards USING btree (awarded_by);
 CREATE INDEX point_awards_challenge_idx ON public.point_awards USING btree (challenge_id, creator_id);
@@ -239,6 +240,7 @@ CREATE INDEX rewards_voucher_group_idx ON public.rewards USING btree (voucher_gr
 CREATE INDEX idx_scheduled_announcements_created_by ON public.scheduled_announcements USING btree (created_by);
 CREATE INDEX idx_scheduled_announcements_due ON public.scheduled_announcements USING btree (scheduled_for) WHERE ((posted_at IS NULL) AND (cancelled_at IS NULL));
 CREATE INDEX scheduled_announcements_community_idx ON public.scheduled_announcements USING btree (community_id);
+CREATE INDEX scheduled_approvals_due ON public.scheduled_approvals USING btree (approve_at);
 CREATE INDEX submission_bonus_claims_challenge_idx ON public.submission_bonus_claims USING btree (challenge_id);
 CREATE INDEX submission_bonus_claims_creator_id_fk_idx ON public.submission_bonus_claims USING btree (creator_id);
 CREATE INDEX submission_bonus_claims_rule_idx ON public.submission_bonus_claims USING btree (rule_id);
@@ -311,6 +313,7 @@ CREATE INDEX vip_statements_invoice_id_fk_idx ON public.vip_statements USING btr
 CREATE INDEX vip_statements_profile_idx ON public.vip_statements USING btree (profile_id);
 CREATE INDEX vip_statements_programme_id_fk_idx ON public.vip_statements USING btree (programme_id);
 CREATE INDEX vip_statements_reward_id_fk_idx ON public.vip_statements USING btree (reward_id);
+CREATE INDEX vip_video_answers_question_idx ON public.vip_video_answers USING btree (question_id);
 CREATE INDEX vip_video_claims_created_by_fk_idx ON public.vip_video_claims USING btree (created_by);
 CREATE INDEX vip_video_claims_decided_by_fk_idx ON public.vip_video_claims USING btree (decided_by);
 CREATE INDEX vip_video_claims_rule ON public.vip_video_claims USING btree (rule_id);

@@ -605,7 +605,7 @@ export default function GlobalHome() {
                 <span className="sm:hidden">{tr("Here is what is happening right now.")}</span>
                 <span className="hidden sm:inline">{tr("Here is what is happening across the network right now.")}</span>
               </p>
-              <NewInRooms className="mt-4" />
+              <NewInRooms className="mt-4 lg:hidden" />
             </section>
           </Reveal>
           )}
@@ -949,6 +949,8 @@ export default function GlobalHome() {
               Views is the thing every creator has under every scoring mode, so
               the board that survives is /leaderboard - worldwide, filterable by
               market, with everybody on it. */}
+
+          <div className="hidden lg:block"><NewInRooms /></div>
 
           {/* ---------- Latest announcements ---------- */}
           {/* One card per room the creator can read, newest first, nothing

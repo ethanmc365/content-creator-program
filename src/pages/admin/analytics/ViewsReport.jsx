@@ -1,6 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
-import { format } from 'date-fns'
 import { Avatar, Skeleton } from '../../../components/ui'
 import MeetingDeck from './MeetingDeck'
 import VideoThumb from '../../../components/VideoThumb'
@@ -14,7 +13,7 @@ import { notice } from '../../../lib/confirm'
 import { compact, foldWeeks, pctChange, rangeLabel, snapshotText, viewsFor } from '../../../lib/weeklySnapshot'
 import { cx, downloadCsv, formatViews } from '../../../lib/utils'
 import { useT } from '../../../lib/i18n'
-import { teamApi } from '../../../api/team'
+import { useViewsGained, viewsReportDays } from '../../../lib/useViewsGained'
 
 // VIEWS GAINED, ANY DAYS, ONE HALF OR BOTH - AND THE WEEKLY SNAPSHOT.
 //
@@ -25,40 +24,14 @@ import { teamApi } from '../../../api/team'
 // What the picture and the file are called, so a month is not handed round as a "weekly" snapshot.
 const SNAP_TITLE = { last_7: 'Weekly snapshot', this_week: 'Weekly snapshot', last_week: 'Weekly snapshot', this_month: 'Monthly snapshot', last_month: 'Monthly snapshot' }
 const longDay = (iso) => new Date(`${iso}T12:00:00Z`).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' })
-const ymd = (d) => format(d, 'yyyy-MM-dd')
 const STACK = ['community', 'vip']
 
 export default function ViewsReport({ market = '', marketName = null, allMarkets = [], periodKey = 'last_7', range, scope = 'both' }) {
   const tr = useT()
-  const from = range?.start ? ymd(range.start) : null
-  // `end` is half-open and "now" for a running period, so the last whole day is the one before it - except for a running period,
-  // where today counts too.
-  const to = range?.end ? ymd(new Date(range.end.getTime() - 1)) : null
-
-  const cache = useRef(new Map())
-  const [data, setData] = useState(null)
-  const [err, setErr] = useState('')
-  const [loading, setLoading] = useState(false)
+  const { from, to } = viewsReportDays(range)
   const [tick, setTick] = useState(0)
-  // Which period the numbers on screen belong to. The buttons change at once; the numbers follow when they land, and the
-  // heading must name the numbers, not the button (it said "This month" over last week's dates while loading).
-  const [shownKey, setShownKey] = useState(periodKey)
-  const key = `${from}|${to}|${market}`
-  useEffect(() => {
-    if (!from || !to) return undefined
-    let alive = true
-    const hit = cache.current.get(key)
-    const pk = periodKey
-    if (hit && tick === 0) { setData(hit); setShownKey(pk); setErr('') } else setLoading(true)
-    teamApi.adminViewsGained({ p_from: from, p_to: to, p_market: market || null }).then(({ data: d, error }) => {
-      if (!alive) return
-      if (error) { setErr(error.message); setLoading(false); return }
-      cache.current.set(key, d); setData(d); setShownKey(pk); setErr(''); setLoading(false)
-    })
-    return () => { alive = false }
-  }, [key, tick]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  const stale = loading && !!data
+  const { data, error: err, loading } = useViewsGained(from, to, market, tick)
+  const shownKey = periodKey
   const t = data?.totals
   const prev = data?.prev
   const now = t ? viewsFor(t, scope) : 0
@@ -138,7 +111,7 @@ export default function ViewsReport({ market = '', marketName = null, allMarkets
       {!data && !err && <div className="space-y-4"><Skeleton className="h-28 w-full rounded-card" /><Skeleton className="h-64 w-full rounded-card" /></div>}
 
       {data && (
-        <div className={cx('space-y-5 transition-opacity duration-300', stale && 'opacity-60')}>
+        <div className="space-y-5 transition-opacity duration-300">
           {/* WHICH DAYS THESE ARE, SAID IN FULL, so "This week" on a Sunday and "Last 7 days" never look like the same thing. */}
           <div key={`${data.from}|${data.to}`} className="flex flex-wrap items-end justify-between gap-x-4 gap-y-1 animate-tab-in">
             <div>
@@ -226,16 +199,16 @@ export default function ViewsReport({ market = '', marketName = null, allMarkets
 
           {/* WHAT GAINED MOST (14 Oct 2026): twelve videos, scrollable, each saying whose it is, which challenge, what it
               gained here and where it stands in total; and the creators beside them. */}
-          <div className="grid grid-cols-1 items-start gap-5 xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+          <div className="grid grid-cols-1 items-stretch gap-5 xl:grid-cols-[minmax(0,3fr)_minmax(22rem,2fr)]">
             <section className="animate-rise rounded-card border border-gray-100 bg-white p-4 shadow-card sm:p-5">
               <div className="mb-3 flex items-center justify-between">
-                <h3 className="text-[15px] font-bold text-ink">{tr('Videos that gained most')}</h3>
+                <h3 className="text-[15px] font-bold text-ink">{tr('Videos with the most new views')}</h3>
                 <span className="text-xs text-smoke">{tr('Scroll for more')}</span>
               </div>
               {topVideos.length === 0 ? <p className="py-8 text-center text-sm text-smoke">{tr('Nothing in these dates.')}</p> : (
-                <div className="scrollbar-none -mx-1 flex snap-x gap-3 overflow-x-auto px-1 pb-1">
+                <div className="scroll-edge-fade scrollbar-none -mx-1 flex gap-3 overflow-x-auto rounded-2xl px-1 pb-2 sm:snap-x sm:snap-proximity">
                   {topVideos.map((v, i) => (
-                    <a key={v.id} href={v.url} target="_blank" rel="noopener noreferrer" className="group relative w-[150px] shrink-0 snap-start overflow-hidden rounded-2xl bg-ink shadow-card transition-transform duration-300 animate-rise hoverable:hover:-translate-y-0.5" style={{ animationDelay: `${i * 40}ms` }}>
+                    <a key={v.id} href={v.url} target="_blank" rel="noopener noreferrer" className="group relative w-[168px] sm:w-[184px] shrink-0 snap-start overflow-hidden rounded-2xl bg-ink shadow-card transition-transform duration-300 animate-rise hoverable:hover:-translate-y-0.5" style={{ animationDelay: `${i * 40}ms` }}>
                       <VideoThumb url={v.url} platform={v.platform} thumbnailUrl={v.thumb} className="!aspect-[9/14]" mark={false} />
                       <span className="absolute left-2 top-2 flex h-6 min-w-6 items-center justify-center rounded-full bg-white px-1.5 text-[11px] font-extrabold text-brand shadow-card">{i + 1}</span>
                       <span aria-hidden className="absolute inset-x-0 bottom-0 h-3/5 bg-gradient-to-t from-black/85 to-transparent" />
@@ -250,7 +223,7 @@ export default function ViewsReport({ market = '', marketName = null, allMarkets
               )}
             </section>
             <section className="animate-rise rounded-card border border-gray-100 bg-white p-4 shadow-card sm:p-5" style={{ animationDelay: '60ms' }}>
-              <h3 className="mb-3 text-[15px] font-bold text-ink">{tr('Creators who gained most')}</h3>
+              <h3 className="mb-3 text-[15px] font-bold text-ink">{tr('Creators with the most new views')}</h3>
               {topCreators.length === 0 ? <p className="py-8 text-center text-sm text-smoke">{tr('Nothing in these dates.')}</p> : (
                 <ol className="space-y-2.5">
                   {topCreators.map((c, i) => {

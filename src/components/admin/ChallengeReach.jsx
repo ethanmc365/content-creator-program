@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Avatar, Modal, Skeleton, Spinner } from '../ui'
+import { Avatar, Modal, Select, Skeleton, Spinner } from '../ui'
 import Icon from '../Icon'
-import { notice } from '../../lib/confirm'
+import { confirm, notice } from '../../lib/confirm'
 import { copyToClipboard, emailList } from '../../lib/clipboard'
 import { toastSuccess } from '../../lib/toast'
 import { cx, timeAgo } from '../../lib/utils'
@@ -25,6 +25,14 @@ import { challengesApi } from '../../api/challenges'
 // Each market is a row; opening it lists who posted and who did not, with a push to a group and the emails of the ones a push cannot reach.
 
 const SEGMENTS = {
+  all: {
+    icon: 'users', title: 'Everyone still to enter', hint: 'All creators without an entry',
+    title_default: 'Your next video could change the leaderboard', body_default: 'There is still time to join this challenge. Open the brief, share your video and earn your place on the board.',
+  },
+  posted: {
+    icon: 'check', title: 'Already posted', hint: 'Thank the creators taking part',
+    title_default: 'Thanks for taking part', body_default: 'Your video is part of this challenge. Thank you for creating with us. Open the challenge to see how you are doing.',
+  },
   seen: {
     icon: 'eye', title: 'Looked, did not post', hint: 'On the platform since it started',
     title_default: 'Your country is waiting', body_default: 'The Global Challenge is live and your country is on the leaderboard. One video from you moves it up.',
@@ -39,106 +47,54 @@ const SEGMENTS = {
   },
 }
 
-const pct = (a, b) => (b ? Math.round((a / b) * 100) : 0)
-
 export default function ChallengeReach({ challenge }) {
-  const [d, setD] = useState(undefined)
-  const [sheet, setSheet] = useState(null) // { segment, market }
-  const [grown, setGrown] = useState(false)
-  const [goal, setGoal] = useState(() => { try { return Number(localStorage.getItem(`tryp_reach_goal_${challenge.id}`)) || 50 } catch { return 50 } })
-
+  const [data, setData] = useState(undefined)
+  const [sheet, setSheet] = useState(null)
+  const [market, setMarket] = useState('')
+  const [refresh, setRefresh] = useState(0)
   useEffect(() => {
     let alive = true
-    challengesApi.challengeReach({ p_challenge: challenge.id }).then(({ data, error }) => { if (alive) setD(error ? null : data) })
+    setData(undefined)
+    challengesApi.challengeReach({ p_challenge: challenge.id })
+      .then(({ data, error }) => { if (alive) setData(error ? null : data) }, () => { if (alive) setData(null) })
     return () => { alive = false }
-  }, [challenge.id])
-  useEffect(() => {
-    if (!d) return undefined
-    const t = setTimeout(() => setGrown(true), 60)
-    return () => clearTimeout(t)
-  }, [d])
-  const saveGoal = (n) => { setGoal(n); try { localStorage.setItem(`tryp_reach_goal_${challenge.id}`, String(n)) } catch { /* private mode */ } }
-
-  const people = useMemo(() => d?.people || [], [d])
-
-  if (d === undefined) return <section className="card mb-10" aria-busy="true"><Skeleton className="h-6 w-56" /><Skeleton className="mt-5 h-24 w-full" /></section>
-  if (!d) return null
-
-  const step = [
-    { label: 'In the audience', n: d.audience, sub: 'active creators' },
-    { label: 'Opened the app since it started', n: d.seen, sub: `${pct(d.seen, d.audience)}% of them` },
-    { label: 'Posted an entry', n: d.posted, sub: `${pct(d.posted, d.seen)}% of those who looked` },
-  ]
-  const toGoal = Math.max(0, goal - d.posted)
-
+  }, [challenge.id, refresh])
+  const people = useMemo(() => (data?.people || []).filter((p) => !market || p.market === market), [data, market])
+  const markets = data?.markets || []
+  if (data === undefined) return <section className="card mt-6 mb-10" aria-busy="true"><Skeleton className="h-6 w-56" /><Skeleton className="mt-5 h-36 w-full" /></section>
+  if (!data) return <section className="card my-6"><p className="text-sm text-smoke">The challenge audience could not be loaded.</p><button type="button" onClick={() => setRefresh((n) => n + 1)} className="btn-secondary mt-3">Try again</button></section>
+  const countFor = (key) => people.filter((p) => key === 'all' ? p.state !== 'posted' : p.state === key).length
   return (
-    <section className="card mb-10 animate-fade-up">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div className="min-w-0">
-          <h2 className="font-semibold">Who has not posted yet</h2>
-          <p className="mt-0.5 max-w-2xl text-sm text-smoke">
-            {d.seen_not_posted} creators have opened the platform since this challenge started and have not entered. {d.never} have never opened it at all.
-          </p>
+    <section className="my-8 overflow-hidden rounded-3xl border border-brand/15 bg-white shadow-card animate-fade-up">
+      <div className="flex flex-wrap items-start justify-between gap-4 bg-gradient-to-br from-brand-tint/80 via-white to-white px-5 py-5 sm:px-6">
+        <div className="min-w-0 max-w-xl">
+          <p className="mb-1 flex items-center gap-1.5 text-xs font-semibold text-brand"><Icon name="megaphone" className="h-4 w-4" />Challenge outreach</p>
+          <h2 className="text-lg font-bold text-ink">Bring your creators into the challenge</h2>
+          <p className="mt-1 text-sm leading-relaxed text-smoke">Choose who needs a reminder, or thank those who took part. Review your message, send a push, or copy the email list and message for your email app.</p>
         </div>
-        <label className="flex items-center gap-2 text-xs font-semibold text-smoke">
-          Goal
-          <input
-            className="input !w-16 !py-1.5 text-center text-sm" inputMode="numeric" value={goal}
-            onChange={(e) => saveGoal(Number(e.target.value.replace(/[^\d]/g, '')) || 0)} aria-label="Creators to reach"
-          />
-          creators
-        </label>
+        <Select value={market} onChange={setMarket} ariaLabel="Outreach market" className="w-full sm:w-48" search={false}
+          options={[{ value: '', label: 'Every market' }, ...markets.map((m) => ({ value: m.name, label: m.name }))]} />
       </div>
-
-      {/* the goal, as a bar */}
-      <div className="mt-5">
-        <div className="flex items-baseline justify-between text-sm">
-          <span className="font-semibold text-ink">{d.posted} of {goal} creators have entered</span>
-          <span className="text-xs font-semibold text-smoke">{toGoal > 0 ? `${toGoal} to go` : 'Goal reached'}</span>
+      <div className="px-5 pb-5 sm:px-6 sm:pb-6">
+        <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-cloud/60 px-4 py-3">
+          <p className="text-sm text-smoke"><strong className="text-ink">{countFor('posted')} of {people.length}</strong> creators have entered · <strong className="text-ink">{countFor('all')}</strong> still to enter</p>
+          <button type="button" disabled={!countFor('all')} onClick={() => setSheet('all')} className="btn-primary !py-2 text-xs disabled:opacity-40"><Icon name="bell" className="h-4 w-4" />Follow up with all {countFor('all')}</button>
         </div>
-        <div className="mt-2 h-3 overflow-hidden rounded-full bg-cloud" role="progressbar" aria-valuenow={d.posted} aria-valuemax={goal}>
-          <div className="h-full rounded-full bg-gradient-to-r from-brand to-brand-light transition-[width] duration-1000 ease-out" style={{ width: grown ? `${Math.min(100, goal ? (d.posted / goal) * 100 : 0)}%` : '0%' }} />
-        </div>
-        {toGoal > 0 && d.seen_not_posted > 0 && (
-          <p className="mt-2 text-xs text-smoke">
-            If {Math.ceil(toGoal / Math.max(1, d.seen_not_posted) * 100)}% of the {d.seen_not_posted} who have looked posted once, the goal is reached.
-          </p>
-        )}
-      </div>
-
-      {/* THE FUNNEL AND THE FOLLOW-UPS, ONE COMPACT ROW (15 Oct 2026). Market by market lives in Participation by market
-          now (press a market: posted / not posted / in the app today, with emails), so it is not drawn twice. */}
-      <ol className="mt-5 grid grid-cols-2 gap-2.5 lg:grid-cols-4">
-        {[...step, { label: 'Not posted yet', n: Math.max(0, d.audience - d.posted), sub: `${pct(Math.max(0, d.audience - d.posted), d.audience)}% of the audience` }].map((s, i) => (
-          <li key={s.label} className="rounded-xl bg-cloud/60 px-3.5 py-3">
-            <p className="text-[10.5px] font-bold uppercase tracking-wide text-gray-400">{s.label}</p>
-            <p className="mt-0.5 text-2xl font-bold tabular-nums text-ink">{s.n}</p>
-            <p className="text-[11px] text-smoke">{s.sub}</p>
-            <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white"><div className="h-full rounded-full bg-gradient-to-r from-brand to-brand-light transition-[width] duration-700" style={{ width: grown ? `${pct(s.n, d.audience)}%` : '0%', transitionDelay: `${i * 90}ms` }} /></div>
-          </li>
-        ))}
-      </ol>
-      <div className="mt-4 flex flex-wrap gap-2">
-        {Object.entries(SEGMENTS).map(([key, seg]) => {
-          const n = d[key === 'seen' ? 'seen_not_posted' : key]
-          return (
-            <button key={key} type="button" onClick={() => setSheet({ segment: key, market: null })} disabled={!n}
-              className="inline-flex items-center gap-2 rounded-full border border-gray-200 bg-white px-3.5 py-2 text-xs font-semibold text-ink transition-all duration-200 hoverable:hover:-translate-y-0.5 hoverable:hover:border-brand hoverable:hover:text-brand disabled:opacity-40">
-              <Icon name={seg.icon} className="h-3.5 w-3.5 text-brand" />{seg.title}
-              <span className="rounded-full bg-cloud px-1.5 py-0.5 text-[10px] font-bold tabular-nums">{n}</span>
-              <span className="text-smoke">push or copy emails</span>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          {['seen', 'dormant', 'never', 'posted'].map((key) => {
+            const segment = SEGMENTS[key]
+            const n = countFor(key)
+            return <button key={key} type="button" disabled={!n || (key === 'posted' && !data.can_thank_posted)} onClick={() => setSheet(key)} className="group flex min-w-0 flex-col items-start rounded-2xl border border-gray-100 bg-gradient-to-br from-white to-brand-tint/30 p-4 text-left transition-all duration-200 hoverable:hover:-translate-y-0.5 hoverable:hover:border-brand/30 hoverable:hover:shadow-card disabled:opacity-50">
+              <span className="mb-3 flex w-full items-center justify-between"><span className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-tint text-brand"><Icon name={segment.icon} className="h-5 w-5" /></span><span className="text-3xl font-bold tabular-nums text-ink">{n}</span></span>
+              <span className="text-sm font-semibold text-ink">{segment.title}</span><span className="mt-1 text-xs text-smoke">{segment.hint}</span>
+              <span className="mt-4 inline-flex items-center gap-1.5 text-xs font-semibold text-brand">{key === 'posted' ? 'Send a thank you' : 'Prepare a reminder'}<Icon name="chevronRight" className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" /></span>
             </button>
-          )
-        })}
+          })}
+        </div>
+        <p className="mt-4 text-[11px] leading-relaxed text-smoke">App activity shows whether someone visited the platform since this challenge started. It does not prove they read the brief.</p>
       </div>
-
-      {sheet && (
-        <SegmentSheet
-          challenge={challenge} segment={sheet.segment} market={sheet.market}
-          people={people.filter((p) => p.state === sheet.segment && (!sheet.market || p.market === sheet.market))}
-          onClose={() => setSheet(null)}
-        />
-      )}
+      {sheet && <SegmentSheet key={`${sheet}:${market}`} challenge={challenge} segment={sheet} market={market || null}
+        people={people.filter((p) => sheet === 'all' ? p.state !== 'posted' : p.state === sheet)} onClose={() => setSheet(null)} />}
     </section>
   )
 }
@@ -165,6 +121,7 @@ function SegmentSheet({ challenge, segment, market, people, onClose }) {
   const [copying, setCopying] = useState(false)
 
   async function send() {
+    if (!await confirm(`Send this notification to ${people.length} creators${market ? ` in ${market}` : ''}?`, { title: 'Send challenge notification', confirmLabel: 'Send notification' })) return
     setSending(true)
     const { data, error } = await challengesApi.challengeNudge({ p_challenge: challenge.id, p_segment: segment, p_title: title, p_body: body, p_market: market })
     setSending(false)
@@ -185,6 +142,7 @@ function SegmentSheet({ challenge, segment, market, people, onClose }) {
   return (
     <Modal open onClose={onClose} title={`${seg.title}${market ? ` · ${market}` : ''}`} wide>
       <div className="space-y-5">
+        <p className="rounded-xl bg-brand-tint/50 px-4 py-3 text-sm text-ink"><strong>{challenge.title}</strong> · {people.length} recipients · {people.filter((p) => p.push).length} with push enabled</p>
         {sent != null ? (
           <p className="rounded-xl bg-cloud/70 px-4 py-6 text-center text-sm font-semibold text-ink">Sent to {sent} creators. It is in their notifications now, and a push went to anybody who has them on.</p>
         ) : (
@@ -193,8 +151,8 @@ function SegmentSheet({ challenge, segment, market, people, onClose }) {
             <input className="input" maxLength={70} value={title} onChange={(e) => setTitle(e.target.value)} aria-label="Title" />
             <textarea className="input min-h-[80px]" maxLength={300} value={body} onChange={(e) => setBody(e.target.value)} aria-label="Message" />
             <div className="flex flex-wrap items-center justify-between gap-3">
-              <p className="text-[11px] text-smoke">Only people who have not entered get it. Tapping it opens this challenge.</p>
-              <button type="button" onClick={send} disabled={sending || !title.trim() || !body.trim()} className="btn-primary !py-2 text-sm">{sending ? <Spinner className="h-4 w-4" /> : <Icon name="bell" className="h-4 w-4" />}Send</button>
+              <p className="text-[11px] text-smoke">{segment === 'posted' ? 'Only creators who have entered get this thank you.' : 'Only creators in this group who have not entered get this reminder.'} Tapping it opens this challenge.</p>
+              <button type="button" onClick={send} disabled={sending || !people.length || !title.trim() || !body.trim()} className="btn-primary !py-2 text-sm">{sending ? <Spinner className="h-4 w-4" /> : <Icon name="bell" className="h-4 w-4" />}Send</button>
             </div>
           </div>
         )}
@@ -202,6 +160,7 @@ function SegmentSheet({ challenge, segment, market, people, onClose }) {
           <p className="text-xs leading-relaxed text-smoke">{people.filter((p) => !p.push).length} of these have no push notifications on, so they will not see a push. {segment === 'never' ? 'They have never opened the app, so email is the way to reach them.' : 'Email reaches them anyway.'}</p>
           <button type="button" onClick={copyEmails} disabled={copying || !people.length} className="btn-secondary !py-2 text-xs">{copying ? <Spinner className="h-3.5 w-3.5" /> : <Icon name="copy" className="h-3.5 w-3.5" />}Copy all {people.length} emails</button>
         </div>
+        <button type="button" onClick={async () => { if (await copyToClipboard(`${title}\n\n${body}`)) toastSuccess('Message copied. Paste it into your email app.') }} className="btn-secondary w-full justify-center"><Icon name="copy" className="h-4 w-4" />Copy message for email</button>
         <ul className="max-h-80 divide-y divide-gray-50 overflow-y-auto rounded-xl border border-gray-100">
           {people.map((p) => <PersonRow key={p.id} p={p} />)}
         </ul>

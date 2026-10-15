@@ -124,6 +124,7 @@ export function perCreator(raw, { currency = 'EUR', rates = FALLBACK_RATES } = {
       cashPending: 0,
       voucherPending: 0,
       messages: 0,
+      unawarded: 0,
     })
   }
 
@@ -149,6 +150,32 @@ export function perCreator(raw, { currency = 'EUR', rates = FALLBACK_RATES } = {
     }
   }
 
+  // Standings are earned participation/extra prizes; the reward ledger is created when the challenge closes.
+  // Take the greater total per creator/challenge/type/slot so closing a challenge cannot double its costs.
+  const ledger = new Map()
+  for (const r of raw.rewards || []) {
+    const key = `${r.creator_id}:${r.challenge_id}:${r.reward_type === 'cash' ? 'cash' : 'voucher'}:${r.prize_slot || 'participation'}`
+    ledger.set(key, (ledger.get(key) || 0) + convert(Number(r.amount) || 0, r.currency || 'EUR', currency, rates))
+  }
+  const earned = new Map()
+  for (const [challengeId, standings] of Object.entries(raw.liveStandings || {})) {
+    for (const s of standings) {
+      if (s.status !== 'earned' || !byId.has(s.creator_id) || !(Number(s.amount) > 0)) continue
+      const type = s.reward_type === 'cash' ? 'cash' : 'voucher'
+      const key = `${s.creator_id}:${challengeId}:${type}:${s.slot || 'participation'}`
+      const current = earned.get(key) || { creatorId: s.creator_id, type, total: 0 }
+      current.total += convert(Number(s.amount), s.currency || 'EUR', currency, rates)
+      earned.set(key, current)
+    }
+  }
+  for (const [key, e] of earned) {
+    const difference = Math.max(0, e.total - (ledger.get(key) || 0))
+    const row = byId.get(e.creatorId)
+    row[e.type === 'cash' ? 'cash' : 'vouchers'] += difference
+    row[e.type === 'cash' ? 'cashPending' : 'voucherPending'] += difference
+    row.unawarded += difference
+  }
+
   for (const m of raw.messages || []) {
     const row = byId.get(m.sender_id)
     if (row) row.messages += 1
@@ -162,8 +189,8 @@ export function perCreator(raw, { currency = 'EUR', rates = FALLBACK_RATES } = {
       // PER THOUSAND VIEWS. Null rather than zero or Infinity when there are no
       // views: a creator who has not posted has no cost per view, and showing
       // "0.00" would rank them as the most efficient person in the programme.
-      cashCpm: r.views > 0 ? (r.cash / r.views) * 1000 : null,
-      combinedCpm: r.views > 0 ? ((r.cash + r.vouchers) / r.views) * 1000 : null,
+      cashCpm: r.views > 0 && r.cash > 0 ? (r.cash / r.views) * 1000 : null,
+      combinedCpm: r.views > 0 && r.cash + r.vouchers > 0 ? ((r.cash + r.vouchers) / r.views) * 1000 : null,
       avgViews: r.videos > 0 ? r.views / r.videos : 0,
     }))
     .sort((a, b) => b.views - a.views)

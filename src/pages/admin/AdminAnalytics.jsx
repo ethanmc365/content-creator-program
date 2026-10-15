@@ -1,9 +1,12 @@
+import AnalyticsTabs from './analytics/AnalyticsTabs'
+import { useViewsGained, viewsReportDays, withViewsGained } from '../../lib/useViewsGained'
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, useTransition } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import {
   Area, Bar, BarChart, CartesianGrid, ComposedChart, Legend, Line, Tooltip, XAxis, YAxis,
 } from 'recharts'
 import { format, startOfMonth, startOfWeek, subWeeks } from 'date-fns'
+import ErrorWatch from '../../components/admin/ErrorWatch'
 import { allRows as allRowsSeq } from '../../lib/fetchAll'
 
 // Every big table here is read four pages at a time (see lib/fetchAll).
@@ -17,7 +20,7 @@ let MARKETS_CACHE = null
 const RAW_TTL_MS = 10 * 60 * 1000
 import { PageHeader, Skeleton, StatCard } from '../../components/ui'
 import PeriodPicker from '../../components/PeriodPicker'
-import { formatMoney, formatViewsTotal, cx } from '../../lib/utils'
+import { formatMoney, formatViewsTotal, formatCpm, cx } from '../../lib/utils'
 import ProgrammePerformance from './analytics/ProgrammePerformance'
 import { challengeSpend } from '../../lib/challengeSpend'
 import CommunityHealth from './analytics/CommunityHealth'
@@ -128,7 +131,7 @@ export default function AdminAnalytics() {
         // attribute a payout without the first, and cannot convert it without
         // the second. Without them every creator's spend read as zero, which
         // made every one of them look infinitely efficient.
-        allRows(() => moneyApi.rewards().select('id, amount, status, challenge_id, reward_type, creator_id, currency, source, created_at, distributed_at')),
+        allRows(() => moneyApi.rewards().select('id, amount, status, challenge_id, reward_type, creator_id, currency, source, prize_slot, created_at, distributed_at')),
         allRows(() => chatApi.messages().select('id, sender_id, channel, created_at').eq('deleted', false)),
         // `challenge_id` so the market scope can follow a result to its
         // contest - see lib/analyticsScope.
@@ -160,7 +163,8 @@ export default function AdminAnalytics() {
       // WHAT A RUNNING CHALLENGE HAS COMMITTED SO FAR, for its live CPM: the
       // vouchers and awards earned to date (challenge_prize_standings, the one
       // definition). A finished challenge's cost is in `rewards` instead.
-      const live = (challenges || []).filter((c) => c.status === 'active')
+      const withEntries = new Set((submissions || []).map((s) => s.challenge_id))
+      const live = (challenges || []).filter((c) => withEntries.has(c.id))
       const standings = await Promise.all(live.map((c) => challengesApi
         .challengePrizeStandings({ p_challenge: c.id })
         .then(({ data }) => [c.id, data || []], () => [c.id, []])))
@@ -215,6 +219,7 @@ export default function AdminAnalytics() {
   // passed, and all 599 tests passed, because none of them render this page.
   // The only thing that finds it is opening the page, which is now what happens
   // before this file is committed.
+  const tab = params.get('tab') === 'network' ? 'community' : (params.get('tab') || 'overview')
   const market = params.get('market') || ''
   // Which views the Weekly views tab counts, in the URL like the rest.
   const viewScope = ['community', 'vip'].includes(params.get('views')) ? params.get('views') : 'both'
@@ -250,21 +255,24 @@ export default function AdminAnalytics() {
   const periodOn = !!(range.start || range.end)
   // The eight headline figures for the period and for the one before it, worked out the same way.
   const [openedAt] = useState(() => Date.now())
+  const overviewRange = useMemo(() => periodOn ? range : periodRange('this_month', new Date(loadedAt || openedAt)), [periodOn, range, loadedAt, openedAt])
+  const overviewDays = viewsReportDays(overviewRange)
+  const overviewViews = useViewsGained(tab === 'overview' ? overviewDays.from : null, tab === 'overview' ? overviewDays.to : null, market)
   // THIS MONTH SO FAR AGAINST THE SAME DAYS LAST MONTH, for the All time overview.
   const monthCompare = useMemo(() => {
     if (!scoped || periodOn || !loadedAt) return null
     const money = (n, from) => convert(Number(n) || 0, from || 'EUR', currency) || 0
     const r = periodRange('this_month', new Date(loadedAt))
-    return { now: periodHeadline(scoped, r, money), prev: r.prev ? periodHeadline(scoped, r.prev, money) : null }
-  }, [scoped, periodOn, loadedAt, currency])
+    return { now: withViewsGained(periodHeadline(scoped, r, money), overviewViews.data?.totals), prev: r.prev ? withViewsGained(periodHeadline(scoped, r.prev, money), overviewViews.data?.prev) : null }
+  }, [scoped, periodOn, loadedAt, currency, overviewViews.data])
   const headline = useMemo(() => {
     if (!scoped || !periodOn) return null
     const money = (n, from) => convert(Number(n) || 0, from || 'EUR', currency) || 0
     return {
-      now: periodHeadline(scoped, range, money),
-      prev: range.prev ? periodHeadline(scoped, range.prev, money) : null,
+      now: withViewsGained(periodHeadline(scoped, range, money), overviewViews.data?.totals),
+      prev: range.prev ? withViewsGained(periodHeadline(scoped, range.prev, money), overviewViews.data?.prev) : null,
     }
-  }, [scoped, range, periodOn, currency])
+  }, [scoped, range, periodOn, currency, overviewViews.data])
 
 
   const derived = useMemo(() => {
@@ -522,7 +530,6 @@ export default function AdminAnalytics() {
   // happening, what the money bought, and whether the community is actually alive. The tab is in the URL so a link to
   // "the CPM table" lands on the CPM table. `network` was the Connections tab; it is a section of Community health now,
   // so an old link lands there.
-  const tab = params.get('tab') === 'network' ? 'community' : (params.get('tab') || 'overview')
   const setCurrency = (next) => {
     const q = { ...Object.fromEntries(params) }
     if (next === 'EUR') delete q.ccy; else q.ccy = next
@@ -661,24 +668,7 @@ export default function AdminAnalytics() {
   // The rule belongs to the wrapper and the tabs scroll under it, which is one
   // row at every width. `-mb-px` is on the ROW now rather than each button, so
   // the active tab's underline lands on the rule wherever it has scrolled to.
-  const tabBar = (
-    <div className="mb-5 border-b border-gray-100">
-      <div className="-mb-px flex gap-1 overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-        {TABS.map((t) => (
-          <button
-            key={t.key}
-            onClick={() => setTab(t.key)}
-            className={cx(
-              'relative shrink-0 whitespace-nowrap border-b-2 px-3 py-2.5 text-sm font-semibold transition-colors sm:px-4',
-              tab === t.key ? 'border-brand text-brand' : 'border-transparent text-smoke hover:text-ink'
-            )}
-          >
-            {t.label}
-          </button>
-        ))}
-      </div>
-    </div>
-  )
+  const tabBar = <AnalyticsTabs tabs={TABS} active={tab} onChange={setTab} />
 
   // ONE FRAME FOR EVERY TAB, AND NO SENTENCE UNDER THE TITLE. Every tab used to return its own page with its own header,
   // so a switch rebuilt the header, the tab strip and the filter row, and the subtitle's line count moved everything
@@ -700,6 +690,7 @@ export default function AdminAnalytics() {
     </div>
   )
 
+  if (tab === 'errors') return shell(<ErrorWatch />, { filters: false })
   if (tab === 'recruitment') return shell(<Recruitment raw={scoped} market={market} markets={markets} scopeLabel={scopeLabel} range={periodOn ? range : null} />, { period: true })
   // WEEKLY VIEWS USES THE PAGE'S OWN BAR (14 Oct 2026). It used to grey the bar out and draw a second panel of controls
   // under it. Now the markets narrow it, the period picker holds the views periods (a year of days at most, so All time
@@ -747,6 +738,7 @@ export default function AdminAnalytics() {
   return shell(
     <>
       {/* ---- Headline numbers ---- */}
+      {overviewViews.error && <p role="alert" className="mb-4 rounded-xl border border-brand/20 bg-brand-tint p-4 text-sm">Views could not be loaded: {overviewViews.error}</p>}
       {periodOn && headline ? (
         <PeriodTiles
           now={headline.now}
@@ -770,7 +762,7 @@ export default function AdminAnalytics() {
               <StatCard key="cp" label="Cash prizes paid" value={formatMoney(derived.cashPaid, currency)} hint="the whole programme" onClick={() => navigate('/admin/rewards')} />,
               <StatCard key="vo" label="Voucher value given" value={formatMoney(derived.voucherPaid, currency)} hint="Tryp.com vouchers" onClick={() => navigate('/admin/rewards')} />,
               <StatCard key="cc" label="Cash CPM" value={derived.costPer1k != null ? formatMoney(derived.costPer1k, currency) : '·'} hint="cash spend per 1,000 views" />,
-              <StatCard key="tc" label="Total CPM" value={derived.combinedCpm != null ? formatMoney(derived.combinedCpm, currency) : '·'} hint="cash and vouchers per 1,000 views" />,
+              <StatCard key="tc" label="Total CPM" value={derived.combinedCpm != null ? formatMoney(derived.combinedCpm, currency) : '·'} hint="cash and vouchers per 1,000 community views gained" />,
             ].map((el, i) => <div key={i} className="animate-rise" style={{ animationDelay: `${i * 35}ms` }}>{el}</div>)}
           </div>
           {monthCompare?.prev && <MonthCompare data={monthCompare} currency={currency} onPick={() => setPeriod('this_month')} />}
@@ -884,9 +876,9 @@ function MonthCompare({ data, currency, onPick }) {
   const items = [
     ['New creators', now.newCreators, prev.newCreators, (v) => v],
     ['Videos', now.submissions, prev.submissions, (v) => v],
-    ['Views', now.views, prev.views, formatViewsTotal],
+    ['Community views gained', now.views, prev.views, (v) => v == null ? '…' : formatViewsTotal(v)],
     ['Cash paid', now.cash, prev.cash, (v) => formatMoney(v, currency)],
-    ['Total CPM', now.totalCpm, prev.totalCpm, (v) => (v == null ? '·' : formatMoney(v, currency)), true],
+    ['Total CPM', now.totalCpm, prev.totalCpm, (v) => (v == null ? '·' : formatCpm(v, currency)), true],
   ]
   return (
     <button type="button" onClick={onPick} className="group block w-full rounded-card border border-gray-100 bg-white px-5 py-4 text-left shadow-card transition-all duration-200 animate-rise hoverable:hover:-translate-y-0.5 hoverable:hover:shadow-lift" style={{ animationDelay: '280ms' }}>
@@ -938,7 +930,7 @@ function QuietStat({ label, value, hint, onClick }) {
 function PeriodTiles({ now, prev, range, scopeLabel, members, currency, onCreators, onChallenges, onMoney }) {
   const vs = range.short
   const d = (key, lowerIsBetter = false) => (prev ? { pct: change(now[key], prev[key]), vs, lowerIsBetter } : null)
-  const cpm = (v) => (v != null ? formatMoney(v, currency) : '·')
+  const cpm = (v) => formatCpm(v, currency)
   return (
     <div className="mb-10">
       <p className="mb-3 flex flex-wrap items-baseline gap-x-2 text-sm text-smoke">
@@ -950,11 +942,11 @@ function PeriodTiles({ now, prev, range, scopeLabel, members, currency, onCreato
         <StatCard label="New creators" value={now.newCreators} delta={d('newCreators')} hint={`${members} members in total`} onClick={onCreators} />
         <StatCard label="Challenges running" value={now.challenges} delta={d('challenges')} hint="open at any point in it" onClick={onChallenges} />
         <StatCard label="Videos submitted" value={now.submissions} delta={d('submissions')} />
-        <StatCard label="Views" value={formatViewsTotal(now.views)} delta={d('views')} hint="on videos submitted in it" />
+        <StatCard label="Community views gained" value={now.views == null ? '…' : formatViewsTotal(now.views)} delta={d('views')} hint={now.combinedViews == null ? 'Reading views gained in these dates' : `${formatViewsTotal(now.vipViews)} VIP · ${formatViewsTotal(now.combinedViews)} combined`} />
         <StatCard label="Cash prizes paid" value={formatMoney(now.cash, currency)} delta={d('cash')} onClick={onMoney} />
         <StatCard label="Voucher value given" value={formatMoney(now.vouchers, currency)} delta={d('vouchers')} onClick={onMoney} />
-        <StatCard label="Cash CPM" value={cpm(now.cashCpm)} delta={d('cashCpm', true)} hint="cash per 1,000 views" />
-        <StatCard label="Total CPM" value={cpm(now.totalCpm)} delta={d('totalCpm', true)} hint="cash and vouchers per 1,000 views" />
+        <StatCard label="Cash CPM" value={cpm(now.cashCpm)} delta={d('cashCpm', true)} hint="cash per 1,000 community views gained" />
+        <StatCard label="Total CPM" value={cpm(now.totalCpm)} delta={d('totalCpm', true)} hint="cash and vouchers per 1,000 community views gained" />
       </div>
     </div>
   )

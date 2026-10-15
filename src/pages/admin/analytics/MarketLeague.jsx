@@ -1,4 +1,6 @@
 import { useMemo, useState } from 'react'
+import { motion } from 'motion/react'
+import { SPRING } from '../../../lib/motion'
 import { flagEmoji } from '../../../lib/countries'
 import { downloadCsv, formatViewsTotal, formatMoney, cx } from '../../../lib/utils'
 import { marketStandings, monthsInRecord, monthLabel, previousRanks } from '../../../lib/marketStandings'
@@ -228,14 +230,14 @@ export default function MarketLeague({ raw, currency }) {
         </div>
 
         {/* ------------------------------------------------------- the table */}
-        <div key={`${month}|${metricKey}`} className="mt-5 space-y-2">
+        <div className="mt-5 space-y-3">
           {ranked.length === 0 && (
             <p className="py-8 text-center text-sm text-smoke">No market ran a challenge in {monthLabel(month)}.</p>
           )}
           {ranked.map((r, i) => (
-            <div
+            <motion.div layout="position" transition={SPRING}
               key={r.id}
-              className="group relative overflow-hidden rounded-card border border-gray-100 bg-white px-3 py-3 shadow-card transition-all duration-300 animate-rise hoverable:hover:-translate-y-0.5 hoverable:hover:shadow-lift sm:px-4"
+              className="group relative overflow-hidden rounded-card border border-brand/10 bg-gradient-to-br from-white via-white to-brand-tint/70 px-3 py-4 shadow-card transition-all duration-300 hoverable:hover:-translate-y-0.5 hoverable:hover:shadow-lift sm:px-4"
               style={{ animationDelay: `${Math.min(i, 8) * 45}ms` }}
             >
               {/* THE BAR IS THE BACKGROUND, NOT A COLUMN. A league table where
@@ -358,7 +360,7 @@ export default function MarketLeague({ raw, currency }) {
                   )}
                 </div>
               )}
-            </div>
+            </motion.div>
           ))}
 
           {quiet.length > 0 && (

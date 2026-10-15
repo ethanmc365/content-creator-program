@@ -26,7 +26,7 @@ select cron.schedule('inactive-creator-alerts', '0 8 * * *', 'select public.noti
 select cron.schedule('ops-health-check', '*/5 * * * *', 'select public.ops_health_check();');
 select cron.schedule('ops-snapshot-stats', '55 * * * *', 'select public.ops_snapshot_stats();');
 select cron.schedule('post-scheduled-announcements', '* * * * *', 'select public.post_scheduled_announcements();');
-select cron.schedule('publish-scheduled-challenges', '*/5 * * * *', 'select public.publish_scheduled_challenges()');
+select cron.schedule('publish-scheduled-challenges', '*/5 * * * *', 'select public.publish_scheduled_challenges(); select public.run_due_approvals();');
 select cron.schedule('purge-audit-log', '30 3 * * 0', 'select public.purge_old_audit_log();');
 select cron.schedule('purge-cron-history', '40 3 * * *', 'delete from cron.job_run_details where end_time < now() - interval ''8 days''');
 select cron.schedule('purge-deleted-creators', '0 3 * * *', 'select public.purge_deleted_creators()');

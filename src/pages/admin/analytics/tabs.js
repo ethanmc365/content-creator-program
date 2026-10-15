@@ -18,6 +18,5 @@ export const TABS = [
   { key: 'referrals', label: 'Referrals' },
   { key: 'community', label: 'Community health' },
   { key: 'creators', label: 'Per creator' },
-  // ERROR MONITORING LEFT ANALYTICS (14 Oct 2026): a crash is not a statistic. It lives on the admin desk, where the
-  // team looks every day.
+  { key: 'errors', label: 'Error monitoring' },
 ]

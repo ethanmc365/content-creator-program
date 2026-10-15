@@ -1,3 +1,4 @@
+import { formatCpm } from './utils'
 import { describe, it, expect } from 'vitest'
 import {
   challengeDeadline,
@@ -129,5 +130,14 @@ describe('the CSV an admin export produces', () => {
   it('is empty for no rows rather than a lone header', () => {
     expect(toCsv([])).toBe('')
     expect(toCsv(null)).toBe('')
+  })
+})
+
+
+describe('small CPM amounts', () => {
+  it('does not round a positive cost to zero', () => {
+    expect(formatCpm(0.0038, 'EUR')).toBe('<€0.01')
+    expect(formatCpm(0.03, 'EUR')).toBe('€0.03')
+    expect(formatCpm(null, 'EUR')).toBe('—')
   })
 })

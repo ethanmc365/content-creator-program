@@ -31,7 +31,7 @@ export const INTRO_PLATFORMS = ['TikTok', 'Instagram', 'YouTube', 'Facebook']
 
 export const INTRO_WANTS = [
   'Collabs', 'Feedback on my videos', 'Meeting people near me',
-  'Getting better at hooks', 'Paid briefs', 'Travel buddies',
+  'Getting better at hooks', 'Winning prizes', 'Travel buddies',
 ]
 
 const clean = (s) => String(s ?? '').replace(/\s+/g, ' ').trim()
@@ -173,4 +173,30 @@ export function parseLegacyIntro(body) {
     languages: [],
     stats: null,
   }
+}
+
+/** Translate answers separately: the English form labels must not decide the language of a Spanish answer. */
+export async function translateIntro(intro, translate) {
+  let failed = false
+  let changed = false
+  const answer = async (text) => {
+    if (!text?.trim()) return text
+    const result = await translate(text)
+    if (result.failed) { failed = true; return text }
+    const value = result.value || text
+    if (value.trim() !== text.trim()) changed = true
+    return value
+  }
+  const keys = ['about', 'ask', 'fact', 'fav', 'hack', 'local', 'more']
+  const values = await Promise.all(keys.map((key) => answer(intro[key])))
+  const [next, makes, wants] = await Promise.all([
+    answer(intro.next?.text),
+    Promise.all((intro.makes || []).map(answer)),
+    Promise.all((intro.wants || []).map(answer)),
+  ])
+  const translated = {
+    ...intro, ...Object.fromEntries(keys.map((key, i) => [key, values[i]])),
+    makes, wants, next: intro.next ? { ...intro.next, text: next } : null,
+  }
+  return { intro: translated, value: introToText(translated), same: !changed, failed: failed && !changed }
 }

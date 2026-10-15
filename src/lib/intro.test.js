@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { buildIntro, introToText, isoInText, parseLegacyIntro } from './intro'
+import { buildIntro, introToText, isoInText, parseLegacyIntro, translateIntro } from './intro'
 
 describe('intro', () => {
   it('finds the country in a next-trip sentence', () => {
@@ -33,5 +33,29 @@ describe('intro', () => {
     expect(introToText(intro)).toBe('👋 Ana here, based in Madrid, Spain.\nI make: Food.\nNext trip: Japan in May.\nHoping to find: Collabs.')
     // and the text reads back as the same card
     expect(parseLegacyIntro(introToText(intro)).makes).toEqual(['Food'])
+  })
+})
+
+describe('mixed-language introductions', () => {
+  it('translates answers independently so English labels cannot hide Spanish answers', async () => {
+    const original = { first: 'Noemi', city: 'Tarragona', iso: 'ES', about: 'Me encanta viajar', ask: 'Encontrar vuelos baratos', next: { text: 'Marrakech en Octubre', iso: 'MA' }, socials: { tiktok: 'https://tiktok.com/@noemi' }, stats: { videos: 12 }, makes: ['Food'], wants: ['Collabs'] }
+    const calls = []
+    const dictionary = { 'Me encanta viajar': 'I love travelling', 'Encontrar vuelos baratos': 'Finding cheap flights', 'Marrakech en Octubre': 'Marrakech in October' }
+    const result = await translateIntro(original, async (text) => { calls.push(text); return { value: dictionary[text] || text, src: dictionary[text] ? 'es' : 'en' } })
+    expect(result.intro.about).toBe('I love travelling')
+    expect(result.intro.ask).toBe('Finding cheap flights')
+    expect(result.intro.next).toEqual({ text: 'Marrakech in October', iso: 'MA' })
+    expect(result.intro.socials).toEqual(original.socials)
+    expect(result.intro.stats).toEqual(original.stats)
+    expect(original.about).toBe('Me encanta viajar')
+    expect(calls).not.toContain('Noemi')
+    expect(calls).not.toContain('Tarragona')
+    expect(result.same).toBe(false)
+  })
+  it('keeps the original answer and reports a failed translation', async () => {
+    const result = await translateIntro({ first: 'Ann', about: 'Hola' }, async (text) => ({ value: text, failed: true }))
+    expect(result.intro.about).toBe('Hola')
+    expect(result.failed).toBe(true)
+    expect(result.same).toBe(true)
   })
 })

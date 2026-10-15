@@ -40,7 +40,7 @@ begin
     select a.*, case when posted then 'posted' when active_at >= v_start then 'seen' when active_at is not null then 'dormant' else 'never' end as state from aud a
   )
   select jsonb_build_object(
-    'started', v_start,
+    'can_thank_posted', true, 'started', v_start,
     'audience', count(*),
     'posted', count(*) filter (where state = 'posted'),
     'seen', count(*) filter (where active_at >= v_start),

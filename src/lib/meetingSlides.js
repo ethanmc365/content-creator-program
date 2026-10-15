@@ -22,7 +22,7 @@ const TONES = {
   orange: { bg: 'url(#hg)', kick: '#ffe3d2', title: '#ffffff' },
   ink: { bg: INK, kick: ORANGE_LIGHT, title: '#ffffff' },
   light: { bg: '#fff1e8', kick: ORANGE, title: INK },
-  green: { bg: 'url(#gg)', kick: '#d1fae5', title: '#ffffff' },
+  green: { bg: 'url(#hg)', kick: '#ffe3d2', title: '#ffffff' },
 }
 const GLOBE = (cx, cy, r, c) => `<g fill="none" stroke="${c}" stroke-width="2.4"><circle cx="${cx}" cy="${cy}" r="${r}"/><ellipse cx="${cx}" cy="${cy}" rx="${r * 0.45}" ry="${r}"/><path d="M${cx - r} ${cy} H${cx + r} M${cx - r * 0.86} ${cy - r * 0.5} H${cx + r * 0.86} M${cx - r * 0.86} ${cy + r * 0.5} H${cx + r * 0.86}"/></g>`
 export function slideHeader({ kicker, title, date, badge = null, tone = 'orange' }) {
@@ -34,8 +34,9 @@ export function slideHeader({ kicker, title, date, badge = null, tone = 'orange'
     <linearGradient id="gg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#047857"/><stop offset="1" stop-color="#10b981"/></linearGradient>
   </defs>
   <rect width="${W}" height="116" fill="${t.bg}"/>
+  <path d="M0 112 H1280" stroke="${ORANGE_LIGHT}" stroke-width="4" opacity="0.4"/>
   <text x="48" y="48" font-size="14" font-weight="700" letter-spacing="2" fill="${t.kick}">${esc(String(kicker || '').toUpperCase())}</text>
-  <text x="48" y="90" font-size="34" font-weight="800" fill="${t.title}">${esc(clip(title, 44))}</text>
+  <text x="48" y="90" font-size="34" font-weight="800" fill="${t.title}">${esc(clip(title, Math.max(14, Math.floor(((date ? pillX : W - (badge ? 150 : 48)) - 72) / 18))))}</text>
   ${date ? `<g><rect x="${pillX}" y="38" width="${pillW}" height="40" rx="20" fill="#ffffff" ${tone === 'light' ? 'stroke="#f3d6c4"' : ''}/>
     <text x="${pillX + pillW / 2}" y="64" font-size="16" font-weight="700" text-anchor="middle" fill="${ORANGE}">${esc(date)}</text></g>` : ''}
   ${badge ? `<g><circle cx="${W - 78}" cy="58" r="30" fill="#ffffff"/>${badge === 'globe' ? GLOBE(W - 78, 58, 17, ORANGE) : `<text x="${W - 78}" y="70" font-size="32" text-anchor="middle">${esc(badge)}</text>`}</g>` : ''}`
@@ -43,7 +44,8 @@ export function slideHeader({ kicker, title, date, badge = null, tone = 'orange'
 
 function frame(head, body, foot = '') {
   return `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" font-family="Poppins, 'Helvetica Neue', Arial, sans-serif" role="img" aria-label="${esc(head.title)}">
-  <rect width="${W}" height="${H}" fill="#faf7f4"/>
+  <rect width="${W}" height="${H}" fill="#faf8f6"/>
+  <circle cx="1240" cy="670" r="230" fill="#f5853f" opacity="0.035"/>
   ${slideHeader(head)}
   ${body}
   ${foot ? `<text x="48" y="${H - 28}" font-size="13" fill="${SMOKE}">${esc(foot)}</text>` : ''}
@@ -80,7 +82,7 @@ export function leadersSlide(r, scope, { title, marketName, images = {}, badge =
       ${avatar(104, y, 24, c.name, images[c.photo_url])}
       <text x="142" y="${y - 2}" font-size="19" font-weight="700" fill="${INK}">${esc(clip(c.name, 22))}${c.vip ? ' · VIP' : ''}</text>
       <rect x="142" y="${y + 10}" width="300" height="8" rx="4" fill="#f1ece8"/>
-      <rect x="142" y="${y + 10}" width="${w}" height="8" rx="4" fill="${ORANGE}"/>
+      <rect x="142" y="${y + 10}" width="${w}" height="8" rx="4" fill="url(#hg)"/>
       <text x="456" y="${y + 6}" font-size="20" font-weight="800" fill="${INK}">+${compact(c.views)}</text>
       <text x="456" y="${y + 26}" font-size="12" fill="${SMOKE}">${c.videos} ${Number(c.videos) === 1 ? 'video' : 'videos'}</text>
     </g>`
@@ -107,9 +109,10 @@ export function leadersSlide(r, scope, { title, marketName, images = {}, badge =
   }).join('')
   const empty = `<text x="48" y="210" font-size="18" fill="${SMOKE}">No views gained in these dates.</text>`
   return frame(
-    { kicker: `Tryp.com Creator Community · ${title}`, title: `${marketName || 'Worldwide'} · Who gained most`, date: rangeLabel(r.from, r.to), badge: badge || (marketName ? null : 'globe'), tone: 'light' },
+    { kicker: `Tryp.com Creator Community · ${title}`, title: `${marketName || 'Worldwide'} · View leaders`, date: rangeLabel(r.from, r.to), badge: badge || (marketName ? null : 'globe'), tone: 'light' },
     `<text x="48" y="158" font-size="13" font-weight="700" letter-spacing="1.4" fill="${SMOKE}">TOP CREATORS</text>
      <text x="640" y="156" font-size="13" font-weight="700" letter-spacing="1.4" fill="${SMOKE}">TOP VIDEOS</text>
+     <rect x="28" y="172" width="560" height="478" rx="24" fill="#ffffff" stroke="#eee7e2"/>
      ${creators.length ? left : empty}${right}`,
     'Views gained inside the dates shown. A creator in several videos counts once, with every video added together.',
   )

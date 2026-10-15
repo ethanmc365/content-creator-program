@@ -54,6 +54,7 @@ function sourceOf(p) {
 }
 
 export default function Recruitment({ raw, market, markets, scopeLabel, range }) {
+  const [hoverWeek, setHoverWeek] = useState(null)
   const [people, setPeople] = useState(null)
   const [emails, setEmails] = useState({})
   const [list, setList] = useState('unfinished')
@@ -224,15 +225,15 @@ export default function Recruitment({ raw, market, markets, scopeLabel, range })
           data={d.weekly} recent={16} minPoint={34} delay={80}
           csv={{ name: 'signups-by-week.csv' }}
           render={(rows2) => (
-            <BarChart data={rows2} margin={{ top: 8, right: 4, left: 0, bottom: 0 }}>
+            <BarChart data={rows2} onMouseMove={(state) => setHoverWeek(state?.activeTooltipIndex ?? null)} onMouseLeave={() => setHoverWeek(null)} margin={{ top: 8, right: 4, left: 0, bottom: 0 }}>
               <CartesianGrid {...gridProps} />
               <XAxis dataKey="week" {...xAxisProps} />
               <YAxis {...yAxisProps} allowDecimals={false} />
               <Tooltip contentStyle={tooltipStyle} cursor={false} />
               <Legend wrapperStyle={{ fontSize: 11 }} iconType="circle" />
-              <Bar dataKey="approved" name="Approved" stackId="s" fill={FILL.brand} maxBarSize={32} shape={stackShape(pulseKeys, 'approved')} />
-              <Bar dataKey="waiting" name="Waiting on review" stackId="s" fill={FILL.light} maxBarSize={32} shape={stackShape(pulseKeys, 'waiting')} />
-              <Bar dataKey="unfinished" name="Never finished" stackId="s" fill={FILL.rest} maxBarSize={32} shape={stackShape(pulseKeys, 'unfinished')} />
+              <Bar dataKey="approved" name="Approved" stackId="s" fill={FILL.brand} maxBarSize={32} shape={stackShape(pulseKeys, 'approved', 6, hoverWeek)} />
+              <Bar dataKey="waiting" name="Waiting on review" stackId="s" fill={FILL.light} maxBarSize={32} shape={stackShape(pulseKeys, 'waiting', 6, hoverWeek)} />
+              <Bar dataKey="unfinished" name="Never finished" stackId="s" fill="#9b6451" maxBarSize={32} shape={stackShape(pulseKeys, 'unfinished', 6, hoverWeek)} />
             </BarChart>
           )}
         />

@@ -5335,4 +5335,9 @@ export default {
   'Zoom': 'Zoom',
   'Zoom in': 'Aproximar',
   'Zoom out': 'Afastar',
+  "Winning prizes": "Ganhar prémios",
+  "Videos with the most new views": "Vídeos com mais novas visualizações",
+  "Creators with the most new views": "Criadores com mais novas visualizações",
+  "Deck order: Worldwide, markets, then challenges. Files are numbered in that order.": "Ordem dos diapositivos: Worldwide, mercados e desafios. Os ficheiros são numerados por essa ordem.",
+  "Meet your manager": "Conhece a tua gestora ou o teu gestor",
 }

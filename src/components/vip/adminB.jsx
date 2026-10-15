@@ -4,6 +4,7 @@ import { Avatar, Modal, Select, Skeleton, Spinner, Toggle } from '../ui'
 import Segmented from '../network/Segmented'
 import { Link } from 'react-router-dom'
 import Icon from '../Icon'
+import SocialMark from '../SocialMark'
 import { confirm, notice, saved } from '../../lib/confirm'
 import { toastSuccess } from '../../lib/toast'
 import { cx, downloadCsv, formatDate } from '../../lib/utils'
@@ -546,10 +547,10 @@ function ClaimsReview({ claims }) {
                   </button>
                 )}
                 <div className="relative w-12 shrink-0 overflow-hidden rounded-lg">
-                  <a href={safeUrl(c.url)} target="_blank" rel="noopener noreferrer" aria-label={tr('Open the video')}><VideoThumb url={c.url} platform={c.platform} thumbnailUrl={c.thumb} className="aspect-[9/16] w-full rounded-none" /></a>
+                  <a href={safeUrl(c.url)} target="_blank" rel="noopener noreferrer" aria-label={tr('Open the video')}><VideoThumb url={c.url} platform={c.platform} thumbnailUrl={c.thumb} mark={false} className="aspect-[9/16] w-full rounded-none" /></a>
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="flex items-center gap-2 text-sm font-semibold text-ink"><Avatar src={c.photo} name={c.name} size="xs" /><span className="truncate">{c.name}</span></p>
+                  <p className="flex items-center gap-2 text-sm font-semibold text-ink"><Avatar src={c.photo} name={c.name} size="xs" /><span className="truncate">{c.name}</span><SocialMark brand={c.platform?.toLowerCase()} colored className="h-4 w-4 shrink-0" /></p>
                   <p className="mt-0.5 truncate text-xs text-smoke">{c.rule} · {tr('{n} views this month', { n: nf(c.views) })}</p>
                   {c.caption && <p className="truncate text-[11px] text-gray-400">{c.caption}</p>}
                 </div>

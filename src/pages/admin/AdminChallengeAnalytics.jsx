@@ -223,8 +223,10 @@ export default function AdminChallengeAnalytics() {
 
   return (
     <div className="page">
+      <PageHeader back="/admin" title="Analytics" />
+      <AnalyticsTabs tabs={ANALYTICS_TABS} active="programme" />
       <PageHeader
-        back={{ to: '/admin/analytics', label: 'Analytics' }}
+        back={{ to: '/admin/analytics?tab=programme', label: 'Challenges' }}
         title={challenge.title}
         subtitle={`${formatDate(challenge.start_date)} → ${formatDate(challenge.end_date)} · ${challenge.status}`}
         action={
@@ -234,8 +236,6 @@ export default function AdminChallengeAnalytics() {
           </div>
         }
       />
-
-      <AnalyticsTabs tabs={ANALYTICS_TABS} active="programme" />
 
       {/* COMBINED OR ONE GROUP. Only on a split challenge. */}
       {groups.length > 0 && (
@@ -527,8 +527,10 @@ function LoggedChallenge({ row, siblings, markets, userId, editing, onEdit, onCl
 
   return (
     <div className="page">
+      <PageHeader back="/admin" title="Analytics" />
+      <AnalyticsTabs tabs={ANALYTICS_TABS} active="programme" />
       <PageHeader
-        back={{ to: '/admin/analytics?tab=programme', label: 'Analytics' }}
+        back={{ to: '/admin/analytics?tab=programme', label: 'Challenges' }}
         title={row.title || `${row.country_code} challenge`}
         subtitle={[
           market?.name || row.country_code,

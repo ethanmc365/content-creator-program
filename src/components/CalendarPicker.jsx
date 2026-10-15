@@ -12,7 +12,7 @@ import { useT } from '../lib/i18n'
 // cannot produce that.
 const ymd = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 
-export default function CalendarPicker({ value, onPick, min, max }) {
+export default function CalendarPicker({ value, onPick, min, max, rangeFrom, rangeTo, embedded = false }) {
   const tr = useT()
   const locale = dateTag()
   const seed = value ? new Date(`${value}T12:00:00`) : new Date()
@@ -32,7 +32,7 @@ export default function CalendarPicker({ value, onPick, min, max }) {
   const navBtn = 'flex h-8 w-8 items-center justify-center rounded-full text-smoke transition-colors hoverable:hover:bg-cloud hoverable:hover:text-ink'
 
   return (
-    <div className="w-[17rem] animate-menu-in rounded-2xl border border-gray-100 bg-white p-3 shadow-lift" onMouseDown={(e) => e.preventDefault()}>
+    <div className={cx("w-[17rem] rounded-2xl bg-white p-3", !embedded && "animate-menu-in border border-gray-100 shadow-lift")} onMouseDown={(e) => e.preventDefault()}>
       <div className="mb-2 flex items-center justify-between">
         <button type="button" onClick={() => step(-1)} aria-label={mode === 'days' ? tr('Previous month') : tr('Previous year')} className={navBtn}>
           <Icon name="chevronLeft" className="h-4 w-4" />
@@ -66,12 +66,13 @@ export default function CalendarPicker({ value, onPick, min, max }) {
           {cells.map((d, i) => {
             if (!d) return <span key={i} />
             const key = ymd(d)
-            const on = key === value
+            const on = key === value || key === rangeFrom || key === rangeTo
+            const inside = rangeFrom && rangeTo && key > rangeFrom && key < rangeTo
             const off = out(key)
             return (
-              <button key={i} type="button" disabled={off} aria-pressed={on} onClick={() => onPick(key)}
+              <button key={i} type="button" disabled={off} aria-pressed={on} aria-label={d.toLocaleDateString(locale, { day: 'numeric', month: 'long', year: 'numeric' })} onClick={() => onPick(key)}
                 className={cx('flex aspect-square items-center justify-center rounded-xl text-sm font-semibold tabular-nums transition-colors',
-                  on ? 'bg-brand text-white shadow-card' : off ? 'cursor-not-allowed text-gray-300' : 'text-ink hoverable:hover:bg-brand-tint hoverable:hover:text-brand',
+                  on ? 'bg-brand text-white shadow-card' : inside ? 'bg-brand-tint text-brand' : off ? 'cursor-not-allowed text-gray-300' : 'text-ink hoverable:hover:bg-brand-tint hoverable:hover:text-brand',
                   key === today && !on && 'ring-1 ring-brand/40')}>
                 {d.getDate()}
               </button>

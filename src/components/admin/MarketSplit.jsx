@@ -278,7 +278,7 @@ function MarketPeople({ market, homes, subs, results, scoring, onClose }) {
           <button type="button" onClick={onClose} aria-label="Close" className="rounded-full p-2 text-smoke hover:bg-cloud hover:text-ink">✕</button>
         </div>
         <div className="flex items-center gap-2 px-5 py-3">
-        <div className="flex min-w-0 flex-1 gap-1 overflow-x-auto scrollbar-none">
+        <div className="scroll-edge-fade flex min-w-0 flex-1 gap-1 overflow-x-auto rounded-full py-1 scrollbar-none">
           {FILTERS.map(([k, label]) => (
             <button key={k} type="button" onClick={() => setFilter(k)} aria-pressed={filter === k}
               className={cx('shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold transition-colors', filter === k ? 'bg-brand text-white' : 'bg-cloud text-smoke hover:text-ink')}>
@@ -308,8 +308,8 @@ function MarketPeople({ market, homes, subs, results, scoring, onClose }) {
                   {p.online ? ' · online now' : p.last_seen_at ? ` · seen ${timeAgo(p.last_seen_at)}` : ''}
                 </p>
               </div>
-              {emails[p.id] && <CopyButton value={emails[p.id]} label={`Copy ${p.name}'s email`} className="shrink-0 rounded-full border border-gray-200 p-2 text-smoke hover:border-brand hover:text-brand" />}
-              <Link to={`/messages?to=${p.id}`} className={cx('shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold transition-colors', p.videos === 0 ? 'bg-brand text-white' : 'border border-gray-200 text-smoke hover:border-brand hover:text-brand')}>
+              {emails[p.id] && <CopyButton value={emails[p.id]} label={`Copy ${p.name}'s email`} className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-smoke hover:bg-brand-tint hover:text-brand" />}
+              <Link to={`/messages?to=${p.id}`} className="inline-flex min-h-10 shrink-0 items-center justify-center rounded-full bg-brand px-3 py-2 text-xs font-semibold text-white transition-colors hover:bg-brand/90">
                 Message
               </Link>
             </li>

@@ -56,8 +56,13 @@ export default function OnboardingCall({ call, booked, bookedAt = null, opened, 
   return (
     <div className="space-y-5">
       {/* ONE CARD: who you meet, then why (15 Oct 2026, the team: "put that in the card rather than just as plain text"). */}
-      <div className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-card animate-rise">
-        <div className="flex items-center gap-4 p-4">
+      <div className="overflow-hidden rounded-2xl border border-brand/15 bg-white shadow-card animate-rise">
+        <div className="relative overflow-hidden bg-gradient-to-br from-brand to-brand-light px-5 py-4 text-white">
+          <span aria-hidden className="absolute -right-6 -top-8 h-32 w-32 rounded-full border-[20px] border-white/10" />
+          <p className="relative flex items-center gap-2 text-sm font-bold"><Icon name="video" className="h-5 w-5" />{tr('Meet your manager')}</p>
+          <p className="relative mt-1 text-xs leading-relaxed text-white/90">{tr('{n} minute video call', { n: call.call_minutes || 15 })}</p>
+        </div>
+        <div className="flex items-center gap-4 p-5">
           <span className="relative shrink-0">
             <Avatar src={call.host_photo_url} name={call.host_name || 'Tryp.com'} size="lg" />
             <span aria-hidden className="absolute -bottom-0.5 -right-0.5 flex h-7 w-7 items-center justify-center rounded-full bg-brand text-white ring-[3px] ring-white">
@@ -67,12 +72,9 @@ export default function OnboardingCall({ call, booked, bookedAt = null, opened, 
           <div className="min-w-0">
             <p className="text-base font-bold text-ink">{call.host_name || 'Tryp.com'}</p>
             {call.host_title && <p className="text-sm text-smoke">{call.host_title}</p>}
-            <p className="mt-1 inline-flex items-center gap-1.5 text-xs font-semibold text-brand">
-              <Icon name="clock" className="h-3.5 w-3.5" />{tr('{n} minute video call', { n: call.call_minutes || 15 })}
-            </p>
           </div>
         </div>
-        <div className="border-t border-gray-100 bg-gradient-to-b from-brand-tint/40 to-white px-4 py-3.5 text-sm leading-relaxed text-ink">
+        <div className="border-t border-gray-100 bg-gradient-to-b from-brand-tint/40 to-white px-5 py-4 text-sm leading-relaxed text-ink">
           <p className="flex items-start gap-2 font-semibold">
             <Icon name="sparkles" className="mt-0.5 h-4 w-4 shrink-0 text-brand" />
             {tr('Booking this call is how you get accepted into the community.')}
@@ -95,7 +97,7 @@ export default function OnboardingCall({ call, booked, bookedAt = null, opened, 
         </div>
       ) : (
         <div key="ask" className="space-y-3 animate-rise [animation-delay:120ms]">
-          <button type="button" onClick={schedule} className="btn-primary w-full justify-center !py-3.5 text-base transition-transform duration-200 active:scale-[0.98] hoverable:hover:scale-[1.01]">
+          <button type="button" disabled={!href && !preview} onClick={schedule} className="btn-primary min-h-12 w-full justify-center !px-4 !py-3.5 text-sm transition-transform duration-200 active:scale-[0.98] hoverable:hover:scale-[1.01]">
             <Icon name="calendar" className="h-5 w-5" />
             {opened && !cal ? tr('Open the booking page again') : tr('Schedule my call with {name}', { name: first })}
           </button>
@@ -106,6 +108,8 @@ export default function OnboardingCall({ call, booked, bookedAt = null, opened, 
               <p className="text-center text-xs text-smoke">{tr('Opens the booking page in a new tab. Come back here once you have booked.')}</p>
               <button
                 type="button"
+                role="checkbox"
+                aria-checked={false}
                 disabled={!opened && !preview}
                 onClick={() => onBooked?.(true)}
                 className="flex w-full items-center gap-3 rounded-2xl border-2 border-gray-200 bg-white px-4 py-3.5 text-left text-ink transition-colors duration-200 disabled:opacity-50 hoverable:enabled:hover:border-brand/50"

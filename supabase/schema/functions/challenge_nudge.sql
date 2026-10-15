@@ -11,7 +11,7 @@ AS $function$
 declare ch public.challenges; v_start timestamptz; v_net boolean; v_n int;
 begin
   if not public.is_admin() then raise exception 'Only the team can send this.'; end if;
-  if p_segment not in ('seen', 'dormant', 'never', 'all') then raise exception 'Unknown group.'; end if;
+  if p_segment not in ('seen', 'dormant', 'never', 'all', 'posted') then raise exception 'Unknown group.'; end if;
   if btrim(coalesce(p_title, '')) = '' or btrim(coalesce(p_body, '')) = '' then raise exception 'Write a title and a message.'; end if;
   select * into ch from public.challenges where id = p_challenge;
   if ch.id is null then raise exception 'No such challenge.'; end if;
@@ -31,7 +31,7 @@ begin
       left join act a on a.pid = p.id
      where p.status = 'active' and not p.is_admin and not p.is_test and not coalesce(p.is_sandbox, false) and p.deletion_requested_at is null
        and (v_net or exists (select 1 from public.community_members cm where cm.profile_id = p.id and cm.community_id = ch.community_id and cm.status = 'active'))
-       and not exists (select 1 from public.submissions s where s.creator_id = p.id and s.challenge_id = p_challenge)
+       and (case when p_segment = 'posted' then exists (select 1 from public.submissions s where s.creator_id = p.id and s.challenge_id = p_challenge) else not exists (select 1 from public.submissions s where s.creator_id = p.id and s.challenge_id = p_challenge) end)
        and (p_market is null or coalesce((select c.name from public.community_members m join public.communities c on c.id = m.community_id
                                             where m.profile_id = p.id and m.is_home and m.status = 'active' and c.kind = 'chapter' limit 1), 'Rest of the world') = p_market)
        and case p_segment

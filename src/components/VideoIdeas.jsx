@@ -151,7 +151,7 @@ export default function VideoIdeasBoard({ compact = false }) {
     <div className="space-y-8">
       <IdeasHero count={rows?.length} total={total} compact={compact} />
       {/* SIDE BY SIDE ON A PHONE TOO. */}
-      <section className="grid grid-cols-2 gap-2.5 sm:gap-3">
+      <section className="grid grid-cols-2 gap-2.5 sm:max-w-xl sm:gap-3 [&_button]:sm:!min-h-14 [&_button]:sm:!py-3 [&_button]:sm:!text-sm">
         <div className="animate-rise [animation-delay:80ms]"><HookButton variant="big" /></div>
         <div className="animate-rise [animation-delay:150ms]"><DealFinder variant="big" /></div>
       </section>
@@ -259,10 +259,10 @@ function Shelf({ shelf, index, onPlay, hooks, lead = false, onAddHook = null, re
         )}
       </div>
       <div className="relative">
-        <div className="scrollbar-none -mx-4 flex snap-x snap-mandatory gap-4 overflow-x-auto scroll-px-4 px-4 pb-3 pt-1 sm:-mx-6 sm:scroll-px-6 sm:px-6">
+        <div className="scroll-edge-fade scrollbar-none -mx-4 flex gap-4 overflow-x-auto sm:snap-x sm:snap-proximity scroll-px-4 px-4 pb-3 pt-1 sm:-mx-6 sm:scroll-px-6 sm:px-6">
           {shelf.rows.map((v, i) => <IdeaCard key={v.id} v={v} rank={shelf.key === 'top' ? i + 1 : null} delay={i} onPlay={() => onPlay(v)} hook={v.screen_text ? hooks.pick(v.screen_text) : null} onAddHook={onAddHook && !v.screen_text ? () => onAddHook(v) : null} reading={reading === v.id} />)}
         </div>
-        <span aria-hidden className="pointer-events-none absolute inset-y-0 -right-4 w-8 ideas-fade sm:-right-6 sm:w-10" />
+
       </div>
     </section>
   )

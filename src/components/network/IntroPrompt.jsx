@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useAuth } from '../../context/AuthContext'
 import Icon from '../Icon'
+import SocialMark from '../SocialMark'
 import { Modal } from '../ui'
 import { notice } from '../../lib/confirm'
 import { cx, dateTag } from '../../lib/utils'
@@ -44,6 +45,7 @@ import { flightsApi } from '../../api/flights'
 // silently discards the first. The parent applies it with a functional update
 // instead, which cannot go stale.
 function Chips({ options, value, onToggle, max }) {
+  const tr = useT()
   return (
     <div className="flex flex-wrap gap-2">
       {options.map((o) => {
@@ -56,13 +58,13 @@ function Chips({ options, value, onToggle, max }) {
             aria-pressed={on}
             disabled={!on && value.length >= max}
             className={cx(
-              'rounded-full border px-3.5 py-1.5 text-sm font-medium transition-all duration-200',
+              'inline-flex min-h-11 items-center gap-2 rounded-full border px-3.5 py-2 text-sm font-medium transition-all duration-200',
               on
                 ? 'border-brand bg-brand text-white glow-brand'
                 : 'border-gray-200 bg-white text-smoke hoverable:hover:-translate-y-0.5 hoverable:hover:scale-[1.03] hover:border-brand hover:text-brand disabled:opacity-40 disabled:hover:translate-y-0 disabled:hover:border-gray-200 disabled:hover:text-smoke',
             )}
           >
-            {o}
+            {tr(o)}
           </button>
         )
       })}
@@ -71,7 +73,7 @@ function Chips({ options, value, onToggle, max }) {
 }
 
 // One answer from a short list. Pressing the picked one again clears it.
-function OneOf({ options, value, onChange }) {
+function OneOf({ options, value, onChange, social = false }) {
   const tr = useT()
   return (
     <div className="flex flex-wrap gap-2">
@@ -84,12 +86,13 @@ function OneOf({ options, value, onChange }) {
             onClick={() => onChange(on ? '' : o)}
             aria-pressed={on}
             className={cx(
-              'rounded-full border px-3.5 py-1.5 text-sm font-medium transition-all duration-200',
+              'inline-flex min-h-11 items-center gap-2 rounded-full border px-3.5 py-2 text-sm font-medium transition-all duration-200',
               on
                 ? 'border-brand bg-brand text-white glow-brand'
                 : 'border-gray-200 bg-white text-smoke hoverable:hover:-translate-y-0.5 hover:border-brand hover:text-brand',
             )}
           >
+            {social && <SocialMark brand={o.toLowerCase()} colored={!on} className="h-5 w-5" />}
             {tr(o)}
           </button>
         )
@@ -246,7 +249,7 @@ export function IntroModal({ open, onClose, community, channel, onPosted }) {
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_24rem]">
         <div className="space-y-5">
           <Field label={tr("Where are you based?")}>
-            <AutoTextarea className="input resize-none text-base leading-relaxed sm:text-sm" minRows={1} maxLength={400} value={form.where}
+            <AutoTextarea className="input resize-none text-base leading-relaxed sm:text-sm" minRows={2} maxLength={400} value={form.where}
               placeholder={tr("Manchester, UK")}
               onChange={(e) => set({ where: e.target.value })} />
           </Field>
@@ -255,7 +258,7 @@ export function IntroModal({ open, onClose, community, channel, onPosted }) {
           <Field label={tr("A bit about you")} hint={tr("What you do, what you love, your hobbies. Write as much as you like.")}>
             <AutoTextarea
               className="input resize-none text-base leading-relaxed sm:text-sm"
-              minRows={3}
+              minRows={4}
               maxLength={1200}
               value={form.about}
               placeholder={tr("I film budget city breaks around my 9 to 5, and when I'm not travelling I'm climbing or hunting down the best coffee in town.")}
@@ -268,41 +271,41 @@ export function IntroModal({ open, onClose, community, channel, onPosted }) {
           </Field>
 
           <Field label={tr("Where do you post the most?")}>
-            <OneOf options={INTRO_PLATFORMS} value={form.platform} onChange={(v) => set({ platform: v })} />
+            <OneOf social options={INTRO_PLATFORMS} value={form.platform} onChange={(v) => set({ platform: v })} />
           </Field>
 
           <Field label={tr("Where are you headed next?")}>
-            <AutoTextarea className="input resize-none text-base leading-relaxed sm:text-sm" minRows={1} maxLength={400} value={form.next}
+            <AutoTextarea className="input resize-none text-base leading-relaxed sm:text-sm" minRows={2} maxLength={400} value={form.next}
               placeholder={tr("Lisbon, Portugal in March")}
               onChange={(e) => set({ next: e.target.value })} />
           </Field>
 
           <Field label={tr("Your best trip so far")}>
-            <AutoTextarea className="input resize-none text-base leading-relaxed sm:text-sm" minRows={1} maxLength={400} value={form.fav}
+            <AutoTextarea className="input resize-none text-base leading-relaxed sm:text-sm" minRows={2} maxLength={400} value={form.fav}
               placeholder={tr("Three days in Porto for under 200")}
               onChange={(e) => set({ fav: e.target.value })} />
           </Field>
 
           <Field label={tr("One thing people should ask you about")}>
-            <AutoTextarea className="input resize-none text-base leading-relaxed sm:text-sm" minRows={1} maxLength={400} value={form.ask}
+            <AutoTextarea className="input resize-none text-base leading-relaxed sm:text-sm" minRows={2} maxLength={400} value={form.ask}
               placeholder={tr("Finding cheap flights out of Dublin")}
               onChange={(e) => set({ ask: e.target.value })} />
           </Field>
 
           <Field label={tr("Your best travel hack")}>
-            <AutoTextarea className="input resize-none text-base leading-relaxed sm:text-sm" minRows={1} maxLength={400} value={form.hack}
+            <AutoTextarea className="input resize-none text-base leading-relaxed sm:text-sm" minRows={2} maxLength={400} value={form.hack}
               placeholder={tr("Search one-way flights both ways, then book the cheaper pair")}
               onChange={(e) => set({ hack: e.target.value })} />
           </Field>
 
           <Field label={tr("Your favourite spot in your home town")}>
-            <AutoTextarea className="input resize-none text-base leading-relaxed sm:text-sm" minRows={1} maxLength={400} value={form.local}
+            <AutoTextarea className="input resize-none text-base leading-relaxed sm:text-sm" minRows={2} maxLength={400} value={form.local}
               placeholder={tr("The rooftop bar above the old market")}
               onChange={(e) => set({ local: e.target.value })} />
           </Field>
 
           <Field label={tr("A hidden talent or a fun fact about you")}>
-            <AutoTextarea className="input resize-none text-base leading-relaxed sm:text-sm" minRows={1} maxLength={400} value={form.fact}
+            <AutoTextarea className="input resize-none text-base leading-relaxed sm:text-sm" minRows={2} maxLength={400} value={form.fact}
               placeholder={tr("I can name any capital city in under a second")}
               onChange={(e) => set({ fact: e.target.value })} />
           </Field>

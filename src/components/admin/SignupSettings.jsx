@@ -167,9 +167,7 @@ function CallEditor({ market, audience, row, team, onSaved, country }) {
       <div>
         <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-smoke">What applicants see</p>
         <PhoneFrame>
-          <div className="p-4">
-            <h3 className="mb-1 text-center text-lg font-bold">Book your onboarding call</h3>
-            <p className="mb-4 text-center text-xs text-smoke">One last step: a short call to welcome you in.</p>
+          <div className="max-h-[748px] overflow-y-auto px-1 pb-8 pt-3">
             <OnboardingCall preview
               call={{ call_url: draft.url, call_minutes: draft.minutes, note: draft.note, host_name: host?.name, host_photo_url: host?.photo_url, host_title: host?.role_title }}
               opened={false} booked={false} />

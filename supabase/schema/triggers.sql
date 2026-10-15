@@ -123,6 +123,7 @@ CREATE TRIGGER trg_results_follow_manual_award AFTER INSERT OR DELETE OR UPDATE 
 CREATE TRIGGER trg_audit_point_rules AFTER INSERT OR DELETE ON point_rules FOR EACH ROW EXECUTE FUNCTION audit_change('challenges', 'point rule', 'label');
 CREATE TRIGGER trg_audit_point_rules_upd AFTER UPDATE ON point_rules FOR EACH ROW EXECUTE FUNCTION audit_change('challenges', 'point rule', 'label', 'label', 'points', 'threshold', 'max_points', 'min_views', 'prompt', 'starts_at', 'ends_at', 'is_active');
 CREATE TRIGGER trg_point_rule_takes_its_awards BEFORE DELETE ON point_rules FOR EACH ROW EXECUTE FUNCTION point_rule_takes_its_awards();
+CREATE TRIGGER trg_point_rule_window_inside BEFORE INSERT OR UPDATE OF starts_at, ends_at ON point_rules FOR EACH ROW EXECUTE FUNCTION point_rule_window_inside_challenge();
 CREATE TRIGGER trg_points_on_rule_change AFTER INSERT OR UPDATE ON point_rules FOR EACH ROW EXECUTE FUNCTION trg_recalc_points_for_rule();
 CREATE TRIGGER award_joined_certificate AFTER INSERT OR UPDATE OF status ON profiles FOR EACH ROW EXECUTE FUNCTION on_creator_joined_certificate();
 CREATE TRIGGER sandbox_no_delete BEFORE DELETE ON profiles FOR EACH ROW EXECUTE FUNCTION sandbox_is_read_only();
@@ -147,6 +148,7 @@ CREATE TRIGGER trg_team_link_auto_join BEFORE UPDATE OF onboarded ON profiles FO
 CREATE TRIGGER trg_vip_profile_sent AFTER UPDATE OF onboarded ON profiles FOR EACH ROW WHEN (new.onboarded AND NOT COALESCE(old.onboarded, false)) EXECUTE FUNCTION vip_profile_sent();
 CREATE TRIGGER trg_vip_protect_flag BEFORE UPDATE ON profiles FOR EACH ROW EXECUTE FUNCTION vip_protect_flag();
 CREATE TRIGGER trg_zz_adults_only BEFORE INSERT OR UPDATE ON profiles FOR EACH ROW EXECUTE FUNCTION trg_adults_only();
+CREATE TRIGGER trg_zz_onboarding_progress AFTER INSERT OR UPDATE ON profiles FOR EACH ROW EXECUTE FUNCTION log_onboarding_progress();
 CREATE TRIGGER trg_limit_reactions BEFORE INSERT ON reactions FOR EACH ROW EXECUTE FUNCTION enforce_write_limit('creator_id', 'created_at', '120', '60');
 CREATE TRIGGER trg_on_room_reaction AFTER INSERT ON reactions FOR EACH ROW EXECUTE FUNCTION on_room_reaction();
 CREATE TRIGGER trg_on_new_referral AFTER INSERT ON referrals FOR EACH ROW EXECUTE FUNCTION on_new_referral();
@@ -179,9 +181,11 @@ CREATE TRIGGER trg_results_follow_deleted_entry AFTER DELETE ON submissions FOR 
 CREATE TRIGGER trg_submission_collab_linked AFTER INSERT ON submissions FOR EACH ROW WHEN (new.collab_of IS NOT NULL) EXECUTE FUNCTION submission_collab_linked();
 CREATE TRIGGER trg_submission_collab_unlinked AFTER DELETE ON submissions FOR EACH ROW WHEN (old.collab_of IS NOT NULL) EXECUTE FUNCTION submission_collab_unlinked();
 CREATE TRIGGER trg_submission_posted_at BEFORE INSERT OR UPDATE OF platform_video_id, video_url, platform ON submissions FOR EACH ROW EXECUTE FUNCTION submission_posted_at_fill();
+CREATE TRIGGER trg_submission_removed_seen BEFORE UPDATE OF views_sync_error, views_synced_at ON submissions FOR EACH ROW EXECUTE FUNCTION submission_removed_seen();
 CREATE TRIGGER trg_submission_voucher_day AFTER INSERT OR UPDATE OF logged_views, posted_at ON submissions FOR EACH ROW EXECUTE FUNCTION trg_submission_voucher_day();
 CREATE TRIGGER trg_submission_zz_disqualify_early AFTER UPDATE ON submissions FOR EACH ROW WHEN (new.posted_at IS NOT NULL AND old.posted_at IS DISTINCT FROM new.posted_at) EXECUTE FUNCTION submission_disqualify_early();
 CREATE TRIGGER trg_submission_zz_refuse_early BEFORE INSERT ON submissions FOR EACH ROW EXECUTE FUNCTION submission_refuse_early();
+CREATE TRIGGER trg_submission_zz_remove_when_gone AFTER UPDATE OF views_sync_error, views_synced_at ON submissions FOR EACH ROW WHEN (new.views_sync_error = 'removed'::text) EXECUTE FUNCTION submission_remove_when_gone();
 CREATE TRIGGER trg_track_video_on_views_synced AFTER UPDATE OF logged_views ON submissions FOR EACH ROW WHEN (old.logged_views IS DISTINCT FROM new.logged_views) EXECUTE FUNCTION trg_track_video_on_views_synced();
 CREATE TRIGGER survey_sample_guard BEFORE INSERT OR UPDATE ON survey_responses FOR EACH ROW EXECUTE FUNCTION survey_sample_guard();
 CREATE TRIGGER surveys_touch BEFORE UPDATE ON surveys FOR EACH ROW EXECUTE FUNCTION surveys_touch();

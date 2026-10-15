@@ -20,7 +20,7 @@ import { deleteHistory } from '../../../lib/challengeHistory'
 import { confirm, notice } from '../../../lib/confirm'
 import { loadMarkets } from '../../../lib/markets'
 import { flagFromIso } from '../../../lib/flags'
-import { FILL, CHART, SCOPE_COLORS, gridProps, xAxisProps, yAxisProps, lineProps, barProps, cursorFill, tooltipStyle as chartTooltip } from '../../../components/charts/chartTheme'
+import { FILL, CHART, gridProps, xAxisProps, yAxisProps, lineProps, barProps, cursorFill, tooltipStyle as chartTooltip } from '../../../components/charts/chartTheme'
 import ChartPanel from '../../../components/charts/ChartPanel'
 import { useNavigate } from 'react-router-dom'
 import { overlaps } from '../../../lib/analyticsPeriod'
@@ -746,10 +746,6 @@ function SummaryView({ data, b, currency }) {
   const [measure, setMeasure] = useState('views')
   const m = MEASURES.find((x) => x.key === measure)
   const fmt = (v) => (v == null ? '-' : m.money != null ? money(v, currency, m.money) : m.fmt(v))
-  const marketColor = useMemo(() => {
-    const names = [...new Set(data.all.map((r) => r.market).filter(Boolean))].sort()
-    return (name) => (name ? SCOPE_COLORS[(names.indexOf(name) + 1) % SCOPE_COLORS.length] : CHART.brand)
-  }, [data.all])
   const perChallenge = [...data.scoped]
     .filter((r) => r.start_date)
     .sort((x, y) => String(x.start_date).localeCompare(String(y.start_date)))
@@ -860,7 +856,7 @@ function SummaryView({ data, b, currency }) {
         </div>
       )}
 
-      <EveryChallenge rows={perChallenge} measure={measure} m={m} fmt={fmt} onMeasure={setMeasure} marketColor={marketColor}
+      <EveryChallenge rows={perChallenge} measure={measure} m={m} fmt={fmt} onMeasure={setMeasure}
         onOpen={(id) => navigate(`/admin/analytics/${id}`)} currency={currency} />
     </>
   )
@@ -870,7 +866,7 @@ function SummaryView({ data, b, currency }) {
 // ("you cannot just see the name of the challenges"). Now one row per challenge: the market's flag, the whole title, when it
 // ran, and a bar in the market's colour sized against the biggest, with the number at its end. Sort by newest or by the
 // measure; the list scrolls inside the card; a row opens the challenge. Hovering a row lifts and magnifies its bar.
-function EveryChallenge({ rows, measure, m, fmt, onMeasure, marketColor, onOpen, currency }) {
+function EveryChallenge({ rows, measure, m, fmt, onMeasure, onOpen, currency }) {
   const [sort, setSort] = useState('value')
   const list = useMemo(() => {
     const out = [...rows]
@@ -884,7 +880,7 @@ function EveryChallenge({ rows, measure, m, fmt, onMeasure, marketColor, onOpen,
       <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <h2 className="font-semibold">Every challenge <span className="font-normal text-smoke">({rows.length})</span></h2>
-          <p className="mt-1 text-xs text-smoke">Coloured by market · press a challenge to open it</p>
+          <p className="mt-1 text-xs text-smoke">Compare the numbers · press a challenge to open it</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <div className="flex gap-0.5 rounded-full bg-cloud p-0.5">
@@ -916,7 +912,6 @@ function EveryChallenge({ rows, measure, m, fmt, onMeasure, marketColor, onOpen,
           {list.map((r, i) => {
             const v = Number(r[measure]) || 0
             const pct = Math.max(2, (v / max) * 100)
-            const color = marketColor(r.market === 'Global' ? null : r.market)
             return (
               <li key={r.id} className="animate-rise" style={{ animationDelay: `${Math.min(i, 14) * 30}ms` }}>
                 <button type="button" onClick={() => onOpen(r.id)}
@@ -932,7 +927,7 @@ function EveryChallenge({ rows, measure, m, fmt, onMeasure, marketColor, onOpen,
                   <span className="flex min-w-0 items-center gap-2.5">
                     <span className="relative h-3 min-w-0 flex-1 rounded-full bg-cloud transition-transform duration-200 ease-out group-hover:scale-y-[1.5]">
                       <span className="absolute inset-y-0 left-0 origin-left rounded-full animate-bar-grow transition-shadow duration-200 group-hover:shadow-[0_3px_8px_rgba(217,68,7,0.3)]"
-                        style={{ width: `${pct}%`, background: `linear-gradient(90deg, ${color}cc, ${color})`, opacity: r.running ? 0.7 : 1, animationDelay: `${Math.min(i, 14) * 30 + 120}ms` }} />
+                        style={{ width: `${pct}%`, background: 'linear-gradient(90deg, #d94407, #f5853f)', opacity: r.running ? 0.7 : 1, animationDelay: `${Math.min(i, 14) * 30 + 120}ms` }} />
                     </span>
                     <span className="w-16 shrink-0 text-right text-sm font-bold tabular-nums text-ink">{fmt(r[measure])}</span>
                   </span>

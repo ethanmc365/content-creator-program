@@ -214,6 +214,12 @@ export function formatMoney(amount, currency = 'EUR') {
   }).format(amount || 0)
 }
 
+/** Keep a small, positive CPM visibly different from a genuine zero. */
+export function formatCpm(amount, currency = 'EUR') {
+  if (amount == null) return '—'
+  return amount > 0 && amount < 0.01 ? `<${formatMoney(0.01, currency)}` : formatMoney(amount, currency)
+}
+
 /**
  * Detect which platform a pasted video link belongs to -  * used to auto-select the platform on the submission form.
  */

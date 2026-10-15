@@ -191,6 +191,7 @@ export function applyPeriod(raw, range) {
   const tripRows = (raw.tripRows || []).filter((r) => inP(r.created_at))
   return {
     ...raw,
+    liveStandings: Object.fromEntries(Object.entries(raw.liveStandings || {}).map(([id, standings]) => [id, standings.filter((s) => inP(s.reached_at))])),
     challenges,
     history: (raw.history || []).filter((h) => inP(h.ends_at || h.starts_at)),
     submissions: (raw.submissions || []).filter((s) => inP(s.submitted_at)),
@@ -231,6 +232,8 @@ export function periodHeadline(scoped, range, money) {
       + (scoped.history || []).filter((h) => overlaps(h.starts_at, h.ends_at || h.starts_at, range)).length,
     submissions: (ps.submissions || []).length + hist.reduce((n, h) => n + Number(h.posts || 0), 0),
     views,
+    measuredCash,
+    measuredVouchers: vouchers,
     cash: cash + histPrize,
     vouchers,
     cashCpm: views > 0 && measuredCash > 0 ? measuredCash / (views / 1000) : null,
