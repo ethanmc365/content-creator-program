@@ -69,7 +69,7 @@ export default function VipEarnings({ market = '', marketName = null }) {
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-xs text-smoke">
           {marketName ? `${marketName} only. Pick Worldwide above for every market.` : 'Every VIP and official programme.'}
-          {' '}Up to September 2026 from the team's sheet, then live from the platform.
+          {' '}Up to September 2026 from the team's sheet, then live from the platform. Sheet names join a creator once the market's team confirms them in VIP tools &gt; Money &gt; Past earnings.
         </p>
         <div className="flex gap-1.5">
           <button type="button" onClick={() => setTick((n) => n + 1)} disabled={loading} aria-label="Refresh" title="Read it again" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-gray-200 bg-white text-smoke transition-all hoverable:hover:text-brand disabled:opacity-50">
@@ -302,7 +302,11 @@ function Who({ c }) {
         <span className="flex flex-wrap items-center gap-1 text-[11px] text-smoke">
           {c.kind === 'official' ? <span className="font-semibold text-brand">Official</span> : <span>VIP</span>}
           <span>· {perK(c.rate)} rate</span>
-          {!c.onPlatform && <span className="rounded-full bg-cloud px-1.5 py-px text-[10px] font-semibold">Not on the platform</span>}
+          {!c.onPlatform && (
+            <span className={cx('rounded-full px-1.5 py-px text-[10px] font-semibold', c.match === 'former' ? 'bg-cloud' : 'bg-amber-50 text-amber-700')}>
+              {c.match === 'former' ? 'No longer with us' : c.match === 'suggested' ? 'Sheet name, match not confirmed' : 'Sheet name, not matched'}
+            </span>
+          )}
         </span>
       </span>
     </span>

@@ -8,6 +8,7 @@ import { motion } from 'motion/react'
 import { SPRING } from '../../lib/motion'
 import { cx } from '../../lib/utils'
 import { VipMembersTab, VipOverviewTab } from './adminA'
+import { VipHistoryTab } from './historyTab'
 import { VipAccessTab } from './access'
 import { VipContentTab, VipMarketsTab } from './adminD'
 import { AnnouncementsTab } from './announce'
@@ -34,7 +35,7 @@ import { vipApi } from '../../api/vip'
 const GROUPS = [
   { key: 'people', label: 'People', icon: 'users', tabs: [['overview', 'Overview'], ['members', 'Members'], ['requirements', 'Stay-in check'], ['preview', 'See as a VIP']] },
   { key: 'videos', label: 'Videos', icon: 'video', tabs: [['videos', 'All videos'], ['questions', 'Video questions']] },
-  { key: 'money', label: 'Money', icon: 'wallet', tabs: [['wallets', 'Balances'], ['close', 'Month end'], ['sheet', 'CPM sheet'], ['bonuses', 'Bonuses and perks']] },
+  { key: 'money', label: 'Money', icon: 'wallet', tabs: [['wallets', 'Balances'], ['close', 'Month end'], ['sheet', 'CPM sheet'], ['history', 'Past earnings'], ['bonuses', 'Bonuses and perks']] },
   { key: 'content', label: 'Content', icon: 'megaphone', tabs: [['announcements', 'Announcements'], ['challenges', 'Monthly challenges'], ['guides', 'Guides'], ['certificates', 'Certificates']] },
   { key: 'numbers', label: 'Numbers', icon: 'chart', tabs: [['analytics', 'Analytics'], ['kpis', 'KPIs']] },
   { key: 'setup', label: 'Setup', icon: 'key', tabs: [['settings', 'Settings'], ['markets', 'Markets'], ['access', 'Access']] },
@@ -128,6 +129,7 @@ export default function VipTools({ programmeId }) {
     wallets: (p) => <VipWalletsTab programme={p} />,
     close: (p) => <VipCloseTab programme={p} />,
     sheet: (p) => <VipSheetTab programme={p} />,
+    history: (p) => <VipHistoryTab programme={p} />,
     bonuses: (p) => <VipBonusesTab programme={p} isOwner={isOwner} initialPart={bonusPart} />,
     announcements: (p) => <AnnouncementsTab programme={p} programmes={sameKind(p)} isOwner={isOwner} />,
     challenges: (p) => <VipContentTab programme={p} isOwner={isOwner} part="briefs" />,

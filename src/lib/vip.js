@@ -22,7 +22,7 @@ export async function vipRpc(fn, args) {
 // read-only, and the components check `useVipPreview()` to grey their buttons.
 export const VipPreviewContext = createContext(null)
 export const useVipPreview = () => useContext(VipPreviewContext)
-const PREVIEW_AS = { vip_my_overview: 'overview', vip_my_statements: 'statements', vip_my_trends: 'trends', vip_my_perks: 'perks', vip_board: 'board', vip_my_wallet: 'wallet' }
+const PREVIEW_AS = { vip_my_overview: 'overview', vip_my_statements: 'statements', vip_my_trends: 'trends', vip_my_perks: 'perks', vip_board: 'board', vip_my_wallet: 'wallet', vip_my_earnings: 'earnings' }
 
 /** `vipRpc`, as the previewed member when `who` is set and the function is one of the creator's own reads. */
 export function vipRpcAs(who, fn, args) {

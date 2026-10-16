@@ -27,6 +27,8 @@ export function earningsByCreator(rows) {
     // The platform's own name wins over the sheet's short one once both are seen.
     if (r.profile_id) { c.name = r.name; c.photo = r.photo_url; c.kind = r.kind }
     if (r.short && r.source === 'sheet') c.short = r.short
+    // A sheet name the team has not matched to a profile yet (suggested / unmatched) or kept as history (former).
+    if (r.source === 'sheet' && !r.profile_id && r.match) c.match = r.match
     const mk = monthKey(r)
     const cell = c.byMonth[mk] || { key: mk, year: r.year, month: r.month, label: monthShort(r.year, r.month), views: 0, pay: 0, extra: 0, paid: 0, live: false }
     cell.views += num(r.views); cell.pay += num(r.pay); cell.extra += num(r.extra); cell.paid = cell.pay + cell.extra

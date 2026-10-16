@@ -20,6 +20,7 @@ export const VIP_SECTIONS = [
   { key: 'videos', icon: 'video', label: 'My videos', hint: 'Add and track' },
   { key: 'stats', icon: 'chart', label: 'Stats', hint: 'Views over time' },
   { key: 'payouts', icon: 'wallet', label: 'Payouts', hint: 'Balance, cash or voucher' },
+  { key: 'earnings', icon: 'money', label: 'Earnings', hint: 'Everything you have made' },
   { key: 'board', icon: 'trophy', label: 'Leaderboard', hint: 'This month' },
   { key: 'perks', icon: 'plane', label: 'Perks and trips', hint: 'Unlock as you grow' },
   { key: 'earn', icon: 'trendUp', label: 'Earn more', hint: 'Bonuses running now' },

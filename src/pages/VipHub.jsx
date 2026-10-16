@@ -1,3 +1,4 @@
+import { VipMyEarnings } from '../components/vip/myEarnings'
 import { gentleScrollToSelector } from '../lib/gentleScroll'
 import { Suspense, useCallback, useEffect, useState } from 'react'
 import { lazyRoute } from '../lib/lazyRoute'
@@ -45,7 +46,7 @@ import { marketsApi } from '../api/markets'
 // they stay themselves and see each market's real VIP page - the month so far across every VIP there, the real
 // leaderboard, announcements, briefs, library, map and rooms - with the market switch at the top. The sections that are
 // one person's own (videos, stats, payouts, perks) are hidden.
-const STAFF_HIDDEN = new Set(['videos', 'stats', 'payouts', 'perks', 'recap'])
+const STAFF_HIDDEN = new Set(['videos', 'stats', 'payouts', 'earnings', 'perks', 'recap'])
 const PREVIEW_HIDDEN = new Set(['recap'])
 const STAFF_PICK = 'tryp_vip_staff_programme'
 // ...AND THEN EXACTLY THE CREATOR'S PAGE (migration 311). The team view above is kept one press away, but the page now
@@ -153,7 +154,7 @@ export default function VipHub() {
   const previewWho = previewing ? who : null
   const asked = params.get('tab') === 'leaderboard' ? 'board' : params.get('tab')
   const hiddenTabs = isStaff ? STAFF_HIDDEN : previewing ? PREVIEW_HIDDEN : null
-  const allowed = ['month', 'videos', 'stats', 'payouts', 'board', 'earn', 'perks', 'ideas', 'library', 'map', 'recap'].filter((k) => !hiddenTabs?.has(k))
+  const allowed = ['month', 'videos', 'stats', 'payouts', 'earnings', 'board', 'earn', 'perks', 'ideas', 'library', 'map', 'recap'].filter((k) => !hiddenTabs?.has(k))
   const tab = allowed.includes(asked) ? asked : 'month'
   const go = (v) => { setParams(() => { const n = new URLSearchParams(); if (mode === 'as') { n.set('mode', 'as'); if (who) n.set('who', who); if (params.get('from')) n.set('from', params.get('from')) } if (v !== 'month') n.set('tab', v); return n }, { replace: true }); if (window.scrollY > 320) gentleScrollToSelector('[data-vip-anchor]') }
   const [board, setBoard] = useState(null)
@@ -391,6 +392,8 @@ export default function VipHub() {
         )}
 
         {tab === 'payouts' && <VipWallet onChanged={refresh} />}
+
+        {tab === 'earnings' && <VipMyEarnings />}
 
         {tab === 'board' && (
           <div className="vip-stage space-y-4">
