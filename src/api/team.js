@@ -29,6 +29,7 @@ export const makeTeamApi = (db = supabase) => ({
   adminPushAnalytics: (args, opts) => db.rpc('admin_push_analytics', args, opts),
   adminSetAdmin: (args, opts) => db.rpc('admin_set_admin', args, opts),
   adminViewsGained: (args, opts) => db.rpc('admin_views_gained', args, opts),
+  adminVipEarnings: (args, opts) => db.rpc('admin_vip_earnings', args, opts),
   adminWeeklyActivity: (args, opts) => db.rpc('admin_weekly_activity', args, opts),
   approveTeamMember: (args, opts) => db.rpc('approve_team_member', args, opts),
   claimTeamInvite: (args, opts) => db.rpc('claim_team_invite', args, opts),

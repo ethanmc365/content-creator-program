@@ -18,6 +18,13 @@ import { vipApi } from '../../api/vip'
 // video questions as filters. A creator's name opens a small menu: their community profile, their VIP page, a message.
 
 const PLATFORMS = ['TikTok', 'Instagram', 'YouTube', 'Facebook']
+// Yes / No answers saved before 16 Oct 2026 are in the creator's language. Read them as the English word they mean.
+const YES = new Set(['yes', 'sí', 'si', 'sim', 'ja', 'da', 'oui'])
+const NO = new Set(['no', 'não', 'nao', 'nein', 'nu', 'non', 'nej'])
+function canonAnswer(v) {
+  const k = String(v).trim().toLowerCase()
+  return YES.has(k) ? 'Yes' : NO.has(k) ? 'No' : v
+}
 const monthKey = (iso) => (iso ? String(iso).slice(0, 7) : '')
 const monthName = (k) => new Date(`${k}-01T12:00:00Z`).toLocaleDateString('en-GB', { month: 'long', year: 'numeric', timeZone: 'UTC' })
 
@@ -63,7 +70,7 @@ export function VipVideosTab({ programme }) {
     const m = new Map()
     for (const a of state?.answers || []) {
       const cur = m.get(a.video_id) || {}
-      cur[a.question_id] = a.answers
+      cur[a.question_id] = (a.answers || []).map(canonAnswer)
       m.set(a.video_id, cur)
     }
     return m
@@ -145,7 +152,7 @@ export function VipVideosTab({ programme }) {
             <Select key={x.id} value={answer?.q === x.id ? (answer.a || '__any') : ''} variant="chip" className="max-w-[16rem]" ariaLabel={x.question} search={false}
               onChange={(v) => setAnswer(v ? { q: x.id, a: v === '__any' ? '' : v } : null)}
               options={[{ value: '', label: x.question }, { value: '__any', label: tr('Answered') }, { value: '__none', label: tr('Not answered') },
-                ...(x.options?.length ? x.options : [tr('Yes'), tr('No')]).map((o) => ({ value: o, label: o }))]} />
+                ...(x.options?.length ? x.options.map((o) => ({ value: o, label: o })) : [{ value: 'Yes', label: tr('Yes') }, { value: 'No', label: tr('No') }])]} />
           ))}
         </div>
         )}
@@ -305,7 +312,7 @@ export function VipQuestionsTab({ programme, isOwner }) {
   const counts = (qid) => {
     const m = new Map()
     let answered = 0
-    for (const a of state.answers) if (a.question_id === qid) { answered++; for (const v of a.answers) m.set(v, (m.get(v) || 0) + 1) }
+    for (const a of state.answers) if (a.question_id === qid) { answered++; for (const raw of a.answers) { const v = canonAnswer(raw); m.set(v, (m.get(v) || 0) + 1) } }
     return { m, answered }
   }
 
@@ -329,7 +336,8 @@ export function VipQuestionsTab({ programme, isOwner }) {
 
       {state.questions.map((x, i) => {
         const { m, answered } = counts(x.id)
-        const opts = x.options?.length ? x.options : [tr('Yes'), tr('No')]
+        const yesNo = !x.options?.length
+        const opts = yesNo ? ['Yes', 'No'] : x.options
         const max = Math.max(1, ...opts.map((o) => m.get(o) || 0))
         return (
           <section key={x.id} className={cx('rounded-card border bg-white p-4 shadow-card animate-rise', x.active ? 'border-gray-100' : 'border-dashed border-gray-200 opacity-70')} style={{ animationDelay: `${i * 40}ms` }}>
@@ -350,14 +358,15 @@ export function VipQuestionsTab({ programme, isOwner }) {
             <div className="mt-3 space-y-2">
               {opts.map((o) => (
                 <button key={o} type="button" onClick={() => openVideos(x.id, o)} className="group block w-full text-left">
-                  <span className="mb-1 flex justify-between text-sm"><span className="font-medium group-hover:text-brand">{o}</span><span className="font-semibold tabular-nums">{m.get(o) || 0}</span></span>
+                  <span className="mb-1 flex justify-between text-sm"><span className="font-medium group-hover:text-brand">{yesNo ? tr(o) : o}</span><span className="font-semibold tabular-nums">{m.get(o) || 0}</span></span>
                   <span className="block h-2 overflow-hidden rounded-full bg-cloud"><span className="block h-full rounded-full bg-brand transition-[width] duration-700" style={{ width: `${((m.get(o) || 0) / max) * 100}%` }} /></span>
                 </button>
               ))}
             </div>
             <p className="mt-3 text-xs text-smoke">
               {tr('{a} of {n} videos answered', { a: answered, n: state.videos.length })} ·{' '}
-              <button type="button" onClick={() => openVideos(x.id, '')} className="font-semibold text-brand hover:underline">{tr('See the videos')}</button>
+              {/* A Yes / No question opens on the yes videos: the ones the team asked about (16 Oct 2026). */}
+              <button type="button" onClick={() => openVideos(x.id, yesNo ? 'Yes' : '')} className="font-semibold text-brand hover:underline">{yesNo ? tr('See the Yes videos') : tr('See the videos')}</button>
             </p>
           </section>
         )

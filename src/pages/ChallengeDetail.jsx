@@ -18,6 +18,8 @@ import SwapIn, { SLOT, SLOT_ICON } from '../components/challenge/SwapIn'
 import RecapBanner from '../components/challenge/RecapBanner'
 import { useEntryPoints } from '../lib/entryPoints'
 import { previewLink, storeThumbnail } from '../lib/videoThumbs'
+import { photoPostKind, refusePhotoPost } from '../lib/photoPost'
+import { acceptsLabel } from '../lib/videoLinks'
 import VideoEmbedModal from '../components/VideoEmbedModal'
 import { playsInline } from '../lib/videoPreview'
 import SubmissionSuccess from '../components/SubmissionSuccess'
@@ -452,13 +454,25 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
       return fail(
         'url',
         platform === 'Other'
-          ? `We couldn't tell which platform that link is from. This challenge accepts: ${challenge.platforms.join(', ')}.`
-          : `That looks like a ${platform} link. This challenge accepts: ${challenge.platforms.join(', ')}.`
+          ? `We couldn't tell which platform that link is from. This challenge accepts: ${challenge.platforms.map(acceptsLabel).join(', ')}.`
+          : `That looks like a ${platform} link. This challenge accepts: ${challenge.platforms.map(acceptsLabel).join(', ')}.`
       )
     }
     if (!caption.trim()) return fail('caption', 'Please add a caption for your entry.')
 
     setSubmitting(true)
+
+    // PHOTO POSTS DO NOT COUNT (16 Oct 2026): refused here with a pop-up, before anything is saved. TikTok is never
+    // asked. An Instagram /p/ link is checked with the server; an answer it cannot give lets the entry through.
+    if (platform === 'Instagram' || platform === 'Facebook') {
+      if (await photoPostKind(url) === 'photo') {
+        setSubmitting(false)
+        setSubmitError('')
+        setErrorField('url')
+        refusePhotoPost(url, tr)
+        return
+      }
+    }
 
     // THE ENTRY CARRIES THE VIDEO'S REAL ID WHEN WE KNOW IT.
     //
@@ -509,6 +523,13 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
         notice(tr('This video was posted on {posted}, before the challenge started on {start}, so it cannot be entered. Post a new video and enter that one.', {
           posted: day(error.details), start: day(error.hint),
         }), { title: tr('This video is too old for this challenge') })
+        return
+      }
+      // The database's own copy of the photo-post rule (migration 428), for a link that never met the check above.
+      if (/PHOTO_POST/.test(error.message || '')) {
+        setSubmitError('')
+        setErrorField('url')
+        refusePhotoPost(url, tr)
         return
       }
       return fail('', error.message)
@@ -1440,9 +1461,12 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
                   className="inline-flex items-center gap-2 rounded-full border border-gray-100 bg-white py-1.5 pl-2 pr-3.5 text-xs font-semibold shadow-card transition-transform duration-200 hover:-translate-y-0.5"
                 >
                   <SocialMark brand={SOCIAL_BRAND[p] || 'link'} colored className="h-5 w-5 shrink-0" />
-                  {p}
+                  {tr(acceptsLabel(p))}
                 </span>
               ))}
+              {(challenge.platforms || []).some((p) => p === 'Instagram' || p === 'Facebook') && (
+                <p className="w-full text-xs text-smoke">{tr('Photo posts and carousels do not count.')}</p>
+              )}
               {(challenge.platforms || []).length === 0 && (
                 <p className="text-sm text-smoke">{tr("Any platform.")}</p>
               )}

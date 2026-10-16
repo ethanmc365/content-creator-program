@@ -114,3 +114,32 @@ export function describeLink(url) {
   if (!code) return { platform, id: null, ready: false, note: 'No post code in that Instagram link.' }
   return { platform, id: code, ready: true, note: 'Reel code found. Matched on the creator\u2019s public reels tab, signed out.' }
 }
+
+// PHOTO POSTS DO NOT COUNT (16 Oct 2026). A photo or a carousel has no view count on Instagram or Facebook, so an
+// entry made of one scored nothing and sat "could not read" until the team typed a number in by hand. TikTok is left
+// alone: its photo posts DO state views.
+//
+// What the link alone can say:
+//   'photo'  refuse now. Facebook's share sheet names the kind in the path: /share/r/ is a reel, /share/v/ a video,
+//            /share/p/ a post (every Facebook photo entry so far came as one), and /photo/, photo.php, /media/set are
+//            pictures by name.
+//   'check'  ask the server. An Instagram /p/ link is a reel OR a photo (a reel copied from a computer reads /p/),
+//            and a Facebook /posts/ or story link can hold either.
+//   null     nothing to ask: a reel, a video, or another platform.
+export function postKindOf(url) {
+  const platform = platformOf(url)
+  if (platform === 'Facebook') {
+    if (/\/share\/p\/|\/photos?(?:\/|\.php|$|\?)|\/media\/set/i.test(url)) return 'photo'
+    if (/\/posts\/|permalink\.php|story\.php/i.test(url)) return 'check'
+    return null
+  }
+  if (platform === 'Instagram') {
+    if (/instagram\.com\/(?:[^/]+\/)?p\/[A-Za-z0-9_-]{5,}/i.test(url)) return 'check'
+    return null
+  }
+  return null
+}
+
+/** How a challenge names what it accepts on each platform: Instagram and Facebook take Reels, never photo posts. */
+export const PLATFORM_ACCEPTS = { Instagram: 'Instagram Reels', Facebook: 'Facebook Reels and videos' }
+export function acceptsLabel(platform) { return PLATFORM_ACCEPTS[platform] || platform }

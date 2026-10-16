@@ -775,41 +775,39 @@ export function VipMembersTab({ programme }) {
             </div>
               <ul className="divide-y divide-gray-50 overflow-hidden rounded-card border border-gray-100 bg-white shadow-card">
                 {members.map((m, i) => (
-                  <li key={m.profile_id} className="p-4 animate-rise" style={{ animationDelay: `${Math.min(i, 10) * 30}ms` }}>
-                    <div className="flex items-center gap-3.5">
-                      <Link to={`/profile/${m.profile_id}`} className="shrink-0 rounded-full transition-transform duration-200 hoverable:hover:scale-105" aria-label={tr('Open {n}\'s profile', { n: m.name })}><Avatar src={m.photo} name={m.name} size="md" /></Link>
-                      <div className="min-w-0 flex-1">
+                  <li key={m.profile_id} className="group/row px-4 py-3.5 transition-colors duration-200 animate-rise hoverable:hover:bg-cloud/40" style={{ animationDelay: `${Math.min(i, 10) * 30}ms` }}>
+                    {/* ONE ROW, WHATEVER THE TAGS (16 Oct 2026). The tags and the buttons shared one wrapping line, so a creator
+                        with a fee, a target and a review date (Ariakna) pushed the buttons onto a second line and her row looked
+                        unlike Julia's above it. Tags now sit under the name, where they can wrap without moving anything; views
+                        and the actions keep fixed places on the right. Icon buttons carry their names as tooltips. */}
+                    <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-x-3.5 gap-y-2 lg:grid-cols-[auto_minmax(0,1fr)_6.5rem_auto] lg:items-center lg:gap-x-5">
+                      <div className="row-span-2 lg:self-start"><Link to={`/profile/${m.profile_id}`} className="shrink-0 rounded-full transition-transform duration-200 hoverable:hover:scale-105" aria-label={tr('Open {n}\'s profile', { n: m.name })}><Avatar src={m.photo} name={m.name} size="md" /></Link></div>
+                      <div className="min-w-0">
                         <p className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
-                          <Link to={`/profile/${m.profile_id}`} className="truncate text-[15px] font-bold text-ink hover:text-brand">{m.name}</Link>
-                          {isTeam(m) && <span className="rounded-full bg-ink px-2 py-0.5 text-[10px] font-bold uppercase text-white">{tr('Tryp.com team')}</span>}
-                          {m.status !== 'active' && <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-bold uppercase text-smoke">{m.status === 'paused' ? tr('Paused') : tr('Left')}</span>}
-                        </p>
+                            <Link to={`/profile/${m.profile_id}`} className="truncate text-[15px] font-bold text-ink hover:text-brand">{m.name}</Link>
+                            {isTeam(m) && <span className="rounded-full bg-ink px-2 py-0.5 text-[10px] font-bold uppercase text-white">{tr('Tryp.com team')}</span>}
+                            {m.status !== 'active' && <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-bold uppercase text-smoke">{m.status === 'paused' ? tr('Paused') : tr('Left')}</span>}
+                          </p>
                         <p className="text-xs text-smoke">{tr('Joined {d}', { d: formatDate(m.joined_on) })} · {m.source === 'invite' ? tr('by link') : m.source === 'transfer' ? tr('moved from the community') : tr('added by the team')}</p>
                       </div>
-                      <div className="shrink-0 text-right"><p className="text-lg font-bold tabular-nums leading-tight text-ink">{nf(m.lifetime_views)}</p><p className="text-[11px] text-smoke">{tr('views in all')}</p></div>
-                    </div>
-                    <div className="mt-3 flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
-                      <div className="flex flex-wrap items-center gap-1.5 text-[11px] font-semibold">
-                        <span className="rounded-full bg-cloud px-2.5 py-1 text-smoke">{m.cpm ? tr('{r} per 1,000', { r: perK(m.cpm, cur) }) : tr('Standard rate')}</span>
-                        {Number(reviews[m.profile_id]?.monthly_fee) > 0 && <span className="rounded-full bg-brand-tint px-2.5 py-1 text-brand">{tr('{a} a month', { a: money(reviews[m.profile_id].monthly_fee, programme.currency, { cents: false }) })}</span>}
-                        {reviews[m.profile_id]?.invoice_outside && <span className="rounded-full bg-cloud px-2.5 py-1 text-smoke">{tr('own invoice')}</span>}
-                        {(reviews[m.profile_id]?.rate_review_on) && <span className={cx('rounded-full px-2.5 py-1', new Date((reviews[m.profile_id]?.rate_review_on)) <= new Date() ? 'bg-amber-50 text-amber-700' : 'bg-cloud text-smoke')}>{new Date((reviews[m.profile_id]?.rate_review_on)) <= new Date() ? tr('rate review due') : tr('rate review {d}', { d: formatDate((reviews[m.profile_id]?.rate_review_on)) })}</span>}
-                        {m.cap ? <span className="rounded-full bg-cloud px-2.5 py-1 text-smoke">{tr('cap {a}', { a: money(m.cap, cur, { cents: false }) })}</span> : null}
-                        {(m.target_videos || m.target_views) ? <span className="rounded-full bg-brand-tint px-2.5 py-1 text-brand">{tr('has a target')}</span> : null}
-                        {!m.terms_ok && <span className="rounded-full bg-amber-50 px-2.5 py-1 text-amber-700">{tr('terms not accepted')}</span>}
-                        {!m.payment_ready && !reviews[m.profile_id]?.invoice_outside && <span className="rounded-full bg-amber-50 px-2.5 py-1 text-amber-700">{tr('no payment details')}</span>}
-                      </div>
-                      <div className="flex flex-wrap items-center gap-1.5">
-                        <button type="button" onClick={() => copyEmails([m], m.name)} title={tr('Copy their email')} aria-label={tr('Copy their email')} className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 px-2.5 py-1.5 text-xs font-semibold text-smoke transition-all hoverable:hover:-translate-y-px hoverable:hover:text-ink"><Icon name="envelope" className="h-3.5 w-3.5" /></button>
-                        <Link to={`/profile/${m.profile_id}`} className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-semibold text-smoke transition-all hoverable:hover:-translate-y-px hoverable:hover:text-ink"><Icon name="user" className="h-3.5 w-3.5" />{tr('Profile')}</Link>
-                        <Link to={`/vip?mode=as&who=${m.profile_id}`} className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-semibold text-smoke transition-all hoverable:hover:-translate-y-px hoverable:hover:text-ink"><Icon name={officialHere ? 'badge' : 'star'} className="h-3.5 w-3.5" />{officialHere ? tr('Their page') : tr('VIP page')}</Link>
-                        <button type="button" onClick={() => toggleTeam(m)} disabled={teamBusy === m.profile_id}
-                          title={officialHere ? tr('Move back to the VIP creators') : tr('An official Tryp.com content creator: own contract, board and bonuses. No admin access.')}
-                          className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-semibold text-smoke transition-all hoverable:hover:-translate-y-px hoverable:hover:border-brand/40 hoverable:hover:text-brand disabled:opacity-50">
-                          {teamBusy === m.profile_id ? <Spinner className="h-3.5 w-3.5" /> : <Icon name={officialHere ? 'star' : 'badge'} className="h-3.5 w-3.5" />}{officialHere ? tr('Move to VIP') : tr('Make official creator')}
-                        </button>
-                        <button type="button" onClick={() => setEditing(m)} className="inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-brand to-brand-light px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition-all hoverable:hover:-translate-y-px hoverable:hover:shadow-card"><Icon name="pencil" className="h-3.5 w-3.5" />{tr('Edit')}</button>
-                      </div>
+                      <div className="text-right lg:row-span-2"><p className="text-lg font-bold tabular-nums leading-tight text-ink">{nf(m.lifetime_views)}</p><p className="text-[11px] text-smoke">{tr('views in all')}</p></div>
+                      <div className="col-span-2 col-start-2 flex flex-wrap items-center gap-1 text-[10.5px] font-semibold lg:col-span-1 lg:-mt-1">
+                            <span className="rounded-full bg-cloud px-2 py-0.5 text-smoke">{m.cpm ? tr('{r} per 1,000', { r: perK(m.cpm, cur) }) : tr('Standard rate')}</span>
+                            {Number(reviews[m.profile_id]?.monthly_fee) > 0 && <span className="rounded-full bg-brand-tint px-2 py-0.5 text-brand">{tr('{a} a month', { a: money(reviews[m.profile_id].monthly_fee, programme.currency, { cents: false }) })}</span>}
+                            {reviews[m.profile_id]?.invoice_outside && <span className="rounded-full bg-cloud px-2 py-0.5 text-smoke">{tr('own invoice')}</span>}
+                            {(reviews[m.profile_id]?.rate_review_on) && <span className={cx('rounded-full px-2 py-0.5', new Date((reviews[m.profile_id]?.rate_review_on)) <= new Date() ? 'bg-amber-50 text-amber-700' : 'bg-cloud text-smoke')}>{new Date((reviews[m.profile_id]?.rate_review_on)) <= new Date() ? tr('rate review due') : tr('rate review {d}', { d: formatDate((reviews[m.profile_id]?.rate_review_on)) })}</span>}
+                            {m.cap ? <span className="rounded-full bg-cloud px-2 py-0.5 text-smoke">{tr('cap {a}', { a: money(m.cap, cur, { cents: false }) })}</span> : null}
+                            {(m.target_videos || m.target_views) ? <span className="rounded-full bg-brand-tint px-2 py-0.5 text-brand">{tr('has a target')}</span> : null}
+                            {!m.terms_ok && <span className="rounded-full bg-amber-50 px-2 py-0.5 text-amber-700">{tr('terms not accepted')}</span>}
+                            {!m.payment_ready && !reviews[m.profile_id]?.invoice_outside && <span className="rounded-full bg-amber-50 px-2 py-0.5 text-amber-700">{tr('no payment details')}</span>}
+                          </div>
+                      <div className="col-span-3 flex items-center justify-end gap-1 lg:col-span-1 lg:col-start-4 lg:row-span-2 lg:row-start-1">
+                          <RowIcon onClick={() => copyEmails([m], m.name)} icon="envelope" label={tr('Copy their email')} />
+                          <RowIcon to={`/profile/${m.profile_id}`} icon="user" label={tr('Profile')} />
+                          <RowIcon to={`/vip?mode=as&who=${m.profile_id}`} icon={officialHere ? 'badge' : 'star'} label={officialHere ? tr('Their page') : tr('VIP page')} />
+                          <RowIcon onClick={() => toggleTeam(m)} busy={teamBusy === m.profile_id} icon={officialHere ? 'star' : 'badge'} label={officialHere ? tr('Move back to the VIP creators') : tr('Make official creator')} />
+                          <button type="button" onClick={() => setEditing(m)} className="ml-1 inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-brand to-brand-light px-3 py-2 text-xs font-semibold text-white shadow-sm transition-all hoverable:hover:-translate-y-px hoverable:hover:shadow-card"><Icon name="pencil" className="h-3.5 w-3.5" />{tr('Edit')}</button>
+                        </div>
                     </div>
                   </li>
                 ))}
@@ -845,6 +843,13 @@ export function VipMembersTab({ programme }) {
       {moving && <MoveBackModal person={{ id: moving.profile_id, name: moving.name }} programme={programme} onClose={() => setMoving(null)} onDone={load} />}
     </div>
   )
+}
+
+// One square action on a member row: an icon whose name is its tooltip and its accessible label.
+function RowIcon({ icon, label, onClick, to, busy = false }) {
+  const cls = 'flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 bg-white text-smoke transition-all duration-200 hoverable:hover:-translate-y-px hoverable:hover:border-brand/40 hoverable:hover:text-brand disabled:opacity-50'
+  if (to) return <Link to={to} title={label} aria-label={label} className={cls}><Icon name={icon} className="h-3.5 w-3.5" /></Link>
+  return <button type="button" onClick={onClick} disabled={busy} title={label} aria-label={label} className={cls}>{busy ? <Spinner className="h-3.5 w-3.5" /> : <Icon name={icon} className="h-3.5 w-3.5" />}</button>
 }
 
 /** The month picker shared by Close and KPIs. */

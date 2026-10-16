@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { platformOf, tiktokId, isTiktokShortLink, youtubeId, facebookId, instagramShortcode, videoIdOf, describeLink } from './videoLinks'
+import { platformOf, tiktokId, isTiktokShortLink, youtubeId, facebookId, instagramShortcode, videoIdOf, describeLink, postKindOf } from './videoLinks'
 
 // The cases here are the shapes that are actually in the submissions table, not
 // invented ones. Creators paste whatever the share sheet gives them, which is a
@@ -128,5 +128,29 @@ describe('what the UI is told before fetching', () => {
 
     const noCode = describeLink('https://www.instagram.com/denisahadarau_/')
     expect(noCode.ready).toBe(false)
+  })
+})
+
+describe('postKindOf (photo posts do not count)', () => {
+  it('refuses Facebook post and photo links by their shape', () => {
+    expect(postKindOf('https://www.facebook.com/share/p/18fYihkTi2/?mibextid=wwXIfr')).toBe('photo')
+    expect(postKindOf('https://www.facebook.com/photo/?fbid=123456789')).toBe('photo')
+    expect(postKindOf('https://www.facebook.com/photo.php?fbid=1')).toBe('photo')
+    expect(postKindOf('https://www.facebook.com/someone/photos/a.1/2/')).toBe('photo')
+  })
+  it('lets Facebook reels and videos through, and asks about /posts/', () => {
+    expect(postKindOf('https://www.facebook.com/share/r/1K1z46QqJx/?mibextid=wwXIfr')).toBeNull()
+    expect(postKindOf('https://www.facebook.com/share/v/14o7UQszDn8/')).toBeNull()
+    expect(postKindOf('https://www.facebook.com/reel/123456789012/')).toBeNull()
+    expect(postKindOf('https://www.facebook.com/page/posts/pfbid0abc')).toBe('check')
+  })
+  it('asks the server about an Instagram /p/ link, never about a reel', () => {
+    expect(postKindOf('https://www.instagram.com/p/DeXq-LMIvrF/')).toBe('check')
+    expect(postKindOf('https://www.instagram.com/denisahadarau_/p/Dee7kYekfZs/')).toBe('check')
+    expect(postKindOf('https://www.instagram.com/reel/DehAocsxBhY/?x=1')).toBeNull()
+  })
+  it('never touches TikTok, photo posts included', () => {
+    expect(postKindOf('https://www.tiktok.com/@a/photo/7300000000000000000')).toBeNull()
+    expect(postKindOf('https://vm.tiktok.com/ZNabc/')).toBeNull()
   })
 })

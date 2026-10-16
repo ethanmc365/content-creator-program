@@ -1,3 +1,4 @@
+import { useId } from 'react'
 // THE PLATFORM MARKS.
 //
 // A creator's links were four identical grey buttons reading "Instagram ↗",
@@ -167,6 +168,12 @@ const PATHS = {
  * the size these are actually used at in a list of links.
  */
 export default function SocialMark({ brand, className, colored = false, tile = false }) {
+  // ONE GRADIENT ID PER MARK, NOT ONE PER APP (16 Oct 2026). Every Instagram mark used to define `tryp-ig-grad` and
+  // point at it, and `url(#id)` resolves to the FIRST element with that id in the page. When that first one sat in
+  // something hidden (a desktop-only row, a closed sheet), the gradient did not paint anywhere and every Instagram
+  // icon on the page drew white on white until a re-render happened to reorder them: "only when it's clicked does it
+  // show". `useId` makes each mark point at its own.
+  const uid = useId().replace(/:/g, '')
   const key = PATHS[brand] ? brand : 'link'
   const gradient = key === 'instagram'
   const tint = BRAND_COLOR[key] ?? 'currentColor'
@@ -176,7 +183,7 @@ export default function SocialMark({ brand, className, colored = false, tile = f
       <svg viewBox="0 0 24 24" className={className} aria-hidden focusable="false">
         {gradient && (
           <defs>
-            <linearGradient id="tryp-ig-tile" x1="0" y1="1" x2="1" y2="0">
+            <linearGradient id={`ig-tile-${uid}`} x1="0" y1="1" x2="1" y2="0">
               <stop offset="0%" stopColor="#FEDA75" />
               <stop offset="25%" stopColor="#FA7E1E" />
               <stop offset="50%" stopColor="#D62976" />
@@ -187,7 +194,7 @@ export default function SocialMark({ brand, className, colored = false, tile = f
         )}
         <rect
           x="0" y="0" width="24" height="24" rx="6.5"
-          fill={gradient ? 'url(#tryp-ig-tile)' : (tint === 'currentColor' ? '#8a8a8f' : tint)}
+          fill={gradient ? `url(#ig-tile-${uid})` : (tint === 'currentColor' ? '#8a8a8f' : tint)}
         />
         {/* The glyph, knocked out in white and inset so it does not touch the
             tile's edge. `currentColor` on the paths becomes white here, which
@@ -224,7 +231,7 @@ export default function SocialMark({ brand, className, colored = false, tile = f
       {isGradient ? (
         <>
           <defs>
-            <linearGradient id="tryp-ig-grad" x1="0" y1="1" x2="1" y2="0">
+            <linearGradient id={`ig-grad-${uid}`} x1="0" y1="1" x2="1" y2="0">
               <stop offset="0%" stopColor="#FEDA75" />
               <stop offset="25%" stopColor="#FA7E1E" />
               <stop offset="50%" stopColor="#D62976" />
@@ -235,9 +242,9 @@ export default function SocialMark({ brand, className, colored = false, tile = f
           {/* Its own paths, painted with the gradient. The shared ones cannot
               be reused here: they hard-code `currentColor`, and an inherited
               fill loses to an explicit attribute on the child. */}
-          <rect x="3" y="3" width="18" height="18" rx="5" ry="5" fill="none" stroke="url(#tryp-ig-grad)" strokeWidth="1.8" />
-          <circle cx="12" cy="12" r="4" fill="none" stroke="url(#tryp-ig-grad)" strokeWidth="1.8" />
-          <circle cx="17.4" cy="6.6" r="1.15" fill="url(#tryp-ig-grad)" />
+          <rect x="3" y="3" width="18" height="18" rx="5" ry="5" fill="none" stroke={`url(#ig-grad-${uid})`} strokeWidth="1.8" />
+          <circle cx="12" cy="12" r="4" fill="none" stroke={`url(#ig-grad-${uid})`} strokeWidth="1.8" />
+          <circle cx="17.4" cy="6.6" r="1.15" fill={`url(#ig-grad-${uid})`} />
         </>
       ) : (
         PATHS[key]

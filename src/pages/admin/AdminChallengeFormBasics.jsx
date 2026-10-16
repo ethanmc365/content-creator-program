@@ -6,6 +6,7 @@ import RichToolbar from '../../components/RichToolbar'
 import RichEditable from '../../components/RichEditable'
 import { cx } from '../../lib/utils'
 import SocialMark from '../../components/SocialMark'
+import { acceptsLabel } from '../../lib/videoLinks'
 
 // Part of AdminChallengeForm.jsx: every value it shows comes in as a prop from the page.
 export default function AdminChallengeFormBasics({
@@ -161,11 +162,16 @@ export default function AdminChallengeFormBasics({
                 <span className={cx('flex h-6 w-6 items-center justify-center rounded-full', on ? 'bg-white' : 'bg-cloud')}>
                   <SocialMark brand={SOCIAL_BRAND[p]} colored className="h-4 w-4" />
                 </span>
-                {p}
+                {acceptsLabel(p)}
               </button>
             )
           })}
         </div>
+        {form.platforms.some((p) => p === 'Instagram' || p === 'Facebook') && (
+          <p className="mt-2 text-xs text-smoke">
+            Photo posts and carousels are refused with a pop-up when a creator submits one. Creators are told only Reels count.
+          </p>
+        )}
       </div>
     </section>
   )

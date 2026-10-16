@@ -18,6 +18,7 @@
 //   itself                      x-webhook-secret, { continuation } -> next chunk
 //   admin "Sync now"            admin JWT, { challenge_id, force } -> read now
 //   Testing Centre              admin JWT, { probe: url }          -> READ ONLY
+//   submit forms                any JWT,   { check: url }          -> photo or video? (IG/FB only)
 //   itself, in another region   x-webhook-secret, { facebook_read } -> one FB read
 //
 // SCALE. Staleness belongs to the ENTRY, not the run: each invocation takes the
@@ -1622,6 +1623,7 @@ Deno.serve(async (req) => {
     instagram_read?: { url: string; handle: string | null; meta?: boolean }
     tiktok_read?: { url: string; knownId: string | null; meta?: boolean }
     probe?: string
+    check?: string
     challenge_id?: string
     submission_ids?: string[]
     continuation?: Progress
@@ -1653,6 +1655,33 @@ Deno.serve(async (req) => {
     if (!fromCron) return json(req, { error: 'unauthorised' }, 401)
     const { url, handle, meta } = body.instagram_read
     return json(req, await instagramReadHere(String(url), newIgCache(), handle ? String(handle) : null, !!meta))
+  }
+
+  // PHOTO POSTS DO NOT COUNT, AND THE CREATOR HEARS IT BEFORE THE ENTRY IS SAVED (16 Oct 2026). The submit forms ask
+  // this about an Instagram `/p/` link (a reel or a photo, the link cannot say which) and a Facebook `/posts/` link.
+  // Any signed-in creator may ask, so it is narrow: Instagram and Facebook only, one link, no metadata, nothing
+  // written but the rate-limit row, 20 asks per 10 minutes per person. `photo` only when the platform SAID it is not
+  // a video; anything we could not read is `unknown`, and the form lets that through rather than refuse a real reel.
+  if (body.check) {
+    const uid = await callerId(req)
+    if (!uid) return json(req, { error: 'unauthorised' }, 401)
+    const url = String(body.check).slice(0, 600)
+    let host = ''
+    try { host = new URL(url).hostname } catch { /* not a link */ }
+    const platform = platformOf(host)
+    if (platform !== 'Instagram' && platform !== 'Facebook') return json(req, { kind: 'unknown' })
+    const key = `post-check:${uid}`
+    const since = new Date(Date.now() - 600_000).toISOString()
+    const { count } = await supabase.from('auth_attempts').select('id', { count: 'exact', head: true })
+      .eq('identifier', key).gte('created_at', since)
+    if ((count ?? 0) >= 20) return json(req, { kind: 'unknown', limited: true })
+    await supabase.from('auth_attempts').insert({ identifier: key })
+    const r = await resolveOne(url, null, { meta: false })
+    const kind = r.error === 'not_a_video' ? 'photo'
+      : r.views != null ? 'video'
+      : platform === 'Facebook' && r.error === 'no_video_id' ? 'photo'
+      : 'unknown'
+    return json(req, { kind })
   }
 
   if (!fromCron) {

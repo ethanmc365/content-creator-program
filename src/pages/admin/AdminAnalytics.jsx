@@ -28,6 +28,7 @@ import Referrals from './analytics/Referrals'
 import Growth from './analytics/Growth'
 import MarketLeague from './analytics/MarketLeague'
 import VipAnalytics from './analytics/VipAnalytics'
+import VipEarnings from './analytics/VipEarnings'
 import { VIP_PERIODS } from '../../components/vip/analytics'
 import ViewsReport from './analytics/ViewsReport'
 import PerCreator from './analytics/PerCreator'
@@ -717,6 +718,7 @@ export default function AdminAnalytics() {
     return shell(<VipAnalytics market={market} periodKey={vKey} range={vRange} />,
       { period: true, extra: { vip: true, periods: VIP_PERIODS.map((k) => PERIODS.find((p) => p.key === k)), periodValue: vKey, right: <span /> } })
   }
+  if (tab === 'earnings') return shell(<VipEarnings market={market} marketName={marketName} />, { extra: { right: <span /> } })
   if (tab === 'markets') return shell(<MarketLeague raw={raw} currency={currency} />, { markets: false })
   if (tab === 'growth') return shell(<Growth raw={scoped} scopeLabel={scopeLabel} onDrill={drillTo} />)
   if (tab === 'referrals') return shell(<Referrals market={market} memberRows={raw?.memberRows || []} scopeLabel={scopeLabel} />)

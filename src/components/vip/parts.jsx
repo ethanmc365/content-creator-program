@@ -7,6 +7,7 @@ import SocialMark from '../SocialMark'
 import { confirm, notice } from '../../lib/confirm'
 import { toastSuccess } from '../../lib/toast'
 import { platformOf } from '../../lib/videoLinks'
+import { photoPostKind, refusePhotoPost } from '../../lib/photoPost'
 import { copyToClipboard } from '../../lib/clipboard'
 import { formatDate, formatViews, cx } from '../../lib/utils'
 import { BONUS_KINDS, describeRule, money, monthLabel, nf, perK, prizesByPlace, ruleRunsIn, useOptionalRpc, useVipPreview, vipRpc, useKindT } from '../../lib/vip'
@@ -137,7 +138,9 @@ function useVideoQuestions(disabled) {
 
 export function VideoQuestion({ q, value = [], onChange, disabled }) {
   const tr = useKindT()
-  const opts = q.options?.length ? q.options : [tr('Yes'), tr('No')]
+  // A Yes / No question stores 'Yes' or 'No' in English whatever the creator's language (16 Oct 2026): it used to store
+  // the translated word, so a Spanish "Si" never counted as a yes on the team's side.
+  const opts = q.options?.length ? q.options : ['Yes', 'No']
   const many = q.multiple && q.options?.length
   const pick = (o) => onChange(many ? (value.includes(o) ? value.filter((x) => x !== o) : [...value, o]) : (value[0] === o ? [] : [o]))
   return (
@@ -155,7 +158,7 @@ export function VideoQuestion({ q, value = [], onChange, disabled }) {
               className={cx('inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-bold transition-all duration-200 disabled:opacity-50',
                 on ? 'bg-brand text-white shadow-card' : 'bg-white text-smoke ring-1 ring-gray-200 hoverable:hover:text-ink')}>
               {many && <span className={cx('flex h-3.5 w-3.5 items-center justify-center rounded-[4px] border', on ? 'border-white bg-white text-brand' : 'border-gray-300')}>{on && <Icon name="check" className="h-3 w-3" />}</span>}
-              {o}
+              {q.options?.length ? o : tr(o)}
             </button>
           )
         })}
@@ -189,6 +192,13 @@ export function VipSubmit({ disabled, onAdded, month, rules = null }) {
     const missing = questions.find((q) => q.required && !(qa[q.id] || []).length)
     if (missing) { setErr(tr('Answer "{q}" first.', { q: missing.question })); return }
     setBusy(true)
+    // PHOTO POSTS DO NOT COUNT (16 Oct 2026): a photo or carousel has no views to pay for, so it is refused with a
+    // pop-up before it is saved. TikTok is never asked.
+    if ((platform === 'Instagram' || platform === 'Facebook') && await photoPostKind(link) === 'photo') {
+      setBusy(false)
+      refusePhotoPost(link, tr)
+      return
+    }
     try {
       const claims = asking.filter((r) => answers[r.id]).map((r) => r.id)
       const id = await vipRpc('vip_submit_video', { p_url: link, p_platform: platform, p_caption: null, ...(claims.length ? { p_claims: claims } : {}) })
@@ -201,7 +211,10 @@ export function VipSubmit({ disabled, onAdded, month, rules = null }) {
       setQa({})
       toastSuccess(tr('Added. Reading its views now.'))
       onAdded?.({ watch: true })
-    } catch (e2) { setErr(vipError(e2.message, tr)) } finally { setBusy(false) }
+    } catch (e2) {
+      if (/PHOTO_POST/.test(e2.message || '')) refusePhotoPost(link, tr)
+      else setErr(vipError(e2.message, tr))
+    } finally { setBusy(false) }
   }
 
   return (
@@ -251,6 +264,14 @@ export function VipSubmit({ disabled, onAdded, month, rules = null }) {
           {tr('Add video')}
         </button>
       </div>
+      {(platform === 'Instagram' || platform === 'Facebook') && (
+        <p className="relative mt-2.5 flex animate-rise items-start gap-2 text-xs font-medium text-smoke">
+          <Icon name="image" className="mt-px h-3.5 w-3.5 shrink-0 text-brand" />
+          {platform === 'Instagram'
+            ? tr('Only Reels count on Instagram. Photo posts and carousels do not.')
+            : tr('Only Reels and videos count on Facebook. Photo and text posts do not.')}
+        </p>
+      )}
       {questions.length > 0 && (
         <div className="relative mt-3 space-y-2">
           {questions.map((q) => <VideoQuestion key={q.id} q={q} value={qa[q.id] || []} disabled={disabled || busy} onChange={(v) => { setErr(''); setQa((a) => ({ ...a, [q.id]: v })) }} />)}

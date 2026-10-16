@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from 'react'
 import PlaceSwitcher, { flagFromIso } from './PlaceSwitcher'
 import { cx } from '../../lib/utils'
 import Reveal from './Reveal'
@@ -52,6 +53,33 @@ import Reveal from './Reveal'
 // the real cards would simply appear.
 export default function NetworkLayout({ children, switcher = true, rail = null, width = 'default', ready = true }) {
   const max = width === 'narrow' ? 'max-w-4xl' : width === 'full' ? 'max-w-[1600px]' : 'max-w-7xl'
+  // THE RAIL RUNS TO THE BOTTOM OF THE SCREEN AND FADES WHERE THERE IS MORE (16 Oct 2026). Ethan: on a laptop the
+  // right column's cards "just end, and you can see it at the bottom". It stopped 16px above the screen's edge with a
+  // hard cut through whatever card was there. It now reaches the edge, and a soft fade (the Video Ideas row's) shows at
+  // whichever end still has cards to scroll to, and goes away once you reach it. Read on scroll and resize, never on a
+  // frame (a hidden tab runs none).
+  const railRef = useRef(null)
+  const [edge, setEdge] = useState({ up: false, down: false })
+  useEffect(() => {
+    const el = railRef.current
+    if (!el || !rail) return undefined
+    const read = () => {
+      const up = el.scrollTop > 4
+      const down = el.scrollHeight - el.clientHeight - el.scrollTop > 4
+      setEdge((e) => (e.up === up && e.down === down ? e : { up, down }))
+    }
+    read()
+    const late = setTimeout(read, 900)
+    el.addEventListener('scroll', read, { passive: true })
+    window.addEventListener('resize', read)
+    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(read) : null
+    ro?.observe(el)
+    if (el.firstElementChild) ro?.observe(el.firstElementChild)
+    return () => { clearTimeout(late); el.removeEventListener('scroll', read); window.removeEventListener('resize', read); ro?.disconnect() }
+  }, [rail, ready])
+  const fade = edge.up || edge.down
+    ? `linear-gradient(to bottom, transparent 0, #000 ${edge.up ? 32 : 0}px, #000 calc(100% - ${edge.down ? 64 : 0}px), transparent 100%)`
+    : undefined
   return (
     <div className={cx('mx-auto w-full px-4 py-6 sm:px-6 lg:px-8 lg:py-8', max)}>
       {/* `ready` reaches the switcher too. It is ABOVE everything the page
@@ -63,10 +91,12 @@ export default function NetworkLayout({ children, switcher = true, rail = null, 
         <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start lg:gap-8 xl:grid-cols-[minmax(0,1fr)_22rem]">
           <div className="min-w-0">{children}</div>
           <aside
+            ref={railRef}
             data-lock-keep
+            style={fade ? { maskImage: fade, WebkitMaskImage: fade } : undefined}
             className={cx(
               'mt-10 lg:mt-0',
-              'lg:sticky lg:top-24 lg:max-h-[calc(100vh-7rem)] lg:overflow-y-auto overscroll-contain lg:overscroll-contain',
+              'lg:sticky lg:top-24 lg:max-h-[calc(100vh-6rem)] lg:overflow-y-auto overscroll-contain lg:overscroll-contain',
               // The scrollbar is hidden because the rail is chrome, not content:
               // a permanent grey gutter down the side of five white cards reads
               // as a seam. The region is still keyboard and wheel scrollable.
@@ -75,7 +105,7 @@ export default function NetworkLayout({ children, switcher = true, rail = null, 
               // matters most: with no room there the cards' shadows were cut on one straight vertical line that ran down
               // the gaps between them, a grey seam joining "Your markets", "Video Ideas" and the rest. The negative
               // margin keeps the cards exactly where they were.
-              'lg:-mx-3 lg:-mt-2 lg:px-3 lg:pb-4 lg:pt-2',
+              'lg:-mx-3 lg:-mt-2 lg:px-3 lg:pb-8 lg:pt-2',
             )}
           >
             {/* The rail arrives from the side it lives on, a beat behind the

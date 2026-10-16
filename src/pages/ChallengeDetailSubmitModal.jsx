@@ -132,6 +132,15 @@ export default function ChallengeDetailSubmitModal({
               </div>
             </div>
           )}
+          {/* Said the moment an Instagram or Facebook link is in the box, not after a refusal (16 Oct 2026). */}
+          {['Instagram', 'Facebook'].includes(detectPlatform(normaliseUrl(videoUrl))) && !urlProblem(videoUrl) && (
+            <p className="mt-2 flex animate-rise items-start gap-2 rounded-xl bg-brand-tint/60 px-3 py-2 text-xs font-medium text-ink">
+              <Icon name="image" className="mt-px h-3.5 w-3.5 shrink-0 text-brand" />
+              {detectPlatform(normaliseUrl(videoUrl)) === 'Instagram'
+                ? tr('Only Reels count on Instagram. Photo posts and carousels do not.')
+                : tr('Only Reels and videos count on Facebook. Photo and text posts do not.')}
+            </p>
+          )}
         </div>
         <div>
           <label htmlFor="caption" className="mb-1.5 flex items-center gap-2 text-sm font-semibold text-ink">

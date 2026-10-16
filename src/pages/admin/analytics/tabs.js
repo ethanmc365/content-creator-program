@@ -10,6 +10,8 @@ export const TABS = [
   { key: 'markets', label: 'Market league' },
   // THE VIP PROGRAMME'S OWN NUMBERS, all markets together and then each market.
   { key: 'vip', label: 'VIP' },
+  // WHAT EVERY PAID CREATOR HAS MADE, ALL TIME (16 Oct 2026): the team's sheet up to September 2026, then the platform.
+  { key: 'earnings', label: 'VIP earnings' },
   // RECRUITMENT (14 Oct 2026), for Lorenzo: where sign-ups come from, what they speak, where they drop off and who to
   // follow up with. Between VIP and Growth since 15 Oct (Ethan: not one of the first pages).
   { key: 'recruitment', label: 'Recruitment' },

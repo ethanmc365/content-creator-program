@@ -150,8 +150,9 @@ export default function VideoIdeasBoard({ compact = false }) {
   return (
     <div className="space-y-8">
       <IdeasHero count={rows?.length} total={total} compact={compact} />
-      {/* SIDE BY SIDE ON A PHONE TOO. */}
-      <section className="grid grid-cols-2 gap-2.5 sm:max-w-xl sm:gap-3 [&_button]:sm:!min-h-14 [&_button]:sm:!py-3 [&_button]:sm:!text-sm">
+      {/* SIDE BY SIDE ON A PHONE TOO. FULL SIZE ON A COMPUTER (16 Oct 2026): they had been shrunk and held to half the
+          page, which left a strip of empty space beside two small buttons. They now share the row at their own big size. */}
+      <section className="grid grid-cols-2 gap-2.5 sm:gap-4 lg:[&_button]:min-h-[5.25rem] lg:[&_button]:text-lg">
         <div className="animate-rise [animation-delay:80ms]"><HookButton variant="big" /></div>
         <div className="animate-rise [animation-delay:150ms]"><DealFinder variant="big" /></div>
       </section>
