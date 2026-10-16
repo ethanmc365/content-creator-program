@@ -166,6 +166,7 @@ CREATE TRIGGER award_entry_certificate AFTER INSERT ON submissions FOR EACH ROW 
 CREATE TRIGGER keep_typed_views_quiet BEFORE UPDATE OF views_sync_error ON submissions FOR EACH ROW EXECUTE FUNCTION keep_typed_views_quiet();
 CREATE TRIGGER read_new_entry AFTER INSERT ON submissions FOR EACH ROW EXECUTE FUNCTION read_new_entry();
 CREATE TRIGGER sandbox_no_delete BEFORE DELETE ON submissions FOR EACH ROW EXECUTE FUNCTION sandbox_is_read_only();
+CREATE TRIGGER trg_aa_refuse_photo_post BEFORE INSERT ON submissions FOR EACH ROW EXECUTE FUNCTION refuse_photo_post();
 CREATE TRIGGER trg_audit_submissions AFTER DELETE ON submissions FOR EACH ROW EXECUTE FUNCTION audit_change('challenges', 'entry', '');
 CREATE TRIGGER trg_drop_resolved_cross_challenge AFTER UPDATE OF platform_video_id ON submissions FOR EACH ROW WHEN (new.platform_video_id IS NOT NULL AND new.platform_video_id IS DISTINCT FROM old.platform_video_id) EXECUTE FUNCTION submission_drop_resolved_cross_challenge();
 CREATE TRIGGER trg_drop_resolved_duplicate AFTER UPDATE OF platform_video_id ON submissions FOR EACH ROW WHEN (new.platform_video_id IS NOT NULL AND old.platform_video_id IS DISTINCT FROM new.platform_video_id) EXECUTE FUNCTION submission_drop_resolved_duplicate();
@@ -204,6 +205,7 @@ CREATE TRIGGER trg_audit_vip_programmes_upd AFTER UPDATE ON vip_programmes FOR E
 CREATE TRIGGER award_vip_podium_certificates AFTER UPDATE OF status ON vip_statements FOR EACH ROW EXECUTE FUNCTION on_vip_statement_certificates();
 CREATE TRIGGER trg_audit_vip_statements_upd AFTER UPDATE ON vip_statements FOR EACH ROW EXECUTE FUNCTION audit_change('money', 'VIP statement', '', 'status', 'total', 'adjustments');
 CREATE TRIGGER award_entry_certificate AFTER INSERT ON vip_videos FOR EACH ROW EXECUTE FUNCTION on_entry_certificate();
+CREATE TRIGGER trg_aa_refuse_photo_post BEFORE INSERT ON vip_videos FOR EACH ROW EXECUTE FUNCTION refuse_photo_post();
 CREATE TRIGGER trg_limit_vip_videos BEFORE INSERT ON vip_videos FOR EACH ROW EXECUTE FUNCTION enforce_write_limit('profile_id', 'submitted_at', '30', '600');
 CREATE TRIGGER trg_vip_read_new_video AFTER INSERT ON vip_videos FOR EACH ROW EXECUTE FUNCTION vip_read_new_video();
 CREATE TRIGGER trg_vip_video_fill BEFORE INSERT OR UPDATE OF platform_video_id, video_url, platform ON vip_videos FOR EACH ROW EXECUTE FUNCTION vip_video_fill();

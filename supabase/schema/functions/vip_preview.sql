@@ -10,7 +10,7 @@ CREATE OR REPLACE FUNCTION public.vip_preview(p_who uuid, p_what text, p_days in
 AS $function$
 declare v_prog uuid; r jsonb;
 begin
-  if p_what not in ('overview', 'statements', 'trends', 'perks', 'board', 'wallet') then raise exception 'Unknown preview.'; end if;
+  if p_what not in ('overview', 'statements', 'trends', 'perks', 'board', 'wallet', 'earnings') then raise exception 'Unknown preview.'; end if;
   select programme_id into v_prog from public.vip_members where profile_id = p_who;
   if v_prog is null then raise exception 'That creator is not a VIP.'; end if;
   if not public.vip_can_manage(v_prog) then raise exception 'Only the market lead or the team can preview a VIP page.'; end if;
@@ -22,6 +22,7 @@ begin
     when 'perks' then public.vip_my_perks()
     when 'board' then public.vip_board()
     when 'wallet' then public.vip_my_wallet()
+    when 'earnings' then public.vip_my_earnings()
     else null end;
   perform set_config('vip.preview_as', '', true);
   return r;

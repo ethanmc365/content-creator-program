@@ -41,6 +41,7 @@ begin
 
   return jsonb_build_object(
     'balance', public.vip_balance(v_who),
+    'history_credit', (select coalesce(sum(amount),0) from public.vip_history_balances where credited_profile_id=v_who),
     'currency', p.currency,
     'threshold', coalesce(p.min_payout, 0), 'voucher_min', coalesce(p.voucher_min, 0),
     'payment_ready', public.vip_payment_ready(v_who, p.currency),

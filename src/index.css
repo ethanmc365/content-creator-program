@@ -3493,3 +3493,20 @@ html[data-nav-return] header.glass-bar {
 /* Stack segments widen together through stackShape, rather than separating on hover. */
 .recharts-bar-rectangle:has(.recharts-stack-segment):hover path,
 .recharts-bar-rectangle:has(.recharts-stack-segment):hover rect { transform: none; filter: none; }
+
+/* Lifetime earnings has its own quiet, dark treatment beside the live orange month card. */
+.vip-lifetime-card {
+  background: linear-gradient(125deg, #292421 0%, #191919 58%, #30221b 100%);
+  border: 1px solid rgba(245, 133, 63, .24);
+  box-shadow: 0 12px 32px rgba(26, 26, 26, .12), inset 0 1px 0 rgba(255,255,255,.08);
+  animation: vip-lifetime-enter .65s cubic-bezier(.2,.7,.2,1) both;
+}
+.vip-lifetime-glow {
+  background: radial-gradient(circle, rgba(245,133,63,.24), rgba(217,68,7,.08) 45%, transparent 70%);
+  animation: vip-lifetime-breathe 6s ease-in-out infinite alternate;
+}
+@keyframes vip-lifetime-enter { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes vip-lifetime-breathe { from { opacity: .65; transform: scale(.92); } to { opacity: 1; transform: scale(1.08); } }
+@media (prefers-reduced-motion: reduce) {
+  .vip-lifetime-card, .vip-lifetime-glow { animation: none; }
+}

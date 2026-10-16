@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Avatar, Select, Skeleton, Spinner } from '../ui'
 import Icon from '../Icon'
@@ -22,7 +23,7 @@ const ym = (n) => ({ y: Math.floor(n / 100), m: n % 100 })
 export function VipHistoryTab({ programme }) {
   const tr = useKindT()
   const [data, setData] = useState(null)
-  const [show, setShow] = useState('check')
+  const [show, setShow] = useState('all')
   const [busy, setBusy] = useState(null)
   const load = useCallback(async () => {
     try { setData(await vipRpc('vip_history_names_list', { p_programme: programme.id })) }
@@ -68,6 +69,8 @@ export function VipHistoryTab({ programme }) {
   if (data.error) return <p className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">{data.error}</p>
   if (!names.length) return <p className="rounded-card border border-dashed border-gray-200 px-6 py-12 text-center text-sm text-smoke">{tr('This market has no earnings from before the platform.')}</p>
 
+  const credited = names.reduce((sum, n) => sum + (n.credited ? Number(n.outstanding_import) || 0 : 0), 0)
+  const unresolved = names.reduce((sum, n) => sum + (!n.credited ? Number(n.outstanding_import) || 0 : 0), 0)
   const pct = Math.round((done / names.length) * 100)
   return (
     <div className="space-y-4">
@@ -88,9 +91,15 @@ export function VipHistoryTab({ programme }) {
         </div>
       </section>
 
+      <div className="grid gap-3 sm:grid-cols-3">
+        <MoneySummary label={tr('Past earnings added to wallets')} value={money(credited, 'EUR')} hint={tr('Included in lifetime earnings, never counted twice.')} />
+        <MoneySummary label={tr('Current balances')} value={money(names.reduce((s, n) => s + (Number(n.balance) || 0), 0), 'EUR')} hint={tr('Live wallet balances, after any withdrawals.')} />
+        <MoneySummary label={tr('Not credited')} value={money(unresolved, 'EUR')} hint={tr('Kept in history until the recipient is resolved.')} />
+      </div>
+
       <div className="inline-flex gap-1 rounded-xl bg-cloud p-1 text-xs font-semibold" role="tablist" aria-label={tr('Show')}>
         {[['check', tr('To check'), names.length - done], ['all', tr('All names'), names.length]].map(([k, label, n]) => (
-          <button key={k} type="button" role="tab" aria-selected={show === k} onClick={() => setShow(k)} className={cx('rounded-lg px-3 py-1.5 transition-all duration-200', show === k ? 'bg-white text-ink shadow-card' : 'text-smoke hoverable:hover:text-ink')}>{label} {n}</button>
+          <button key={k} type="button" role="tab" aria-selected={show === k} onClick={() => setShow(k)} className={cx('min-h-11 rounded-lg px-3 py-2 transition-all duration-200', show === k ? 'bg-white text-ink shadow-card' : 'text-smoke hoverable:hover:text-ink')}>{label} {n}</button>
         ))}
       </div>
 
@@ -117,7 +126,7 @@ export function VipHistoryTab({ programme }) {
                     </p>
                   </div>
                   <div className="shrink-0 text-right">
-                    <p className="text-lg font-bold tabular-nums text-ink">{money(n.earned, 'EUR')}</p>
+                    <p className="text-lg font-bold tabular-nums text-ink">{money(n.earned, 'EUR')}</p><p className="text-[11px] text-smoke">{tr('Lifetime earnings')}</p>
                     <p className="text-[11px] tabular-nums text-smoke">{nf(n.views)} {tr('views')}</p>
                   </div>
                 </div>
@@ -127,6 +136,10 @@ export function VipHistoryTab({ programme }) {
                     <span key={`${s.y}-${s.m}`} title={`${monthLabel(s.y, s.m, { short: true })}: ${money(s.earned, 'EUR')} · ${formatViews(s.views)}`} className="flex-1 rounded-t bg-gradient-to-t from-brand to-brand-light transition-[height] duration-700" style={{ height: `${Math.max(8, (Number(s.earned) / max) * 100)}%` }} />
                   ))}
                 </div>
+                {n.outstanding_import != null && <div className={cx('mt-3 rounded-xl px-3 py-3 text-xs', n.credited ? 'bg-emerald-50 text-emerald-800' : Number(n.outstanding_import) > 0 ? 'bg-amber-50 text-amber-800' : 'bg-cloud text-smoke')}>
+                  <p className="font-semibold">{n.credited ? tr('{a} added to wallet', { a: money(n.outstanding_import, 'EUR') }) : Number(n.outstanding_import) > 0 ? tr('{a} not credited — former creator', { a: money(n.outstanding_import, 'EUR') }) : tr('No unpaid past earnings')}</p>
+                  {n.status === 'confirmed' && <p className="mt-1">{tr('Available now: {a}', { a: money(n.balance, 'EUR') })}</p>}
+                </div>}
                 <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-gray-50 pt-3">
                   {n.profile_id ? <Avatar src={n.photo_url} name={n.profile_name || ''} size="sm" /> : <span className="flex h-9 w-9 items-center justify-center rounded-full bg-cloud text-smoke"><Icon name={n.status === 'former' ? 'book' : 'user'} className="h-4 w-4" /></span>}
                   <Select
@@ -135,7 +148,7 @@ export function VipHistoryTab({ programme }) {
                     options={options}
                     ariaLabel={tr('Who is {n}?', { n: n.name })}
                     className="min-w-0 flex-1"
-                    disabled={busy === n.name}
+                    disabled={busy === n.name || n.credited}
                   />
                   {busy === n.name && <Spinner className="h-4 w-4" />}
                   {n.status === 'suggested' && n.profile_id && busy !== n.name && (
@@ -144,6 +157,8 @@ export function VipHistoryTab({ programme }) {
                     </button>
                   )}
                 </div>
+                {n.credited && <p className="mt-2 text-[11px] text-smoke">{tr('Match locked because this history has credited a wallet.')}</p>}
+                {n.status === 'confirmed' && n.profile_id && <Link to={`/vip?mode=as&who=${n.profile_id}&tab=earnings`} className="mt-3 inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-brand-tint px-4 text-sm font-semibold text-brand transition-colors hoverable:hover:bg-orange-100">{tr('View earnings as creator')}<Icon name="chevronRight" className="h-4 w-4" /></Link>}
                 {n.decided_by && (n.status === 'confirmed' || n.status === 'former') && (
                   <p className="mt-2 text-[11px] text-gray-400">{tr('Checked by {n}', { n: n.decided_by })}</p>
                 )}
@@ -154,4 +169,8 @@ export function VipHistoryTab({ programme }) {
       )}
     </div>
   )
+}
+
+function MoneySummary({ label, value, hint }) {
+  return <div className="rounded-card border border-gray-100 bg-white p-4 shadow-card animate-rise"><p className="text-xs font-semibold text-smoke">{label}</p><p className="mt-2 text-2xl font-bold tabular-nums text-ink">{value}</p><p className="mt-2 text-xs leading-relaxed text-smoke">{hint}</p></div>
 }

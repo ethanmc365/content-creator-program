@@ -11,12 +11,14 @@ AS $function$
 declare
   secret text := (select value from private.config where key = 'webhook_secret');
   v_hours numeric := coalesce((select (value ->> 'interval_hours')::numeric from public.app_settings where key = 'vip_sync'), 12);
+  v_age interval;
   v_due int;
 begin
+  v_age := greatest(v_hours * interval '1 hour' - interval '15 minutes', v_hours * interval '30 minutes');
   select count(*) into v_due from public.vip_videos v
    where v.status = 'tracking' and (p_programme is null or v.programme_id = p_programme)
      and v.submitted_at >= public.vip_read_cutoff()
-     and (p_force or v.views_synced_at is null or v.views_synced_at < now() - (v_hours * interval '1 hour'));
+     and (p_force or v.views_synced_at is null or v.views_synced_at < now() - v_age);
   if v_due = 0 then return jsonb_build_object('fired', false, 'reason', 'nothing_due'); end if;
   perform net.http_post(
     url := public.edge_function_url('view-sync'),

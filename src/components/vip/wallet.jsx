@@ -95,6 +95,8 @@ export function VipWallet({ onChanged }) {
           )}
         </div>
 
+        {Number(w.history_credit) > 0 && <p className="relative mt-4 rounded-xl bg-emerald-50 px-4 py-3 text-xs leading-relaxed text-emerald-800">{tr('{a} of unwithdrawn past earnings was added to this wallet. Withdrawals reduce the available balance above.', { a: money(w.history_credit, cur) })}</p>}
+
         {threshold > 0 && (
           <div className="relative mt-5">
             <div className="flex items-baseline justify-between text-xs">
@@ -150,7 +152,7 @@ export function VipWallet({ onChanged }) {
       <section className="overflow-hidden rounded-card border border-gray-100 bg-white shadow-card animate-rise [animation-delay:160ms]">
         <div className="flex flex-wrap items-center justify-between gap-2 px-5 pt-4">
           <h2 className="flex items-center gap-2 text-[15px] font-bold text-ink"><Icon name="chart" className="h-5 w-5 text-brand" />{tr('Month by month')}</h2>
-          <p className="text-xs text-smoke">{tr('Earned in total: {a}', { a: money(w.lifetime_earned, cur) })}</p>
+          <p className="text-xs text-smoke">{tr('Added to this wallet: {a}', { a: money(w.lifetime_earned, cur) })}</p>
         </div>
         <div className="mt-3 overflow-x-auto">
           <table className="w-full min-w-[30rem] text-sm">

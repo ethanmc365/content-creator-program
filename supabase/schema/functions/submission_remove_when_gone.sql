@@ -10,7 +10,7 @@ CREATE OR REPLACE FUNCTION public.submission_remove_when_gone()
 AS $function$
 begin
   if new.views_sync_error = 'removed' and new.removed_seen_at is not null
-     and new.removed_seen_at < now() - interval '20 hours' then
+     and new.removed_seen_at < now() - interval '5 hours' then
     perform submission_leave_if_gone(new.id);
   end if;
   return new;

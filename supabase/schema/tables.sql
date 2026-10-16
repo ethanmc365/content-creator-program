@@ -2411,6 +2411,29 @@ create table public.vip_briefs (
 );
 alter table public.vip_briefs enable row level security;
 
+create table public.vip_earnings_history (
+  id uuid default gen_random_uuid() not null,
+  programme_id uuid not null,
+  creator_name text not null,
+  profile_id uuid,
+  year integer not null,
+  month integer not null,
+  views bigint default 0 not null,
+  earned numeric(12,2) default 0 not null,
+  rate numeric(6,4),
+  currency text default 'EUR'::text not null,
+  source text default 'sheet'::text not null,
+  created_at timestamp with time zone default now() not null,
+  constraint vip_earnings_history_month_check CHECK (((month >= 1) AND (month <= 12))),
+  constraint vip_earnings_history_views_check CHECK ((views >= 0)),
+  constraint vip_earnings_history_year_check CHECK (((year >= 2024) AND (year <= 2100))),
+  constraint vip_earnings_history_profile_id_fkey FOREIGN KEY (profile_id) REFERENCES profiles(id) ON DELETE SET NULL,
+  constraint vip_earnings_history_programme_id_fkey FOREIGN KEY (programme_id) REFERENCES vip_programmes(id) ON DELETE CASCADE,
+  constraint vip_earnings_history_pkey PRIMARY KEY (id),
+  constraint vip_earnings_history_programme_id_creator_name_year_month_key UNIQUE (programme_id, creator_name, year, month)
+);
+alter table public.vip_earnings_history enable row level security;
+
 create table public.vip_events (
   id bigint generated always as identity not null,
   programme_id uuid not null,
@@ -2445,6 +2468,40 @@ create table public.vip_guides (
   constraint vip_guides_pkey PRIMARY KEY (id)
 );
 alter table public.vip_guides enable row level security;
+
+create table public.vip_history_balances (
+  community_id uuid not null,
+  creator_name text not null,
+  amount numeric(12,2) not null,
+  currency text default 'EUR'::text not null,
+  source text not null,
+  credited_profile_id uuid,
+  ledger_id uuid,
+  created_at timestamp with time zone default now() not null,
+  constraint vip_history_balances_amount_check CHECK ((amount >= (0)::numeric)),
+  constraint vip_history_balances_check CHECK (((ledger_id IS NULL) = (credited_profile_id IS NULL))),
+  constraint vip_history_balances_community_id_creator_name_fkey FOREIGN KEY (community_id, creator_name) REFERENCES vip_history_names(community_id, creator_name),
+  constraint vip_history_balances_credited_profile_id_fkey FOREIGN KEY (credited_profile_id) REFERENCES profiles(id),
+  constraint vip_history_balances_ledger_id_fkey FOREIGN KEY (ledger_id) REFERENCES vip_ledger(id),
+  constraint vip_history_balances_pkey PRIMARY KEY (community_id, creator_name),
+  constraint vip_history_balances_ledger_id_key UNIQUE (ledger_id)
+);
+alter table public.vip_history_balances enable row level security;
+
+create table public.vip_history_names (
+  community_id uuid not null,
+  creator_name text not null,
+  profile_id uuid,
+  status text default 'unmatched'::text not null,
+  decided_by uuid,
+  decided_at timestamp with time zone,
+  constraint vip_history_names_status_check CHECK ((status = ANY (ARRAY['suggested'::text, 'confirmed'::text, 'former'::text, 'unmatched'::text]))),
+  constraint vip_history_names_community_id_fkey FOREIGN KEY (community_id) REFERENCES communities(id) ON DELETE CASCADE,
+  constraint vip_history_names_decided_by_fkey FOREIGN KEY (decided_by) REFERENCES profiles(id) ON DELETE SET NULL,
+  constraint vip_history_names_profile_id_fkey FOREIGN KEY (profile_id) REFERENCES profiles(id) ON DELETE SET NULL,
+  constraint vip_history_names_pkey PRIMARY KEY (community_id, creator_name)
+);
+alter table public.vip_history_names enable row level security;
 
 create table public.vip_invites (
   id uuid default gen_random_uuid() not null,
