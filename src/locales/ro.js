@@ -1798,6 +1798,7 @@ export default {
   'For whoever enters the most videos.': 'Pentru cine trimite cele mai multe videoclipuri.',
   'For: {b}': 'Pentru: {b}',
   'Forgot password?': 'Ai uitat parola?',
+  'Forgot your password? Email me a reset link': 'Ai uitat parola? Trimite-mi un link de resetare',
   'Formatting': 'Formatare',
   'Found it. Check the caption below and post your entry.': 'Găsit. Verifică descrierea de mai jos și trimite-ți participarea.',
   'Four reasons, and the first one is paid in cash.': 'Patru motive, iar primul se plătește în bani.',

@@ -1799,6 +1799,7 @@ export default {
   'For whoever enters the most videos.': 'Para quem enviar mais vídeos.',
   'For: {b}': 'Para: {b}',
   'Forgot password?': 'Esqueceste-te da palavra-passe?',
+  'Forgot your password? Email me a reset link': 'Esqueceste a palavra-passe? Envia-me um link para a redefinir',
   'Formatting': 'Formatação',
   'Found it. Check the caption below and post your entry.': 'Encontrado. Confirma a legenda abaixo e envia a tua participação.',
   'Four reasons, and the first one is paid in cash.': 'Quatro razões, e a primeira é paga em dinheiro.',

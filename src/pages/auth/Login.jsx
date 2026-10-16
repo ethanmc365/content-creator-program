@@ -26,6 +26,8 @@ export default function Login() {
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
+  // The address a password was just refused for, so the reset button below can carry it (16 Oct 2026).
+  const [failedFor, setFailedFor] = useState('')
   const [captchaToken, setCaptchaToken] = useState('')
   const [captchaKey, setCaptchaKey] = useState(0)
 
@@ -47,7 +49,8 @@ export default function Login() {
     // Read straight from the fields too: browser autofill can populate the DOM
     // without firing React's onChange, which would otherwise submit blank creds
     // on the first try (the "enter it twice" bug).
-    const emailVal = (e.target.email?.value || email).trim()
+    // Lower case: a phone that capitalises the first letter ("Martinagaya8@...") must not read as another address.
+    const emailVal = (e.target.email?.value || email).trim().toLowerCase()
     const passVal = e.target.password?.value || password
     setBusy(true)
     const { error } = await signIn(emailVal, passVal, captchaToken)
@@ -62,6 +65,7 @@ export default function Login() {
       // password login, so it reveals nothing about whether the address exists
       // or which provider it uses, and the one person it helps is the one who
       // recognises their own situation in it.
+      setFailedFor(error.message === 'Invalid login credentials' ? emailVal : '')
       setError(error.message === 'Invalid login credentials'
         ? tr('Email or password is incorrect. If you joined with Google, use Continue with Google below, or reset your password to set one.')
         : authMessage(error.message))
@@ -93,6 +97,15 @@ export default function Login() {
         </div>
 
         {error && <p role="alert" className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">{error}</p>}
+        {/* A REFUSED PASSWORD GETS A WAY OUT, ONE TAP AWAY (16 Oct 2026). A VIP who signed up once and never came back
+            read "Email or password is incorrect" as "this account does not exist" and was stuck. The account is there;
+            what she lacked was the password. The button opens the reset with her address already typed in. */}
+        {failedFor && (
+          <button type="button" onClick={() => navigate('/forgot-password', { state: { email: failedFor } })}
+            className="flex w-full items-center justify-center gap-2 rounded-xl border-2 border-brand/25 bg-white px-4 py-3 text-sm font-bold text-brand transition-all duration-200 animate-rise hoverable:hover:-translate-y-0.5 hoverable:hover:border-brand/50">
+            {tr('Forgot your password? Email me a reset link')}
+          </button>
+        )}
 
         {demo ? <DemoCaptcha /> : <Turnstile key={captchaKey} onToken={setCaptchaToken} />}
 

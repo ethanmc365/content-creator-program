@@ -313,7 +313,10 @@ async function handle(req: Request) {
   if (req.method !== 'POST') return json(req, { error: 'method not allowed' }, 405)
 
   const ip = clientIp(req)
-  const { action, email, password, name, ref, redirectTo, captchaToken } = await req.json().catch(() => ({}))
+  const { action, email: rawEmail, password, name, ref, redirectTo, captchaToken } = await req.json().catch(() => ({}))
+  // One spelling of every address (16 Oct 2026): a capital letter or a stray space from a phone keyboard must not
+  // read as somebody else's account.
+  const email = typeof rawEmail === 'string' ? rawEmail.trim().toLowerCase() : rawEmail
   const tooMany = { error: `Too many attempts. Please wait ${WINDOW_MIN} minutes and try again.` }
   // When CAPTCHA protection is enabled in Supabase Auth, GoTrue requires the
   // Turnstile token in gotrue_meta_security. Forwarding it when disabled is a

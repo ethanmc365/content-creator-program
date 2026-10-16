@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { Spinner } from '../../components/ui'
 import Turnstile from '../../components/Turnstile'
@@ -14,7 +14,9 @@ export default function ForgotPassword() {
   const tr = useT()
   const { on: demo } = useDemoMode()
   const { sendPasswordReset } = useAuth()
-  const [email, setEmail] = useState('')
+  // Arrives filled in from the log in page after a refused password (router state, never the URL).
+  const location = useLocation()
+  const [email, setEmail] = useState(() => String(location.state?.email || ''))
   const [sent, setSent] = useState(false)
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
@@ -26,7 +28,7 @@ export default function ForgotPassword() {
     setError('')
     if (demo) { setSent(true); return }
     setBusy(true)
-    const emailVal = (e.target.querySelector('#email')?.value || email).trim()
+    const emailVal = (e.target.querySelector('#email')?.value || email).trim().toLowerCase()
     const { error } = await sendPasswordReset(emailVal, captchaToken)
     setBusy(false)
     if (error) {

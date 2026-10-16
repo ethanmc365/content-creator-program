@@ -1813,6 +1813,7 @@ export default {
   'For whoever enters the most videos.': 'Para quien envíe más vídeos.',
   'For: {b}': 'Para: {b}',
   'Forgot password?': '¿Has olvidado la contraseña?',
+  'Forgot your password? Email me a reset link': '¿Olvidaste tu contraseña? Envíame un enlace para cambiarla',
   'Formatting': 'Formato',
   'Found it. Check the caption below and post your entry.': 'Encontrada. Revisa el texto de abajo y envía tu participación.',
   'Four reasons, and the first one is paid in cash.': 'Cuatro razones, y la primera se paga en efectivo.',
