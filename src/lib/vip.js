@@ -74,8 +74,14 @@ export function curSym(currency = 'EUR') {
 /** A rate per 1,000 views with its currency sign: €0.30. */
 export function perK(n, currency = 'EUR') {
   try {
-    return new Intl.NumberFormat(localeTag(), { style: 'currency', currency, minimumFractionDigits: 2, maximumFractionDigits: 3 }).format(Number(n) || 0)
+    return new Intl.NumberFormat(localeTag(), { style: 'currency', currency, minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(Number(n) || 0)
   } catch { return `${currency} ${rate(n)}` }
+}
+
+/** End-of-month estimate: a creator's contracted monthly fee is part of their pace. */
+export function projectedMonthEarnings(stats, member, programme) {
+  if (stats?.projected_base == null) return null
+  return Number(stats.projected_base) + (programme?.kind === 'official' ? Number(member?.monthly_fee) || 0 : 0)
 }
 
 export const nf = (n) => Number(n || 0).toLocaleString(localeTag())

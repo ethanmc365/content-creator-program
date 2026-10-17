@@ -28,18 +28,23 @@ begin
       from public.vip_programmes p join public.communities c on c.id = p.community_id
      where p.id = any (v_ids)
   ), hist as (
-    select h.profile_id, h.creator_name, pr.kind, pr.market, h.year, h.month, h.views, h.earned pay, 0::numeric extra,
-           h.rate, 'sheet'::text src, false live, coalesce(n.status, 'unmatched') match
+    select h.profile_id, h.creator_name, current_prog.kind, pr.market, h.year, h.month, h.views, h.earned pay, 0::numeric extra,
+           h.rate, 'sheet'::text src, false live, n.status match
       from public.vip_earnings_history h join progs pr on pr.id = h.programme_id
-      left join public.vip_history_names n on n.community_id = pr.community_id and n.creator_name = h.creator_name
+      join public.vip_history_names n on n.community_id = pr.community_id and n.creator_name = h.creator_name and n.status = 'confirmed' and n.profile_id = h.profile_id
+      join public.vip_members current_member on current_member.profile_id = h.profile_id and current_member.status <> 'left'
+      join public.vip_programmes current_prog on current_prog.id = current_member.programme_id and current_prog.community_id = pr.community_id
   ), plat as (
-    select r.profile_id, null::text creator_name, pr.kind, pr.market, r.year, r.month, r.views, coalesce(r.base, 0) pay,
+    select r.profile_id, null::text creator_name, current_prog.kind, pr.market, r.year, r.month, r.views, coalesce(r.base, 0) pay,
            coalesce(r.bonus, 0) extra,
            case when r.views > 0 then round(coalesce(r.base, 0) / r.views * 1000, 4) end rate, 'platform'::text src,
            (r.month_status = 'open') live, 'platform'::text match
       from progs pr
       cross join lateral public.vip_month_rows(array[pr.id]) r
+      join public.vip_members current_member on current_member.profile_id=r.profile_id and current_member.status <> 'left'
+      join public.vip_programmes current_prog on current_prog.id=current_member.programme_id and current_prog.community_id=pr.community_id
      where r.year * 12 + r.month > coalesce(pr.cut, 0)
+
   ), allrows as (select * from hist union all select * from plat)
   select jsonb_build_object(
            'currency', 'EUR',
@@ -49,7 +54,7 @@ begin
              'name', coalesce(nullif(trim(p.name), ''), a.creator_name),
              'short', a.creator_name,
              'photo_url', p.photo_url,
-             'kind', coalesce(p.vip_kind, a.kind),
+             'kind', a.kind,
              'market', a.market,
              'year', a.year, 'month', a.month,
              'views', a.views, 'pay', a.pay, 'extra', a.extra, 'rate', a.rate,

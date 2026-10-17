@@ -1,5 +1,6 @@
 import { cloneElement, useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
+import FinanceStrip from './FinanceStrip'
 import { Area, Bar, CartesianGrid, ComposedChart, Line, Tooltip, XAxis, YAxis } from 'recharts'
 import ChartPanel from '../charts/ChartPanel'
 import { format } from 'date-fns'
@@ -127,6 +128,7 @@ export function VipAnalyticsTab({ programme, programmes = [], isAdmin, outer = n
           onChange={(k, f, t) => { setPeriodKey(k); if (k === 'custom') setCustom({ from: f, to: t }) }} />}
       </div>
       {!outer && mine.length > 1 && <VipScopeSwitch programmes={mine} value={all ? 'all' : shown.id} onChange={setScope} allowAll={canAll} />}
+      <FinanceStrip programmeIds={all ? mine.filter((p) => p.kind === programme.kind).map((p) => p.id) : [shown.id]} currency={cur} />
       {!whole && range.start && (
         <p className="-mt-1 flex flex-wrap items-center gap-x-2 text-xs text-smoke">
           <span className="font-semibold text-ink">{range.label}</span>

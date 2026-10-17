@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import Reveal from '../network/Reveal'
 import Icon from '../Icon'
 import { CountUp, VIP_COUNT_MS } from '../network/Motion'
-import { daysLeft, money, monthLabel, nf, useVipOverview, useKindT } from '../../lib/vip'
+import { daysLeft, money, monthLabel, nf, projectedMonthEarnings, useVipOverview, useKindT } from '../../lib/vip'
 import { useAuth } from '../../context/AuthContext'
 import { cx, formatViews } from '../../lib/utils'
 import { vipApi } from '../../api/vip'
@@ -17,7 +17,7 @@ export default function VipHomeCard({ delay = 0, inCard = false, className = '' 
   const on = !!profile?.is_vip && !isAdmin
   const { overview } = useVipOverview({ enabled: on })
   if (!on || !overview) return null
-  const { stats, month, programme } = overview
+  const { stats, month, programme, member } = overview
   // INSIDE THE COMMUNITY CARD. So on the Worldwide page it is the foot of that card: a translucent band on the same
   // orange, wiping in after the card's own pieces, the way the global challenge strip does. A FULL-WIDTH BAND, WITH THE
   // PLANE FLYING ABOVE IT. So it takes the place the global challenge band takes for everybody else
@@ -39,7 +39,7 @@ export default function VipHomeCard({ delay = 0, inCard = false, className = '' 
                 <span className="text-3xl font-bold tabular-nums leading-tight"><CountUp duration={VIP_COUNT_MS} value={stats.base} format={(n) => money(n, programme.currency)} /></span>
                 <span className="text-sm text-white/85">{tr('earned so far')}</span>
               </p>
-              {stats.projected_base != null && <p className="mt-0.5 text-sm text-white/85">{tr('On pace for about {a}', { a: money(stats.projected_base, programme.currency, { cents: false }) })}</p>}
+              {stats.projected_base != null && <p className="mt-0.5 text-sm text-white/85">{tr('On pace for about {a}', { a: money(projectedMonthEarnings(stats, member, programme), programme.currency, { cents: false }) })}</p>}
             </div>
             <dl className="wipe-item grid grid-cols-3 gap-2" style={{ animationDelay: '0.26s' }}>
               {[[tr('Days left'), String(left)], [tr('Views'), formatViews(stats.views)], [tr('Rank'), stats.rank ? `#${stats.rank}` : '-']].map(([label, value]) => (

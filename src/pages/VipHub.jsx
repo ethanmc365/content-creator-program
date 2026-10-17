@@ -24,7 +24,7 @@ import { VipRecapPanel } from './VipRecap'
 const loadVipTools = () => import('../components/vip/VipTools')
 const VipTools = lazyRoute(loadVipTools)
 const VideoIdeasBoard = lazyRoute(() => import('../components/VideoIdeas'))
-import { ProgrammeKindContext, VipPreviewContext, daysLeft, isOfficial, money, monthLabel, nf, perK, useVipAccess, useVipOverview, vipRpc, vipRpcAs, useKindT } from '../lib/vip'
+import { ProgrammeKindContext, VipPreviewContext, daysLeft, isOfficial, money, monthLabel, nf, perK, projectedMonthEarnings, useVipAccess, useVipOverview, vipRpc, vipRpcAs, useKindT } from '../lib/vip'
 import { cx } from '../lib/utils'
 import { useIsMobile } from '../lib/useKeyboardInset'
 import ReaderText from '../components/ReaderText'
@@ -288,33 +288,33 @@ export default function VipHub() {
       {tab === 'month' && <section
         key={programme.id}
         data-tour="vip-earnings"
-        className="relative mb-5 overflow-hidden rounded-card border border-gray-100 bg-white p-5 text-ink shadow-card animate-rise sm:p-7"
+        className="relative mb-5 overflow-hidden rounded-card bg-gradient-to-br from-brand via-[#ec6323] to-brand-light p-5 text-white shadow-lift animate-rise sm:p-7"
       >
         <div className="relative flex flex-wrap items-end justify-between gap-x-8 gap-y-5">
           <div className="min-w-0">
-            <p className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.14em] text-smoke">
-              <span className="relative flex h-2 w-2"><span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-brand/30" /><span className="relative inline-flex h-2 w-2 rounded-full bg-brand" /></span>
+            <p className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.14em] text-white/85">
+              <span className="relative flex h-2 w-2"><span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-white/40" /><span className="relative inline-flex h-2 w-2 rounded-full bg-white" /></span>
               {isStaff ? (official ? tr('{m} so far, every official creator', { m: monthLabel(month.year, month.month) }) : tr('{m} so far, every VIP', { m: monthLabel(month.year, month.month) })) : tr('{m} so far', { m: monthLabel(month.year, month.month) })}
             </p>
-            {!isStaff && look?.tagline && <p className="mt-1 text-sm font-semibold text-smoke"><ReaderText text={look.tagline} /></p>}
-            <p className="mt-2 text-brand text-5xl font-bold tabular-nums tracking-tight sm:text-6xl">
+            {!isStaff && look?.tagline && <p className="mt-1 text-sm font-semibold text-white/80"><ReaderText text={look.tagline} /></p>}
+            <p className="mt-2 text-5xl font-bold tabular-nums tracking-tight sm:text-6xl">
               <CountUp duration={VIP_COUNT_MS} value={stats.base} format={(n) => money(n, cur)} />
             </p>
-            <p className="mt-2 text-sm text-smoke">
+            <p className="mt-2 text-sm text-white/85">
               {isStaff
                 ? tr('{n} views counted across {m} this month, at {r} per 1,000', { n: nf(stats.views), m: programme.name, r: perK(stats.effective_cpm, cur) })
                 : tr('{n} views counted this month, at {r} per 1,000', { n: nf(stats.views), r: perK(stats.effective_cpm, cur) })}
             </p>
             {!isStaff && official && Number(member.monthly_fee) > 0 && (
-              <p className="mt-1 text-sm font-semibold text-ink">{member.fee_min_videos
+              <p className="mt-1 text-sm font-semibold text-white">{member.fee_min_videos
                 ? tr('Plus your {a} monthly fee once you reach {n} videos ({v} so far).', { a: money(member.monthly_fee, cur, { cents: false }), n: member.fee_min_videos, v: stats.videos })
                 : tr('Plus your {a} monthly fee.', { a: money(member.monthly_fee, cur, { cents: false }) })}</p>
             )}
             {stats.projected_base != null && (
-              <p className="mt-1 text-sm font-semibold text-ink">{tr('On pace for about {a} by the end of the month.', { a: money(stats.projected_base, cur, { cents: false }) })}</p>
+              <p className="mt-1 text-sm font-semibold text-white">{tr('On pace for about {a} by the end of the month.', { a: money(isStaff ? stats.projected_base : projectedMonthEarnings(stats, member, programme), cur, { cents: false }) })}</p>
             )}
           </div>
-          <dl className="grid w-full grid-cols-3 gap-2.5 sm:w-auto sm:gap-3">
+          <dl className="hidden w-full grid-cols-3 gap-2.5 sm:grid sm:w-auto sm:gap-3">
             <HeroStat label={tr('Days left')} value={String(left)} />
             <HeroStat label={tr('Videos')} value={String(stats.videos)} />
             {isStaff
@@ -512,9 +512,9 @@ function PreviewBanner({ name, market, onBack, fromCreators = false }) {
 
 function HeroStat({ label, value, hint }) {
   return (
-    <div className="min-w-[4.6rem] rounded-2xl bg-cloud px-3.5 py-3 text-center backdrop-blur-sm">
+    <div className="min-w-[4.6rem] rounded-2xl border border-white/20 bg-white/15 px-3.5 py-3 text-center backdrop-blur-sm">
       <dd className="text-2xl font-bold tabular-nums leading-none">{value}</dd>
-      <dt className="mt-1.5 text-[10px] font-bold uppercase tracking-wide text-smoke">{label}{hint ? ` ${hint}` : ''}</dt>
+      <dt className="mt-1.5 text-[10px] font-bold uppercase tracking-wide text-white/80">{label}{hint ? ` ${hint}` : ''}</dt>
     </div>
   )
 }

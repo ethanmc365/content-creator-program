@@ -6,10 +6,14 @@
 // answers from the fixtures below, then renders the REAL pages: the creator's VIP hub and the team's VIP tools.
 //   /__vip-bench?view=hub&tab=stats      the creator's side (tab: month | videos | stats | payouts | board | earn)
 //   /__vip-bench?view=admin&tab=members the team's side (tab: overview | members | announcements |...)
+//   /__vip-bench?view=earnings|wallet|history finance layouts without a production sign-in
 import { useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import VipHub from '../VipHub'
 import AdminVip from '../admin/AdminVip'
+import { VipMyEarnings } from '../../components/vip/myEarnings'
+import { VipHistoryTab } from '../../components/vip/historyTab'
+import { VipWallet } from '../../components/vip/wallet'
 
 const day = (n) => new Date(Date.now() - n * 86400000).toISOString().slice(0, 10)
 const iso = (n) => new Date(Date.now() - n * 86400000).toISOString()
@@ -62,7 +66,24 @@ const TIMELINE = [
 ]
 const STATEMENTS = []
 
+const FINANCE_MONTHS = [
+  { year: 2026, month: 6, views: 94000, earned: 47, source: 'sheet' },
+  { year: 2026, month: 7, views: 112000, earned: 56, source: 'sheet' },
+  { year: 2026, month: 8, views: 154000, earned: 77, source: 'sheet' },
+  { year: 2026, month: 9, views: 201000, earned: 100.5, source: 'sheet' },
+  { year: 2026, month: 10, views: 85000, earned: 42.5, source: 'platform', live: true },
+]
+const FINANCE_ROWS = NAMES.slice(0, 7).map((name, i) => ({
+  profile_id: `p${i}`, programme_id: PROGRAMME.id, status: 'active', kind: 'vip', name: `${name} Demo`,
+  photo_url: null, lifetime: 323 + i * 43, paid_out: i * 25, balance: 70 + i * 12,
+  views: 646000 + i * 35000, months: FINANCE_MONTHS,
+}))
 const RPC = {
+  vip_my_earnings: { currency: 'EUR', balance: 153.85, cash_threshold: 100, voucher_min: 10, rows: FINANCE_MONTHS.map((r) => ({
+    year: r.year, month: r.month, views: r.views, pay: r.earned, extra: 0, rate: 0.5, source: r.source, live: !!r.live,
+  })) },
+  vip_finance_summary: { rows: FINANCE_ROWS },
+  vip_my_wallet: { currency: 'EUR', balance: 153.85, threshold: 100, voucher_min: 10, payment_ready: true, auto_payout: false, lifetime_earned: 153.85, history_credit: 153.85, this_month: {year: 2026, month: 10, views: 85000, earned: 42.5, cpm: 0.5}, history: FINANCE_MONTHS.slice(0,4).reverse().map((r) => ({ ...r, cpm: 0.5, status: 'history' })), entries: [{id:'e1',kind:'adjust',historical_import:true,amount:153.85,currency:'EUR',at:iso(5)}] },
   vip_can_manage: true, vip_has_access: true, vip_my_overview: MY_OVERVIEW, vip_board: NAMES.slice(0, 6).map((n, i) => ({ rank: i + 1, name: n, photo: null, views: 420000 / (i + 1), videos: 6 - i, me: i === 1 })),
   vip_my_statements: STATEMENTS, vip_admin_overview: ADMIN_OVERVIEW, vip_admin_videos: [], vip_trends: TRENDS, vip_my_trends: { ...TRENDS, daily: daily(0.4), streak_months: 3 },
   vip_attention: ATTENTION, vip_suggestions: SUGGESTIONS, vip_timeline: TIMELINE, vip_analytics: { months: [{ year: 2026, month: 7, views: 610000, cost: 150, members: 4, videos: 18, cpm: 0.245 }, { year: 2026, month: 8, views: 980000, cost: 262, members: 6, videos: 27, cpm: 0.267 }], top: [], members: 6 },
@@ -114,5 +135,8 @@ export default function VipBench() {
   })
   const view = new URLSearchParams(window.location.search).get('view') || 'hub'
   if (!ready) return null
+  if (view === 'earnings') return <main className="page max-w-5xl py-6"><VipMyEarnings /></main>
+  if (view === 'wallet') return <main className="page max-w-5xl py-6"><VipWallet /></main>
+  if (view === 'history') return <main className="page max-w-5xl py-6"><VipHistoryTab programme={PROGRAMME} /></main>
   return view === 'admin' ? <AdminVip /> : <VipHub />
 }

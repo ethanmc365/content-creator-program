@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { MILESTONE_METRICS, daysLeft, describeRule, metricAmount, money, monthLabel, rate } from './vip'
+import { MILESTONE_METRICS, daysLeft, describeRule, metricAmount, money, monthLabel, perK, projectedMonthEarnings, rate } from './vip'
 
 const tr = (s, v = {}) => s.replace(/\{(\w+)\}/g, (_, k) => String(v[k] ?? `{${k}}`))
 
@@ -20,6 +20,12 @@ describe('vip helpers', () => {
   })
   it('formats money with the currency', () => {
     expect(money(95, 'EUR')).toMatch(/95/)
+  })
+  it('shows creator CPM to cents and includes an Official fee in the end-of-month pace', () => {
+    expect(perK(0.199, 'EUR')).toMatch(/0[.,]20/)
+    expect(projectedMonthEarnings({ projected_base: 21 }, { monthly_fee: 100 }, { kind: 'official' })).toBe(121)
+    expect(projectedMonthEarnings({ projected_base: 21 }, { monthly_fee: 100 }, { kind: 'vip' })).toBe(21)
+    expect(projectedMonthEarnings({ projected_base: null }, { monthly_fee: 100 }, { kind: 'official' })).toBeNull()
   })
   it('says each kind of rule in a sentence', () => {
     expect(describeRule({ kind: 'target', amount: 25, reward: 'cash' }, tr)).toMatch(/target set for you/)

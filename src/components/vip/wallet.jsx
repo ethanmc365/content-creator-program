@@ -6,7 +6,7 @@ import { CountUp, VIP_COUNT_MS } from '../network/Motion'
 import { confirm, notice } from '../../lib/confirm'
 import { toastSuccess } from '../../lib/toast'
 import { cx, formatDate } from '../../lib/utils'
-import { money, monthLabel, nf, rate, useOptionalRpc, useVipPreview, vipRpc, useKindT } from '../../lib/vip'
+import { money, monthLabel, nf, perK, useOptionalRpc, useVipPreview, vipRpc, useKindT } from '../../lib/vip'
 
 // THE VIP BALANCE (migration 312).
 //
@@ -17,7 +17,7 @@ import { money, monthLabel, nf, rate, useOptionalRpc, useVipPreview, vipRpc, use
 
 const ENTRY = {
   earned: { icon: 'plus', label: 'Added', tone: 'text-emerald-700' },
-  adjust: { icon: 'pencil', label: 'Correction', tone: 'text-ink' },
+  adjust: { icon: 'pencil', label: 'Balance adjustment', tone: 'text-ink' },
   payout: { icon: 'cash', label: 'Cash payout', tone: 'text-ink' },
   voucher: { icon: 'ticket', label: 'Travel voucher', tone: 'text-ink' },
 }
@@ -95,8 +95,6 @@ export function VipWallet({ onChanged }) {
           )}
         </div>
 
-        {Number(w.history_credit) > 0 && <p className="relative mt-4 rounded-xl bg-emerald-50 px-4 py-3 text-xs leading-relaxed text-emerald-800">{tr('{a} of unwithdrawn past earnings was added to this wallet. Withdrawals reduce the available balance above.', { a: money(w.history_credit, cur) })}</p>}
-
         {threshold > 0 && (
           <div className="relative mt-5">
             <div className="flex items-baseline justify-between text-xs">
@@ -152,9 +150,16 @@ export function VipWallet({ onChanged }) {
       <section className="overflow-hidden rounded-card border border-gray-100 bg-white shadow-card animate-rise [animation-delay:160ms]">
         <div className="flex flex-wrap items-center justify-between gap-2 px-5 pt-4">
           <h2 className="flex items-center gap-2 text-[15px] font-bold text-ink"><Icon name="chart" className="h-5 w-5 text-brand" />{tr('Month by month')}</h2>
-          <p className="text-xs text-smoke">{tr('Added to this wallet: {a}', { a: money(w.lifetime_earned, cur) })}</p>
         </div>
-        <div className="mt-3 overflow-x-auto">
+        <div className="mt-3 divide-y divide-orange-100 sm:hidden">
+          {[{ ...w.this_month, status: 'live' }, ...history].filter((h) => Number(h.views) > 0 || Number(h.earned) > 0).map((h) => (
+            <div key={`${h.year}-${h.month}`} className="flex items-center justify-between gap-3 px-4 py-3">
+              <div className="min-w-0"><p className="font-bold text-ink">{monthLabel(h.year, h.month)}</p><p className="text-xs text-smoke">{nf(h.views)} {tr('views')} · {perK(h.cpm, cur)} / 1k</p></div>
+              <div className="shrink-0 text-right"><p className="font-bold tabular-nums text-ink">{money(h.earned, cur)}</p><p className="text-[10px] font-bold uppercase text-brand">{h.status === 'live' ? tr('Live') : h.source === 'sheet' ? tr('Previous') : h.status === 'draft' ? tr('Being checked') : tr('Closed')}</p></div>
+            </div>
+          ))}
+        </div>
+        <div className="mt-3 hidden overflow-x-auto sm:block">
           <table className="w-full min-w-[30rem] text-sm">
             <thead>
               <tr className="border-y border-gray-100 bg-cloud/50 text-left text-[10.5px] font-bold uppercase tracking-wide text-gray-400">
@@ -171,17 +176,17 @@ export function VipWallet({ onChanged }) {
                   <span className="ml-2 rounded-full bg-brand px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">{tr('Live')}</span>
                 </td>
                 <td className="px-3 py-2.5 text-right tabular-nums">{nf(w.this_month?.views)}</td>
-                <td className="px-3 py-2.5 text-right tabular-nums text-smoke">{cur} {rate(w.this_month?.cpm)}</td>
+                <td className="px-3 py-2.5 text-right tabular-nums text-smoke">{perK(w.this_month?.cpm, cur)}</td>
                 <td className="px-5 py-2.5 text-right font-bold tabular-nums text-ink">{money(w.this_month?.earned, cur)}</td>
               </tr>
               {history.map((h) => (
                 <tr key={`${h.year}-${h.month}`}>
                   <td className="px-5 py-2.5 font-semibold text-ink">
                     {monthLabel(h.year, h.month)}
-                    {h.status === 'draft' && <span className="ml-2 text-[10px] font-bold uppercase tracking-wide text-amber-600">{tr('Being checked')}</span>}
+                    {h.source === 'sheet' && <span className="ml-2 text-[10px] font-bold uppercase tracking-wide text-brand">{tr('Previous')}</span>}{h.status === 'draft' && <span className="ml-2 text-[10px] font-bold uppercase tracking-wide text-amber-600">{tr('Being checked')}</span>}
                   </td>
                   <td className="px-3 py-2.5 text-right tabular-nums">{nf(h.views)}</td>
-                  <td className="px-3 py-2.5 text-right tabular-nums text-smoke">{cur} {rate(h.cpm)}</td>
+                  <td className="px-3 py-2.5 text-right tabular-nums text-smoke">{perK(h.cpm, cur)}</td>
                   <td className="px-5 py-2.5 text-right font-bold tabular-nums text-ink">{money(h.earned, cur)}</td>
                 </tr>
               ))}
@@ -203,8 +208,8 @@ export function VipWallet({ onChanged }) {
                 <li key={e.id} className="flex items-center gap-3 rounded-card border border-gray-100 bg-white px-4 py-3 shadow-card animate-rise" style={{ animationDelay: `${220 + i * 40}ms` }}>
                   <span className={cx('flex h-9 w-9 shrink-0 items-center justify-center rounded-xl', Number(e.amount) > 0 ? 'text-emerald-600' : 'text-brand')}><Icon name={k.icon} className="h-[18px] w-[18px]" /></span>
                   <span className="min-w-0 flex-1">
-                    <span className="block truncate text-sm font-semibold text-ink">{e.year ? `${tr(k.label)}: ${monthLabel(e.year, e.month)}` : tr(k.label)}{e.auto ? ` · ${tr('automatic')}` : ''}</span>
-                    <span className="block truncate text-xs text-smoke">{formatDate(e.at)}{e.kind === 'adjust' && e.note ? ` · ${e.note}` : ''}{e.voucher_code ? ` · ${tr('Code')}: ${e.voucher_code}` : ''}</span>
+                    <span className="block truncate text-sm font-semibold text-ink">{e.year ? `${tr(k.label)}: ${monthLabel(e.year, e.month)}` : tr(e.historical_import ? 'Previous balance added' : k.label)}{e.auto ? ` · ${tr('automatic')}` : ''}</span>
+                    <span className="block truncate text-xs text-smoke">{formatDate(e.at)}{e.kind === 'adjust' && e.note && !e.historical_import ? ` · ${e.note}` : ''}{e.voucher_code ? ` · ${tr('Code')}: ${e.voucher_code}` : ''}</span>
                   </span>
                   {st && <span className={cx('hidden shrink-0 rounded-full px-2.5 py-1 text-[10.5px] font-bold sm:inline', st.tone)}>{st.label}</span>}
                   <span className={cx('shrink-0 text-right font-bold tabular-nums', Number(e.amount) > 0 ? 'text-emerald-700' : 'text-ink')}>{Number(e.amount) > 0 ? '+' : '-'}{money(Math.abs(e.amount), e.currency)}</span>

@@ -22,22 +22,41 @@ begin
 
   select coalesce(jsonb_agg(jsonb_build_object(
       'id', l.id, 'kind', l.kind, 'amount', l.amount, 'currency', l.currency, 'note', l.note, 'auto', l.auto,
+      'historical_import', hb.ledger_id is not null,
       'at', l.created_at, 'year', mm.year, 'month', mm.month,
       'reward_status', r.status, 'voucher_code', r.voucher_code, 'invoice_stage', i.stage, 'invoice_number', i.number,
       'invoice_id', i.id, 'paid_at', i.paid_at) order by l.created_at desc), '[]'::jsonb)
     into v_entries
     from public.vip_ledger l
+    left join public.vip_history_balances hb on hb.ledger_id = l.id
     left join public.vip_months mm on mm.id = l.month_id
     left join public.rewards r on r.id = l.reward_id
     left join public.invoices i on i.reward_id = l.reward_id
    where l.profile_id = v_who;
 
-  -- Month by month, for the "CPM panel": views, the rate and what it earned (statements), newest first.
-  select coalesce(jsonb_agg(jsonb_build_object('year', mm.year, 'month', mm.month, 'views', s.views, 'videos', s.videos,
-      'cpm', s.cpm, 'earned', s.total, 'status', s.status) order by mm.starts_at desc), '[]'::jsonb)
-    into v_history
-    from public.vip_statements s join public.vip_months mm on mm.id = s.month_id
-   where s.profile_id = v_who and s.status <> 'void';
+  -- Confirmed pre-platform months and platform statements have separate sources and
+  -- dates. Do not count an imported wallet credit as a second earned month.
+  with hist as (
+    select h.year, h.month, h.views, null::integer videos, h.rate cpm,
+           h.earned, 'history'::text status, 'sheet'::text source
+      from public.vip_earnings_history h
+      join public.vip_history_names n on n.creator_name = h.creator_name
+      join public.vip_programmes hp on hp.id = h.programme_id and hp.community_id = n.community_id
+     where n.status = 'confirmed' and n.profile_id = v_who
+  ), plat as (
+    select mm.year, mm.month, s.views, s.videos, s.cpm, s.total earned,
+           s.status::text, 'platform'::text source
+      from public.vip_statements s join public.vip_months mm on mm.id = s.month_id
+      join public.vip_programmes sp on sp.id = mm.programme_id
+     where s.profile_id = v_who and s.status <> 'void' and sp.community_id = p.community_id
+       and mm.year * 12 + mm.month > coalesce((select max(h.year * 12 + h.month)
+         from public.vip_earnings_history h join public.vip_programmes hp on hp.id = h.programme_id
+         where hp.community_id = p.community_id), 0)
+  )
+  select coalesce(jsonb_agg(jsonb_build_object('year', x.year, 'month', x.month,
+    'views', x.views, 'videos', x.videos, 'cpm', x.cpm, 'earned', x.earned,
+    'status', x.status, 'source', x.source) order by x.year desc, x.month desc), '[]'::jsonb)
+    into v_history from (select * from hist union all select * from plat) x;
 
   return jsonb_build_object(
     'balance', public.vip_balance(v_who),

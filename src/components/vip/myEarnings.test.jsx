@@ -12,7 +12,7 @@ vi.mock('../network/Motion', () => ({ CountUp: ({ value, format }) => format(val
 vi.mock('motion/react', () => ({ useReducedMotion: () => true }))
 vi.mock('recharts', () => ({
   ResponsiveContainer: ({ children }) => <div>{children}</div>,
-  BarChart: ({ children }) => <div>{children}</div>, Bar: ({ children }) => <div>{children}</div>,
+  BarChart: ({ children }) => <div>{children}</div>, Bar: ({ children, dataKey }) => <div data-testid="chart-series" data-key={dataKey}>{children}</div>,
   Cell: ({ fill, stroke }) => <span data-testid="bar" data-fill={fill} data-stroke={stroke} />,
   CartesianGrid: () => null, Tooltip: () => null, XAxis: () => null, YAxis: () => null,
 }))
@@ -30,14 +30,17 @@ describe('VIP earnings and wallet distinction', () => {
     render(<VipMyEarnings onWallet={open} />)
     expect(screen.getByText('€11.97')).toBeTruthy()
     expect(screen.getByText('Available balance')).toBeTruthy()
-    expect(screen.getByText(/€7.97 of past earnings was added/)).toBeTruthy()
-    expect(screen.getByText('Provisional earnings. Added to your balance after the month is approved.')).toBeTruthy()
-    fireEvent.click(screen.getByRole('button', { name: /Withdrawals/ }))
+    expect(screen.getByText('This month so far')).toBeTruthy()
+    expect(screen.getByText('This month is still counting')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: /View payouts/ }))
     expect(open).toHaveBeenCalledOnce()
   })
-  it('keeps every bar fully coloured and changes selection using accessible month buttons', () => {
+  it('switches the chart series and keeps every month fully coloured', () => {
     render(<VipMyEarnings />)
     expect(screen.getAllByTestId('bar').map((b) => b.dataset.fill)).toEqual(['url(#tg-brand)', 'url(#tg-brand)', 'url(#tg-brand)'])
+    expect(screen.getByTestId('chart-series').dataset.key).toBe('paid')
+    fireEvent.click(screen.getByRole('button', { name: 'Views' }))
+    expect(screen.getByTestId('chart-series').dataset.key).toBe('views')
     const august = screen.getByRole('button', { name: /2026-8/ })
     fireEvent.click(august)
     expect(august.getAttribute('aria-pressed')).toBe('true')
@@ -47,7 +50,7 @@ describe('VIP earnings and wallet distinction', () => {
     state.data.balance = 0
     render(<VipMyEarnings walletVersion={1} />)
     expect(screen.getByText('€0.00')).toBeTruthy()
-    expect(screen.getByText(/€7.97 of past earnings was added/)).toBeTruthy()
+    expect(screen.getByText('€11.97')).toBeTruthy()
     expect(state.read).toHaveBeenLastCalledWith('vip_my_earnings', {}, 'my-earnings:1')
   })
   it('shows a retry for a failed read, not a false empty earnings state', () => {

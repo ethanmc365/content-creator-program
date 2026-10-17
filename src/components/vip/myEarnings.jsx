@@ -62,9 +62,9 @@ export function VipMyEarnings({ onWallet, walletVersion = 0 }) {
   const prev = months[months.indexOf(sel) - 1]
   const move = sel && !sel.live && prev && prev.paid > 0 ? Math.round(((sel.paid - prev.paid) / prev.paid) * 100) : null
   const balance = Number(data.balance) || 0
-  const credit = Number(data.history_credit) || 0
   const live = t.live?.paid || 0
   const threshold = Number(data.cash_threshold) || 0
+  const voucherMin = Number(data.voucher_min) || 0
 
   return (
     <div className="vip-stage space-y-4">
@@ -81,42 +81,26 @@ export function VipMyEarnings({ onWallet, walletVersion = 0 }) {
           {t.first ? tr('Since {m}', { m: monthLabel(t.first.year, t.first.month) }) : ''}{' · '}
           {months.length === 1 ? tr('1 month') : tr('{n} months', { n: months.length })}
         </p>
-        <p className="relative mt-3 max-w-xl border-t border-white/10 pt-3 text-xs leading-relaxed text-white/75">{tr('Includes earnings already withdrawn and money still in your balance.')}</p>
-        {t.live && (
-          <p className="relative mt-2 flex items-center gap-2 text-xs text-white/70">
-            <span className="h-1.5 w-1.5 rounded-full bg-brand-light" />
-            {tr('Includes {m} so far: {a}', { m: t.live.label, a: money(t.live.paid, cur) })}
-          </p>
-        )}
+        <div className="relative mt-5 grid grid-cols-2 gap-2 border-t border-white/25 pt-4 sm:max-w-lg sm:gap-3">
+          <div className="rounded-2xl border border-white/20 bg-white/15 p-3 backdrop-blur-sm sm:p-4">
+            <p className="text-[11px] font-semibold text-white/85">{tr('Available balance')}</p>
+            <p className="mt-1 text-xl font-extrabold tabular-nums sm:text-2xl"><CountUp value={balance} duration={VIP_COUNT_MS} format={(n) => money(n, cur)} /></p>
+          </div>
+          <div className="rounded-2xl border border-white/20 bg-white/15 p-3 backdrop-blur-sm sm:p-4">
+            <p className="text-[11px] font-semibold text-white/85">{tr('This month so far')}</p>
+            <p className="mt-1 text-xl font-extrabold tabular-nums sm:text-2xl"><CountUp value={live} duration={VIP_COUNT_MS} format={(n) => money(n, cur)} /></p>
+          </div>
+        </div>
+        <div className="relative mt-3 flex flex-wrap items-center justify-between gap-2">
+          <p className="text-xs text-white/85">{tr('Cash from {a} · travel voucher from {b}', { a: money(threshold, cur, { cents: false }), b: money(voucherMin, cur, { cents: false }) })}</p>
+          {onWallet && <button type="button" onClick={onWallet} className="inline-flex min-h-10 items-center gap-1 rounded-full border border-white/30 bg-white/15 px-4 text-xs font-bold text-white transition-all hoverable:hover:bg-white/25 hoverable:hover:-translate-y-0.5">{tr('View payouts')}<Icon name="chevronRight" className="h-4 w-4" /></button>}
+        </div>
       </section>
 
-      <section className="overflow-hidden rounded-card border border-gray-100 bg-white shadow-card animate-rise">
-        <div className="grid grid-cols-2 divide-x divide-gray-100">
-          <div className="min-w-0 p-4 sm:p-5">
-            <p className="text-xs font-semibold text-emerald-700">{tr('Available balance')}</p>
-            <p className="mt-2 text-2xl font-bold tabular-nums text-ink sm:text-3xl"><CountUp value={balance} duration={VIP_COUNT_MS} format={(n) => money(n, cur)} /></p>
-            <p className="mt-1 text-xs text-smoke">{tr('Cash from {a}', { a: money(threshold, cur, { cents: false }) })}</p>
-          </div>
-          <div className="min-w-0 p-4 sm:p-5">
-            <p className="text-xs font-semibold text-smoke">{tr('This month, so far')}</p>
-            <p className="mt-2 text-2xl font-bold tabular-nums text-ink sm:text-3xl"><CountUp value={live} duration={VIP_COUNT_MS} format={(n) => money(n, cur)} /></p>
-            <p className="mt-1 text-xs text-smoke">{tr('Not in your balance yet')}</p>
-          </div>
-        </div>
-        <div className="border-t border-gray-100 px-4 py-3 sm:px-5">
-          {credit > 0 && <p className="mb-2 text-xs font-medium text-emerald-700">{tr('Past earnings credited: {a}', { a: money(credit, cur) })}</p>}
-          <div className="flex flex-wrap items-center justify-between gap-1">
-            <details className="group min-w-0 text-xs text-smoke">
-              <summary className="flex min-h-11 cursor-pointer items-center gap-1 font-semibold">{tr('How this adds up')}<Icon name="chevronDown" className="h-3 w-3 transition-transform group-open:rotate-180" /></summary>
-              <div className="max-w-md space-y-2 pb-3 leading-relaxed">
-                <p>{tr('Provisional earnings. Added to your balance after the month is approved.')}</p>
-                {credit > 0 && <p>{tr('{a} of past earnings was added to your wallet. It is already included in lifetime earnings, not earned twice.', { a: money(credit, cur) })}</p>}
-              </div>
-            </details>
-            {onWallet && <button type="button" onClick={onWallet} className="inline-flex min-h-11 items-center gap-1 rounded-xl bg-emerald-50 px-3 text-xs font-semibold text-emerald-800 transition-colors hoverable:hover:bg-emerald-100">{tr('Withdrawals')}<Icon name="chevronRight" className="h-4 w-4" /></button>}
-          </div>
-        </div>
-      </section>
+      <div className="relative -mt-1 flex flex-wrap items-center gap-2 px-1 text-xs text-smoke">
+        <span className="inline-flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-emerald-400" />{tr('Available in your balance')}</span>
+        <span className="inline-flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-white ring-1 ring-brand" />{tr('This month is still counting')}</span>
+      </div>
 
       {sel && <section className="rounded-card border border-gray-100 bg-white p-4 shadow-card animate-rise sm:p-5" style={{ animationDelay: '120ms' }}>
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
@@ -132,7 +116,7 @@ export function VipMyEarnings({ onWallet, walletVersion = 0 }) {
         </div>
         <div className="h-48 w-full sm:h-64">
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={months} margin={{ top: 6, right: 2, left: -8, bottom: 0 }} onClick={(e) => { const m = months[Number(e?.activeTooltipIndex)]; if (m) setPicked(m.key) }}>
+            <BarChart key={metric} data={months} margin={{ top: 6, right: 2, left: -8, bottom: 0 }} onClick={(e) => { const m = months[Number(e?.activeTooltipIndex)]; if (m) setPicked(m.key) }}>
               <CartesianGrid vertical={false} stroke={CHART.grid} />
               <XAxis dataKey="label" tick={axisTick} tickLine={false} axisLine={false} interval="preserveStartEnd" />
               <YAxis tick={axisTick} tickLine={false} axisLine={false} width={46} tickFormatter={(v) => (metric === 'paid' ? money(v, cur, { cents: false }) : formatViews(v))} />
@@ -144,7 +128,7 @@ export function VipMyEarnings({ onWallet, walletVersion = 0 }) {
           </ResponsiveContainer>
         </div>
 
-        <p className="mt-2 text-xs text-smoke">{tr('Earnings by month · outlined month selected')}</p>
+        <p className="mt-2 text-xs text-smoke">{metric === 'paid' ? tr('Earnings by month · outlined month selected') : tr('Views by month · outlined month selected')}</p>
         {/* THE MONTH YOU TAPPED. */}
         <div key={sel.key} className="mt-3 grid grid-cols-2 gap-2 rounded-2xl bg-cloud/60 p-3 animate-pop-in sm:grid-cols-4">
           <div className="col-span-2 sm:col-span-1">
@@ -169,14 +153,17 @@ export function VipMyEarnings({ onWallet, walletVersion = 0 }) {
 
       </details>
 
-      <section className="overflow-hidden rounded-card border border-gray-100 bg-white shadow-card animate-rise" style={{ animationDelay: '160ms' }}>
-        <h3 className="px-4 pt-4 text-[15px] font-bold text-ink sm:px-5">{tr('Every month')}</h3>
+      <section className="overflow-hidden rounded-card border border-orange-100 bg-white shadow-card animate-rise" style={{ animationDelay: '160ms' }}>
+        <div className="border-b border-orange-100 bg-gradient-to-r from-brand-tint/80 to-white px-4 py-4 sm:px-5">
+          <h3 className="text-[15px] font-bold text-ink">{tr('Every month')}</h3>
+          <p className="mt-0.5 text-xs text-smoke">{tr('Tap a month to explore its earnings and views.')}</p>
+        </div>
         <ul className="mt-2 divide-y divide-gray-50">
           {[...months].reverse().map((m, i) => {
             const top = Math.max(1, ...months.map((x) => x.paid))
             return (
               <li key={m.key}>
-                <button type="button" onClick={() => setPicked(m.key)} aria-pressed={m.key === sel?.key} className={cx('flex w-full items-center gap-3 px-4 py-2.5 text-left transition-colors duration-200 animate-rise sm:px-5', m.key === sel?.key ? 'bg-brand-tint/50' : 'hoverable:hover:bg-cloud/60')} style={{ animationDelay: `${Math.min(i, 12) * 25}ms` }}>
+                <button type="button" onClick={() => setPicked(m.key)} aria-pressed={m.key === sel?.key} className={cx('flex w-full items-center gap-3 px-4 py-2.5 text-left transition-colors duration-200 animate-rise sm:px-5', m.key === sel?.key ? 'bg-brand-tint/70' : 'hoverable:hover:bg-cloud/60')} style={{ animationDelay: `${Math.min(i, 12) * 25}ms` }}>
                   <span className="w-20 shrink-0 text-sm font-semibold text-ink">{m.label}</span>
                   <span className="min-w-0 flex-1">
                     <span className="block h-2 overflow-hidden rounded-full bg-cloud"><span className="block h-full rounded-full bg-gradient-to-r from-brand to-brand-light transition-[width] duration-700" style={{ width: `${Math.max(2, (m.paid / top) * 100)}%` }} /></span>

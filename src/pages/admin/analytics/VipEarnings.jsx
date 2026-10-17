@@ -1,3 +1,4 @@
+import FinanceStrip from '../../../components/vip/FinanceStrip'
 import { Fragment, useEffect, useMemo, useState } from 'react'
 import { Bar, CartesianGrid, ComposedChart, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { Avatar, Skeleton } from '../../../components/ui'
@@ -13,7 +14,7 @@ import { earningsByCreator, earningsByMonth, earningsTotals, monthKey } from '..
 // the team's sheet (December 2025 to September 2026, "CPM VIP ES") joined to every platform month after it, so it
 // keeps itself up to date. One read of `admin_vip_earnings` when the tab opens or the market changes, nothing on a timer.
 const SORTS = [
-  { key: 'paid', label: 'Total paid' },
+  { key: 'paid', label: 'Total earned' },
   { key: 'views', label: 'Views' },
   { key: 'cpm', label: 'CPM' },
   { key: 'avg', label: 'Avg / month' },
@@ -69,7 +70,7 @@ export default function VipEarnings({ market = '', marketName = null }) {
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-xs text-smoke">
           {marketName ? `${marketName} only. Pick Worldwide above for every market.` : 'Every VIP and official programme.'}
-          {' '}Up to September 2026 from the team's sheet, then live from the platform. Sheet names join a creator once the market's team confirms them in VIP tools &gt; Money &gt; Past earnings.
+          {' '}Earlier months and live platform earnings are joined to each creator's current programme.
         </p>
         <div className="flex gap-1.5">
           <button type="button" onClick={() => setTick((n) => n + 1)} disabled={loading} aria-label="Refresh" title="Read it again" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-gray-200 bg-white text-smoke transition-all hoverable:hover:text-brand disabled:opacity-50">
@@ -94,19 +95,20 @@ export default function VipEarnings({ market = '', marketName = null }) {
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
             <div className="relative col-span-2 animate-rise overflow-hidden rounded-card bg-gradient-to-br from-brand to-brand-light p-5 text-white shadow-lift lg:col-span-1">
               <span aria-hidden className="pointer-events-none absolute -right-10 -top-12 h-36 w-36 rounded-full bg-white/15 blur-2xl" />
-              <p className="relative text-sm font-semibold text-white/85">Paid to creators, all time</p>
+              <p className="relative text-sm font-semibold text-white/85">Earned by creators, all time</p>
               <p className="relative mt-2 text-4xl font-extrabold tracking-tight tabular-nums"><CountUp value={totals.paid} format={(n) => eur(n)} /></p>
               <p className="relative mt-1.5 text-xs font-medium text-white/85">
                 {totals.firstLabel} to {totals.lastLabel} · {months.length} months
               </p>
             </div>
-            <Kpi label="Views paid for" value={totals.views} format={formatViewsTotal} sub={`${formatViews(totals.views / Math.max(1, totals.creatorMonths))} per creator a month`} delay={60} />
+            <Kpi label="Views counted" value={totals.views} format={formatViewsTotal} sub={`${formatViews(totals.views / Math.max(1, totals.creatorMonths))} per creator a month`} delay={60} />
             <Kpi label="Average CPM" value={totals.cpm} format={(n) => perK(n)} sub="Views pay per 1,000 views" delay={120} />
-            <Kpi label="Creators paid" value={totals.creators} sub={`${totals.onPlatform} on the platform`} delay={180} className="col-span-2 lg:col-span-1" />
+            <Kpi label="Creators earning" value={totals.creators} sub={`${totals.onPlatform} on the platform`} delay={180} className="col-span-2 lg:col-span-1" />
           </div>
+          <FinanceStrip market={market || null} showEarned={false} />
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
             <Mini label={totals.live ? `${totals.live.label} so far` : 'Last month'} value={eur(totals.live ? totals.live.paid : totals.lastPaid)} hint={totals.live ? 'Live, counting' : totals.lastLabel} live={!!totals.live} delay={60} />
-            <Mini label="Average a creator a month" value={eur(totals.avgCreatorMonth, true)} hint={`Across ${totals.creatorMonths} paid months`} delay={100} />
+            <Mini label="Average a creator a month" value={eur(totals.avgCreatorMonth, true)} hint={`Across ${totals.creatorMonths} earning months`} delay={100} />
             <Mini label="Median a creator a month" value={eur(totals.medianCreatorMonth, true)} hint="Half earn more, half less" delay={140} />
             <Mini label="Biggest month" value={eur(totals.best?.paid || 0)} hint={totals.best ? totals.best.label : '-'} delay={180} />
           </div>
@@ -114,9 +116,9 @@ export default function VipEarnings({ market = '', marketName = null }) {
           {/* PER MONTH: paid (views pay + fees and bonuses), or views, with the number of creators paid as the line. */}
           <section className="animate-rise rounded-card border border-gray-100 bg-white p-4 shadow-card sm:p-5" style={{ animationDelay: '120ms' }}>
             <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-              <h3 className="text-[15px] font-bold text-ink">{metric === 'paid' ? 'Paid per month' : 'Views per month'}</h3>
+              <h3 className="text-[15px] font-bold text-ink">{metric === 'paid' ? 'Earned per month' : 'Views per month'}</h3>
               <div className="flex items-center gap-1 rounded-full bg-cloud p-1">
-                {[['paid', 'Paid'], ['views', 'Views']].map(([k, l]) => (
+                {[['paid', 'Earned'], ['views', 'Views']].map(([k, l]) => (
                   <button key={k} type="button" onClick={() => setMetric(k)} aria-pressed={metric === k} className={cx('rounded-full px-3 py-1 text-xs font-semibold transition-all duration-200', metric === k ? 'bg-brand text-white shadow-card' : 'text-smoke hoverable:hover:text-ink')}>{l}</button>
                 ))}
               </div>
@@ -129,7 +131,7 @@ export default function VipEarnings({ market = '', marketName = null }) {
                   <YAxis yAxisId="l" tick={axisTick} tickLine={false} axisLine={false} width={48} tickFormatter={(v) => (metric === 'paid' ? `€${formatViews(v)}` : formatViews(v))} />
                   <YAxis yAxisId="r" orientation="right" hide domain={[0, (max) => Math.max(4, max * 1.6)]} />
                   <Tooltip cursor={{ fill: 'rgba(217,68,7,0.06)' }} contentStyle={tooltipStyle} formatter={(v, n) => (
-                    n === 'creators' ? [v, 'Creators paid'] : n === 'views' ? [formatViewsTotal(v), 'Views'] : [eur(v, true), n === 'pay' ? 'Views pay' : 'Fees and bonuses']
+                    n === 'creators' ? [v, 'Creators earning'] : n === 'views' ? [formatViewsTotal(v), 'Views'] : [eur(v, true), n === 'pay' ? 'Views pay' : 'Fees and bonuses']
                   )} />
                   {metric === 'paid' ? (
                     <>
@@ -146,7 +148,7 @@ export default function VipEarnings({ market = '', marketName = null }) {
             <p className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-smoke">
               <span className="inline-flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm" style={{ background: CHART.brand }} />{metric === 'paid' ? 'Views pay' : 'Views'}</span>
               {metric === 'paid' && <span className="inline-flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm" style={{ background: CHART.ink }} />Fees and bonuses</span>}
-              <span className="inline-flex items-center gap-1.5"><span className="h-0.5 w-3 rounded-full bg-brand-light" />Creators paid</span>
+              <span className="inline-flex items-center gap-1.5"><span className="h-0.5 w-3 rounded-full bg-brand-light" />Creators earning</span>
             </p>
           </section>
 
@@ -160,7 +162,7 @@ export default function VipEarnings({ market = '', marketName = null }) {
                 ))}
               </div>
             </div>
-            <p className="px-4 pt-1 text-xs text-smoke sm:px-5">CPM is what one thousand views paid them. Average and median are per month they were paid.</p>
+            <p className="px-4 pt-1 text-xs text-smoke sm:px-5">CPM is what one thousand views paid them. Average and median are per month they earned.</p>
 
             <ul className="mt-3 divide-y divide-gray-50 sm:hidden">
               {sorted.map((c, i) => (
@@ -187,7 +189,7 @@ export default function VipEarnings({ market = '', marketName = null }) {
               <table className="w-full min-w-[46rem] text-left text-sm">
                 <thead>
                   <tr className="border-y border-gray-100 text-[10.5px] font-bold uppercase tracking-wide text-gray-400">
-                    <th className="w-10 py-2 pl-5" /><th className="px-2 py-2">Creator</th><th className="px-2 py-2">Total paid</th>
+                    <th className="w-10 py-2 pl-5" /><th className="px-2 py-2">Creator</th><th className="px-2 py-2">Total earned</th>
                     <th className="px-2 py-2">Views</th><th className="px-2 py-2">CPM</th><th className="px-2 py-2">Avg / month</th>
                     <th className="px-2 py-2">Median</th><th className="px-2 py-2">Best month</th><th className="px-2 py-2">Months</th><th className="py-2 pr-5">Trend</th>
                   </tr>
@@ -221,7 +223,7 @@ export default function VipEarnings({ market = '', marketName = null }) {
           {/* THE SHEET, REDRAWN: creators along the top, months down the side, the totals underneath. */}
           <section className="animate-rise overflow-hidden rounded-card border border-gray-100 bg-white shadow-card" style={{ animationDelay: '200ms' }}>
             <h3 className="px-4 pt-4 text-[15px] font-bold text-ink sm:px-5">Month by month</h3>
-            <p className="px-4 text-xs text-smoke sm:px-5">Paid, with views underneath. The deeper the colour, the bigger the month. Scroll sideways for everyone.</p>
+            <p className="px-4 text-xs text-smoke sm:px-5">Earned, with views underneath. The deeper the colour, the bigger the month. Scroll sideways for everyone.</p>
             <div className="scroll-edge-fade mt-3 overflow-x-auto pb-1">
               <table className="w-max min-w-full border-separate border-spacing-0 text-left text-xs">
                 <thead>

@@ -1,176 +1,82 @@
 import { Link } from 'react-router-dom'
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Avatar, Select, Skeleton, Spinner } from '../ui'
+import { Avatar, Skeleton } from '../ui'
 import Icon from '../Icon'
-import { confirm, notice } from '../../lib/confirm'
-import { toastSuccess } from '../../lib/toast'
-import { money, monthLabel, nf, useKindT, vipRpc } from '../../lib/vip'
-import { cx, formatViews } from '../../lib/utils'
+import { money, monthLabel, useKindT, vipRpc } from '../../lib/vip'
+import { formatViews } from '../../lib/utils'
 
-// VIP TOOLS > MONEY > PAST EARNINGS (migration 430). The months before the platform ran the VIP programme came from
-// the team's sheet, which names creators by a short first name ("Mary", "Noeta"). Which profile each name is, is a
-// decision for the person who knows them (Marta), not a guess: until a name is confirmed its months are nobody's, and
-// the creator sees nothing. "No longer with us" keeps the history under the sheet's name with no profile.
-const STATUS = {
-  confirmed: { label: 'Confirmed', cls: 'bg-brand text-white' },
-  suggested: { label: 'Suggested', cls: 'bg-amber-50 text-amber-700' },
-  former: { label: 'No longer with us', cls: 'bg-cloud text-smoke' },
-  unmatched: { label: 'Not matched', cls: 'bg-red-50 text-red-600' },
-}
-const FORMER = '__former'
-const ym = (n) => ({ y: Math.floor(n / 100), m: n % 100 })
-
+// Current programme members are the source of truth. A new member appears here
+// automatically, even before their first earning, while a member who moved to the
+// official programme appears there with their personal earlier history intact.
 export function VipHistoryTab({ programme }) {
   const tr = useKindT()
   const [data, setData] = useState(null)
-  const [show, setShow] = useState('all')
-  const [busy, setBusy] = useState(null)
+  const [error, setError] = useState('')
   const load = useCallback(async () => {
-    try { setData(await vipRpc('vip_history_names_list', { p_programme: programme.id })) }
-    catch (e) { setData({ names: [], people: [], error: e.message }) }
+    try { setData(await vipRpc('vip_finance_summary', { p_programme: programme.id })); setError('') }
+    catch (e) { setError(e.message); setData({ rows: [] }) }
   }, [programme.id])
   useEffect(() => { setData(null); load() }, [load])
-
-  const names = useMemo(() => data?.names || [], [data])
-  const people = useMemo(() => [...(data?.people || [])].sort((a, b) => String(a.name).localeCompare(String(b.name))), [data])
-  const done = names.filter((n) => n.status === 'confirmed' || n.status === 'former').length
-  const suggested = names.filter((n) => n.status === 'suggested' && n.profile_id)
-  const shown = show === 'check' ? names.filter((n) => n.status === 'suggested' || n.status === 'unmatched') : names
-  const options = useMemo(() => [
-    { value: '', label: tr('Who is this?') },
-    ...people.map((p) => ({ value: p.id, label: `${p.name}${p.kind === 'official' ? ` (${tr('official')})` : ''}${p.status && p.status !== 'active' ? ` · ${p.status === 'left' ? tr('left') : tr('paused')}` : ''}` })),
-    { value: FORMER, label: tr('No longer with us') },
-  ], [people, tr])
-
-  async function decide(n, profile, status, quiet = false) {
-    setBusy(n.name)
-    try {
-      await vipRpc('vip_history_match', { p_programme: programme.id, p_name: n.name, p_profile: profile, p_status: status })
-      if (!quiet) toastSuccess(status === 'confirmed' ? tr('{n} confirmed', { n: n.name }) : status === 'former' ? tr('Kept as history: {n}', { n: n.name }) : tr('Saved'))
-      setData((d) => ({ ...d, names: d.names.map((x) => (x.name === n.name ? { ...x, status, profile_id: profile, ...(profile ? { profile_name: people.find((p) => p.id === profile)?.name, photo_url: people.find((p) => p.id === profile)?.photo_url } : { profile_name: null, photo_url: null }) } : x)) }))
-      return true
-    } catch (e) { if (!quiet) notice(e.message); return false }
-    finally { setBusy(null) }
-  }
-  function pick(n, v) {
-    if (!v) return decide(n, null, 'unmatched')
-    if (v === FORMER) return decide(n, null, 'former')
-    return decide(n, v, 'confirmed')
-  }
-  async function confirmAll() {
-    if (!await confirm(tr('Confirm all {n} suggestions? Each creator will see these months as theirs.', { n: suggested.length }), { confirmLabel: tr('Confirm all') })) return
-    let ok = 0
-    for (const n of suggested) if (await decide(n, n.profile_id, 'confirmed', true)) ok++
-    toastSuccess(tr('{n} confirmed', { n: ok }))
-    load()
-  }
-
-  if (data === null) return <div className="space-y-3"><Skeleton className="h-28 w-full rounded-card" /><Skeleton className="h-64 w-full rounded-card" /></div>
-  if (data.error) return <p className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">{data.error}</p>
-  if (!names.length) return <p className="rounded-card border border-dashed border-gray-200 px-6 py-12 text-center text-sm text-smoke">{tr('This market has no earnings from before the platform.')}</p>
-
-  const credited = names.reduce((sum, n) => sum + (n.credited ? Number(n.outstanding_import) || 0 : 0), 0)
-  const unresolved = names.reduce((sum, n) => sum + (!n.credited ? Number(n.outstanding_import) || 0 : 0), 0)
-  const pct = Math.round((done / names.length) * 100)
-  return (
-    <div className="space-y-4">
-      <section className="relative overflow-hidden rounded-card border border-gray-100 bg-white p-4 shadow-card animate-rise sm:p-5">
-        <span aria-hidden className="pointer-events-none absolute -right-12 -top-16 h-40 w-40 rounded-full bg-brand/10 blur-2xl" />
-        <div className="relative flex flex-wrap items-start justify-between gap-3">
-          <div className="min-w-0 max-w-2xl">
-            <h3 className="flex items-center gap-2 text-[15px] font-bold text-ink"><Icon name="book" className="h-4 w-4 text-brand" />{tr('Past earnings from the team sheet')}</h3>
-            <p className="mt-1 text-xs leading-relaxed text-smoke">{tr('Before October 2026 the views and pay were kept in a sheet under short names. Match each name to the creator it belongs to. Their past months only appear on their VIP page once you confirm. Someone who has left keeps their history under the sheet name.')}</p>
-          </div>
-          {suggested.length > 0 && (
-            <button type="button" onClick={confirmAll} disabled={!!busy} className="btn-primary !py-2 text-xs disabled:opacity-50"><Icon name="check" className="h-3.5 w-3.5" strokeWidth={2.4} />{tr('Confirm all suggestions ({n})', { n: suggested.length })}</button>
-          )}
-        </div>
-        <div className="relative mt-4">
-          <div className="mb-1.5 flex justify-between text-xs font-semibold"><span className="text-ink">{tr('{a} of {b} names checked', { a: done, b: names.length })}</span><span className="tabular-nums text-brand">{pct}%</span></div>
-          <div className="h-2 overflow-hidden rounded-full bg-cloud"><div className="h-full rounded-full bg-gradient-to-r from-brand to-brand-light transition-[width] duration-700" style={{ width: `${pct}%` }} /></div>
-        </div>
-      </section>
-
-      <div className="grid gap-3 sm:grid-cols-3">
-        <MoneySummary label={tr('Past earnings added to wallets')} value={money(credited, 'EUR')} hint={tr('Included in lifetime earnings, never counted twice.')} />
-        <MoneySummary label={tr('Current balances')} value={money(names.reduce((s, n) => s + (Number(n.balance) || 0), 0), 'EUR')} hint={tr('Live wallet balances, after any withdrawals.')} />
-        <MoneySummary label={tr('Not credited')} value={money(unresolved, 'EUR')} hint={tr('Kept in history until the recipient is resolved.')} />
-      </div>
-
-      <div className="inline-flex gap-1 rounded-xl bg-cloud p-1 text-xs font-semibold" role="tablist" aria-label={tr('Show')}>
-        {[['check', tr('To check'), names.length - done], ['all', tr('All names'), names.length]].map(([k, label, n]) => (
-          <button key={k} type="button" role="tab" aria-selected={show === k} onClick={() => setShow(k)} className={cx('min-h-11 rounded-lg px-3 py-2 transition-all duration-200', show === k ? 'bg-white text-ink shadow-card' : 'text-smoke hoverable:hover:text-ink')}>{label} {n}</button>
-        ))}
-      </div>
-
-      {shown.length === 0 ? (
-        <p className="rounded-card border border-dashed border-gray-200 px-6 py-10 text-center text-sm text-smoke">{tr('Every name is checked. Nice work.')}</p>
-      ) : (
-        <ul className="grid grid-cols-1 gap-3 lg:grid-cols-2">
-          {shown.map((n, i) => {
-            const st = STATUS[n.status] || STATUS.unmatched
-            const first = n.first ? ym(n.first) : null
-            const last = n.last ? ym(n.last) : null
-            const max = Math.max(1, ...(n.series || []).map((s) => Number(s.earned) || 0))
-            return (
-              <li key={n.name} className="flex flex-col rounded-card border border-gray-100 bg-white p-4 shadow-card transition-transform duration-200 animate-rise hoverable:hover:-translate-y-0.5" style={{ animationDelay: `${Math.min(i, 10) * 35}ms` }}>
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className="flex flex-wrap items-center gap-2">
-                      <span className="text-[17px] font-extrabold text-ink">{n.name}</span>
-                      <span className={cx('rounded-full px-2 py-0.5 text-[10px] font-bold uppercase', st.cls)}>{tr(st.label)}</span>
-                    </p>
-                    <p className="mt-0.5 text-xs text-smoke">
-                      {n.months === 1 ? tr('1 month') : tr('{n} months', { n: n.months })}
-                      {first && last ? ` · ${monthLabel(first.y, first.m, { short: true })}${n.first !== n.last ? ` - ${monthLabel(last.y, last.m, { short: true })}` : ''}` : ''}
-                    </p>
-                  </div>
-                  <div className="shrink-0 text-right">
-                    <p className="text-lg font-bold tabular-nums text-ink">{money(n.earned, 'EUR')}</p><p className="text-[11px] text-smoke">{tr('Lifetime earnings')}</p>
-                    <p className="text-[11px] tabular-nums text-smoke">{nf(n.views)} {tr('views')}</p>
-                  </div>
-                </div>
-                {/* Their months as small bars, so two people with the same first name can be told apart at a glance. */}
-                <div className="mt-3 flex h-10 items-end gap-1" aria-hidden>
-                  {(n.series || []).map((s) => (
-                    <span key={`${s.y}-${s.m}`} title={`${monthLabel(s.y, s.m, { short: true })}: ${money(s.earned, 'EUR')} · ${formatViews(s.views)}`} className="flex-1 rounded-t bg-gradient-to-t from-brand to-brand-light transition-[height] duration-700" style={{ height: `${Math.max(8, (Number(s.earned) / max) * 100)}%` }} />
-                  ))}
-                </div>
-                {n.outstanding_import != null && <div className={cx('mt-3 rounded-xl px-3 py-3 text-xs', n.credited ? 'bg-emerald-50 text-emerald-800' : Number(n.outstanding_import) > 0 ? 'bg-amber-50 text-amber-800' : 'bg-cloud text-smoke')}>
-                  <p className="font-semibold">{n.credited ? tr('{a} added to wallet', { a: money(n.outstanding_import, 'EUR') }) : Number(n.outstanding_import) > 0 ? tr('{a} not credited — former creator', { a: money(n.outstanding_import, 'EUR') }) : tr('No unpaid past earnings')}</p>
-                  {n.status === 'confirmed' && <p className="mt-1">{tr('Available now: {a}', { a: money(n.balance, 'EUR') })}</p>}
-                </div>}
-                <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-gray-50 pt-3">
-                  {n.profile_id ? <Avatar src={n.photo_url} name={n.profile_name || ''} size="sm" /> : <span className="flex h-9 w-9 items-center justify-center rounded-full bg-cloud text-smoke"><Icon name={n.status === 'former' ? 'book' : 'user'} className="h-4 w-4" /></span>}
-                  <Select
-                    value={n.status === 'former' ? FORMER : (n.profile_id || '')}
-                    onChange={(v) => pick(n, v)}
-                    options={options}
-                    ariaLabel={tr('Who is {n}?', { n: n.name })}
-                    className="min-w-0 flex-1"
-                    disabled={busy === n.name || n.credited}
-                  />
-                  {busy === n.name && <Spinner className="h-4 w-4" />}
-                  {n.status === 'suggested' && n.profile_id && busy !== n.name && (
-                    <button type="button" onClick={() => decide(n, n.profile_id, 'confirmed')} className="inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-brand to-brand-light px-3 py-2 text-xs font-semibold text-white shadow-sm transition-all hoverable:hover:-translate-y-px">
-                      <Icon name="check" className="h-3.5 w-3.5" strokeWidth={2.4} />{tr('Confirm')}
-                    </button>
-                  )}
-                </div>
-                {n.credited && <p className="mt-2 text-[11px] text-smoke">{tr('Match locked because this history has credited a wallet.')}</p>}
-                {n.status === 'confirmed' && n.profile_id && <Link to={`/vip?mode=as&who=${n.profile_id}&tab=earnings`} className="mt-3 inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-brand-tint px-4 text-sm font-semibold text-brand transition-colors hoverable:hover:bg-orange-100">{tr('View earnings as creator')}<Icon name="chevronRight" className="h-4 w-4" /></Link>}
-                {n.decided_by && (n.status === 'confirmed' || n.status === 'former') && (
-                  <p className="mt-2 text-[11px] text-gray-400">{tr('Checked by {n}', { n: n.decided_by })}</p>
-                )}
-              </li>
-            )
-          })}
-        </ul>
-      )}
+  useEffect(() => {
+    const timer = setInterval(() => { if (document.visibilityState === 'visible') load() }, 60000)
+    const visible = () => { if (document.visibilityState === 'visible') load() }
+    document.addEventListener('visibilitychange', visible)
+    return () => { clearInterval(timer); document.removeEventListener('visibilitychange', visible) }
+  }, [load])
+  const rows = useMemo(() => data?.rows || [], [data])
+  const totals = useMemo(() => rows.reduce((a, r) => ({
+    lifetime: a.lifetime + Number(r.lifetime || 0),
+    paid: a.paid + Number(r.paid_out || 0),
+    balance: a.balance + Number(r.balance || 0),
+  }), { lifetime: 0, paid: 0, balance: 0 }), [rows])
+  if (data === null) return <div className="space-y-3"><div className="grid gap-3 sm:grid-cols-3">{[0, 1, 2].map((i) => <Skeleton key={i} className="h-28 rounded-card" />)}</div><Skeleton className="h-64 w-full rounded-card" /></div>
+  if (error) return <p role="alert" className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">{error} <button type="button" onClick={load} className="ml-2 font-bold underline">{tr('Try again')}</button></p>
+  return <div className="space-y-4">
+    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+      <Summary featured label={tr('Earned all time')} value={totals.lifetime} hint={tr('Includes this month while it is counting')} />
+      <Summary label={tr('Paid or withdrawn')} value={totals.paid} hint={tr('Past payouts and wallet withdrawals')} />
+      <Summary label={tr('Available in balances')} value={totals.balance} hint={tr('What creators can still withdraw')} />
     </div>
-  )
+    <div className="flex flex-wrap items-end justify-between gap-2 px-1">
+      <div><h3 className="text-lg font-bold text-ink">{tr('Creator earnings')}</h3><p className="text-xs text-smoke">{tr('Current creators and their full earning history')}</p></div>
+      <span className="rounded-full bg-brand-tint px-3 py-1.5 text-xs font-bold text-brand">{rows.length} {tr('creators')}</span>
+    </div>
+    {!rows.length && <p className="rounded-card border border-dashed border-gray-200 bg-white px-6 py-12 text-center text-sm text-smoke">{tr('Creators will appear here when they join this programme.')}</p>}
+    <ul className="grid items-stretch gap-3 md:grid-cols-2 xl:grid-cols-3">
+      {rows.map((r, i) => <CreatorCard key={r.profile_id} r={r} i={i} tr={tr} />)}
+    </ul>
+  </div>
 }
 
-function MoneySummary({ label, value, hint }) {
-  return <div className="rounded-card border border-gray-100 bg-white p-4 shadow-card animate-rise"><p className="text-xs font-semibold text-smoke">{label}</p><p className="mt-2 text-2xl font-bold tabular-nums text-ink">{value}</p><p className="mt-2 text-xs leading-relaxed text-smoke">{hint}</p></div>
+function Summary({ featured, label, value, hint }) {
+  return <section className={`relative overflow-hidden rounded-card p-4 shadow-card animate-rise sm:p-5 ${featured ? 'col-span-2 bg-gradient-to-br from-brand via-[#eb6729] to-brand-light text-white shadow-lift sm:col-span-1' : 'border border-orange-100 bg-white text-ink'}`}>
+    {featured && <span aria-hidden className="pointer-events-none absolute -right-12 -top-16 h-36 w-36 rounded-full bg-white/20 blur-2xl" />}
+    <p className={`relative text-xs font-bold ${featured ? 'text-white/90' : 'text-smoke'}`}>{label}</p>
+    <p className="relative mt-2 text-xl font-extrabold tabular-nums sm:text-3xl">{money(value, 'EUR')}</p>
+    <p className={`relative mt-1.5 text-xs ${featured ? 'text-white/80' : 'text-smoke'}`}>{hint}</p>
+  </section>
+}
+
+function CreatorCard({ r, i, tr }) {
+  const months = [...(r.months || [])].sort((a, b) => a.year - b.year || a.month - b.month)
+  const top = Math.max(1, ...months.map((m) => Number(m.earned) || 0))
+  return <li className="flex h-full flex-col overflow-hidden rounded-card border border-orange-100 bg-white shadow-card transition-all duration-200 animate-rise hoverable:hover:-translate-y-0.5 hoverable:hover:shadow-lift" style={{ animationDelay: `${Math.min(i, 12) * 35}ms` }}>
+    <div className="h-1.5 bg-gradient-to-r from-brand via-[#ed692b] to-brand-light" />
+    <div className="flex flex-1 flex-col p-4">
+      <div className="flex items-center gap-3">
+        <Link to={`/profile/${r.profile_id}`} aria-label={tr('Open {n} profile', { n: r.name })} className="shrink-0 rounded-full ring-2 ring-brand-tint transition-transform hoverable:hover:scale-105"><Avatar src={r.photo_url} name={r.name} size="md" /></Link>
+        <div className="min-w-0 flex-1"><Link to={`/profile/${r.profile_id}`} className="block truncate text-[15px] font-extrabold text-ink hover:text-brand">{r.name}</Link><p className="text-[11px] text-smoke">{r.status === 'paused' ? tr('Paused') : tr('Creator')} · {months.length} {tr('months')}</p></div>
+        <span className="rounded-full bg-brand-tint px-2 py-1 text-[10px] font-bold text-brand">{r.kind === 'official' ? tr('Official') : 'VIP'}</span>
+      </div>
+      <div className="mt-4 grid grid-cols-2 gap-2">
+        <div className="rounded-xl bg-orange-50/70 p-3"><p className="text-[10px] font-bold uppercase tracking-wide text-brand">{tr('Earned all time')}</p><p className="mt-1 text-xl font-extrabold tabular-nums text-ink">{money(r.lifetime, 'EUR')}</p></div>
+        <div className="rounded-xl bg-cloud/70 p-3"><p className="text-[10px] font-bold uppercase tracking-wide text-smoke">{tr('In balance')}</p><p className="mt-1 text-xl font-extrabold tabular-nums text-ink">{money(r.balance, 'EUR')}</p></div>
+      </div>
+      <div className="mt-3 flex h-12 items-end gap-1" role="img" aria-label={tr('Monthly earnings chart')}>
+        {months.length ? months.map((m) => <span key={`${m.year}-${m.month}`} title={`${monthLabel(m.year,m.month,{short:true})}: ${money(m.earned,'EUR')} · ${formatViews(m.views)} ${tr('views')}`} className="min-w-[3px] flex-1 rounded-t bg-gradient-to-t from-brand to-brand-light transition-[height] duration-700" style={{ height: `${Math.max(8,Number(m.earned)/top*100)}%` }} />) : <div className="w-full rounded-lg bg-cloud px-3 py-2 text-xs text-smoke">{tr('First earnings will appear here')}</div>}
+      </div>
+      <div className="mt-3 flex flex-wrap justify-between gap-1 text-[11px] text-smoke"><span>{tr('Paid or withdrawn')}: <strong className="text-ink">{money(r.paid_out,'EUR')}</strong></span><span>{formatViews(r.views)} {tr('views')}</span></div>
+      <Link to={`/vip?mode=as&who=${r.profile_id}&tab=earnings`} className="mt-4 flex min-h-11 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-brand to-brand-light px-4 py-2.5 text-sm font-bold text-white shadow-sm transition-all hoverable:hover:brightness-105 hoverable:hover:-translate-y-0.5">{tr('View earnings')}<Icon name="chevronRight" className="h-4 w-4" /></Link>
+    </div>
+  </li>
 }
