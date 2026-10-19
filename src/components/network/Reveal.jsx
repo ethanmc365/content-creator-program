@@ -731,7 +731,9 @@ export default function Reveal({
           <div
             ref={setItemNode(i)}
             data-reveal-idx={i}
-            className={`reveal-item${mine ? ' is-in' : ''}${landed ? ' is-done' : ''}${itemClassName ? ` ${itemClassName}` : ''}`}
+            // A CHILD CAN ASK FOR ITS CELL'S CLASS (`data-reveal-class`): a card that spans two grid columns has to
+            // say so on this wrapper, because the wrapper is the grid cell.
+            className={`reveal-item${mine ? ' is-in' : ''}${landed ? ' is-done' : ''}${itemClassName ? ` ${itemClassName}` : ''}${child?.props?.['data-reveal-class'] ? ` ${child.props['data-reveal-class']}` : ''}`}
             // Grid cells have to stretch or a card that fills its row height
             // stops filling it the moment a wrapper appears between the two.
             style={{ '--reveal-i': perItem ? 0 : Math.min(i, maxStagger) }}

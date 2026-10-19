@@ -16,11 +16,11 @@ export default function FinanceStrip({ programmeIds = null, market = null, curre
     }).catch(() => { if (active) setState({ key, rows: null }) })
     return () => { active = false }
   }, [key, market, tick]) // eslint-disable-line react-hooks/exhaustive-deps
+  // Read again when the tab comes back into view, never on a timer (the database rules: nothing new on a timer).
   useEffect(() => {
-    const timer = setInterval(() => { if (document.visibilityState === 'visible') setTick((n) => n + 1) }, 60000)
     const visible = () => { if (document.visibilityState === 'visible') setTick((n) => n + 1) }
     document.addEventListener('visibilitychange', visible)
-    return () => { clearInterval(timer); document.removeEventListener('visibilitychange', visible) }
+    return () => { document.removeEventListener('visibilitychange', visible) }
   }, [])
   const totals = useMemo(() => (state.rows || []).reduce((a, r) => ({
     earned: a.earned + Number(r.lifetime || 0),

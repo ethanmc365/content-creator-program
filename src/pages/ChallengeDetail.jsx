@@ -32,6 +32,7 @@ import HookButton from '../components/HookButton'
 import ParticipationBar from '../components/network/ParticipationBar'
 import CountryBoard from '../components/challenge/CountryBoard'
 import CollabCard from '../components/challenge/CollabCard'
+import PlatformRules from '../components/challenge/PlatformRules'
 import BoostCallout, { useBoost } from '../components/challenge/BoostBanner'
 import { usePrizeStandings } from '../components/admin/PrizeStandingsPanel'
 import { loadFeedback } from '../components/EntryFeedback'
@@ -118,6 +119,28 @@ function parseParticipationPrize(prizes) {
 // same thing as the `participation` computed below, which is the voucher
 // threshold ("post 3+ videos"). Two very different numbers that both wanted the
 // same word.
+const ENTRY_PAGE = 24
+
+// The foot of a paged entries grid: the next page loads as it scrolls into view, and the button is there for anybody
+// whose browser does not report that (and for keyboards).
+function MoreEntries({ onMore, left, tr }) {
+  const ref = useRef(null)
+  const more = useRef(onMore)
+  useEffect(() => { more.current = onMore })
+  useEffect(() => {
+    const el = ref.current
+    if (!el || typeof IntersectionObserver === 'undefined') return undefined
+    const io = new IntersectionObserver((seen) => { if (seen.some((x) => x.isIntersecting)) more.current() }, { rootMargin: '600px 0px' })
+    io.observe(el)
+    return () => io.disconnect()
+  }, [left])
+  return (
+    <div ref={ref} className="mt-6 flex justify-center">
+      <button type="button" onClick={onMore} className="btn-secondary">{tr('Show more entries')} <span className="text-smoke">({left})</span></button>
+    </div>
+  )
+}
+
 export default function ChallengeDetail({ challengeId = null, embedded = false, marketParticipation = null, initialTab = null, boardOnly = false }) {
   const tr = useT()
   const { id: routeId } = useParams()
@@ -141,7 +164,18 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
   const [submissions, setSubmissions] = useState(seed?.submissions ?? [])
   const [results, setResults] = useState(seed?.results ?? [])
   const [loading, setLoading] = useState(!seed)
-  const [tab, setTab] = useState(initialTab || 'brief') // brief | leaderboard | entries | countries
+  // A FINISHED CHALLENGE OPENS ON ITS LEADERBOARD, FROM THE FIRST FRAME (19 Oct 2026). It used to open on the brief and
+  // flip to the board once the results had loaded, so every past challenge showed its brief for a moment first. Until
+  // somebody picks a tab, the tab is DERIVED from the challenge: no effect, no second render, no flip.
+  const [entryLimit, setEntryLimit] = useState(ENTRY_PAGE)
+  const [nowMs] = useState(() => Date.now())
+  const [pickedTab, setTab] = useState(() => {
+    const t = initialTab || searchParams.get('tab')
+    return ['entries', 'brief', 'leaderboard', 'countries'].includes(t) ? t : null
+  })
+  const finished = !!challenge && (challenge.status === 'archived' || challenge.status === 'ended'
+    || (challenge.status === 'active' && challengeDeadline(challenge.end_date).getTime() < nowMs))
+  const tab = pickedTab ?? (finished ? 'leaderboard' : 'brief') // brief | leaderboard | entries | countries
   // THE PAGE KEEPS ITS HEIGHT WHILE A TAB SWAPS (14 Oct 2026). Opening the Country leaderboard from far down the page
   // briefly showed a short skeleton; the page got shorter, the browser pulled the scroll up, then the board landed and
   // it went back down. The page is held at its old height until the new tab has had time to draw.
@@ -165,6 +199,8 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
   // How the entries are ordered and which platform.
   const [entrySort, setEntrySort] = useState('newest') // newest | views | points | oldest
   const [entryPlatform, setEntryPlatform] = useState('')
+  // A new filter starts again from the first page.
+  useEffect(() => { setEntryLimit(ENTRY_PAGE) }, [entryScope, entryQuery, entrySort, entryPlatform, tab])
   const [allPrizes, setAllPrizes] = useState(false) // a phone shows five places until asked
   // Which of the two running orders the brief tab renders. See the note there.
   const isMobile = useIsMobile()
@@ -186,7 +222,6 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
   // bonus card in the rail both read them. See usePointRules.
   const pointRules = usePointRules(challenge)
   // Captured once so it stays pure during render; a fresh page load re-reads it.
-  const [nowMs] = useState(() => Date.now())
 
 
   // Submission form state
@@ -372,22 +407,6 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
       supabase.removeChannel(ch)
     }
   }, [id, refreshBoard])
-
-  // Jump straight to the leaderboard for finished challenges with results -
-  // UNLESS THE URL ASKED FOR A TAB.
-  //
-  // This effect keys on `results.length`, which arrives after the deep-link
-  // effect below has run, so it was overwriting an explicit `?tab=brief` a
-  // moment later: the page opened on the brief and then flipped itself to the
-  // leaderboard. That matters because those links are what the share dialog
-  // and the announcement cards hand out.
-  //
-  // Reading `searchParams` rather than a flag: the question is "did the URL
-  // name a tab", and the URL is the thing that knows.
-  useEffect(() => {
-    if (['entries', 'brief', 'leaderboard', 'countries'].includes(searchParams.get('tab'))) return
-    if (challenge && challenge.status !== 'active' && results.length > 0) setTab('leaderboard')
-  }, [challenge, results.length, searchParams])
 
   // Deep links from the home hero: ?submit=1 opens the submit form,
   // ?tab= lands on a tab other than the brief.
@@ -661,6 +680,9 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
   // FILTERS FOR THE ENTRIES. Sorting and a platform pick apply to whichever list is showing (everyone's or mine); the
   // name search stays on everyone's.
   const entryPlatforms = [...new Set(submissions.map((s) => s.platform).filter(Boolean))]
+  // THE ENTRIES TAB DRAWS A PAGE AT A TIME (19 Oct 2026). The global challenge had 738 entries and every one was
+  // mounted the moment the tab was pressed: the tab froze for most of a second, the old board hung on screen and the
+  // dark card beside the tabs faded out in slow motion. Twenty-four, then more as the foot of the grid comes into view.
   const shownEntries = (() => {
     let list = entryScope === 'mine'
       ? myEntries
@@ -1454,23 +1476,7 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
               creator reading them now see the same marks. */}
           <section className="card !p-6">
             <h2 className="mb-4 text-sm font-semibold uppercase tracking-wider text-smoke">{tr("Platforms you can post on")}</h2>
-            <div className="flex flex-wrap gap-2.5">
-              {(challenge.platforms || []).map((p) => (
-                <span
-                  key={p}
-                  className="inline-flex items-center gap-2 rounded-full border border-gray-100 bg-white py-1.5 pl-2 pr-3.5 text-xs font-semibold shadow-card transition-transform duration-200 hover:-translate-y-0.5"
-                >
-                  <SocialMark brand={SOCIAL_BRAND[p] || 'link'} colored className="h-5 w-5 shrink-0" />
-                  {tr(acceptsLabel(p))}
-                </span>
-              ))}
-              {(challenge.platforms || []).some((p) => p === 'Instagram' || p === 'Facebook') && (
-                <p className="w-full text-xs text-smoke">{tr('Photo posts and carousels do not count.')}</p>
-              )}
-              {(challenge.platforms || []).length === 0 && (
-                <p className="text-sm text-smoke">{tr("Any platform.")}</p>
-              )}
-            </div>
+            <PlatformRules platforms={challenge.platforms || []} />
           </section>
           </>
         )
@@ -1624,7 +1630,7 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
         ) : (
           // FOUR ACROSS ON A DESKTOP. Two on a phone, three on a tablet, four from lg.
           <div key={`${entryScope}:${entryQuery}:${entrySort}:${entryPlatform}`} className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-4">
-            {shownEntries.map((s, i) => (
+            {shownEntries.slice(0, entryLimit).map((s, i) => (
               <div key={s.id} style={{ animationDelay: `${Math.min(i, 9) * 40}ms` }} className={cx(
                 'animate-fade-up',
                 'card group flex flex-col overflow-hidden !p-0 transition-all duration-300 hoverable:hover:-translate-y-1 hoverable:hover:shadow-lift',
@@ -1656,6 +1662,9 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
             ))}
           </div>
         )
+      )}
+      {tab === 'entries' && shownEntries.length > entryLimit && (
+        <MoreEntries onMore={() => setEntryLimit((n) => n + ENTRY_PAGE)} left={shownEntries.length - entryLimit} tr={tr} />
       )}
 
       {/* ---------- Tab: leaderboard ---------- */}

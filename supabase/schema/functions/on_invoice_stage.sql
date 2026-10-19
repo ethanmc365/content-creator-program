@@ -15,7 +15,7 @@ begin
   if new.stage = 'awaiting_approval' then
     for r in
       select id from public.profiles
-      where platform_role in ('global_admin', 'owner')
+      where platform_role = 'owner'
         and is_test = false and id <> coalesce(new.submitted_by, '00000000-0000-0000-0000-000000000000'::uuid)
     loop
       perform public.notify_user(

@@ -13,6 +13,7 @@ import { Avatar, Badge, EmptyState } from '../components/ui'
 import { scoringMode } from '../lib/scoring'
 import WinnersPodium from '../components/WinnersPodium'
 import { loadWinnerGalleries } from '../lib/winners'
+import { stripMarkup } from '../lib/richText'
 import { cx, formatDate, challengeDeadline } from '../lib/utils'
 import { listContainer, listItem, cardHover, pageFade } from '../lib/motion'
 import { useT } from '../lib/i18n'
@@ -179,18 +180,17 @@ export default function MarketChallenges() {
                   const mode = scoringMode(c.scoring)
                   const podium = (d.winners[c.id] || []).slice(0, 3)
                   return (
-                    <MotionLink key={c.id} to={`/challenges/${c.id}`} variants={listItem} {...cardHover}
+                    <MotionLink key={c.id} to={`/challenges/${c.id}?tab=leaderboard`} variants={listItem} {...cardHover}
                       className="card block hover:shadow-lift">
                       <div className="flex flex-wrap items-center justify-between gap-2">
-                        <Badge tone={c.status === 'archived' ? 'grey' : 'amber'}>
-                          {c.status === 'active' ? 'ended' : c.status}
-                        </Badge>
+                        {/* No "archived" badge: the section is Past challenges. Still-active past its deadline says so. */}
+                        {c.status === 'active' ? <Badge tone="amber">ended</Badge> : <span />}
                         <span className="text-xs text-smoke">
                           {formatDate(c.start_date)} → {formatDate(c.end_date)}
                         </span>
                       </div>
                       <h3 className="mt-3 text-lg font-semibold">{c.title}</h3>
-                      <p className="mt-1.5 line-clamp-2 text-sm text-smoke">{c.description}</p>
+                      <p className="mt-1.5 line-clamp-2 text-sm text-smoke">{stripMarkup(c.description)}</p>
                       <p className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-smoke">
                         <span className="flex items-center gap-1.5 font-medium text-ink">
                           <Icon name={mode.icon} className="h-3.5 w-3.5 text-brand" />

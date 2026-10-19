@@ -42,6 +42,9 @@ import { useT, usePlural } from '../lib/i18n'
 import { testFlags } from '../lib/testData'
 import { useCachedPage, writePageCache } from '../lib/pageCache'
 import { challengesApi } from '../api/challenges'
+import { moneyApi } from '../api/money'
+import { convert } from '../lib/programme'
+import { formatMoney, formatViews } from '../lib/utils'
 import { submissionsApi } from '../api/submissions'
 import { profilesApi } from '../api/profiles'
 import { chatApi } from '../api/chat'
@@ -180,6 +183,64 @@ function MineChip({ to, icon, value, label }) {
         {' '}<span className="text-white/80">{label}</span>
       </span>
     </Link>
+  )
+}
+
+// YOUR HIGHLIGHTS, ON THE COMMUNITY CARD (19 Oct 2026). It carried two chips, "68 connections" and "0 videos posted",
+// and the team wanted "something more useful" there between challenges. Three figures that are yours and that you can
+// move: the views your challenge entries have earned, what you have won, and your best finish (which opens that
+// challenge). A creator with nothing yet gets one door instead of three zeros. Frosted tiles on the orange card, kept
+// clear of the plane's corner like the chips were.
+function Highlights({ me, isAdmin, liveCount = 0 }) {
+  const tr = useT()
+  if (!me) return <div className="h-[4.25rem] lg:max-w-[calc(100%-21.5rem)] xl:max-w-[calc(100%-23.5rem)]" />
+  const fresh = !me.viewsEarned && !me.wonEur && !me.best
+  // NOTHING OF YOUR OWN YET: the community's week, and the door to change that (the team gets the challenges).
+  const week = fresh ? [
+    { key: 'wv', icon: 'video', to: '/challenges', value: Number(me.weekVideos || 0).toLocaleString('en-GB'), label: tr('videos posted this week') },
+    { key: 'wj', icon: 'userPlus', to: '/creators', value: Number(me.weekJoined || 0).toLocaleString('en-GB'), label: tr('new creators this week') },
+    isAdmin
+      ? { key: 'go', icon: 'flag', to: '/challenges', value: String(liveCount), label: liveCount === 1 ? tr('challenge running now') : tr('challenges running now') }
+      : { key: 'go', icon: 'sparkles', to: '/challenges', value: tr('Post'), label: tr('your first video to start your highlights') },
+  ] : null
+  if (fresh) return <HighlightTiles tiles={week} />
+  const tiles = [
+    { key: 'views', icon: 'eye', to: '/challenges', value: formatViews(me.viewsEarned), label: tr('views your videos earned') },
+    { key: 'won', icon: 'trophy', to: '/rewards', value: formatMoney(me.wonEur, 'EUR'), label: tr('won in prizes') },
+    me.best && {
+      key: 'best',
+      icon: 'flag',
+      to: `/challenges/${me.best.id}?tab=leaderboard`,
+      value: tr('#{n}', { n: me.best.rank }),
+      label: tr('best finish'),
+      sub: me.best.title,
+    },
+  ].filter(Boolean)
+  return <HighlightTiles tiles={tiles} />
+}
+
+const weekAgoIso = () => new Date(Date.now() - 7 * 86400000).toISOString()
+
+function HighlightTiles({ tiles }) {
+  return (
+    <div className="grid grid-cols-3 gap-2 lg:max-w-[calc(100%-21.5rem)] xl:max-w-[calc(100%-23.5rem)]">
+      {tiles.map((t, i) => (
+        <Link
+          key={t.key}
+          to={t.to}
+          className="wipe-item group min-w-0 rounded-2xl bg-white/15 px-3.5 py-3 transition-all duration-200 hoverable:hover:-translate-y-0.5 hoverable:hover:bg-white/20"
+          style={{ animationDelay: `${0.6 + i * 0.07}s` }}
+          title={t.sub || undefined}
+        >
+          <span className="flex items-center gap-1.5">
+            <Icon name={t.icon} className="h-4 w-4 shrink-0 text-white/80" />
+            <span className="truncate text-xl font-bold tabular-nums text-white">{t.value}</span>
+          </span>
+          <span className="mt-0.5 block text-xs font-medium leading-snug text-white/80 line-clamp-2">{t.label}</span>
+          {t.sub && <span className="mt-0.5 block truncate text-xs text-white/65">{t.sub}</span>}
+        </Link>
+      ))}
+    </div>
   )
 }
 
@@ -364,7 +425,18 @@ export default function GlobalHome() {
       // would show roughly half of anybody's real network.
       profilesApi.connections().select('id', { count: 'exact', head: true })
         .eq('status', 'accepted').or(`creator_id.eq.${uid},connected_creator_id.eq.${uid}`),
-    ]).then(([{ count: videos }, { count: myVideos }, { count: myConns }]) => {
+      // YOUR HIGHLIGHTS (19 Oct 2026): the views your entries earned, what you have won, your best finish. See
+      // `Highlights` for why these replaced the connections and videos chips.
+      submissionsApi.submissions().select('logged_views').eq('creator_id', uid).limit(1000),
+      moneyApi.rewards().select('amount, currency, status').eq('creator_id', uid).neq('status', 'cancelled'),
+      challengesApi.results().select('rank, challenge_id, challenges!inner(title, winners_published_at)')
+        .eq('creator_id', uid).not('rank', 'is', null).not('challenges.winners_published_at', 'is', null)
+        .order('rank', { ascending: true }).limit(1),
+      // The community's week, for somebody with no highlights of their own yet (a new creator, or the team).
+      submissionsApi.submissions().select('id', { count: 'exact', head: true }).gte('submitted_at', weekAgoIso()),
+      profilesApi.profiles().select('id', { count: 'exact', head: true })
+        .eq('status', 'active').eq('is_admin', false).eq('is_test', false).gte('created_at', weekAgoIso()),
+    ]).then(([{ count: videos }, { count: myVideos }, { count: myConns }, { data: myViews }, { data: myRewards }, { data: best }, { count: weekVideos }, { count: weekJoined }]) => {
       if (cancelled) return
       // POINTS AND RANK ARE NO LONGER READ HERE. Nothing on this page renders
       // them - the chips were cut to connections and videos a while back - and
@@ -374,6 +446,11 @@ export default function GlobalHome() {
         videos: videos ?? 0,
         myVideos: myVideos ?? 0,
         connections: myConns ?? 0,
+        viewsEarned: (myViews || []).reduce((sum, r) => sum + (Number(r.logged_views) || 0), 0),
+        wonEur: Math.round((myRewards || []).reduce((sum, r) => sum + (convert(Number(r.amount) || 0, r.currency || 'EUR', 'EUR') || 0), 0)),
+        best: best?.[0] ? { rank: best[0].rank, id: best[0].challenge_id, title: best[0].challenges?.title } : null,
+        weekVideos: weekVideos ?? 0,
+        weekJoined: weekJoined ?? 0,
       })
     })
     return () => { cancelled = true }
@@ -888,22 +965,20 @@ export default function GlobalHome() {
                   wing. They are a size down from the figures above too, which
                   is what they are: doors, not statistics. */}
               <div className="mt-6 sm:mt-7">
-                <div className="wipe-item flex flex-wrap gap-2 lg:max-w-[calc(100%-21.5rem)] xl:max-w-[calc(100%-23.5rem)]" style={{ animationDelay: '0.6s' }}>
-                  <MineChip to="/connections" icon="users"
-                    value={me ? me.connections : null}
-                    label={me?.connections === 1 ? tr('connection') : tr('connections')} />
-                  {/* A VIP's videos are their VIP videos (3 Oct 2026: "it shows zero connections, but I think here you can
-                      also show the amount of videos they posted in a little card"). */}
-                  {vipBand ? (
+                {vipBand ? (
+                  <div className="wipe-item flex flex-wrap gap-2 lg:max-w-[calc(100%-21.5rem)] xl:max-w-[calc(100%-23.5rem)]" style={{ animationDelay: '0.6s' }}>
+                    <MineChip to="/connections" icon="users"
+                      value={me ? me.connections : null}
+                      label={me?.connections === 1 ? tr('connection') : tr('connections')} />
+                    {/* A VIP's videos are their VIP videos (3 Oct 2026: "it shows zero connections, but I think here you can
+                        also show the amount of videos they posted in a little card"). */}
                     <MineChip to="/vip?tab=videos" icon="video"
                       value={vipOverview ? Number(vipOverview.lifetime?.videos ?? vipOverview.stats?.videos ?? 0) : null}
                       label={Number(vipOverview?.lifetime?.videos) === 1 ? tr('video posted') : tr('videos posted')} />
-                  ) : !profile?.is_vip && (
-                  <MineChip to="/challenges" icon="video"
-                    value={me ? me.myVideos : null}
-                    label={me?.myVideos === 1 ? tr('video posted') : tr('videos posted')} />
-                  )}
-                </div>
+                  </div>
+                ) : (
+                  <Highlights me={me} isAdmin={isAdmin} liveCount={Object.keys(d?.live || {}).length} />
+                )}
               </div>
             </div>
             </div>

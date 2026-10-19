@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Area, AreaChart, Bar, BarChart, CartesianGrid, Cell, LabelList, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
+import { Bar, CartesianGrid, Cell, ComposedChart, Line, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
 import { Avatar, EmptyState, PageHeader, Skeleton, Toggle } from '../../components/ui'
 import Icon from '../../components/Icon'
 import { SurveyCard } from '../../components/SurveyHost'
-import { CHART, FILL, axisTickSmall, tooltipStyle } from '../../components/charts/chartTheme'
+import { CHART, axisTickSmall, tooltipStyle } from '../../components/charts/chartTheme'
 import { confirm, notice, saved } from '../../lib/confirm'
 import { toastSuccess } from '../../lib/toast'
 import { cx, downloadCsv, formatDate } from '../../lib/utils'
@@ -21,6 +21,8 @@ import { challengesApi } from '../../api/challenges'
 import { profilesApi } from '../../api/profiles'
 import { marketsApi } from '../../api/markets'
 import { contentApi } from '../../api/content'
+import { AnswerBars, ScaleColumns, Star, SurveyPeople } from '../../components/survey/SurveyCharts'
+import { useBulkTranslate } from '../../lib/quickTranslate'
 
 // SURVEYS (migration 291; rebuilt, migration 293).
 //
@@ -751,6 +753,20 @@ function SurveyResults({ survey, markets, vipMarkets = [], challenges, onBack, o
 
   const summary = useMemo(() => (responses ? summarise(survey, responses) : null), [survey, responses])
   const byDay = useMemo(() => responsesByDay(responses), [responses])
+  // EVERY WRITTEN ANSWER, FOR ONE TRANSLATE BUTTON. Answers arrive in English, Spanish, Romanian...; one press turns
+  // them all into the reader's language (and back), on both tabs.
+  const writtenAnswers = useMemo(() => {
+    const textQs = (survey.questions || []).filter((q) => q.type === 'text').map((q) => q.id)
+    return (responses || []).flatMap((r) => textQs.map((id) => r.answers?.[id]).filter((v) => typeof v === 'string' && v.trim()))
+  }, [survey.questions, responses])
+  const translate = useBulkTranslate(writtenAnswers)
+  // The chart: each day's answers as bars, and the running total as a line, so it says both "how many came in that
+  // day" and "where are we now". It was two stacked areas whose height meant nothing in particular.
+  const flow = useMemo(() => byDay.map((x, i) => ({
+    ...x,
+    label: formatDate(x.day),
+    total: byDay.slice(0, i + 1).reduce((sum, y) => sum + y.answered, 0),
+  })), [byDay])
   const rate = audience ? Math.round(((summary?.answered || 0) / audience) * 100) : null
 
   const who = useCallback((r) => {
@@ -778,6 +794,7 @@ function SurveyResults({ survey, markets, vipMarkets = [], challenges, onBack, o
   }
 
   return (
+    <SurveyPeople.Provider value={who}>
     <div className="space-y-6">
       <div className="flex flex-wrap items-center gap-3">
         <button type="button" onClick={onBack} aria-label={tr('All surveys')} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-cloud text-smoke transition-all hoverable:hover:-translate-x-0.5 hoverable:hover:text-brand">
@@ -820,18 +837,32 @@ function SurveyResults({ survey, markets, vipMarkets = [], challenges, onBack, o
               </div>
             </div>
             <div className="rounded-card border border-gray-100 bg-white p-4 shadow-card animate-fade-up [animation-delay:60ms]">
-              <p className="mb-2 text-[11px] font-bold uppercase tracking-wide text-gray-400">{tr('Answers coming in')}</p>
-              {byDay.length === 0 ? <p className="py-10 text-center text-sm text-smoke">{tr('Nothing yet.')}</p> : (
-                <div className="h-36 animate-chart-in">
+              <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2">
+                <p className="text-xs font-bold uppercase tracking-wide text-gray-400">{tr('Answers coming in')}</p>
+                <p className="flex items-center gap-3 text-xs font-semibold text-smoke">
+                  <span className="inline-flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm bg-brand" />{tr('Answered that day')}</span>
+                  <span className="inline-flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm bg-gray-300" />{tr('Said no')}</span>
+                  <span className="inline-flex items-center gap-1.5"><span className="h-0.5 w-3.5 rounded-full bg-ink" />{tr('Total answered')}</span>
+                </p>
+              </div>
+              {flow.length === 0 ? <p className="py-10 text-center text-sm text-smoke">{tr('Nothing yet.')}</p> : (
+                <div className="h-40 animate-chart-in">
                   <ResponsiveContainer>
-                    <AreaChart data={byDay.map((d) => ({ ...d, label: formatDate(d.day) }))} margin={{ top: 6, right: 6, left: -22, bottom: 0 }}>
+                    <ComposedChart data={flow} margin={{ top: 8, right: 4, left: -22, bottom: 0 }} barCategoryGap="28%">
                       <CartesianGrid vertical={false} stroke={CHART.grid} />
                       <XAxis dataKey="label" tick={axisTickSmall} axisLine={false} tickLine={false} minTickGap={24} />
-                      <YAxis tick={axisTickSmall} axisLine={false} tickLine={false} allowDecimals={false} />
-                      <Tooltip contentStyle={tooltipStyle} formatter={(v, k) => [v, k === 'answered' ? tr('Answered') : tr('Said no')]} />
-                      <Area type="monotone" dataKey="answered" stackId="a" stroke={CHART.brand} strokeWidth={2} fill={FILL.area} animationDuration={700} />
-                      <Area type="monotone" dataKey="declined" stackId="a" stroke="#9ca3af" strokeWidth={1.5} fill="#f3f4f6" animationDuration={700} />
-                    </AreaChart>
+                      <YAxis yAxisId="day" tick={axisTickSmall} axisLine={false} tickLine={false} allowDecimals={false} />
+                      <YAxis yAxisId="total" orientation="right" hide allowDecimals={false} />
+                      <Tooltip
+                        cursor={{ fill: 'rgba(217,68,7,0.06)' }}
+                        contentStyle={tooltipStyle}
+                        labelFormatter={(l) => l}
+                        formatter={(v, k) => [v, k === 'answered' ? tr('Answered that day') : k === 'declined' ? tr('Said no') : tr('Total answered')]}
+                      />
+                      <Bar yAxisId="day" dataKey="answered" stackId="d" fill={CHART.brand} radius={[0, 0, 0, 0]} animationDuration={700} />
+                      <Bar yAxisId="day" dataKey="declined" stackId="d" fill="#d1d5db" radius={[4, 4, 0, 0]} animationDuration={700} />
+                      <Line yAxisId="total" type="monotone" dataKey="total" stroke="#1c1c1c" strokeWidth={2} dot={{ r: 2.5, fill: '#1c1c1c' }} animationDuration={900} />
+                    </ComposedChart>
                   </ResponsiveContainer>
                 </div>
               )}
@@ -844,9 +875,24 @@ function SurveyResults({ survey, markets, vipMarkets = [], challenges, onBack, o
                 <button key={k} type="button" onClick={() => setTab(k)} className={cx('rounded-lg px-3.5 py-1.5 transition-all duration-200', tab === k ? 'bg-white text-ink shadow-card' : 'text-smoke hoverable:hover:text-ink')}>{label}</button>
               ))}
             </div>
-            {responses.length > 0 && (
-              <button type="button" onClick={exportCsv} className="btn-secondary !py-2 text-xs"><Icon name="download" className="h-3.5 w-3.5" /> {tr('Export CSV')}</button>
-            )}
+            <div className="flex flex-wrap items-center gap-2">
+              {writtenAnswers.length > 0 && (
+                <button
+                  type="button"
+                  onClick={translate.toggle}
+                  disabled={translate.busy}
+                  aria-pressed={translate.on}
+                  className={cx('inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-semibold transition-all duration-200', translate.on ? 'bg-brand text-white shadow-card' : 'bg-cloud text-ink hoverable:hover:-translate-y-0.5')}
+                >
+                  {translate.busy ? <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-current border-t-transparent" aria-hidden /> : <Icon name="language" className="h-3.5 w-3.5" />}
+                  {translate.on ? tr('Show originals') : tr('Translate answers')}
+                </button>
+              )}
+              {translate.failed && <span className="text-xs text-smoke">{tr('Could not translate right now.')}</span>}
+              {responses.length > 0 && (
+                <button type="button" onClick={exportCsv} className="btn-secondary !py-2 text-xs"><Icon name="download" className="h-3.5 w-3.5" /> {tr('Export CSV')}</button>
+              )}
+            </div>
           </div>
 
           {tab === 'charts' ? (
@@ -855,7 +901,7 @@ function SurveyResults({ survey, markets, vipMarkets = [], challenges, onBack, o
             ) : (
               <div key="charts" className="grid items-stretch gap-4 lg:grid-cols-2">
                 {summary.questions.map((q, i) => (
-                  <section key={q.id} className={cx('flex h-full flex-col rounded-card border border-gray-100 bg-white p-5 shadow-card animate-fade-up', q.type === 'text' && 'lg:col-span-2')} style={{ animationDelay: `${Math.min(i, 6) * 50}ms` }}>
+                  <section key={q.id} className={cx('relative flex h-full flex-col rounded-card has-[[aria-expanded=true]]:z-30 border border-gray-100 bg-white p-5 shadow-card animate-fade-up', q.type === 'text' && 'lg:col-span-2')} style={{ animationDelay: `${Math.min(i, 6) * 50}ms` }}>
                     <div className="flex items-start gap-3">
                       <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-brand text-[12px] font-bold text-white shadow-card">{i + 1}</span>
                       <p className="min-w-0 flex-1 pt-0.5 text-[15px] font-semibold leading-snug text-ink">{q.prompt}</p>
@@ -869,7 +915,7 @@ function SurveyResults({ survey, markets, vipMarkets = [], challenges, onBack, o
                         {q.type === 'scale' && <ScaleResult q={q} />}
                         {q.type === 'yesno' && <YesNoResult q={q} />}
                         {(q.type === 'choice' || q.type === 'multi') && <ChoiceResult q={q} />}
-                        {q.type === 'text' && <TextResult q={q} who={(a) => who({ profile_id: a.profile_id, sample_name: a.sample_name })} />}
+                        {q.type === 'text' && <TextResult q={q} who={(a) => who({ profile_id: a.profile_id, sample_name: a.sample_name })} translate={translate} />}
                       </div>
                     </div>
                   </section>
@@ -877,11 +923,12 @@ function SurveyResults({ survey, markets, vipMarkets = [], challenges, onBack, o
               </div>
             )
           ) : (
-            <ResponsesList key="people" survey={survey} responses={responses} who={who} onDelete={removeResponse} />
+            <ResponsesList key="people" survey={survey} responses={responses} who={who} onDelete={removeResponse} translate={translate} />
           )}
         </>
       )}
     </div>
+    </SurveyPeople.Provider>
   )
 }
 
@@ -915,27 +962,25 @@ function RateRing({ pct }) {
 
 function RatingResult({ q }) {
   const tr = useT()
-  const data = [5, 4, 3, 2, 1].map((n) => ({ name: `${n}`, count: q.spread[n - 1] }))
+  const items = [5, 4, 3, 2, 1].map((n) => ({
+    key: n,
+    title: n === 1 ? tr('1 star') : tr('{n} stars', { n }),
+    label: <span className="flex gap-0.5">{[1, 2, 3, 4, 5].map((k) => <Star key={k} on={k <= n} className="h-3.5 w-3.5" />)}</span>,
+    count: q.spread[n - 1],
+    rows: q.pickers?.[n - 1] || [],
+    strong: true,
+  }))
   return (
-    <div className="flex items-center gap-5">
-      <div className="shrink-0 text-center">
+    <div className="flex flex-col gap-5 sm:flex-row sm:items-center">
+      <div className="shrink-0 text-center sm:w-24">
         <p className="text-4xl font-bold tabular-nums text-ink">{q.average == null ? '-' : q.average.toFixed(1)}</p>
-        <p className="mt-1 flex justify-center gap-0.5 text-brand">
-          {[1, 2, 3, 4, 5].map((n) => <Icon key={n} name="star" className={cx('h-3.5 w-3.5', q.average != null && q.average >= n - 0.25 ? 'opacity-100' : 'opacity-25')} />)}
+        <p className="mt-1 flex justify-center gap-0.5">
+          {[1, 2, 3, 4, 5].map((n) => <Star key={n} on={q.average != null && q.average >= n - 0.25} className="h-4 w-4" />)}
         </p>
-        <p className="mt-1 text-[10.5px] font-semibold text-smoke">{tr('out of 5')}</p>
+        <p className="mt-1 text-xs font-semibold text-smoke">{tr('out of 5')}</p>
       </div>
-      <div className="h-32 flex-1 animate-chart-in">
-        <ResponsiveContainer>
-          <BarChart className="chart-h" data={data} layout="vertical" margin={{ top: 0, right: 28, left: -18, bottom: 0 }} barCategoryGap="22%">
-            <XAxis type="number" hide allowDecimals={false} />
-            <YAxis type="category" dataKey="name" tick={{ fontSize: 11, fill: CHART.axis, fontWeight: 700 }} axisLine={false} tickLine={false} width={36} tickFormatter={(v) => `${v}★`} />
-            <Tooltip cursor={false} contentStyle={tooltipStyle} formatter={(v) => [v, tr('Answers')]} />
-            <Bar dataKey="count" fill={FILL.brandH} radius={[0, 6, 6, 0]} background={{ fill: '#f3f4f6', radius: 6 }} animationDuration={700}>
-              <LabelList dataKey="count" position="right" style={{ fontSize: 11, fontWeight: 700, fill: CHART.ink }} />
-            </Bar>
-          </BarChart>
-        </ResponsiveContainer>
+      <div className="min-w-0 flex-1">
+        <AnswerBars items={items} total={q.n} labelWidth="w-[5.5rem]" />
       </div>
     </div>
   )
@@ -943,29 +988,16 @@ function RatingResult({ q }) {
 
 function ScaleResult({ q }) {
   const tr = useT()
-  const data = q.spread.map((count, n) => ({ name: String(n), count, band: n >= 9 ? 'high' : n >= 7 ? 'mid' : 'low' }))
   return (
     <div>
       <div className="mb-3 flex items-baseline gap-4">
         <p className="text-3xl font-bold tabular-nums text-ink">{q.average == null ? '-' : q.average.toFixed(1)}<span className="ml-1 text-sm font-semibold text-smoke">/ 10</span></p>
         {q.score != null && (
-          <p className="text-[12px] font-semibold text-smoke">{tr('Recommend score')} <span className={cx('text-base font-bold', q.score >= 0 ? 'text-emerald-600' : 'text-red-500')}>{q.score > 0 ? `+${q.score}` : q.score}</span></p>
+          <p className="text-xs font-semibold text-smoke">{tr('Recommend score')} <span className={cx('text-base font-bold', q.score >= 0 ? 'text-emerald-600' : 'text-red-500')}>{q.score > 0 ? `+${q.score}` : q.score}</span></p>
         )}
       </div>
-      <div className="h-32 animate-chart-in">
-        <ResponsiveContainer>
-          <BarChart data={data} margin={{ top: 14, right: 0, left: -26, bottom: 0 }} barCategoryGap="16%">
-            <CartesianGrid vertical={false} stroke={CHART.grid} />
-            <XAxis dataKey="name" tick={axisTickSmall} axisLine={false} tickLine={false} />
-            <YAxis tick={axisTickSmall} axisLine={false} tickLine={false} allowDecimals={false} />
-            <Tooltip cursor={false} contentStyle={tooltipStyle} formatter={(v) => [v, tr('Answers')]} />
-            <Bar dataKey="count" radius={[5, 5, 0, 0]} animationDuration={700}>
-              {data.map((d) => <Cell key={d.name} fill={d.band === 'high' ? FILL.green : d.band === 'mid' ? FILL.amber : FILL.brand} />)}
-            </Bar>
-          </BarChart>
-        </ResponsiveContainer>
-      </div>
-      <p className="mt-1 text-[11px] text-smoke">{tr('Green is 9-10, amber 7-8. The score is the share of 9-10 minus the share of 0-6.')}</p>
+      <ScaleColumns spread={q.spread} pickers={q.pickers} />
+      <p className="mt-2 text-xs text-smoke">{tr('Green is 9-10, amber 7-8. Press a column to see who chose it.')}</p>
     </div>
   )
 }
@@ -976,27 +1008,26 @@ function YesNoResult({ q }) {
   const data = q.counts.map((c) => ({ name: c.option === 'yes' ? tr('Yes') : tr('No'), value: c.count, key: c.option }))
   const yes = q.counts.find((c) => c.option === 'yes')?.count || 0
   return (
-    <div className="flex items-center gap-5">
-      <div className="relative h-32 w-32 shrink-0 animate-chart-in">
+    <div className="flex flex-col gap-5 sm:flex-row sm:items-center">
+      <div className="relative mx-auto h-32 w-32 shrink-0 animate-chart-in">
         <ResponsiveContainer>
           <PieChart>
-            <Pie data={data} dataKey="value" innerRadius={42} outerRadius={60} paddingAngle={2} startAngle={90} endAngle={-270} animationDuration={800} stroke="none">
-              {data.map((d) => <Cell key={d.key} fill={d.key === 'yes' ? '#d94407' : '#e5e7eb'} />)}
+            <Pie data={q.n ? data : [{ key: 'none', value: 1 }]} dataKey="value" innerRadius={42} outerRadius={60} paddingAngle={q.n ? 2 : 0} startAngle={90} endAngle={-270} animationDuration={800} stroke="none">
+              {(q.n ? data : [{ key: 'none' }]).map((d) => <Cell key={d.key} fill={d.key === 'yes' ? '#d94407' : '#e5e7eb'} />)}
             </Pie>
           </PieChart>
         </ResponsiveContainer>
         <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
           <span className="text-xl font-bold tabular-nums text-ink">{Math.round((yes / total) * 100)}%</span>
-          <span className="text-[10px] font-bold uppercase text-smoke">{tr('Yes')}</span>
+          <span className="text-xs font-bold uppercase text-smoke">{tr('Yes')}</span>
         </div>
       </div>
-      <div className="flex-1 space-y-2 text-sm">
-        {data.map((d) => (
-          <p key={d.key} className="flex items-center justify-between gap-2">
-            <span className="inline-flex items-center gap-2 font-semibold text-ink"><span className={cx('h-2.5 w-2.5 rounded-full', d.key === 'yes' ? 'bg-brand' : 'bg-gray-200')} />{d.name}</span>
-            <span className="tabular-nums text-smoke"><strong className="text-ink">{d.value}</strong> · {Math.round((d.value / total) * 100)}%</span>
-          </p>
-        ))}
+      <div className="min-w-0 flex-1">
+        <AnswerBars
+          total={q.n}
+          labelWidth="w-12"
+          items={q.counts.map((c) => ({ key: c.option, title: c.option === 'yes' ? tr('Yes') : tr('No'), label: c.option === 'yes' ? tr('Yes') : tr('No'), count: c.count, rows: c.rows, strong: c.option === 'yes' }))}
+        />
       </div>
     </div>
   )
@@ -1004,30 +1035,23 @@ function YesNoResult({ q }) {
 
 function ChoiceResult({ q }) {
   const tr = useT()
-  const total = Math.max(1, q.n)
-  const data = [...q.counts].sort((a, b) => b.count - a.count).map((c) => ({ name: c.option, count: c.count, pct: c.count / total }))
-  const top = data[0]?.count || 0
+  // In the order the question asked them, so "Very clear ... I did not read it" reads as the scale it is; the most
+  // picked is the strong one.
+  const top = Math.max(0, ...q.counts.map((c) => c.count))
   return (
     <div>
-      <div className="animate-chart-in" style={{ height: Math.max(90, data.length * 38) }}>
-        <ResponsiveContainer>
-          <BarChart className="chart-h" data={data} layout="vertical" margin={{ top: 0, right: 44, left: 0, bottom: 0 }} barCategoryGap="24%">
-            <XAxis type="number" hide domain={[0, 1]} />
-            <YAxis type="category" dataKey="name" width={140} tick={{ fontSize: 12, fill: CHART.ink, fontWeight: 600 }} axisLine={false} tickLine={false} />
-            <Tooltip cursor={false} contentStyle={tooltipStyle} formatter={(v, k, p) => [`${p.payload.count} · ${Math.round(v * 100)}%`, tr('Answers')]} />
-            <Bar dataKey="pct" radius={[0, 7, 7, 0]} background={{ fill: '#f3f4f6', radius: 7 }} animationDuration={700}>
-              {data.map((d) => <Cell key={d.name} fill={d.count === top && top > 0 ? FILL.brandH : '#fbc9a6'} />)}
-              <LabelList dataKey="pct" position="right" formatter={(v) => `${Math.round(v * 100)}%`} style={{ fontSize: 11, fontWeight: 700, fill: CHART.ink }} />
-            </Bar>
-          </BarChart>
-        </ResponsiveContainer>
-      </div>
-      {q.type === 'multi' && <p className="mt-1 text-[11px] text-gray-400">{tr('People could pick more than one, so this adds up to more than 100%.')}</p>}
+      <AnswerBars
+        total={q.n}
+        items={q.counts.map((c) => ({ key: c.option, title: c.option, label: c.option, count: c.count, rows: c.rows, strong: top > 0 && c.count === top }))}
+      />
+      <p className="mt-2 text-xs text-gray-400">
+        {q.type === 'multi' ? `${tr('People could pick more than one, so this adds up to more than 100%.')} ` : ''}{tr('Press an answer to see who picked it.')}
+      </p>
     </div>
   )
 }
 
-function TextResult({ q, who }) {
+function TextResult({ q, who, translate }) {
   const tr = useT()
   const [all, setAll] = useState(false)
   const shown = all ? q.answers : q.answers.slice(0, 6)
@@ -1038,7 +1062,8 @@ function TextResult({ q, who }) {
           const w = who(a)
           return (
             <li key={k} className="rounded-xl bg-cloud/60 px-3.5 py-3 animate-fade-up" style={{ animationDelay: `${Math.min(k, 8) * 30}ms` }}>
-              <p className="whitespace-pre-wrap text-sm leading-relaxed text-ink">&ldquo;{a.text}&rdquo;</p>
+              <p className="whitespace-pre-wrap text-sm leading-relaxed text-ink">&ldquo;{translate ? translate.text(a.text) : a.text}&rdquo;</p>
+              {translate?.changed(a.text) && <p className="mt-1 text-xs font-medium text-gray-400">{tr('Translated')}</p>}
               <p className="mt-2 flex items-center gap-1.5 text-[11px] font-medium text-smoke">
                 <Avatar src={w.photo} name={w.name} size="xs" />
                 {w.id ? <Link to={`/profile/${w.id}`} className="hover:text-brand">{w.name}</Link> : w.name}
@@ -1061,7 +1086,7 @@ function TextResult({ q, who }) {
 // Now there is a list of people on the left (their photo, name, market and when), and the person picked fills the right:
 // a big photo, who they are, every question with their answer drawn the way they gave it, and Previous / Next (or the
 // arrow keys) to walk the whole list. On a phone the list is a strip of faces across the top.
-function ResponsesList({ survey, responses, who, onDelete }) {
+function ResponsesList({ survey, responses, who, onDelete, translate }) {
   const tr = useT()
   const [filter, setFilter] = useState('all')
   const [idx, setIdx] = useState(0)
@@ -1106,7 +1131,7 @@ function ResponsesList({ survey, responses, who, onDelete }) {
             {list.map((r, i) => {
               const x = who(r)
               return (
-                <button key={r.id} type="button" onClick={() => pick(i)} aria-current={i === at ? 'true' : undefined} aria-label={x.name} className="flex shrink-0 flex-col items-center gap-1 rounded-xl px-1.5 py-1 transition-all duration-200 aria-[current=true]:bg-brand-tint">
+                <button key={r.id} type="button" onClick={() => pick(i)} aria-current={i === at ? 'true' : undefined} aria-label={x.name} className="flex shrink-0 flex-col items-center gap-1 rounded-xl px-1.5 py-1 transition-all duration-200 aria-[current=true]:bg-cloud">
                   <span className={cx('rounded-full p-0.5 transition-all duration-200', i === at ? 'bg-brand' : 'bg-transparent')}><Avatar src={x.photo} name={x.name} size="md" /></span>
                   <span className={cx('max-w-[4.5rem] truncate text-[11px] font-semibold', i === at ? 'text-brand' : 'text-smoke')}>{x.name.split(' ')[0]}</span>
                 </button>
@@ -1118,7 +1143,7 @@ function ResponsesList({ survey, responses, who, onDelete }) {
               const x = who(r)
               const on = i === at
               return (
-                <button key={r.id} type="button" onClick={() => pick(i)} aria-current={on ? 'true' : undefined} className={cx('relative flex w-full items-center gap-3 rounded-xl px-2.5 py-2 text-left transition-colors duration-200', on ? 'bg-brand-tint' : 'hoverable:hover:bg-cloud')}>
+                <button key={r.id} type="button" onClick={() => pick(i)} aria-current={on ? 'true' : undefined} className={cx('relative flex w-full items-center gap-3 rounded-xl px-2.5 py-2 text-left transition-colors duration-200', on ? 'bg-cloud' : 'hoverable:hover:bg-cloud/60')}>
                   <span aria-hidden className={cx('absolute inset-y-2 left-0 w-[3px] rounded-r-full bg-brand transition-all duration-300', on ? 'opacity-100' : 'scale-y-0 opacity-0')} />
                   <Avatar src={x.photo} name={x.name} size="sm" />
                   <span className="min-w-0 flex-1">
@@ -1155,8 +1180,8 @@ function ResponsesList({ survey, responses, who, onDelete }) {
                 <p className="py-8 text-center text-sm text-smoke">{tr('They chose not to take part.')}</p>
               ) : (survey.questions || []).map((q, k) => (
                 <div key={q.id} className="py-4">
-                  <p className="text-[11px] font-bold uppercase tracking-wide text-gray-400">{k + 1}. {q.prompt}</p>
-                  <div className="mt-1.5"><GivenAnswer q={q} v={cur.answers?.[q.id]} /></div>
+                  <p className="text-xs font-bold uppercase tracking-wide text-gray-400">{k + 1}. {q.prompt}</p>
+                  <div className="mt-2"><GivenAnswer q={q} v={cur.answers?.[q.id]} translate={translate} /></div>
                 </div>
               ))}
             </div>
@@ -1173,34 +1198,48 @@ function ResponsesList({ survey, responses, who, onDelete }) {
   )
 }
 
-// One answer, drawn the way it was given: stars for stars, a number on its scale, a chip for a yes or no.
-function GivenAnswer({ q, v }) {
+// One answer, drawn the way it was given. EVERY CHOICE IS SHOWN, AND THE ONE PICKED IS SOLID BRAND WITH A TICK. The
+// picked answer used to be a pale orange chip on its own, which the team could not read at a glance ("it's not actually
+// Tryp.com orange, just that lighter background colour"). Now the full set is laid out and the answer stands out of it.
+function GivenAnswer({ q, v, translate }) {
   const tr = useT()
   const none = v == null || v === '' || (Array.isArray(v) && !v.length)
   if (none) return <p className="text-sm text-gray-400">{tr('Skipped')}</p>
+  const chip = (on, label, key) => (
+    <span key={key} className={cx('inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[13px] font-semibold', on ? 'bg-brand text-white shadow-card' : 'bg-cloud text-gray-400')}>
+      {on && <Icon name="check" className="h-3.5 w-3.5" strokeWidth={2.6} />}{label}
+    </span>
+  )
   if (q.type === 'rating') {
     return (
       <p className="flex items-center gap-2">
-        <span className="flex gap-0.5 text-brand">{[1, 2, 3, 4, 5].map((n) => <Icon key={n} name="star" className={cx('h-5 w-5', n <= v ? 'opacity-100' : 'opacity-20')} />)}</span>
+        <span className="flex gap-0.5">{[1, 2, 3, 4, 5].map((n) => <Star key={n} on={n <= v} className="h-6 w-6" />)}</span>
         <span className="text-sm font-bold tabular-nums text-ink">{v} / 5</span>
       </p>
     )
   }
   if (q.type === 'scale') {
     return (
-      <div className="flex items-center gap-3">
-        <span className="text-2xl font-bold tabular-nums text-brand">{v}</span>
-        <span className="h-2 flex-1 overflow-hidden rounded-full bg-gray-100"><span className="block h-full rounded-full bg-gradient-to-r from-brand-light to-brand" style={{ width: `${(v / 10) * 100}%` }} /></span>
-        <span className="text-[11px] font-semibold text-gray-400">/ 10</span>
+      <div className="flex flex-wrap gap-1">
+        {Array.from({ length: 11 }, (_, n) => (
+          <span key={n} className={cx('flex h-8 w-8 items-center justify-center rounded-lg text-[13px] font-bold tabular-nums', n === Number(v) ? 'bg-brand text-white shadow-card' : 'bg-cloud text-gray-400')}>{n}</span>
+        ))}
       </div>
     )
   }
   if (q.type === 'yesno') {
-    return <span className={cx('inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-sm font-bold', v === 'yes' ? 'bg-brand text-white' : 'bg-gray-100 text-ink')}><Icon name={v === 'yes' ? 'check' : 'close'} className="h-3.5 w-3.5" strokeWidth={2.6} />{v === 'yes' ? tr('Yes') : tr('No')}</span>
+    return <span className="flex flex-wrap gap-1.5">{chip(v === 'yes', tr('Yes'), 'yes')}{chip(v === 'no', tr('No'), 'no')}</span>
   }
-  if (Array.isArray(v)) {
-    return <span className="flex flex-wrap gap-1.5">{v.map((o) => <span key={o} className="rounded-full bg-brand-tint px-3 py-1 text-[13px] font-semibold text-brand">{o}</span>)}</span>
+  if (hasOptions(q.type)) {
+    const picked = new Set(Array.isArray(v) ? v : [v])
+    const options = [...(q.options || []), ...[...picked].filter((o) => !(q.options || []).includes(o))]
+    return <span className="flex flex-wrap gap-1.5">{options.map((o) => chip(picked.has(o), o, o))}</span>
   }
-  if (q.type === 'choice') return <span className="inline-flex rounded-full bg-brand-tint px-3 py-1 text-[13px] font-semibold text-brand">{String(v)}</span>
-  return <p className="whitespace-pre-wrap rounded-xl bg-cloud/60 px-3.5 py-3 text-sm leading-relaxed text-ink">&ldquo;{String(v)}&rdquo;</p>
+  const text = String(v)
+  return (
+    <div className="rounded-xl bg-cloud/60 px-3.5 py-3">
+      <p className="whitespace-pre-wrap text-sm leading-relaxed text-ink">&ldquo;{translate ? translate.text(text) : text}&rdquo;</p>
+      {translate?.changed(text) && <p className="mt-1 text-xs font-medium text-gray-400">{tr('Translated')}</p>}
+    </div>
+  )
 }

@@ -299,7 +299,7 @@ export default function ProgrammePerformance({ market: scopeMarket = null, curre
       <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3">
         <div className="min-w-0">
           <h2 className="text-lg font-semibold">
-            {view === 'summary' ? 'Economics' : `Every challenge (${data.scoped.length})`}
+            {view === 'summary' ? 'Economics' : 'Every challenge'}
           </h2>
           <p className="mt-0.5 text-xs text-smoke">
             {view === 'summary'
@@ -629,15 +629,17 @@ function ChallengeCard({ r, currency, i = 0, onChanged }) {
   const ratio = r.cpm != null && r.target ? r.cpm / r.target : null
   const cpmVsTarget = ratio != null ? Math.min(2, ratio) : null
   const facts = [
-    ['Spend', money(r.spend, currency, 0)],
+    ['Spend', money(r.spend, currency, 0), r.voucherSpend > 0 ? `incl. ${money(r.voucherSpend, currency, 0)} vouchers` : null],
     ['Views', r.views > 0 ? formatViewsTotal(r.views) : '-'],
     ['Creators', r.creators ? r.creators.toLocaleString() : '-'],
     ['Posts', r.posts ? r.posts.toLocaleString() : '-'],
   ]
   const more = [
     ['Target CPM', money(r.target, currency, 2)],
-    r.cashCpm != null && ['Cash CPM', money(r.cashCpm, currency, 2)],
-    r.combinedCpm != null && ['Cash + vouchers CPM', money(r.combinedCpm, currency, 2)],
+    r.combinedCpm != null && ['Total CPM (cash + vouchers)', money(r.combinedCpm, currency, 2)],
+    r.cashCpm != null && ['Cash-only CPM', money(r.cashCpm, currency, 2)],
+    r.voucherSpend > 0 && ['Voucher spend', money(r.voucherSpend, currency, 0)],
+    r.cashSpend > 0 && ['Cash spend', money(r.cashSpend, currency, 0)],
     r.costPerPost != null && ['Cost per post', money(r.costPerPost, currency, 2)],
     r.costPerCreator != null && ['Cost per creator', money(r.costPerCreator, currency, 2)],
     r.postsPerCreator && ['Posts per creator', num(r.postsPerCreator, 1)],
@@ -668,10 +670,11 @@ function ChallengeCard({ r, currency, i = 0, onChanged }) {
             <span className="mt-1 block text-[10px] font-semibold uppercase tracking-wide text-smoke">CPM</span>
           </span>
           <span className="grid min-w-0 flex-1 grid-cols-4 gap-2">
-            {facts.map(([k, v]) => (
+            {facts.map(([k, v, sub]) => (
               <span key={k} className="min-w-0">
                 <span className="block truncate text-sm font-semibold tabular-nums">{v}</span>
                 <span className="block text-[10px] font-semibold uppercase tracking-wide text-smoke">{k}</span>
+                {sub && <span className="block truncate text-[10px] font-medium text-smoke" title={sub}>{sub}</span>}
               </span>
             ))}
           </span>
@@ -879,7 +882,7 @@ function EveryChallenge({ rows, measure, m, fmt, onMeasure, onOpen, currency }) 
     <section className="card animate-rise" style={{ animationDelay: '200ms' }}>
       <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
-          <h2 className="font-semibold">Every challenge <span className="font-normal text-smoke">({rows.length})</span></h2>
+          <h2 className="font-semibold">Every challenge</h2>
           <p className="mt-1 text-xs text-smoke">Compare the numbers · press a challenge to open it</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">

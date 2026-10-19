@@ -126,54 +126,61 @@ export function VipVideosTab({ programme }) {
         ))}
       </div>
 
-      <div className="rounded-card border border-gray-100 bg-white p-2 shadow-card">
-        <div className="flex flex-wrap items-center gap-1.5">
-          <div className="flex gap-0.5 rounded-full bg-cloud p-0.5">
+      {/* ONE TOOLBAR, ONE ROW (19 Oct 2026). The view switch, the search, the month and CSV were one row and every video
+          question a second row of different-height chips under it, with the platforms as a third row of big logo tiles
+          below the card. The team: "I don't like how it's on two lines... improve how they appear". Every control is
+          now the same 40px height in one row that only wraps on a narrow screen, a question filter that is on turns
+          solid brand like any picked option, and the platforms are one segmented bar: All, then each logo with its count. */}
+      <div className="rounded-card border border-gray-100 bg-white p-2.5 shadow-card animate-rise">
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="flex h-10 shrink-0 gap-0.5 rounded-xl bg-cloud p-1">
             {[['recent', tr('Newest first'), 'clock'], ['creators', tr('By creator'), 'users']].map(([k, label, icon]) => (
               <button key={k} type="button" onClick={() => setView(k)} aria-pressed={view === k}
-                className={cx('inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition-colors', view === k ? 'bg-brand text-white shadow-card' : 'text-smoke hover:text-ink')}>
+                className={cx('inline-flex items-center gap-1.5 rounded-lg px-3 text-xs font-semibold transition-all duration-200', view === k ? 'bg-brand text-white shadow-card' : 'text-smoke hoverable:hover:text-ink')}>
                 <Icon name={icon} className="h-3.5 w-3.5" />{label}
               </button>
             ))}
           </div>
-          <div className="relative min-w-[9rem] flex-1">
+          <div className="relative min-w-[10rem] flex-1">
             <Icon name="magnifier" className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-300" />
-            <input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder={tr('Search a creator or caption')} className="input !py-2 !pl-9 text-sm" aria-label={tr('Search videos')} />
+            <input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder={tr('Search a creator or caption')} className="input !h-10 !py-0 !pl-9 text-sm" aria-label={tr('Search videos')} />
           </div>
-          <Select value={month} onChange={setMonth} variant="field" className="w-40" ariaLabel={tr('Month')} search={false}
+          <Select value={month} onChange={setMonth} variant="chip" className="w-40 shrink-0 [&>button]:h-10 [&>button]:rounded-xl" ariaLabel={tr('Month')} search={false}
             options={[{ value: '', label: tr('Every month') }, ...months.map((m) => ({ value: m, label: monthName(m) }))]} />
-          <button type="button" onClick={exportCsv} disabled={!shown.length} className="rounded-xl border border-gray-200 px-3 py-2 text-xs font-semibold text-smoke hover:border-brand hover:text-brand disabled:opacity-40">
-            <Icon name="download" className="mr-1 inline h-3.5 w-3.5" />CSV
+          {state.questions.map((x) => {
+            const on = answer?.q === x.id
+            return (
+              <Select key={x.id} value={on ? (answer.a || '__any') : ''} variant="chip" ariaLabel={x.question} search={false}
+                className={cx('max-w-[15rem] shrink-0 [&>button]:h-10 [&>button]:rounded-xl', on && '[&>button]:!border-brand [&>button]:!bg-brand [&>button]:!text-white [&_svg]:!text-white [&_span]:!text-white')}
+                onChange={(v) => setAnswer(v ? { q: x.id, a: v === '__any' ? '' : v } : null)}
+                options={[{ value: '', label: x.question }, { value: '__any', label: tr('Answered') }, { value: '__none', label: tr('Not answered') },
+                  ...(x.options?.length ? x.options.map((o) => ({ value: o, label: o })) : [{ value: 'Yes', label: tr('Yes') }, { value: 'No', label: tr('No') }])]} />
+            )
+          })}
+          <button type="button" onClick={exportCsv} disabled={!shown.length} aria-label={tr('Download CSV')} title={tr('Download CSV')}
+            className="inline-flex h-10 shrink-0 items-center gap-1.5 rounded-xl border border-gray-200 px-3 text-xs font-semibold text-smoke transition-all duration-200 hoverable:hover:-translate-y-0.5 hoverable:hover:border-brand hoverable:hover:text-brand disabled:opacity-40">
+            <Icon name="download" className="h-3.5 w-3.5" />CSV
           </button>
         </div>
-        {state.questions.length > 0 && (
-        <div className="mt-2 flex flex-wrap items-center gap-1.5 px-1 pb-0.5">
-          {state.questions.map((x) => (
-            <Select key={x.id} value={answer?.q === x.id ? (answer.a || '__any') : ''} variant="chip" className="max-w-[16rem]" ariaLabel={x.question} search={false}
-              onChange={(v) => setAnswer(v ? { q: x.id, a: v === '__any' ? '' : v } : null)}
-              options={[{ value: '', label: x.question }, { value: '__any', label: tr('Answered') }, { value: '__none', label: tr('Not answered') },
-                ...(x.options?.length ? x.options.map((o) => ({ value: o, label: o })) : [{ value: 'Yes', label: tr('Yes') }, { value: 'No', label: tr('No') }])]} />
-          ))}
-        </div>
-        )}
       </div>
 
-      {/* THE PLATFORMS, AS THEIR LOGOS, ON THEIR OWN LINE UNDER THE CARD (15 Oct 2026). Press one to see only its videos;
-          press it again for every platform. */}
-      <div className="flex flex-wrap items-center gap-2 px-1">
-        {PLATFORMS.map((p) => {
-          const on = platform === p
-          const n = (state?.videos || []).filter((v) => v.platform === p).length
-          return (
-            <button key={p} type="button" onClick={() => setPlatform((cur) => (cur === p ? '' : p))} aria-pressed={on} title={p} aria-label={p}
-              className={cx('inline-flex items-center gap-2 rounded-full border py-1 pl-1 pr-3 text-xs font-semibold transition-all duration-200 hoverable:hover:-translate-y-0.5',
-                on ? 'border-brand bg-brand text-white shadow-card' : 'border-gray-200 bg-white text-smoke hoverable:hover:border-brand/50', !n && 'opacity-40')}>
-              <SocialMark brand={p.toLowerCase()} tile className="h-6 w-6" />
-              <span className="tabular-nums">{n}</span>
-            </button>
-          )
-        })}
-        {filtered && <button type="button" onClick={() => { setQ(''); setPlatform(''); setMonth(''); setCreator(''); setAnswer(null) }} className="ml-auto text-xs font-semibold text-smoke hover:text-brand">{tr('Clear')}</button>}
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="scrollbar-none flex max-w-full gap-1 overflow-x-auto rounded-2xl border border-gray-100 bg-white p-1 shadow-card">
+          {['', ...PLATFORMS].map((p) => {
+            const on = platform === p
+            const n = p ? (state?.videos || []).filter((v) => v.platform === p).length : (state?.videos || []).length
+            return (
+              <button key={p || 'all'} type="button" onClick={() => setPlatform(p)} aria-pressed={on} aria-label={p || tr('All platforms')}
+                className={cx('inline-flex h-9 shrink-0 items-center gap-2 rounded-xl px-3 text-xs font-semibold transition-all duration-200',
+                  on ? 'bg-brand text-white shadow-card' : 'text-smoke hoverable:hover:bg-cloud hoverable:hover:text-ink', p && !n && 'opacity-40')}>
+                {p ? <SocialMark brand={p.toLowerCase()} tile className="h-5 w-5" /> : <Icon name="squares" className="h-4 w-4" />}
+                <span className="hidden sm:inline">{p || tr('All')}</span>
+                <span className={cx('rounded-full px-1.5 py-0.5 text-xs tabular-nums', on ? 'bg-white/25' : 'bg-cloud')}>{n}</span>
+              </button>
+            )
+          })}
+        </div>
+        {filtered && <button type="button" onClick={() => { setQ(''); setPlatform(''); setMonth(''); setCreator(''); setAnswer(null) }} className="ml-auto inline-flex h-9 items-center gap-1 rounded-xl px-3 text-xs font-semibold text-smoke transition-colors hoverable:hover:bg-cloud hoverable:hover:text-brand"><Icon name="close" className="h-3.5 w-3.5" />{tr('Clear filters')}</button>}
       </div>
 
       {shown.length === 0 && <p className="rounded-card border border-dashed border-gray-200 px-6 py-12 text-center text-sm text-smoke">{tr('No videos match that.')}</p>}

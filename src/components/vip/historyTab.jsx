@@ -17,11 +17,13 @@ export function VipHistoryTab({ programme }) {
     catch (e) { setError(e.message); setData({ rows: [] }) }
   }, [programme.id])
   useEffect(() => { setData(null); load() }, [load])
+  // FRESH WHEN YOU COME BACK TO IT, NOT ON A TIMER (19 Oct 2026). It re-read every creator's finances every minute
+  // while open, which is the kind of standing load the database rules rule out ("nothing new on a timer"). Coming back
+  // to the tab reads it again; nothing else does.
   useEffect(() => {
-    const timer = setInterval(() => { if (document.visibilityState === 'visible') load() }, 60000)
     const visible = () => { if (document.visibilityState === 'visible') load() }
     document.addEventListener('visibilitychange', visible)
-    return () => { clearInterval(timer); document.removeEventListener('visibilitychange', visible) }
+    return () => { document.removeEventListener('visibilitychange', visible) }
   }, [load])
   const rows = useMemo(() => data?.rows || [], [data])
   const totals = useMemo(() => rows.reduce((a, r) => ({
@@ -60,22 +62,21 @@ function Summary({ featured, label, value, hint }) {
 function CreatorCard({ r, i, tr }) {
   const months = [...(r.months || [])].sort((a, b) => a.year - b.year || a.month - b.month)
   const top = Math.max(1, ...months.map((m) => Number(m.earned) || 0))
-  return <li className="flex h-full flex-col overflow-hidden rounded-card border border-orange-100 bg-white shadow-card transition-all duration-200 animate-rise hoverable:hover:-translate-y-0.5 hoverable:hover:shadow-lift" style={{ animationDelay: `${Math.min(i, 12) * 35}ms` }}>
-    <div className="h-1.5 bg-gradient-to-r from-brand via-[#ed692b] to-brand-light" />
+  return <li className="flex h-full flex-col overflow-hidden rounded-card border border-gray-100 bg-white shadow-card transition-all duration-200 animate-rise hoverable:hover:-translate-y-0.5 hoverable:hover:shadow-lift" style={{ animationDelay: `${Math.min(i, 12) * 35}ms` }}>
     <div className="flex flex-1 flex-col p-4">
       <div className="flex items-center gap-3">
         <Link to={`/profile/${r.profile_id}`} aria-label={tr('Open {n} profile', { n: r.name })} className="shrink-0 rounded-full ring-2 ring-brand-tint transition-transform hoverable:hover:scale-105"><Avatar src={r.photo_url} name={r.name} size="md" /></Link>
-        <div className="min-w-0 flex-1"><Link to={`/profile/${r.profile_id}`} className="block truncate text-[15px] font-extrabold text-ink hover:text-brand">{r.name}</Link><p className="text-[11px] text-smoke">{r.status === 'paused' ? tr('Paused') : tr('Creator')} · {months.length} {tr('months')}</p></div>
-        <span className="rounded-full bg-brand-tint px-2 py-1 text-[10px] font-bold text-brand">{r.kind === 'official' ? tr('Official') : 'VIP'}</span>
+        <div className="min-w-0 flex-1"><Link to={`/profile/${r.profile_id}`} className="block truncate text-[15px] font-extrabold text-ink hover:text-brand">{r.name}</Link><p className="text-xs text-smoke">{r.status === 'paused' ? tr('Paused') : tr('Creator')} · {months.length} {tr('months')}</p></div>
+        <span className="rounded-full bg-cloud px-2.5 py-1 text-xs font-bold text-ink">{r.kind === 'official' ? tr('Official') : 'VIP'}</span>
       </div>
       <div className="mt-4 grid grid-cols-2 gap-2">
-        <div className="rounded-xl bg-orange-50/70 p-3"><p className="text-[10px] font-bold uppercase tracking-wide text-brand">{tr('Earned all time')}</p><p className="mt-1 text-xl font-extrabold tabular-nums text-ink">{money(r.lifetime, 'EUR')}</p></div>
-        <div className="rounded-xl bg-cloud/70 p-3"><p className="text-[10px] font-bold uppercase tracking-wide text-smoke">{tr('In balance')}</p><p className="mt-1 text-xl font-extrabold tabular-nums text-ink">{money(r.balance, 'EUR')}</p></div>
+        <div className="rounded-xl bg-orange-50/70 p-3"><p className="text-xs font-bold text-brand">{tr('Earned all time')}</p><p className="mt-1 text-xl font-extrabold tabular-nums text-ink">{money(r.lifetime, 'EUR')}</p></div>
+        <div className="rounded-xl bg-cloud/70 p-3"><p className="text-xs font-bold text-smoke">{tr('In balance')}</p><p className="mt-1 text-xl font-extrabold tabular-nums text-ink">{money(r.balance, 'EUR')}</p></div>
       </div>
       <div className="mt-3 flex h-12 items-end gap-1" role="img" aria-label={tr('Monthly earnings chart')}>
-        {months.length ? months.map((m) => <span key={`${m.year}-${m.month}`} title={`${monthLabel(m.year,m.month,{short:true})}: ${money(m.earned,'EUR')} · ${formatViews(m.views)} ${tr('views')}`} className="min-w-[3px] flex-1 rounded-t bg-gradient-to-t from-brand to-brand-light transition-[height] duration-700" style={{ height: `${Math.max(8,Number(m.earned)/top*100)}%` }} />) : <div className="w-full rounded-lg bg-cloud px-3 py-2 text-xs text-smoke">{tr('First earnings will appear here')}</div>}
+        {months.length ? months.map((m) => <span key={`${m.year}-${m.month}`} title={`${monthLabel(m.year,m.month,{short:true})}: ${money(m.earned,'EUR')} · ${formatViews(m.views)} ${tr('views')}`} className={`min-w-[3px] flex-1 rounded-t transition-[height] duration-700 ${Number(m.earned) > 0 ? 'bg-gradient-to-t from-brand to-brand-light' : 'bg-gray-200'}`} style={{ height: `${Number(m.earned) > 0 ? Math.max(8, Number(m.earned) / top * 100) : 4}%` }} />) : <div className="w-full rounded-lg bg-cloud px-3 py-2 text-xs text-smoke">{tr('First earnings will appear here')}</div>}
       </div>
-      <div className="mt-3 flex flex-wrap justify-between gap-1 text-[11px] text-smoke"><span>{tr('Paid or withdrawn')}: <strong className="text-ink">{money(r.paid_out,'EUR')}</strong></span><span>{formatViews(r.views)} {tr('views')}</span></div>
+      <div className="mt-3 flex flex-wrap justify-between gap-1 text-xs text-smoke"><span>{tr('Paid or withdrawn')}: <strong className="text-ink">{money(r.paid_out,'EUR')}</strong></span><span>{formatViews(r.views)} {tr('views')}</span></div>
       <Link to={`/vip?mode=as&who=${r.profile_id}&tab=earnings`} className="mt-4 flex min-h-11 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-brand to-brand-light px-4 py-2.5 text-sm font-bold text-white shadow-sm transition-all hoverable:hover:brightness-105 hoverable:hover:-translate-y-0.5">{tr('View earnings')}<Icon name="chevronRight" className="h-4 w-4" /></Link>
     </div>
   </li>

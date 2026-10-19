@@ -3510,3 +3510,12 @@ html[data-nav-return] header.glass-bar {
 @media (prefers-reduced-motion: reduce) {
   .vip-lifetime-card, .vip-lifetime-glow { animation: none; }
 }
+
+/* SURVEY RESULT BARS GROW IN (components/survey/SurveyCharts). */
+@keyframes survey-bar-grow { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+@keyframes survey-col-grow { from { transform: scaleY(0); } to { transform: scaleY(1); } }
+.survey-bar-grow { transform-origin: left center; animation: survey-bar-grow 0.7s cubic-bezier(0.22, 1, 0.36, 1) both; }
+.survey-col-grow { transform-origin: center bottom; animation: survey-col-grow 0.7s cubic-bezier(0.22, 1, 0.36, 1) both; }
+@media (prefers-reduced-motion: reduce) {
+  .survey-bar-grow, .survey-col-grow { animation: none; }
+}

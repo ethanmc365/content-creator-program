@@ -219,11 +219,14 @@ export function summarise(survey, responses) {
     if (q.type === 'rating') {
       const nums = values.map((x) => Number(x.v)).filter((n) => n >= 1 && n <= 5)
       const spread = [1, 2, 3, 4, 5].map((n) => nums.filter((x) => x === n).length)
-      return { ...q, n: nums.length, average: nums.length ? nums.reduce((a, b) => a + b, 0) / nums.length : null, spread }
+      // WHO GAVE EACH ANSWER, so a bar can be pressed to see the people behind it.
+      const pickers = [1, 2, 3, 4, 5].map((n) => values.filter((x) => Number(x.v) === n).map((x) => x.r))
+      return { ...q, n: nums.length, average: nums.length ? nums.reduce((a, b) => a + b, 0) / nums.length : null, spread, pickers }
     }
     if (q.type === 'scale') {
       const nums = values.map((x) => Number(x.v)).filter((n) => n >= 0 && n <= 10)
       const spread = Array.from({ length: 11 }, (_, n) => nums.filter((x) => x === n).length)
+      const pickers = Array.from({ length: 11 }, (_, n) => values.filter((x) => Number(x.v) === n).map((x) => x.r))
       const promoters = nums.filter((x) => x >= 9).length
       const detractors = nums.filter((x) => x <= 6).length
       return {
@@ -231,18 +234,23 @@ export function summarise(survey, responses) {
         n: nums.length,
         average: nums.length ? nums.reduce((a, b) => a + b, 0) / nums.length : null,
         spread,
+        pickers,
         score: nums.length ? Math.round(((promoters - detractors) / nums.length) * 100) : null,
       }
     }
     if (q.type === 'yesno') {
       const yes = values.filter((x) => x.v === 'yes').length
       const no = values.filter((x) => x.v === 'no').length
-      return { ...q, n: yes + no, counts: [{ option: 'yes', count: yes }, { option: 'no', count: no }] }
+      return {
+        ...q,
+        n: yes + no,
+        counts: ['yes', 'no'].map((o) => ({ option: o, count: o === 'yes' ? yes : no, rows: values.filter((x) => x.v === o).map((x) => x.r) })),
+      }
     }
     if (hasOptions(q.type)) {
-      const counts = new Map((q.options || []).map((o) => [o, 0]))
-      for (const { v } of values) for (const o of (Array.isArray(v) ? v : [v])) counts.set(o, (counts.get(o) || 0) + 1)
-      return { ...q, n: values.length, counts: [...counts.entries()].map(([option, count]) => ({ option, count })) }
+      const counts = new Map((q.options || []).map((o) => [o, []]))
+      for (const { v, r } of values) for (const o of (Array.isArray(v) ? v : [v])) counts.set(o, [...(counts.get(o) || []), r])
+      return { ...q, n: values.length, counts: [...counts.entries()].map(([option, rows]) => ({ option, count: rows.length, rows })) }
     }
     return {
       ...q,

@@ -70,7 +70,10 @@ export function challengeEconomics(row, { currency = 'GBP', rates = FALLBACK_RAT
   // A RUNNING CHALLENGE carries `live_spend` (pot + awards + vouchers earned so far, the same sum its own page uses), so its CPM in a list
   // and on its page cannot differ.
   const liveSpend = row.live_spend != null ? conv(Number(row.live_spend)) : null
-  const spend = liveSpend != null ? liveSpend : (awarded > 0 ? cashSpend : planned)
+  // THE HEADLINE IS THE TOTAL (19 Oct 2026). A finished challenge's spend was its CASH only, so the list card said
+  // CPM 0.08 while the challenge's own analytics page said 0.11 (cash plus the taking-part vouchers). The team: "it should
+  // always be showing the total CPM first". Cash on its own is still `cashSpend` / `cashCpm`, in the breakdown.
+  const spend = liveSpend != null ? liveSpend : (awarded > 0 ? awarded : planned)
   // "NOT MEASURED" AND "MEASURED AS NONE" ARE DIFFERENT NUMBERS.
   //
   // This was `Number(row.total_views) || 0`, which collapses the two, and the

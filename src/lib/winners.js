@@ -53,6 +53,17 @@ export async function loadWinnerGalleries(challenges) {
       .in('challenge_id', publishedIds),
   ])
 
+  const standingsFor = new Map() // challenge -> [profile] who earned the taking-part prize, from the server
+  const capped = challenges.filter((c) => publishedIds.includes(c.id)
+    && (c.participation_cap || c.participation_scope === 'outside_prizes'))
+  await Promise.all(capped.map(async (c) => {
+    const { data, error } = await challengesApi.challengePrizeStandings({ p_challenge: c.id })
+    if (error || !Array.isArray(data)) return
+    standingsFor.set(c.id, data
+      .filter((r) => r.slot === 'participation' && r.status === 'earned' && r.creator_id)
+      .map((r) => ({ id: r.creator_id, name: r.creator_name, photo_url: r.photo_url })))
+  }))
+
   const bestVideo = new Map()   // `${challenge}:${creator}` -> best submission
   const subCount = new Map()    // `${challenge}:${creator}` -> how many they posted
   const person = new Map()      // creator id -> profile, for the voucher faces
@@ -114,6 +125,10 @@ export async function loadWinnerGalleries(challenges) {
         // The live figure, falling back to the snapshot only if this
         // creator somehow has no submission rows left to read.
         final_views: liveViews.get(`${c.id}:${r.creator_id}`) ?? r.final_views ?? 0,
+        // THE SCORE IS KEPT, NOT OVERWRITTEN (19 Oct 2026). `results.final_views` IS the score on a points board, and
+        // replacing it with the live views made the podium print a view count with the word "points" after it.
+        points: c.scoring === 'points' ? (Number(r.final_views) || 0) : undefined,
+        total_views: liveViews.get(`${c.id}:${r.creator_id}`) ?? null,
         videoUrl: bestVideo.get(`${c.id}:${r.creator_id}`)?.video_url ?? null,
         platform: bestVideo.get(`${c.id}:${r.creator_id}`)?.platform ?? null,
       }))
@@ -123,9 +138,13 @@ export async function loadWinnerGalleries(challenges) {
     // turning up rather than for placing - but the row says "for everyone
     // here" and then quietly left out the three people most obviously here,
     // so it read as broken. Placing does not un-earn the voucher.
+    // OUTSIDE THE PRIZE PLACES, or CAPPED: the server's standings are the one definition of who earned it
+    // (`challenge_prize_standings`), so the row never says "for everyone here" and then shows a paid winner.
+    const standing = standingsFor.get(c.id)
     const threshold = c.participation_threshold
     // On a points basis (migration 241) the bar is the points on the board.
-    const voucherWinners = !threshold ? []
+    const voucherWinners = standing ? standing
+      : !threshold ? []
       : c.participation_basis === 'points' && c.scoring === 'points'
         ? rows.filter((r) => (Number(r.final_views) || 0) >= threshold)
           .map((r) => person.get(r.creator_id))

@@ -93,11 +93,16 @@ const MAX_CHUNKS_PER_CHAIN = 40 // 4,800 entries before a chain stops itself
 // though it is now public too: reads are batched per creator rather than per
 // video, so the lane is rarely the limit, and a polite rate is what keeps a
 // public route public.
-const LANE_PUBLIC = 8
+// 10, from 8 (19 Oct 2026): a 738-entry final sync was ~590 TikTok reads in this lane, and TikTok's embed page is the
+// lightest read we make. Instagram and Facebook stay where they are; they are the ones that wall a server.
+const LANE_PUBLIC = 10
 const LANE_INSTAGRAM = 3
 const IG_GAP_MS = 120
 const LANE_FACEBOOK = 2
 const FB_GAP_MS = 600
+// Failures worth a second try in the same run (see `retry` in syncChunk), and the pause before it.
+const TRANSIENT = new Set(['fetch_failed', 'no_count_in_page'])
+const RETRY_PAUSE_MS = 3_000
 
 const SOURCE: Record<Platform, string> = {
   TikTok: 'tiktok', Instagram: 'instagram', YouTube: 'youtube', Facebook: 'facebook',
@@ -1058,9 +1063,13 @@ async function instagramReadHere(
   const guess = igHandleFrom(url) ?? igHandleFrom(handleHint)
 
   let refused = false
+  // Whether the creator's own public tab was READ (not refused, not missing). See "DELETED, OR A BAD LINK" below.
+  let guessTabRead = false
   const lookIn = async (username: string): Promise<number | null> => {
     try {
-      return (await igReels(cache, username)).map.get(code) ?? null
+      const tab = await igReels(cache, username)
+      if (username === guess) guessTabRead = !tab.more
+      return tab.map.get(code) ?? null
     } catch (e) {
       if (!(e instanceof IgNoProfileError)) refused = true
       return null
@@ -1099,8 +1108,16 @@ async function instagramReadHere(
       return { ...fail(base, 'blocked',
         'Instagram did not answer from this server. It will be asked again from another region, and on the next sync.'), walled: true }
     }
+    // DELETED, OR A BAD LINK (19 Oct 2026). The team: "you should know if that's actually been deleted or it's just the
+    // link that doesn't work". When Instagram says no post has this code AND the creator's own public reels tab was read
+    // to the end without it, the reel is gone: deleted or archived. Only when we could not see their tab is it still a
+    // question (a private account, or a link to somebody else's post).
+    if (guessTabRead) {
+      return fail(base, 'removed',
+        `Instagram has no post with that code and it is not on @${guess}'s public reels: the reel was deleted or archived.`)
+    }
     return fail(base, 'no_video_id',
-      'Instagram has no post with that code. Usually deleted, or the account is private.')
+      'Instagram has no post with that code. Deleted, or the account is private.')
   }
   // Everything from here on already HAS the owner lookup in hand, so the
   // metadata is free on every one of these paths - `extras` is spread into each
@@ -1339,7 +1356,12 @@ async function syncChunk(rows: Row[], progress: Progress, quiet = false): Promis
   const igCache = newIgCache()
   const handles = await igHandles(rows)
 
-  const one = async (row: Row) => {
+  // A READ THAT FAILED FOR A PASSING REASON IS TRIED AGAIN IN THE SAME RUN (19 Oct 2026). The team: "it doesn't read
+  // the entries every time... one entry wasn't right, so I have to do it again". A platform that refused one request or
+  // timed out usually answers a few seconds later, so those rows get one more go at the end of the chunk instead of
+  // waiting for somebody to press Sync again. A real answer (deleted, a photo post, no id) is never retried.
+  const retry: Row[] = []
+  const one = async (row: Row, second = false) => {
     // YOUTUBE HAS NO DATE IN ITS ID (TikTok and Instagram do, and SQL decodes
     // those). The publish date comes back in `snippet`, so a YouTube entry with
     // no `posted_at` yet asks for it once - same quota unit either way.
@@ -1352,6 +1374,14 @@ async function syncChunk(rows: Row[], progress: Progress, quiet = false): Promis
     const now = new Date().toISOString()
 
     const table = row.vip ? 'vip_videos' : 'submissions'
+    // Instagram and Facebook have already tried every region before saying "blocked", so only their timeouts are
+    // retried; a blocked TikTok or YouTube read has not.
+    const transient = TRANSIENT.has(r.error ?? '')
+      || (r.error === 'blocked' && row.platform !== 'Instagram' && row.platform !== 'Facebook')
+    if (r.views == null && !second && transient) {
+      retry.push(row)
+      return
+    }
     if (r.views == null) {
       // A number the team typed by hand stands when the platform still will not answer: no error flag to chase.
       // A challenge entry that is a PHOTO post too (15 Oct 2026): no platform states its views, so the number the team
@@ -1428,10 +1458,15 @@ async function syncChunk(rows: Row[], progress: Progress, quiet = false): Promis
   // FACEBOOK GOES SLOWLY ON PURPOSE. It walls a server IP that asks too fast,
   // and a burst is exactly what got one region walled while measuring this.
   await Promise.all([
-    pool(publicRows, LANE_PUBLIC, one),
+    pool(publicRows, LANE_PUBLIC, (row) => one(row)),
     pool(instagram, LANE_INSTAGRAM, async (row) => { await one(row); await sleep(IG_GAP_MS) }),
     pool(facebook, LANE_FACEBOOK, async (row) => { await one(row); await sleep(FB_GAP_MS) }),
   ])
+  if (retry.length) {
+    await sleep(RETRY_PAUSE_MS)
+    // Slowly, one platform lane each: these are the rows a platform already pushed back on once.
+    await pool(retry, 2, async (row) => { await one(row, true); await sleep(isFacebook(row) ? FB_GAP_MS : IG_GAP_MS) })
+  }
 
   if (!quiet) await publishRun({ running: true, ...p })
   return p

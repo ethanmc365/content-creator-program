@@ -38,7 +38,9 @@ describe('surveys (migration 291)', () => {
     expect(s.declined).toBe(1)
     expect(s.questions[0].average).toBe(4)
     expect(s.questions[0].spread).toEqual([0, 0, 1, 0, 1])
-    expect(s.questions[1].counts).toEqual([{ option: 'A', count: 2 }, { option: 'B', count: 1 }])
+    expect(s.questions[1].counts.map(({ option, count }) => ({ option, count }))).toEqual([{ option: 'A', count: 2 }, { option: 'B', count: 1 }])
+    // and who gave each answer, so a bar can show the people behind it
+    expect(s.questions[1].counts[0].rows).toHaveLength(2)
     expect(s.questions[2].answers).toHaveLength(1)
   })
 
@@ -72,7 +74,7 @@ describe('surveys (migration 291)', () => {
     const out = summarise(survey, rows)
     expect(out.questions[0].score).toBe(25) // 2 promoters, 1 detractor, of 4
     expect(out.questions[0].spread[10]).toBe(1)
-    expect(out.questions[1].counts).toEqual([{ option: 'yes', count: 2 }, { option: 'no', count: 1 }])
+    expect(out.questions[1].counts.map(({ option, count }) => ({ option, count }))).toEqual([{ option: 'yes', count: 2 }, { option: 'no', count: 1 }])
   })
 
   it('counts answers by day', () => {

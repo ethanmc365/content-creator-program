@@ -17,6 +17,7 @@ import { NoLiveChallenge } from '../components/network/LiveChallengeCard'
 import WinnersPodium from '../components/WinnersPodium'
 import { loadWinnerGalleries } from '../lib/winners'
 import { useT } from '../lib/i18n'
+import { stripMarkup } from '../lib/richText'
 import { testFlags, isHiddenTestRow } from '../lib/testData'
 import { useCachedPage, writePageCache } from '../lib/pageCache'
 import { challengesApi } from '../api/challenges'
@@ -510,7 +511,7 @@ export default function Challenges() {
                         )}
                       </div>
                       <h3 className="mt-4 line-clamp-2 min-h-[3.5rem] text-xl font-semibold leading-7 group-hover:text-brand">{c.title || tr('Untitled challenge')}</h3>
-                      <p className="mt-2 line-clamp-2 min-h-[2.5rem] text-sm leading-5 text-smoke">{c.description || ''}</p>
+                      <p className="mt-2 line-clamp-2 min-h-[2.5rem] text-sm leading-5 text-smoke">{stripMarkup(c.description || '')}</p>
                       <p className="mt-auto pt-4 text-xs font-medium text-brand">{tr('Finish and publish →')}</p>
                     </div>
                   </div>
@@ -533,21 +534,25 @@ export default function Challenges() {
                      all of it was swallowed by the one anchor around the lot.
                      The link is now a stretched overlay sitting UNDERNEATH the
                      content, so the card still opens the challenge from any dead
-                     space while every real control on top of it works. */
-                  <div key={c.id} className="card group relative transition-all hover:-translate-y-0.5 hover:shadow-lift">
+                     space while every real control on top of it works.
+                     A GLOBAL CHALLENGE TAKES THE WHOLE ROW: ten paid places do not fit half a page. */
+                  <div key={c.id} data-reveal-class={isGlobal(c) ? 'sm:col-span-2' : undefined} className="card group relative h-full transition-all hoverable:hover:-translate-y-0.5 hoverable:hover:shadow-lift">
                     <Link
-                      to={`/challenges/${c.id}`}
+                      to={`/challenges/${c.id}?tab=leaderboard`}
                       className="absolute inset-0 z-0 rounded-card"
                       aria-label={`${c.title} - challenge details`}
                     />
                     <div className="pointer-events-none relative z-10 flex flex-1 flex-col">
-                      <div className="flex items-center justify-between gap-3">
-                        {/* Still status 'active' but past its deadline → show "ended", not "active". */}
-                        <Badge tone={c.status === 'active' ? STATUS_TONE.ended : STATUS_TONE[c.status]}>{c.status === 'active' ? 'ended' : c.status}</Badge>
+                      <div className="flex flex-wrap items-center justify-between gap-3">
+                        {/* NO "ARCHIVED" BADGE: the section is called Past challenges. One still 'active' past its
+                            deadline says "ended", which is news; a global one says so. */}
+                        {c.status === 'active' ? <Badge tone={STATUS_TONE.ended}>{tr('ended')}</Badge>
+                          : isGlobal(c) ? <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-brand"><Icon name="globe" className="h-4 w-4" />{tr('Global challenge')}</span>
+                          : <span />}
                         <span className="text-xs text-smoke">{formatDate(c.start_date)} → {formatDate(c.end_date)}</span>
                       </div>
-                      <h3 className="mt-4 text-xl font-semibold group-hover:text-brand">{c.title}</h3>
-                      <p className="mt-2 text-sm text-smoke line-clamp-2">{c.description}</p>
+                      <h3 className="mt-4 text-xl font-semibold transition-colors group-hover:text-brand">{c.title}</h3>
+                      <p className="mt-2 text-sm text-smoke line-clamp-2">{stripMarkup(c.description)}</p>
                       {galleries[c.id] ? (
                         /* ONE PODIUM, OR ONE PER BOARD. A challenge run as two
                            leaderboards has two sets of winners, and ranks are
@@ -573,6 +578,8 @@ export default function Challenges() {
                         ) : (
                         <WinnersPodium
                           className="pointer-events-auto mt-5"
+                          wide={isGlobal(c)}
+                          boardHref={`/challenges/${c.id}?tab=leaderboard`}
                           winners={galleries[c.id].winners}
                           entries={c.submissions?.[0]?.count ?? 0}
                           totalScore={galleries[c.id].totalScore}

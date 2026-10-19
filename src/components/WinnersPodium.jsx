@@ -44,6 +44,10 @@ export default function WinnersPodium({
   // archived result and for the share picture.
   places = 0,
   prizes = [],
+  // A full-width card: the list under the podium goes into two columns.
+  wide = false,
+  // Where "See the full leaderboard" goes; nothing when it is not given.
+  boardHref = null,
   className = '',
 }) {
   const tr = useT()
@@ -51,7 +55,6 @@ export default function WinnersPodium({
   if (!winners.length && !places) return null
 
   const isPoints = scoring === 'points'
-  const unit = isPoints ? 'points' : 'views'
   const scoreOf = (w) => (isPoints ? (w.points ?? w.final_views ?? 0) : (w.final_views ?? 0))
   const fmt = (n) => (isPoints ? Number(n).toLocaleString() : formatViews(n))
 
@@ -88,41 +91,59 @@ export default function WinnersPodium({
     name: w.profiles?.name?.split(' ')[0] || 'Creator',
     photo_url: w.profiles?.photo_url,
     score: fmt(scoreOf(w)),
-    unit,
+    unit: isPoints ? (scoreOf(w) === 1 ? tr('point') : tr('points')) : tr('views'),
     // On a points board the step carries the views as well, like the board
     // on the challenge page.
-    sub: isPoints && w.total_views != null ? `${formatViews(w.total_views)} views` : null,
+    sub: isPoints && w.total_views != null ? `${formatViews(w.total_views)} ${tr('views')}` : null,
   }))
 
   return (
-    <div className={cx('rounded-2xl bg-cloud/60 p-4', className)}>
-      <p className="mb-4 text-center text-[11px] font-semibold uppercase tracking-widest text-smoke">{tr("Winners")}</p>
+    <div className={cx('rounded-2xl bg-cloud/60 p-3 sm:p-4', className)}>
+      <p className="mb-4 text-center text-xs font-semibold uppercase tracking-widest text-smoke">{tr("Winners")}</p>
 
       <Podium places={steps} />
 
-      {/* Sixth and beyond: a numbered list in two columns, still clickable,
-          no fake podium steps. */}
+      {/* Sixth and beyond: a numbered list, still clickable, no fake podium steps. WIDE (a full-width card) puts it in
+          two columns, and an odd last row spans both so the tenth place is not left hanging on the left on its own;
+          a half-width card keeps one column, because two columns there cut every name to its first letter. */}
       {rest.length > 0 && (
-        <ol className="mx-auto mt-5 grid max-w-2xl gap-1.5 border-t border-gray-200/70 pt-4 sm:grid-cols-2 sm:gap-x-4">
-          {rest.map((w) => (w.empty ? (
-            <li key={w.rank} className="flex min-w-0 items-center gap-2.5 rounded-xl border border-dashed border-gray-200 bg-white/50 px-3 py-2">
-              <span className="w-7 shrink-0 text-center text-xs font-bold tabular-nums text-brand/60">{ordinalFor(w.rank)}</span>
-              <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border-2 border-dashed border-brand/30" />
-              <span className="min-w-0 flex-1 truncate text-sm font-medium text-smoke">{tr('Up for grabs')}</span>
-              {prizeAt(w.rank) && <span className="shrink-0 text-xs font-semibold text-brand">{prizeAt(w.rank)}</span>}
-            </li>
-          ) : (
-            <li key={w.rank} className="flex min-w-0 items-center gap-2.5 rounded-xl bg-white/80 px-3 py-2 shadow-[0_1px_0_rgba(0,0,0,0.03)]">
-              <span className="w-7 shrink-0 text-center text-xs font-bold tabular-nums text-brand">{ordinalFor(w.rank)}</span>
-              <Link to={`/profile/${w.profiles?.id}`} onClick={own} className="shrink-0 transition-transform duration-150 hover:scale-105">
-                <Avatar src={w.profiles?.photo_url} name={w.profiles?.name} size="xs" />
-              </Link>
-              <span className="min-w-0 flex-1 truncate text-sm font-medium text-ink">{w.profiles?.name || 'Creator'}</span>
-              <span className="shrink-0 text-xs font-semibold tabular-nums text-ink">
-                {fmt(scoreOf(w))} <span className="font-normal text-smoke">{isPoints && scoreOf(w) === 1 ? 'point' : unit}</span>
-              </span>
-            </li>
-          )))}
+        <ol className={cx('mx-auto mt-5 grid gap-1.5 border-t border-gray-200/70 pt-4', wide ? 'max-w-3xl sm:grid-cols-2 sm:gap-x-3' : 'max-w-xl')}>
+          {rest.map((w, i) => {
+            const spanAll = wide && rest.length % 2 === 1 && i === rest.length - 1
+            const rowCls = cx('flex min-w-0 items-center gap-2 rounded-xl px-2.5 py-2 sm:gap-3 sm:px-3', spanAll && 'sm:col-span-2')
+            if (w.empty) {
+              return (
+                <li key={w.rank} className={cx(rowCls, 'border border-dashed border-gray-200 bg-white/50')}>
+                  <span className="w-7 shrink-0 text-center text-xs font-bold tabular-nums text-brand/60">{ordinalFor(w.rank)}</span>
+                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-2 border-dashed border-brand/30" />
+                  <span className="min-w-0 flex-1 truncate text-sm font-medium text-smoke">{tr('Up for grabs')}</span>
+                  {prizeAt(w.rank) && <span className="shrink-0 text-xs font-semibold text-brand">{prizeAt(w.rank)}</span>}
+                </li>
+              )
+            }
+            const score = scoreOf(w)
+            return (
+              <li key={w.rank} className={cx(rowCls, 'bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)] animate-fade-up')} style={{ animationDelay: `${0.04 * i + 0.3}s` }}>
+                <span className="w-6 shrink-0 text-center text-xs font-bold tabular-nums text-smoke sm:w-7">{ordinalFor(w.rank)}</span>
+                <Link
+                  to={`/profile/${w.profiles?.id}`}
+                  onClick={own}
+                  className="group/row flex min-w-0 flex-1 items-center gap-2.5"
+                >
+                  <Avatar src={w.profiles?.photo_url} name={w.profiles?.name} size="sm" className="transition-transform duration-150 group-hover/row:scale-105" />
+                  <span className="min-w-0 flex-1 break-words text-sm font-semibold leading-tight text-ink transition-colors line-clamp-2 group-hover/row:text-brand">{w.profiles?.name || 'Creator'}</span>
+                </Link>
+                <span className="shrink-0 text-right leading-tight">
+                  <span className="block text-sm font-bold tabular-nums text-brand">
+                    {fmt(score)} <span className="text-xs font-semibold">{isPoints ? (score === 1 ? tr('point') : tr('points')) : tr('views')}</span>
+                  </span>
+                  {isPoints && w.total_views != null && (
+                    <span className="block text-xs font-medium tabular-nums text-smoke">{formatViews(w.total_views)} {tr('views')}</span>
+                  )}
+                </span>
+              </li>
+            )
+          })}
         </ol>
       )}
 
@@ -133,13 +154,17 @@ export default function WinnersPodium({
         // one with three, so it shows a dozen and counts the rest. And the
         // heading has to survive any prize, or none: "for everyone here" only
         // makes sense once a prize has been named.
-        const SHOWN = 12
+        const SHOWN = wide ? 20 : 12
         const shown = voucherWinners.slice(0, SHOWN)
         const extra = voucherWinners.length - shown.length
         return (
-          <div className="mt-4 rounded-xl border border-gray-100 bg-white px-3 py-2.5">
-            <p className="mb-2 text-balance text-center text-[10px] font-semibold uppercase tracking-widest text-brand">
-              {voucherPrize ? `${voucherPrize} for everyone here` : 'Everyone here earned the participation prize'}
+          <div className="mt-4 rounded-xl border border-gray-100 bg-white px-3 py-3">
+            {/* WHO THE TAKING-PART PRIZE WENT TO, and how many. "For everyone here" was wrong on a challenge that pays
+                it outside the prize places: the people on the podium won their place prize instead. */}
+            <p className="mb-2.5 text-balance text-center text-xs font-semibold text-ink">
+              {voucherPrize
+                ? <>{voucherPrize} <span className="font-medium text-smoke">· {voucherWinners.length === 1 ? tr('1 creator earned it') : tr('{n} creators earned it', { n: voucherWinners.length })}</span></>
+                : tr('Everyone here earned the participation prize')}
             </p>
             <div className="flex flex-wrap items-center justify-center gap-1.5">
               {shown.map((v) => (
@@ -150,7 +175,7 @@ export default function WinnersPodium({
                   title={v.name}
                   className="transition-transform duration-150 hover:scale-110"
                 >
-                  <Avatar src={v.photo_url} name={v.name} size="xs" />
+                  <Avatar src={v.photo_url} name={v.name} size="sm" />
                 </Link>
               ))}
               {extra > 0 && (
@@ -161,23 +186,32 @@ export default function WinnersPodium({
         )
       })()}
 
-      <div className="mt-4 flex items-center justify-center gap-6 border-t border-gray-200/70 pt-3 text-center">
+      <div className="mt-4 grid grid-cols-3 gap-2 border-t border-gray-200/70 pt-3 text-center">
         <div>
-          <p className="text-sm font-bold tabular-nums text-ink">{entries}</p>
-          <p className="text-[10px] font-medium uppercase tracking-wide text-smoke">{tr("Entries")}</p>
+          <p className="text-base font-bold tabular-nums text-ink">{Number(entries).toLocaleString()}</p>
+          <p className="text-xs font-medium text-smoke">{tr("Entries")}</p>
         </div>
         <div>
-          {/* TOTAL VIEWS, WHATEVER THE SCORING. Every caller passes the summed VIEWS here, and it was printed as points
-              and labelled "Final points" - a number that means nothing. It is the reach of the whole challenge so far
-              and moves with every sync. */}
-          <p className="text-sm font-bold tabular-nums text-ink">{formatViews(totalScore)}</p>
-          <p className="text-[10px] font-medium uppercase tracking-wide text-smoke">{tr("Total views")}</p>
+          {/* TOTAL VIEWS, WHATEVER THE SCORING. Every caller passes the summed VIEWS here. */}
+          <p className="text-base font-bold tabular-nums text-ink">{formatViews(totalScore)}</p>
+          <p className="text-xs font-medium text-smoke">{tr("Total views")}</p>
         </div>
         <div>
-          <p className="text-sm font-bold tabular-nums text-ink">{winners.length}</p>
-          <p className="text-[10px] font-medium uppercase tracking-wide text-smoke">{places ? tr('Places taken') : tr("On the podium")}</p>
+          <p className="text-base font-bold tabular-nums text-ink">{winners.length}</p>
+          <p className="text-xs font-medium text-smoke">{places ? tr('Places taken') : tr("Prize winners")}</p>
         </div>
       </div>
+      {boardHref && (
+        <div className="mt-3 flex justify-center">
+          <Link
+            to={boardHref}
+            onClick={own}
+            className="inline-flex items-center gap-1.5 rounded-full bg-white px-4 py-2 text-sm font-semibold text-brand shadow-sm transition-transform duration-150 hoverable:hover:-translate-y-0.5"
+          >
+            {tr('See the full leaderboard')} <span aria-hidden>→</span>
+          </Link>
+        </div>
+      )}
     </div>
   )
 }

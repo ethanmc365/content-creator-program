@@ -1,9 +1,11 @@
+import { useEffect, useState, useSyncExternalStore } from 'react'
 import { Link } from 'react-router-dom'
 import Icon from '../Icon'
 import { Avatar } from '../ui'
 import { useUnread } from '../../context/UnreadContext'
 import { useT } from '../../lib/i18n'
-import { timeAgo } from '../../lib/utils'
+import { cx, timeAgo } from '../../lib/utils'
+import { isPageSettled, onPageSettled } from '../../lib/pageSettled'
 
 // NEW IN YOUR ROOMS, AT THE TOP OF WORLDWIDE (14 Oct 2026). The team: creators are missing what is said in their market
 // rooms, so "just below the title Worldwide, we could have ... a quick summary" that gets them into the chats. The
@@ -12,6 +14,14 @@ import { timeAgo } from '../../lib/utils'
 export default function NewInRooms({ className }) {
   const tr = useT()
   const { unread, rooms, lastByChannel, ready } = useUnread()
+  // IT ARRIVES WITH THE PAGE, NOT BEFORE IT (19 Oct 2026). The unread counts are ready long before the hub's own
+  // sections, so this card used to blink in at full size while the community card above it was still blank, and push
+  // everything under it down when it did. It now waits for the page to settle (a ceiling timer too, see the rAF rule),
+  // then opens its own height and lets its rows follow one after another.
+  const settled = useSyncExternalStore(onPageSettled, isPageSettled, () => true)
+  const [late, setLate] = useState(false)
+  useEffect(() => { const t = setTimeout(() => setLate(true), 1600); return () => clearTimeout(t) }, [])
+  const open = settled || late
   if (!ready || !unread.size) return null
   const fresh = rooms
     .filter((r) => unread.has(r.channel))
@@ -21,15 +31,17 @@ export default function NewInRooms({ className }) {
   const shown = fresh.slice(0, 3)
   const hrefOf = (r) => (r.place.kind === 'network' ? `/global/chat/${r.key}` : `/c/${r.place.slug}/chat/${r.key}`)
   return (
-    <section className={`overflow-hidden rounded-card border border-gray-100 bg-white shadow-card animate-rise ${className || ""}`}>
+    <div className={cx('grid transition-[grid-template-rows,opacity,transform] duration-500 ease-out', open ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] -translate-y-1 opacity-0', className)}>
+    <div className="min-h-0 overflow-hidden">
+    <section className="overflow-hidden rounded-card border border-gray-100 bg-white shadow-card">
       <Link to="/rooms" className="flex items-center gap-2 px-4 pb-1 pt-3 text-[11px] font-bold uppercase tracking-[0.12em] text-ink/70">
         <span className="relative flex h-2 w-2"><span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-brand/60" /><span className="relative inline-flex h-2 w-2 rounded-full bg-brand" /></span>
         {fresh.length === 1 ? tr('1 room has new messages') : tr('{n} rooms have new messages', { n: fresh.length })}
         <Icon name="chevronRight" className="ml-auto h-4 w-4 text-gray-300" />
       </Link>
       <ul className="divide-y divide-gray-50">
-        {shown.map(({ r, last }) => (
-          <li key={r.channel}>
+        {shown.map(({ r, last }, i) => (
+          <li key={r.channel} className={open ? 'animate-fade-up' : 'opacity-0'} style={{ animationDelay: `${0.12 + i * 0.07}s` }}>
             <Link to={hrefOf(r)} className="flex items-center gap-3 px-4 py-2.5 transition-colors active:bg-cloud hoverable:hover:bg-cloud/60">
               <Avatar src={last?.profiles?.photo_url} name={last?.profiles?.name || r.label} size="xs" />
               <span className="min-w-0 flex-1">
@@ -50,5 +62,7 @@ export default function NewInRooms({ className }) {
         <Link to="/rooms" className="block border-t border-gray-50 py-2 text-center text-xs font-semibold text-brand">{tr('See all {n}', { n: fresh.length })}</Link>
       )}
     </section>
+    </div>
+    </div>
   )
 }

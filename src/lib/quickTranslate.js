@@ -286,3 +286,40 @@ export function useMessageTranslations() {
     toggle,
   }
 }
+
+/**
+ * MANY TEXTS, ONE BUTTON (19 Oct 2026, survey answers). The team reads answers written in English, Spanish, Romanian...
+ * and wanted one Translate that turns all of them into the reader's language at once, and back. `text(t)` is what to
+ * draw for one of them. Nothing is translated until the button is pressed; results are remembered like any other.
+ */
+export function useBulkTranslate(texts) {
+  const locale = useLocale()
+  const [on, setOn] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const [done, setDone] = useState(() => new Map())
+  const [failed, setFailed] = useState(false)
+  useEffect(() => { setOn(false); setDone(new Map()) }, [locale])
+  const toggle = useCallback(async () => {
+    if (on) { setOn(false); return }
+    const need = [...new Set((texts || []).filter((t) => t && /\p{L}{2,}/u.test(t) && !done.has(t)))]
+    if (need.length) {
+      setBusy(true)
+      const res = await Promise.all(need.map((t) => translateNow(t, locale)))
+      const next = new Map(done)
+      let bad = 0
+      need.forEach((t, i) => { if (res[i].failed) bad += 1; else next.set(t, res[i].value) })
+      setDone(next)
+      setBusy(false)
+      if (bad === need.length) { setFailed(true); setTimeout(() => setFailed(false), 6000); return }
+    }
+    setOn(true)
+  }, [on, texts, done, locale])
+  return {
+    on,
+    busy,
+    failed,
+    toggle,
+    text: (t) => (on && done.get(t)) || t,
+    changed: (t) => on && done.has(t) && done.get(t).trim() !== String(t).trim(),
+  }
+}

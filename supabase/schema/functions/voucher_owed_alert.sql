@@ -26,9 +26,6 @@ begin
          rw.currency || ' ' || to_char(rw.amount, 'FM999999990.00') || ' Tryp.com voucher for ' || v_what || '. Add the code on the Vouchers page so it lands in their wallet.',
          '/admin/rewards?tab=vouchers'
     from public.profiles p
-   where p.is_admin and p.status = 'active' and not coalesce(p.is_sandbox, false) and p.id <> rw.creator_id
-     and (p.platform_role in ('owner', 'global_admin')
-          or exists (select 1 from public.community_members cm
-                      where cm.profile_id = p.id and cm.role = 'manager' and cm.status = 'active'
-                        and cm.community_id = rw.community_id));
+   where p.platform_role = 'owner' and p.status = 'active' and not coalesce(p.is_sandbox, false)
+     and not coalesce(p.is_test, false) and p.id <> rw.creator_id;
 end $function$;

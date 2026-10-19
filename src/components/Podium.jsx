@@ -80,7 +80,7 @@ export default function Podium({ places = [], meId = null, animate = true, class
                 /* The collar IS the ring - a padded disc in the place's own
                    tone, which survives an inline colour where `ring-4` cannot. */
                 <span
-                  className="block rounded-full p-1 transition-transform duration-200 group-hover:scale-105"
+                  className="block rounded-full p-1 transition-transform duration-200 group-hover/face:scale-105"
                   style={{ background: tier.disc }}
                 >
                   {/* `max-w-none` KEEPS IT A CIRCLE. The team, on a phone: the number one's "profile photo is distorted,
@@ -101,7 +101,7 @@ export default function Podium({ places = [], meId = null, animate = true, class
                   next step. The wrapper is the column's width now, a name ellipsises inside it, and the open-place words
                   break onto two short lines instead of being cut to "Up fo...". */}
               <p className={cx(
-                'mt-2 w-full max-w-full text-center font-semibold transition-colors group-hover:text-brand',
+                'mt-2 w-full max-w-full text-center font-semibold transition-colors group-hover/face:text-brand',
                 p.empty ? 'line-clamp-2 break-words leading-tight' : 'truncate',
                 outer ? 'text-xs' : 'text-sm',
                 p.empty && outer && 'text-[11px]',
@@ -149,6 +149,6 @@ export default function Podium({ places = [], meId = null, animate = true, class
 // A podium step is a link when we know whose it is, and plain markup when we do
 // not - an anchor with no href is a focus stop that goes nowhere.
 function PodiumFace({ to, children }) {
-  if (!to) return <span className="group flex w-full min-w-0 flex-col items-center">{children}</span>
-  return <Link to={to} className="group flex w-full min-w-0 flex-col items-center">{children}</Link>
+  if (!to) return <span className="group/face flex w-full min-w-0 flex-col items-center">{children}</span>
+  return <Link to={to} className="group/face flex w-full min-w-0 flex-col items-center">{children}</Link>
 }

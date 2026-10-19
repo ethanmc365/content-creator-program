@@ -153,9 +153,9 @@ describe('what a challenge actually cost', () => {
     expect(e.cashCpm).toBeCloseTo(1.9, 5)       // 190 / 100 thousand
     expect(e.combinedCpm).toBeCloseTo(2.5, 5)   // (190 + 60) / 100 thousand
     expect(e.voucherCpm).toBeUndefined()
-    // `spend` - the headline - is the CASH figure, so the headline CPM is too.
-    expect(e.spend).toBe(190)
-    expect(e.cpm).toBeCloseTo(1.9, 5)
+    // `spend` - the headline - is the TOTAL (cash and vouchers), so the headline CPM matches the challenge's own page.
+    expect(e.spend).toBe(250)
+    expect(e.cpm).toBeCloseTo(2.5, 5)
   })
 
   it('falls back to the brief only while nothing has been awarded', () => {
