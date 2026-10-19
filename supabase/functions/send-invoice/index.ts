@@ -110,7 +110,9 @@ Deno.serve(async (req) => {
   if (!description || typeof description !== 'string') return json(req, { error: 'missing description' }, 400)
   const toList = parseEmails(to)
   const ccList = parseEmails(cc)
-  if (toList.length === 0) return json(req, { error: 'no recipient email' }, 400)
+  // NO ADDRESS IS FINE (19 Oct 2026). This only RECORDS a send the admin made themselves, so it cannot insist on knowing
+  // where it went: Ethan downloaded Jacob's invoice, sent it to Francesco from Gmail, pressed "Mark as sent" and was
+  // refused with "no recipient email". Any address that IS given must still look like one.
   const badTo = toList.filter((e) => !EMAIL_RE.test(e))
   if (badTo.length) return json(req, { error: `these addresses do not look right: ${badTo.join(', ')}` }, 400)
   const badCc = ccList.filter((e) => !EMAIL_RE.test(e))
@@ -152,7 +154,7 @@ Deno.serve(async (req) => {
     bill_to: billTo || '',
     payment: payment || {},
     notes: notes || null,
-    sent_to: toList.join(', '),
+    sent_to: toList.length ? toList.join(', ') : null,
     cc: ccList.length ? ccList.join(', ') : null,
     stage: 'sent',
     status: 'sent',

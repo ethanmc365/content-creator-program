@@ -320,6 +320,15 @@ export function InvoiceModal({ inv, open, onClose, onDecide, onRecordSent, onPai
                   </button>
                 </>
               )}
+              {/* ALREADY SENT IT YOURSELF. The PDF went out from somebody's own mailbox (downloaded and emailed by
+                  hand): one press records it, moves it to Sent and tells the creator the payment is coming. */}
+              {mode !== 'send' && (
+                <button type="button" onClick={() => onRecordSent(inv, { to: '', cc: '' })}
+                  disabled={busy === inv.id}
+                  className="btn-secondary !py-2 !text-sm disabled:opacity-40">
+                  {busy === inv.id ? <Spinner /> : 'Mark as sent'}
+                </button>
+              )}
               <button type="button" onClick={startSend} disabled={busy === inv.id}
                 className="btn-primary inline-flex items-center gap-1.5 !py-2 !text-sm disabled:opacity-40">
                 <Icon name="envelope" className="h-3.5 w-3.5" />
@@ -407,14 +416,16 @@ export function useInvoiceViewer({ onChanged, onEdit } = {}) {
   // attaches nothing and mails nothing. The platform sends no mail of its own.
   async function onRecordSent(inv, { to, cc }) {
     if (!await confirm(
-      `Record ${invoiceRef(inv.number)} as sent to ${parseEmails(to).join(', ')}?\n\n` +
+      (parseEmails(to).length
+        ? `Record ${invoiceRef(inv.number)} as sent to ${parseEmails(to).join(', ')}?\n\n`
+        : `Mark ${invoiceRef(inv.number)} as sent?\n\nUse this when you sent the PDF yourself, outside the platform.\n\n`) +
       `${inv.creator_name} will be told to expect the payment, so only do this once it has actually left Gmail.`,
       { confirmLabel: 'Yes, I sent it' },
     )) return
     setBusy(inv.id)
     try {
       await sendInvoiceRow(inv, { to, cc, channel: 'gmail' })
-      localStorage.setItem(LAST_RECIPIENT_KEY, to.trim())
+      if (to.trim()) localStorage.setItem(LAST_RECIPIENT_KEY, to.trim())
       notice(`${invoiceRef(inv.number)} recorded as sent.\n\n${inv.creator_name} has been told to expect the payment.`)
       await reload(inv.id)
     } catch (e) {
