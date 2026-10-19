@@ -1,5 +1,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { PrizeText } from '../lib/prizeText'
+import { RAIL_SCROLL, useEdgeFade } from '../lib/edgeFade'
+import { WeeklyPrizeCard } from '../components/challenge/WeeklyPrize'
 import { confirm, notice, saved } from '../lib/confirm'
 import { toastSuccess } from '../lib/toast'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
@@ -119,24 +121,32 @@ function parseParticipationPrize(prizes) {
 // same thing as the `participation` computed below, which is the voucher
 // threshold ("post 3+ videos"). Two very different numbers that both wanted the
 // same word.
-const ENTRY_PAGE = 24
+// EIGHT AT A TIME, MOST VIEWED FIRST ON A FINISHED CHALLENGE (19 Oct 2026). Ethan: going from the leaderboard to the
+// entries of the Global Challenge still lagged. Each card is a thumbnail, a player and a points breakdown, so the first
+// page is now eight and the next eight come only when asked for, by a button (no scroll-triggered loading).
+const ENTRY_PAGE = 8
 
-// The foot of a paged entries grid: the next page loads as it scrolls into view, and the button is there for anybody
-// whose browser does not report that (and for keyboards).
-function MoreEntries({ onMore, left, tr }) {
+// The brief's right-hand column on a desktop: sticky, scrolls itself, fades at whichever end has more.
+function BriefRail({ children }) {
   const ref = useRef(null)
-  const more = useRef(onMore)
-  useEffect(() => { more.current = onMore })
-  useEffect(() => {
-    const el = ref.current
-    if (!el || typeof IntersectionObserver === 'undefined') return undefined
-    const io = new IntersectionObserver((seen) => { if (seen.some((x) => x.isIntersecting)) more.current() }, { rootMargin: '600px 0px' })
-    io.observe(el)
-    return () => io.disconnect()
-  }, [left])
+  const fade = useEdgeFade(ref)
   return (
-    <div ref={ref} className="mt-6 flex justify-center">
-      <button type="button" onClick={onMore} className="btn-secondary">{tr('Show more entries')} <span className="text-smoke">({left})</span></button>
+    <div ref={ref} data-lock-keep style={fade ? { maskImage: fade, WebkitMaskImage: fade } : undefined} className={cx('space-y-6', RAIL_SCROLL)}>
+      {children}
+    </div>
+  )
+}
+
+// The foot of a paged entries grid: the next eight arrive when somebody asks for them, never by themselves.
+function MoreEntries({ onMore, left, tr }) {
+  const next = Math.min(ENTRY_PAGE, left)
+  return (
+    <div className="mt-6 flex flex-col items-center gap-1.5">
+      <button type="button" onClick={onMore} className="btn-secondary hoverable:hover:-translate-y-0.5">
+        <Icon name="arrow-down" className="h-4 w-4" />
+        {next === 1 ? tr('Show the next entry') : tr('Show the next {n}', { n: next })}
+      </button>
+      <span className="text-xs text-smoke">{left === 1 ? tr('1 more entry') : tr('{n} more entries', { n: left.toLocaleString() })}</span>
     </div>
   )
 }
@@ -197,7 +207,9 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
   const [entryScope, setEntryScope] = useState('all') // all | mine
   const [entryQuery, setEntryQuery] = useState('')
   // How the entries are ordered and which platform.
-  const [entrySort, setEntrySort] = useState('newest') // newest | views | points | oldest
+  // A finished challenge opens its entries on Most views; a running one on Newest. Derived until somebody picks.
+  const [pickedSort, setEntrySort] = useState(null) // newest | views | points | oldest
+  const entrySort = pickedSort ?? (finished ? 'views' : 'newest')
   const [entryPlatform, setEntryPlatform] = useState('')
   // A new filter starts again from the first page.
   useEffect(() => { setEntryLimit(ENTRY_PAGE) }, [entryScope, entryQuery, entrySort, entryPlatform, tab])
@@ -683,7 +695,7 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
   // THE ENTRIES TAB DRAWS A PAGE AT A TIME (19 Oct 2026). The global challenge had 738 entries and every one was
   // mounted the moment the tab was pressed: the tab froze for most of a second, the old board hung on screen and the
   // dark card beside the tabs faded out in slow motion. Twenty-four, then more as the foot of the grid comes into view.
-  const shownEntries = (() => {
+  const shownEntries = tab !== 'entries' ? [] : (() => {
     let list = entryScope === 'mine'
       ? myEntries
       : entryQ ? submissions.filter((s) => normName(s.profiles?.name).includes(entryQ)) : submissions
@@ -978,7 +990,9 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
             {/* NO "LIVE" BADGE HERE ANY MORE. The countdown card right under this header already says so; a second badge
                 repeating it was the only thing this row said for a live challenge. A non-live one still gets its status,
                 which nothing else on the page states. */}
-            {!isLive && <Badge tone="grey">{challenge.status}</Badge>}
+            {/* Only a DRAFT says what it is. "archived" beside Results read like a button (Ethan) and the dates already say
+                the challenge is over. */}
+            {challenge.status === 'draft' && <Badge tone="grey">{tr('draft')}</Badge>}
           </div>
         }
       />
@@ -1494,12 +1508,15 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
         const hookCard = challenge.status !== 'archived' ? <HookButton /> : null
         // THE JOINING BONUS AND THE VOUCHER DAYS (migration 383) lead the page: they exist to get somebody posting.
         const kickersCard = <ChallengeKickers challenge={challenge} meId={user.id} />
+        // VIDEO OF THE WEEK (migration 435): this round's prize, its top three and the winners so far.
+        const weeklyCard = challenge.weekly_prize ? <WeeklyPrizeCard challenge={challenge} groupId={(viewAs ?? myGroup?.id) || null} meId={user.id} /> : null
         if (isMobile) {
           return (
             <div className="space-y-6">
               {kickersCard}
               {hookCard}
               {prizesCard}
+              {weeklyCard}
               {briefCard}
               {rulesCard}
               {scoringCard}
@@ -1510,20 +1527,24 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
           )
         }
         return (
-          <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
+          // TWO COLUMNS THAT SCROLL ON THEIR OWN, like the Worldwide page (Ethan, 19 Oct 2026). The right column was longer
+          // than the brief, so scrolling to its foot left a tall blank space under the brief. It now sticks under the
+          // header and scrolls by itself; the page is as long as the brief.
+          <div className="grid grid-cols-1 gap-8 lg:grid-cols-3 lg:items-start">
             <div className="space-y-8 lg:col-span-2">
               {briefCard}
               {rulesCard}
               {scoringCard}
             </div>
-            <div className="space-y-6">
+            <BriefRail>
               {kickersCard}
               {hookCard}
               {prizesCard}
+              {weeklyCard}
               {bonusCard}
               {collabCard}
               {platformsCard}
-            </div>
+            </BriefRail>
           </div>
         )
       })()}
@@ -1631,7 +1652,7 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
           // FOUR ACROSS ON A DESKTOP. Two on a phone, three on a tablet, four from lg.
           <div key={`${entryScope}:${entryQuery}:${entrySort}:${entryPlatform}`} className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-4">
             {shownEntries.slice(0, entryLimit).map((s, i) => (
-              <div key={s.id} style={{ animationDelay: `${Math.min(i, 9) * 40}ms` }} className={cx(
+              <div key={s.id} style={{ animationDelay: `${(i % ENTRY_PAGE) * 45}ms` }} className={cx(
                 'animate-fade-up',
                 'card group flex flex-col overflow-hidden !p-0 transition-all duration-300 hoverable:hover:-translate-y-1 hoverable:hover:shadow-lift',
                 s.creator_id === user.id && 'ring-2 ring-brand/30',

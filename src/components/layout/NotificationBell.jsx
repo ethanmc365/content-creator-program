@@ -3,6 +3,7 @@ import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import SwipeToDismiss from '../SwipeToDismiss'
 import Icon from '../Icon'
+import NotificationLead from './NotificationLead'
 import { timeAgo, cx } from '../../lib/utils'
 import { FILTERS, groupByAge, matchesFilter, metaFor, useNotifications } from '../../lib/notifications'
 import { useT } from '../../lib/i18n'
@@ -55,31 +56,22 @@ function NotificationRow({ n, leaving, onOpen, onDismiss, i }) {
         onClick={() => onOpen(n)}
         className={cx(
           'flex min-w-0 flex-1 items-start gap-3 rounded-xl py-2.5 pl-6 pr-9 text-left transition-colors duration-150',
-          n.read ? 'hover:bg-cloud' : 'bg-brand-tint/45 hover:bg-brand-tint/70',
+          n.read ? 'hover:bg-cloud' : 'bg-brand-tint/30 hover:bg-brand-tint/50',
         )}
       >
-        <span
-          className={cx(
-            'mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg transition-transform duration-200 group-hover/row:scale-110',
-            n.read ? 'bg-cloud text-smoke' : 'bg-brand text-white',
-          )}
-          aria-hidden
-        >
-          <Icon name={meta.icon} className="h-4 w-4" />
-        </span>
+        <span className="mt-0.5"><NotificationLead n={n} size='sm' /></span>
         <span className="min-w-0 flex-1">
+          {/* WHAT KIND, THEN WHAT. The kind leads in small capitals (brand while unread), so a glance down the panel
+              reads "Leaderboard, Message, Reward" before any sentence has to be read. */}
+          <span className={cx('mb-0.5 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider', n.read ? 'text-gray-400' : 'text-brand')}>
+            {meta.label}
+            <span aria-hidden className="text-gray-300">·</span>
+            <span className="font-medium normal-case tracking-normal text-gray-400">{timeAgo(n.created_at)}</span>
+          </span>
           <span className={cx('block text-sm leading-snug', n.read ? 'font-medium text-ink' : 'font-semibold text-ink')}>
             {n.type === 'vip' ? tr(n.title) : stripMarkup(n.title)}
           </span>
           {n.body && <span className={`mt-0.5 block text-xs leading-snug text-smoke ${n.type === 'reaction' ? 'truncate' : 'line-clamp-2'}`}>{n.type === 'vip' ? tr(n.body) : stripMarkup(n.body)}</span>}
-          <span className="mt-1 flex items-center gap-1.5 text-[11px] text-gray-400">
-            {/* The kind of thing it is, then when. The label is the one piece
-                of context a title cannot always carry: "Sam Rivera" tells you
-                nothing until you know it is a connection request. */}
-            <span className="font-medium uppercase tracking-wide text-gray-400">{meta.label}</span>
-            <span aria-hidden>·</span>
-            {timeAgo(n.created_at)}
-          </span>
         </span>
       </button>
 

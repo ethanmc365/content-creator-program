@@ -24,7 +24,9 @@ const dayLabel = (ymd) => new Date(`${ymd}T12:00:00`).toLocaleDateString('en-GB'
 export function JoinBonusEditor({ challengeId }) {
   const [row, setRow] = useState(undefined)
   const [earned, setEarned] = useState(0)
-  const [pts, setPts] = useState(10)
+  // NOTHING IS PICKED WHILE IT IS OFF (19 Oct 2026). "+10 points" sat there solid orange on a bonus that was off, so the
+  // card read as already active (Ethan). A number is picked only by pressing one, or when the bonus is on.
+  const [pts, setPts] = useState(null)
   const [custom, setCustom] = useState('')
   const [busy, setBusy] = useState(false)
   const load = useCallback(async () => {
@@ -42,7 +44,7 @@ export function JoinBonusEditor({ challengeId }) {
   useEffect(() => { load() }, [load])
 
   const on = Number(row?.join_bonus_points) > 0
-  const value = custom ? Number(custom) : pts
+  const value = custom ? Number(custom) : (pts ?? 0)
   async function save(next) {
     if (next != null && !(next > 0 && next <= 1000)) { notice('Pick a number of points between 1 and 1000.'); return }
     if (next == null && !await confirm('Switch the joining bonus off? Points already given are taken back as the challenge rescores.', { confirmLabel: 'Switch off', danger: true })) return
@@ -85,8 +87,8 @@ export function JoinBonusEditor({ challengeId }) {
             </p>
           )}
           <div className="flex flex-wrap gap-2">
-            <button type="button" disabled={busy || (on && value === Number(row.join_bonus_points))} onClick={() => save(value)} className="btn-primary !py-2 text-xs disabled:opacity-50">
-              {busy ? <Spinner className="h-3.5 w-3.5" /> : on ? 'Save points' : `Switch on: +${value || 0} points`}
+            <button type="button" disabled={busy || !value || (on && value === Number(row.join_bonus_points))} onClick={() => save(value)} className="btn-primary !py-2 text-xs disabled:opacity-50">
+              {busy ? <Spinner className="h-3.5 w-3.5" /> : on ? 'Save points' : value ? `Switch on: +${value} points` : 'Pick the points to switch on'}
             </button>
             {on && <button type="button" disabled={busy} onClick={() => save(null)} className="btn-ghost !py-2 text-xs">Switch off</button>}
           </div>

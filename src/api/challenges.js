@@ -29,6 +29,10 @@ export const makeChallengesApi = (db = supabase) => ({
   recalcChallengePoints: (args, opts) => db.rpc('recalc_challenge_points', args, opts),
   viewsLeaderboard: (args, opts) => db.rpc('views_leaderboard', args, opts),
   setEntryFeedback: (args, opts) => db.rpc('set_entry_feedback', args, opts),
+  // Video of the Week (migration 435).
+  weeklyPrizeBoard: (args, opts) => db.rpc('weekly_prize_board', args, opts),
+  awardWeeklyPrize: (args, opts) => db.rpc('award_weekly_prize', args, opts),
+  weeklyPrizeRefresh: (args, opts) => db.rpc('weekly_prize_refresh', args, opts),
   /** A challenge function chosen at run time (award or withdraw a bonus). */
   call: (fn, args, opts) => db.rpc(fn, args, opts),
 })

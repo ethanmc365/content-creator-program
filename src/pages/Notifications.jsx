@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext'
 import { EmptyState, PageHeader, Skeleton } from '../components/ui'
 import SwipeToDismiss from '../components/SwipeToDismiss'
 import Icon from '../components/Icon'
+import NotificationLead from '../components/layout/NotificationLead'
 import Reveal from '../components/network/Reveal'
 import { timeAgo, cx } from '../lib/utils'
 import { FILTERS, groupByAge, matchesFilter, metaFor, useNotifications } from '../lib/notifications'
@@ -49,15 +50,7 @@ function Row({ n, leaving, onOpen, onDismiss, i }) {
           n.read ? 'hover:bg-cloud/60' : 'bg-brand-tint/40 hover:bg-brand-tint/60',
         )}
       >
-        <span
-          className={cx(
-            'mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl transition-transform duration-200 group-hover/row:scale-110',
-            n.read ? 'bg-cloud text-smoke' : 'bg-brand text-white',
-          )}
-          aria-hidden
-        >
-          <Icon name={meta.icon} className="h-5 w-5" />
-        </span>
+        <span className="mt-0.5"><NotificationLead n={n} size='lg' /></span>
         <span className="min-w-0 flex-1">
           <span className={cx('block text-sm', n.read ? 'font-medium' : 'font-semibold')}>{n.type === 'vip' ? tr(n.title) : stripMarkup(n.title)}</span>
           {n.body && <span className={`mt-0.5 block text-sm leading-snug text-smoke ${n.type === 'reaction' ? 'truncate' : ''}`}>{n.type === 'vip' ? tr(n.body) : stripMarkup(n.body)}</span>}

@@ -11,7 +11,7 @@ import { useT } from '../../lib/i18n'
 // The refusals match lib/photoPost, which turns away Instagram and Facebook photo posts at submit.
 // Built with the reader's `tr`, so every word is a literal the translation catalogue can see.
 const rulesFor = (tr) => ({
-  TikTok: { yes: [tr('Videos'), tr('Photo carousels')], no: [], star: 1 },
+  TikTok: { yes: [tr('Videos'), tr('Photo carousels')], no: [] },
   Instagram: { yes: [tr('Reels')], no: [tr('Photo posts'), tr('Carousels')] },
   Facebook: { yes: [tr('Reels'), tr('Videos')], no: [tr('Photo posts')] },
   YouTube: { yes: [tr('Shorts'), tr('Videos')], no: [] },
@@ -26,6 +26,7 @@ export default function PlatformRules({ platforms = [] }) {
   if (!list.length) return <p className="text-sm text-smoke">{tr('Any platform.')}</p>
   return (
     <ul className="space-y-2">
+      {/* Every tick the same green, and no legend: a tick and a crossed-out word explain themselves (Ethan). */}
       {list.map((p, i) => {
         const r = RULES[p] || { yes: [tr('Videos')], no: [] }
         return (
@@ -39,9 +40,9 @@ export default function PlatformRules({ platforms = [] }) {
               {p}
             </p>
             <div className="mt-2 flex flex-wrap gap-1.5">
-              {r.yes.map((x, k) => (
-                <span key={x} className={cx('inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold', r.star === k ? 'bg-brand text-white shadow-card' : 'bg-emerald-50 text-emerald-700')}>
-                  <Tick />{x}{r.star === k && <span className="font-medium text-white/90">· {tr('they do really well')}</span>}
+              {r.yes.map((x) => (
+                <span key={x} className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700">
+                  <Tick />{x}
                 </span>
               ))}
               {r.no.map((x) => (
@@ -53,7 +54,6 @@ export default function PlatformRules({ platforms = [] }) {
           </li>
         )
       })}
-      <li className="flex items-center gap-1.5 px-1 pt-0.5 text-xs text-smoke"><Tick className="text-emerald-600" />{tr('counts')}<span className="mx-1 text-gray-300">|</span><Cross className="text-gray-400" />{tr('does not count')}</li>
     </ul>
   )
 }

@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { Avatar, Badge, CopyButton, EmptyState, Modal, PageHeader, Skeleton, Spinner, StatCard, Select } from '../../components/ui'
+import { Badge, CopyButton, EmptyState, Modal, PageHeader, Skeleton, Spinner, StatCard, Select } from '../../components/ui'
 import { cx } from '../../lib/utils'
 import Icon from '../../components/Icon'
+import PersonLink from '../../components/PersonLink'
 import { formatDate, formatMoney, downloadCsv } from '../../lib/utils'
 import { notice } from '../../lib/confirm'
 import { payeeFromPrivate, payeeStarted, formatSortCode, formatIban, cleanIban, invoiceRef, EMPTY_PAYEE, validatePayee } from '../../lib/invoice'
@@ -94,11 +95,9 @@ function ReferralSection({ loading, rewards, owed, paid, pendingCount, busyId, o
           ) : (
             rewards.map((r) => (
               <div key={r.id} className="flex flex-wrap items-center gap-4 border-b border-gray-50 px-5 py-3.5 last:border-0 sm:px-7">
-                <Avatar src={r.profiles?.photo_url} name={r.profiles?.name} size="sm" />
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-semibold">{r.profiles?.name}</p>
+                <PersonLink person={r.profiles} className="min-w-0 flex-1">
                   <p className="truncate text-xs text-smoke">brought in {r.referred?.name || 'a creator'}</p>
-                </div>
+                </PersonLink>
                 <span className="font-bold tabular-nums">{formatMoney(r.amount, r.currency)}</span>
                 {r.status === 'pending' ? (
                   <button onClick={() => onPay(r)} disabled={busyId === r.id} className="btn-primary !py-2 text-xs">
@@ -136,9 +135,7 @@ function RewardRow({ r, invoiceOf, viewer, busyId, onInvoice, onDistribute }) {
         invoiceOf.has(r.id) && 'cursor-pointer transition-colors hover:bg-cloud/50',
       )}
     >
-      <Avatar src={r.profiles?.photo_url} name={r.profiles?.name} size="sm" />
-      <div className="min-w-0 flex-1">
-        <p className="text-sm font-semibold">{r.profiles?.name}</p>
+      <PersonLink person={r.profiles} className="min-w-0 flex-1">
         <p className="flex items-center gap-1 truncate text-xs text-smoke">
           <Icon name={r.reward_type === 'cash' ? 'cash' : 'ticket'} className="h-3.5 w-3.5 shrink-0" />
           <span className="truncate">
@@ -153,7 +150,7 @@ function RewardRow({ r, invoiceOf, viewer, busyId, onInvoice, onDistribute }) {
             {r.used_at && <span className="font-medium text-smoke">used {formatDate(r.used_at)}</span>}
           </p>
         )}
-      </div>
+      </PersonLink>
       <span className="font-bold tabular-nums">{formatMoney(r.amount, r.currency)}</span>
       {/* A DISTRIBUTED VOUCHER WITH NO CODE IS NOT DONE. It was wearing the same green "distributed" badge as a voucher
           the creator can actually spend, so six of them sat here looking finished while six creators had nothing to
@@ -398,8 +395,8 @@ function Overview({ loading, spend, paid, pending, invoiceStages, cashToPay, vou
             <ul className="divide-y divide-gray-50">
               {recent.map((r) => (
                 <li key={r.id} className="flex items-center gap-3 py-2.5">
-                  <Avatar src={r.profiles?.photo_url} name={r.profiles?.name} size="xs" />
-                  <span className="min-w-0 flex-1 truncate text-sm">{r.profiles?.name}<span className="text-smoke"> · {r.reward_type === 'cash' ? 'cash' : 'voucher'}</span></span>
+                  <PersonLink person={r.profiles} size="xs" nameClass="text-sm" className="min-w-0 flex-1" />
+                  <span className="shrink-0 text-xs text-smoke">{r.reward_type === 'cash' ? 'cash' : 'voucher'}</span>
                   <span className="text-sm font-bold tabular-nums">{formatMoney(r.amount, r.currency)}</span>
                 </li>
               ))}
@@ -470,7 +467,6 @@ export default function AdminRewards() {
   const [distributing, setDistributing] = useState(null) // the reward being marked
   const [distNotes, setDistNotes] = useState('')
   const [distCode, setDistCode] = useState('')
-  const [distChat, setDistChat] = useState(false)
 
   const inMarket = useMemo(() => {
     if (!market) return null
@@ -616,7 +612,6 @@ export default function AdminRewards() {
     setDistributing(reward)
     setDistNotes(reward.payment_notes || (reward.reward_type === 'voucher' ? 'Voucher code' : 'Bank transfer'))
     setDistCode(reward.voucher_code || '')
-    setDistChat(false)
   }
 
   // Confirm distribution: set status + notes + timestamp.
@@ -628,8 +623,9 @@ export default function AdminRewards() {
     // FUTURE VOUCHERS CARRY THEIR CODE. The team: the old ones went out by chat, but "the codes for all future vouchers
     // should be inputted". So a voucher cannot be marked handed over without one, unless the team says it really was
     // sent by chat.
-    if (isVoucher && !code && !distChat) {
-      notice('Enter the voucher code, or tick that you sent it by chat instead.')
+    // NO "SENT BY CHAT" ANY MORE (19 Oct 2026, Ethan): every voucher carries its code on the platform.
+    if (isVoucher && !code) {
+      notice('Enter the voucher code.')
       return
     }
     setBusyId(distributing.id)
@@ -638,14 +634,14 @@ export default function AdminRewards() {
     if (already) {
       // Group-aware, so recoding a combined voucher recodes every part.
       ;({ error } = await moneyApi.adminSetVoucherCode({
-        p_reward: distributing.id, p_code: distChat ? '' : code, p_via: distChat ? 'chat' : null,
+        p_reward: distributing.id, p_code: code, p_via: null,
       }))
     } else {
       ;({ error } = await moneyApi
         .rewards()
         .update({
           status: 'distributed', payment_notes: distNotes, distributed_at: new Date().toISOString(),
-          ...(isVoucher ? { voucher_code: distChat ? null : code, issued_via: distChat ? 'chat' : null } : {}),
+          ...(isVoucher ? { voucher_code: code, issued_via: null } : {}),
         })
         .eq('id', distributing.id))
     }
@@ -959,8 +955,7 @@ export default function AdminRewards() {
               return (
                 <div key={c.id} className="card">
                   <div className="mb-3 flex items-center gap-3">
-                    <Avatar src={c.photo_url} name={c.name} size="sm" />
-                    <p className="min-w-0 flex-1 truncate text-sm font-semibold">{c.name}</p>
+                    <PersonLink person={c} className="min-w-0 flex-1" />
                     {c.payee.currency
                       ? <Badge tone="light">{c.payee.currency === 'EUR' ? '€ Euros' : '£ Pounds'}</Badge>
                       : <Badge tone="grey">Not set up</Badge>}
@@ -1105,13 +1100,8 @@ export default function AdminRewards() {
                   autoComplete="off"
                   autoCapitalize="characters"
                   spellCheck={false}
-                  disabled={distChat}
                 />
-                <label className="mt-3 flex cursor-pointer items-start gap-2.5 text-sm text-ink">
-                  <input type="checkbox" checked={distChat} onChange={(e) => setDistChat(e.target.checked)} className="mt-1 h-4 w-4 accent-[#d94407]" />
-                  <span>I sent it by chat instead. <span className="text-smoke">Their ticket will say it was issued by chat.</span></span>
-                </label>
-                {distCode.trim() && !distChat && (
+                {distCode.trim() && (
                   <div className="mt-3">
                     <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-widest text-smoke">What they will see</p>
                     <VoucherTicket reward={{ ...distributing, voucher_code: distCode.trim(), distributed_at: distributing.distributed_at || new Date().toISOString(), used_at: null }} />

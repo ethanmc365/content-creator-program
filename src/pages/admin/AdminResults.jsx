@@ -7,6 +7,7 @@ import { cx, formatViews, formatMoney, formatDateTimeTz, timeAgo } from '../../l
 import { describeSyncError } from '../../lib/viewSync'
 import WinnersPodium from '../../components/WinnersPodium'
 import ViewSyncPanel from '../../components/admin/ViewSyncPanel'
+import { WeeklyPrizeAdmin } from '../../components/challenge/WeeklyPrize'
 import ShareLeaderboard from '../../components/admin/ShareLeaderboard'
 import PrizeStandingsPanel, { usePrizeStandings } from '../../components/admin/PrizeStandingsPanel'
 import { PLATFORM_ORDER } from '../../components/PlatformBadges'
@@ -295,6 +296,16 @@ export default function AdminResults() {
   // redoing - it is idempotent, never pays anyone twice. What actually got
   // paid, and any invoice stuck on missing bank details, lives on Rewards &
   // Payouts now rather than a second copy of it here.
+  // WHAT IS STILL OWED, asked of the same function in dry-run mode, so the button can say "Awarded" once everything
+  // is (Ethan: it kept offering "Award prizes now" after the prizes had gone out). null = not asked yet.
+  const [toAward, setToAward] = useState(null)
+  const checkAwards = useCallback(async () => {
+    const { data, error } = await challengesApi.awardChallengePrizes({ p_challenge_id: id, p_dry_run: true })
+    if (error) { setToAward(null); return }
+    setToAward((data ?? []).filter((r) => r.outcome === 'would create').length)
+  }, [id])
+  useEffect(() => { if (ended && resultsCount > 0) checkAwards() }, [ended, resultsCount, checkAwards])
+
   async function awardPrizesNow() {
     setAwarding(true)
     const { data, error } = await challengesApi.awardChallengePrizes({ p_challenge_id: id, p_dry_run: false })
@@ -302,6 +313,7 @@ export default function AdminResults() {
     if (error) return flash(`Could not award the prizes: ${error.message}`)
     const made = (data ?? []).filter((r) => r.outcome === 'created').length
     flash(made ? `${made} ${made === 1 ? 'prize' : 'prizes'} awarded. Check Rewards & Payouts.` : 'Everything was already awarded.')
+    checkAwards()
   }
 
   // The podium exactly as creators will see it, drawn from the rows already
@@ -528,9 +540,16 @@ export default function AdminResults() {
             </div>
             {(ended || challenge?.winners_published_at) && (
               <div className="flex flex-wrap items-center gap-2">
-                {resultsCount > 0 && (
-                  <button onClick={awardPrizesNow} disabled={awarding} className="btn-secondary !py-2 text-xs">
-                    {awarding ? <Spinner /> : 'Award prizes now'}
+                {resultsCount > 0 && toAward === 0 && (
+                  <Link to="/admin/rewards" title="Every prize on this board has been awarded. See them on Rewards & Payouts."
+                    className="inline-flex items-center gap-1.5 rounded-full bg-green-50 px-3 py-2 text-xs font-semibold text-green-700 transition-transform hoverable:hover:-translate-y-0.5">
+                    <Icon name="check" className="h-3.5 w-3.5" />
+                    Awarded
+                  </Link>
+                )}
+                {resultsCount > 0 && toAward !== 0 && (
+                  <button onClick={awardPrizesNow} disabled={awarding || toAward == null} className="btn-secondary !py-2 text-xs">
+                    {awarding || toAward == null ? <Spinner /> : `Award ${toAward} ${toAward === 1 ? 'prize' : 'prizes'} now`}
                   </button>
                 )}
                 <button
@@ -600,10 +619,14 @@ export default function AdminResults() {
         </div>
       )}
 
+      {/* VIDEO OF THE WEEK: each frozen round's winner, checked and awarded here (migration 435). */}
+      <WeeklyPrizeAdmin challenge={challenge} onAwarded={checkAwards} />
+
       {submissions.length > 0 ? (
         <ViewSyncPanel
           challengeId={id}
           submissions={submissions}
+          finished={!!challenge?.winners_published_at || ended}
           onSynced={load}
           onSaveViews={saveViews}
           onShowEntries={(ids, label) => {

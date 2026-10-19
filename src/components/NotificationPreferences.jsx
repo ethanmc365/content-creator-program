@@ -42,6 +42,8 @@ export const CATEGORIES = [
   { key: 'reaction', label: 'Reactions', hint: 'When somebody reacts to one of your messages. Several on one message arrive as one.' },
   { key: 'results', label: 'Results', hint: "When a challenge's results are published." },
   { key: 'reward', label: 'Rewards', hint: 'When a reward or payout comes your way.' },
+  // Migration 435. At most one every 12 hours per challenge, sooner only for first place or the prize places.
+  { key: 'rank', label: 'Leaderboard moves', hint: 'When you move up a challenge leaderboard, or somebody overtakes you.' },
   { key: 'connection', label: 'New connections', hint: 'When a creator connects with you.' },
 ]
 

@@ -166,3 +166,91 @@ export function ScaleColumns({ spread, pickers }) {
     </div>
   )
 }
+
+/**
+ * WHO ANSWERED, MARKET BY MARKET (19 Oct 2026). Replaced "Answers coming in", a day-by-day bar-and-line chart Ethan
+ * found made no sense (and whose two stacked bars magnified one at a time on hover). One row per market: answered and
+ * said no are ONE bar in two parts, so a hover lifts the whole row and both parts grow together. Pressing a row opens
+ * who answered from that market. Underneath, the three facts the old chart was trying to say: when the last answer
+ * came, the busiest day, and how many came in this week.
+ */
+export function MarketSplit({ responses, who, formatDay, timeAgo }) {
+  const tr = useT()
+  const [open, setOpen] = useState(null)
+  const [nowMs] = useState(() => Date.now())
+  const rows = (() => {
+    const m = new Map()
+    for (const r of responses || []) {
+      const key = who(r).market || tr('No market')
+      const x = m.get(key) || { key, answered: 0, declined: 0, people: [] }
+      if (r.declined) x.declined += 1; else { x.answered += 1; x.people.push(r) }
+      m.set(key, x)
+    }
+    return [...m.values()].sort((a, b) => (b.answered + b.declined) - (a.answered + a.declined) || a.key.localeCompare(b.key))
+  })()
+  const max = Math.max(1, ...rows.map((x) => x.answered + x.declined))
+  const days = new Map()
+  for (const r of responses || []) { const d = String(r.created_at || '').slice(0, 10); if (d) days.set(d, (days.get(d) || 0) + 1) }
+  const busiest = [...days.entries()].sort((a, b) => b[1] - a[1] || b[0].localeCompare(a[0]))[0]
+  const latest = (responses || []).reduce((m, r) => (r.created_at > m ? r.created_at : m), '')
+  const weekAgo = new Date(nowMs - 7 * 86400_000).toISOString()
+  const thisWeek = (responses || []).filter((r) => r.created_at >= weekAgo).length
+
+  if (!rows.length) return <p className="py-10 text-center text-sm text-smoke">{tr('Nothing yet.')}</p>
+  return (
+    <div>
+      <ul className="space-y-1.5">
+        {rows.map((x, i) => {
+          const total = x.answered + x.declined
+          const isOpen = open === x.key
+          return (
+            <li key={x.key} className={cx('relative', isOpen && 'z-30')}>
+              <button
+                type="button"
+                onClick={() => setOpen(isOpen ? null : x.key)}
+                aria-expanded={isOpen}
+                className={cx('group flex w-full items-center gap-3 rounded-lg px-1.5 py-1 text-left transition-colors duration-200', isOpen ? 'bg-cloud' : 'hoverable:hover:bg-cloud/70')}
+              >
+                <span className="w-24 shrink-0 truncate text-[13px] font-semibold text-ink sm:w-28" title={x.key}>{x.key}</span>
+                <span className="relative h-3 min-w-0 flex-1">
+                  {/* ONE OBJECT: the track and both parts scale as a unit, so hovering never grows one colour alone. */}
+                  <span className="absolute inset-0 flex origin-left overflow-hidden rounded-full bg-gray-100 transition-transform duration-200 ease-out hoverable:group-hover:scale-y-[1.35]">
+                    <span className="flex h-full survey-bar-grow" style={{ width: `${(total / max) * 100}%`, animationDelay: `${i * 60}ms` }}>
+                      <span className="h-full bg-gradient-to-r from-brand-light to-brand" style={{ width: `${total ? (x.answered / total) * 100 : 0}%` }} />
+                      <span className="h-full bg-gray-300" style={{ width: `${total ? (x.declined / total) * 100 : 0}%` }} />
+                    </span>
+                  </span>
+                </span>
+                <span className="w-24 shrink-0 text-right text-[13px] tabular-nums">
+                  <strong className="font-bold text-ink">{x.answered}</strong>
+                  {x.declined > 0 && <span className="text-smoke"> · {tr('{n} no', { n: x.declined })}</span>}
+                </span>
+              </button>
+              {isOpen && (
+                <PeoplePop
+                  rows={x.people}
+                  title={`${x.key}: ${x.answered === 1 ? tr('1 answer') : tr('{n} answers', { n: x.answered })}`}
+                  onClose={() => setOpen(null)}
+                />
+              )}
+            </li>
+          )
+        })}
+      </ul>
+      <div className="mt-4 grid grid-cols-3 gap-2 border-t border-gray-100 pt-3">
+        <Fact label={tr('Latest answer')} value={latest ? timeAgo(latest) : '-'} />
+        <Fact label={tr('Busiest day')} value={busiest ? `${formatDay(busiest[0])} · ${busiest[1]}` : '-'} />
+        <Fact label={tr('Last 7 days')} value={thisWeek} />
+      </div>
+    </div>
+  )
+}
+
+function Fact({ label, value }) {
+  return (
+    <div className="min-w-0">
+      <p className="truncate text-[11px] font-bold uppercase tracking-wide text-gray-400">{label}</p>
+      <p className="mt-0.5 truncate text-sm font-semibold tabular-nums text-ink">{value}</p>
+    </div>
+  )
+}

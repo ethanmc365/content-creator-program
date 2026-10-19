@@ -5,6 +5,7 @@ import { copyToClipboard } from '../lib/clipboard'
 import { toastSuccess } from '../lib/toast'
 import { useT } from '../lib/i18n'
 import { cx, formatDate, formatMoney } from '../lib/utils'
+import { useLocalHint } from '../lib/localMoney'
 
 // A VOUCHER, DRAWN AS ONE.
 //
@@ -37,6 +38,7 @@ import { cx, formatDate, formatMoney } from '../lib/utils'
 // sees the ticket but cannot tick it for them.
 export default function VoucherTicket({ reward, onToggleUsed, busy = false }) {
   const tr = useT()
+  const hint = useLocalHint()
   const [copied, setCopied] = useState(false)
   const code = reward.voucher_code?.trim()
   const used = !!reward.used_at
@@ -70,8 +72,13 @@ export default function VoucherTicket({ reward, onToggleUsed, busy = false }) {
           <Icon name="ticket" className="h-3.5 w-3.5" /> {tr('Voucher')}
         </p>
         <p className="relative mt-3 text-2xl font-bold leading-none tabular-nums sm:text-3xl">
-          {reward.converted ? '≈ ' : ''}{formatMoney(reward.amount, reward.currency)}
+          {/* A COMBINED VOUCHER IS WORTH WHAT ITS CODE IS WORTH. Its parts may be in two currencies (Kira: a GBP 10 and a
+              EUR 10 became one EUR 22 code), but the team issued the code for that whole figure, so no "≈". */}
+          {formatMoney(reward.amount, reward.currency)}
         </p>
+        {hint(reward.amount, reward.currency) && (
+          <p className="relative mt-1 text-xs font-semibold tabular-nums text-white/85">{hint(reward.amount, reward.currency)}</p>
+        )}
         <p className={cx('relative mt-1.5 text-[11px] font-medium text-white/80', used && 'invisible')}>Tryp.com</p>
       </div>
 
@@ -127,8 +134,9 @@ export default function VoucherTicket({ reward, onToggleUsed, busy = false }) {
                 used ? 'border-brand bg-brand text-white' : 'border-gray-200 bg-white text-ink',
               )}
             >
-              {busy ? <Spinner className="h-3.5 w-3.5" /> : <Icon name="check" className="h-4 w-4" />}
-              {used ? tr('Used') : tr('Mark as used')}
+              {busy ? <Spinner className="h-3.5 w-3.5" /> : <Icon name={used ? 'check' : 'clock'} className="h-4 w-4" />}
+              {/* Says the state, like a switch: "Not used" until it is spent. */}
+              {used ? tr('Used') : tr('Not used')}
             </button>
           )}
         </div>

@@ -73,6 +73,8 @@ export const TYPE_META = {
   community: { icon: 'globe', group: 'updates', label: 'Market' },
   // The VIP programme's welcome, payout, bonus and month-end notices (migrations 294/296).
   vip: { icon: 'star', group: 'updates', label: 'VIP' },
+  // Moved up, or overtaken (migration 435).
+  rank: { icon: 'chart', group: 'updates', label: 'Leaderboard' },
 }
 
 export const metaFor = (type) => TYPE_META[type] || { icon: 'bell', group: 'updates', label: 'Update' }

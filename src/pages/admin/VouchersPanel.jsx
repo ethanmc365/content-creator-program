@@ -1,9 +1,10 @@
 import { useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { Avatar, Badge, CopyButton, EmptyState, Modal, Spinner } from '../../components/ui'
 import Icon from '../../components/Icon'
 import VoucherTicket from '../../components/VoucherTicket'
 import { cx, formatDate, formatMoney } from '../../lib/utils'
-import { notice, confirm } from '../../lib/confirm'
+import { notice } from '../../lib/confirm'
 import { ticketsOf } from '../../lib/wallet'
 import { rewardsTotal } from '../../lib/programme'
 import { moneyApi } from '../../api/money'
@@ -18,7 +19,7 @@ import { moneyApi } from '../../api/money'
 //   combined            tick two or more of one creator's unspent vouchers, type the
 //                       new code, and they become one ticket worth the sum
 //   marked used / not   on the creator's behalf, or to undo a mistaken tick
-//   split               undo a combine; the parts need a code each again
+//   (no split: a combined voucher stays one code, 19 Oct 2026)
 //
 // A COMBINED VOUCHER IS NOT A MERGED ROW. Each reward keeps its own amount and its
 // own challenge, so what a challenge paid out never moves; they share a group and a
@@ -45,7 +46,8 @@ const stateOf = (t) => {
   return 'ready'
 }
 
-const money = (t) => `${t.converted ? '≈ ' : ''}${formatMoney(t.amount, t.currency)}`
+// A combined voucher is worth what its code is worth, so no "≈" even when its parts were in two currencies.
+const money = (t) => formatMoney(t.amount, t.currency)
 const sumOf = (list) => {
   const total = rewardsTotal(list.flatMap((t) => (t.parts ? t.parts : [t])))
   return `${total.converted ? '≈ ' : ''}${formatMoney(total.amount, total.currency)}`
@@ -113,13 +115,6 @@ export default function VouchersPanel({ rewards, loading, onChanged, onHandOver 
   }
 
   const markUsed = (t, used) => run(t.id, () => moneyApi.adminSetVoucherUsed({ p_reward: t.id, p_used: used }))
-  const split = async (t) => {
-    const ok = await confirm(
-      'Split this back into separate vouchers? The combined code is removed from each part, so each will need its own code again.',
-      { confirmLabel: 'Split them' },
-    )
-    if (ok) run(t.id, () => moneyApi.adminSplitVouchers({ p_reward: t.id }))
-  }
 
   const selected = [...picked].map((id) => tickets.find((t) => t.id === id)).filter(Boolean)
 
@@ -177,7 +172,6 @@ export default function VouchersPanel({ rewards, loading, onChanged, onHandOver 
               busy={busy === t.id}
               onCode={() => (t.status === 'pending' ? onHandOver(t) : setEditing(t))}
               onUsed={(used) => markUsed(t, used)}
-              onSplit={() => split(t)}
             />
           ))}
         </ul>
@@ -238,7 +232,7 @@ export default function VouchersPanel({ rewards, loading, onChanged, onHandOver 
 
 const canPick = (t) => t.status === 'distributed' && !t.used_at
 
-function TicketRow({ t, picked, pickable, onPick, busy, onCode, onUsed, onSplit }) {
+function TicketRow({ t, picked, pickable, onPick, busy, onCode, onUsed }) {
   const state = stateOf(t)
   const meta = STATES[state]
   const source = t.parts
@@ -257,12 +251,20 @@ function TicketRow({ t, picked, pickable, onPick, busy, onCode, onUsed, onSplit 
           {picked && <Icon name="check" className="h-3 w-3" />}
         </button>
       ) : <span className="w-5 shrink-0" aria-hidden />}
-      <Avatar src={t.profiles?.photo_url} name={t.profiles?.name} size="xs" />
+      <Link to={t.profiles?.id ? `/profile/${t.profiles.id}` : '#'} className="shrink-0 rounded-full transition-transform duration-200 hoverable:hover:scale-105">
+        <Avatar src={t.profiles?.photo_url} name={t.profiles?.name} size="xs" />
+      </Link>
       <div className="min-w-0 flex-1">
         <p className="flex min-w-0 items-center gap-2 text-sm">
-          <span className="truncate font-semibold">{t.profiles?.name}</span>
+          <Link to={t.profiles?.id ? `/profile/${t.profiles.id}` : '#'} className="truncate font-semibold transition-colors hover:text-brand">{t.profiles?.name}</Link>
+          {t.profiles?.id && (
+            <Link to={`/messages?to=${t.profiles.id}`} title="Message them" aria-label={`Message ${t.profiles.name || ''}`} className="shrink-0 text-smoke transition-colors hover:text-brand">
+              <Icon name="envelope" className="h-3.5 w-3.5" />
+            </Link>
+          )}
           <span className="shrink-0 font-bold tabular-nums">{money(t)}</span>
-          {t.parts && <span className="shrink-0 rounded bg-brand-tint px-1.5 text-[10px] font-bold text-brand">×{t.parts.length}</span>}
+          {/* WHAT IT IS MADE OF, NOT "×2": a "×2" beside EUR 22 read as two of them (Ethan, on Kiera's). */}
+          {t.parts && <span className="min-w-0 truncate text-[11px] font-medium text-smoke">{t.parts.map((p) => formatMoney(p.amount, p.currency)).join(' + ')} combined</span>}
         </p>
         <p className="flex min-w-0 items-center gap-1.5 text-[11px] text-smoke">
           <Badge tone={meta.tone}>{meta.label}</Badge>
@@ -283,18 +285,22 @@ function TicketRow({ t, picked, pickable, onPick, busy, onCode, onUsed, onSplit 
                 <Icon name="pencil" className="h-3.5 w-3.5" />
               </button>
             )}
-            {t.parts && state !== 'used' && (
-              <button type="button" onClick={onSplit} disabled={busy} className="rounded-lg px-2 py-1.5 text-xs font-semibold text-smoke hoverable:hover:bg-cloud hoverable:hover:text-ink">Split</button>
-            )}
+            {/* NO SPLIT: a combined voucher stays one code (Ethan). The button SAYS THE STATE, like a switch: "Not used"
+                until somebody spends it, then a solid "Used". It used to show the action, so an unspent voucher carried
+                a "Used" button and read as spent. */}
             <button
               type="button"
               onClick={() => onUsed(state !== 'used')}
               disabled={busy}
-              title={state === 'used' ? 'Mark not used' : 'Mark used'}
-              className="inline-flex h-8 items-center gap-1 rounded-lg border border-gray-200 px-2.5 text-xs font-semibold text-ink transition-colors hoverable:hover:border-brand hoverable:hover:text-brand"
+              aria-pressed={state === 'used'}
+              title={state === 'used' ? 'Used. Press to mark it not used' : 'Not used yet. Press when it has been used'}
+              className={cx(
+                'inline-flex h-8 items-center gap-1 rounded-full px-3 text-xs font-semibold transition-transform duration-200 hoverable:hover:-translate-y-0.5',
+                state === 'used' ? 'bg-brand text-white shadow-card' : 'border border-gray-200 bg-white text-smoke',
+              )}
             >
-              {busy ? <Spinner className="h-3.5 w-3.5" /> : <Icon name={state === 'used' ? 'refresh' : 'check'} className="h-3.5 w-3.5" />}
-              <span className="hidden sm:inline">{state === 'used' ? 'Not used' : 'Used'}</span>
+              {busy ? <Spinner className="h-3.5 w-3.5" /> : <Icon name={state === 'used' ? 'check' : 'clock'} className="h-3.5 w-3.5" />}
+              {state === 'used' ? 'Used' : 'Not used'}
             </button>
           </>
         )}

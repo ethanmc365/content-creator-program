@@ -51,6 +51,7 @@ export const TEMPLATE_FIELDS = [
   'participation_amount',
   'participation_scope',
   'extra_awards',
+  'weekly_prize',
   'format',
   'audience',
   'prize_currency',

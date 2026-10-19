@@ -15,6 +15,8 @@ import { testFlags } from '../../lib/testData'
 import ChallengeTemplates, { SaveAsTemplate } from '../../components/admin/ChallengeTemplates'
 import { templateFromForm } from '../../lib/challengeTemplates'
 import { challengesApi } from '../../api/challenges'
+import WeeklyPrizeFields from '../../components/admin/WeeklyPrizeFields'
+import { cleanWeekly, weeklyRounds } from '../../lib/weekly'
 import { submissionsApi } from '../../api/submissions'
 import { profilesApi } from '../../api/profiles'
 import { marketsApi } from '../../api/markets'
@@ -193,6 +195,8 @@ export default function AdminChallengeForm() {
     participation_amount: '',
     participation_scope: 'everyone',
     extra_awards: [],
+    // Video of the Week (migration 435): null = off.
+    weekly_prize: null,
     startDateStr: '', startTimeStr: '',
     endDateStr: '', endTimeStr: '',
     status: 'draft',
@@ -411,6 +415,7 @@ export default function AdminChallengeForm() {
           participation_amount: data.participation_amount ?? '',
           participation_scope: data.participation_scope ?? 'everyone',
           extra_awards: Array.isArray(data.extra_awards) ? data.extra_awards : [],
+          weekly_prize: data.weekly_prize ?? null,
           market: data.market ?? '',
           format: data.format ?? 'monthly',
           audience: data.audience ?? 'general',
@@ -661,6 +666,7 @@ export default function AdminChallengeForm() {
       scoring: form.scoring || DEFAULT_SCORING,
       threshold_mode: form.threshold_mode || 'highest',
       cpm_target: form.cpm_target === '' ? null : Number(form.cpm_target),
+      weekly_prize: cleanWeekly(form.weekly_prize ? { ...form.weekly_prize, currency: form.prize_currency || 'EUR' } : null),
     }
 
     // A SAVE THAT FAILS HALFWAY MUST NOT BE A SECOND CHALLENGE ON RETRY.
@@ -1070,11 +1076,27 @@ export default function AdminChallengeForm() {
             idPrefix="challenge-prize"
           />
 
+          <WeeklyPrizeFields
+            value={form.weekly_prize}
+            onChange={(next) => set({ weekly_prize: next })}
+            symbol={CURRENCY_SYMBOL[form.prize_currency] || ''}
+            currency={form.prize_currency || 'EUR'}
+            start={parseDateTime(form.startDateStr, form.startTimeStr)}
+            end={parseDateTime(form.endDateStr, form.endTimeStr)}
+            boards={Math.max(1, groups.length)}
+          />
+
           {/* The totals, derived: cash and vouchers, with the taking-part
               reward as the range it really is. */}
           <PrizeSummary
             symbol={CURRENCY_SYMBOL[form.prize_currency] || ''}
             cpmTarget={form.cpm_target}
+            weekly={(() => {
+              const w = cleanWeekly(form.weekly_prize)
+              if (!w) return null
+              const rounds = weeklyRounds(parseDateTime(form.startDateStr, form.startTimeStr), parseDateTime(form.endDateStr, form.endTimeStr), w.every_days).length
+              return { ...w, rounds, boards: Math.max(1, groups.length) }
+            })()}
             legacyPot={potIsLegacy && groups.length === 0 ? derivedPot : null}
             budget={groups.length > 0 ? groupsBudget : prizeBudget({
               prizes: form.prize_structure,

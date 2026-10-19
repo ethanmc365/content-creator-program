@@ -1,27 +1,26 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Bar, CartesianGrid, Cell, ComposedChart, Line, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
+import { Cell, Pie, PieChart, ResponsiveContainer } from 'recharts'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
 import { Avatar, EmptyState, PageHeader, Skeleton, Toggle } from '../../components/ui'
 import Icon from '../../components/Icon'
 import { SurveyCard } from '../../components/SurveyHost'
-import { CHART, axisTickSmall, tooltipStyle } from '../../components/charts/chartTheme'
 import { confirm, notice, saved } from '../../lib/confirm'
 import { toastSuccess } from '../../lib/toast'
-import { cx, downloadCsv, formatDate } from '../../lib/utils'
+import { cx, downloadCsv, formatDate, timeAgo } from '../../lib/utils'
 import { useT } from '../../lib/i18n'
 import { DateField } from '../../components/DateTimeFields'
 import {
   AUDIENCES, QUESTION_TYPES, SURVEY_STARTERS, TIMINGS, blankSurvey, cleanSurvey, fromStarter, hasOptions, newQuestion,
-  responsesByDay, summarise, surveyProblem,
+  summarise, surveyProblem,
 } from '../../lib/surveys'
 import { vipApi } from '../../api/vip'
 import { challengesApi } from '../../api/challenges'
 import { profilesApi } from '../../api/profiles'
 import { marketsApi } from '../../api/markets'
 import { contentApi } from '../../api/content'
-import { AnswerBars, ScaleColumns, Star, SurveyPeople } from '../../components/survey/SurveyCharts'
+import { AnswerBars, MarketSplit, ScaleColumns, Star, SurveyPeople } from '../../components/survey/SurveyCharts'
 import { useBulkTranslate } from '../../lib/quickTranslate'
 
 // SURVEYS (migration 291; rebuilt, migration 293).
@@ -33,7 +32,7 @@ import { useBulkTranslate } from '../../lib/quickTranslate'
 //                 its own. Question kinds are buttons, not a dropdown, so nothing can hide behind the
 //                 next card. A challenge is picked from a list of challenges, not a menu with a
 //                 "pick a challenge" row in it.
-//   THE RESULTS   the headline numbers, answers coming in over time, a chart per question, and every
+//   THE RESULTS   the headline numbers, who answered by market, a chart per question, and every
 //                 response, person by person, with delete (for tests) and a CSV export.
 // A survey never closes on a date: it keeps asking until each creator answers or says no. "Stop
 // asking" on the results page takes it down without losing a single answer.
@@ -752,21 +751,14 @@ function SurveyResults({ survey, markets, vipMarkets = [], challenges, onBack, o
   }, [survey.id])
 
   const summary = useMemo(() => (responses ? summarise(survey, responses) : null), [survey, responses])
-  const byDay = useMemo(() => responsesByDay(responses), [responses])
   // EVERY WRITTEN ANSWER, FOR ONE TRANSLATE BUTTON. Answers arrive in English, Spanish, Romanian...; one press turns
   // them all into the reader's language (and back), on both tabs.
   const writtenAnswers = useMemo(() => {
     const textQs = (survey.questions || []).filter((q) => q.type === 'text').map((q) => q.id)
     return (responses || []).flatMap((r) => textQs.map((id) => r.answers?.[id]).filter((v) => typeof v === 'string' && v.trim()))
   }, [survey.questions, responses])
-  const translate = useBulkTranslate(writtenAnswers)
-  // The chart: each day's answers as bars, and the running total as a line, so it says both "how many came in that
-  // day" and "where are we now". It was two stacked areas whose height meant nothing in particular.
-  const flow = useMemo(() => byDay.map((x, i) => ({
-    ...x,
-    label: formatDate(x.day),
-    total: byDay.slice(0, i + 1).reduce((sum, y) => sum + y.answered, 0),
-  })), [byDay])
+  // TRANSLATED BY THEMSELVES (Ethan): answers open already in the reader's language; the button shows the originals.
+  const translate = useBulkTranslate(writtenAnswers, { auto: true })
   const rate = audience ? Math.round(((summary?.answered || 0) / audience) * 100) : null
 
   const who = useCallback((r) => {
@@ -837,35 +829,14 @@ function SurveyResults({ survey, markets, vipMarkets = [], challenges, onBack, o
               </div>
             </div>
             <div className="rounded-card border border-gray-100 bg-white p-4 shadow-card animate-fade-up [animation-delay:60ms]">
-              <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2">
-                <p className="text-xs font-bold uppercase tracking-wide text-gray-400">{tr('Answers coming in')}</p>
+              <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
+                <p className="text-xs font-bold uppercase tracking-wide text-gray-400">{tr('Who answered')}</p>
                 <p className="flex items-center gap-3 text-xs font-semibold text-smoke">
-                  <span className="inline-flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm bg-brand" />{tr('Answered that day')}</span>
+                  <span className="inline-flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm bg-brand" />{tr('Answered')}</span>
                   <span className="inline-flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm bg-gray-300" />{tr('Said no')}</span>
-                  <span className="inline-flex items-center gap-1.5"><span className="h-0.5 w-3.5 rounded-full bg-ink" />{tr('Total answered')}</span>
                 </p>
               </div>
-              {flow.length === 0 ? <p className="py-10 text-center text-sm text-smoke">{tr('Nothing yet.')}</p> : (
-                <div className="h-40 animate-chart-in">
-                  <ResponsiveContainer>
-                    <ComposedChart data={flow} margin={{ top: 8, right: 4, left: -22, bottom: 0 }} barCategoryGap="28%">
-                      <CartesianGrid vertical={false} stroke={CHART.grid} />
-                      <XAxis dataKey="label" tick={axisTickSmall} axisLine={false} tickLine={false} minTickGap={24} />
-                      <YAxis yAxisId="day" tick={axisTickSmall} axisLine={false} tickLine={false} allowDecimals={false} />
-                      <YAxis yAxisId="total" orientation="right" hide allowDecimals={false} />
-                      <Tooltip
-                        cursor={{ fill: 'rgba(217,68,7,0.06)' }}
-                        contentStyle={tooltipStyle}
-                        labelFormatter={(l) => l}
-                        formatter={(v, k) => [v, k === 'answered' ? tr('Answered that day') : k === 'declined' ? tr('Said no') : tr('Total answered')]}
-                      />
-                      <Bar yAxisId="day" dataKey="answered" stackId="d" fill={CHART.brand} radius={[0, 0, 0, 0]} animationDuration={700} />
-                      <Bar yAxisId="day" dataKey="declined" stackId="d" fill="#d1d5db" radius={[4, 4, 0, 0]} animationDuration={700} />
-                      <Line yAxisId="total" type="monotone" dataKey="total" stroke="#1c1c1c" strokeWidth={2} dot={{ r: 2.5, fill: '#1c1c1c' }} animationDuration={900} />
-                    </ComposedChart>
-                  </ResponsiveContainer>
-                </div>
-              )}
+              <MarketSplit responses={responses} who={who} formatDay={formatDate} timeAgo={timeAgo} />
             </div>
           </div>
 
@@ -885,7 +856,7 @@ function SurveyResults({ survey, markets, vipMarkets = [], challenges, onBack, o
                   className={cx('inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-semibold transition-all duration-200', translate.on ? 'bg-brand text-white shadow-card' : 'bg-cloud text-ink hoverable:hover:-translate-y-0.5')}
                 >
                   {translate.busy ? <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-current border-t-transparent" aria-hidden /> : <Icon name="language" className="h-3.5 w-3.5" />}
-                  {translate.on ? tr('Show originals') : tr('Translate answers')}
+                  {translate.busy ? tr('Translating answers') : translate.on ? tr('Show originals') : tr('Show translated')}
                 </button>
               )}
               {translate.failed && <span className="text-xs text-smoke">{tr('Could not translate right now.')}</span>}

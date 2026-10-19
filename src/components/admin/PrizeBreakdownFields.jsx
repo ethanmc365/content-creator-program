@@ -702,7 +702,15 @@ export function combineBudgets(parts) {
   return out
 }
 
-export function PrizeSummary({ budget, symbol = '', cpmTarget, legacyPot = null }) {
+export function PrizeSummary({ budget: given, symbol = '', cpmTarget, legacyPot = null, weekly = null }) {
+  // THE VIDEO OF THE WEEK IS PART OF THE POT (19 Oct 2026): one prize per round, certain, so it lifts both ends.
+  const wk = weekly && weekly.rounds > 0 && weekly.amount > 0 ? weekly : null
+  const wkTotal = wk ? wk.rounds * wk.amount * (wk.boards || 1) : 0
+  const budget = !wk ? given : {
+    ...given,
+    min: { ...given.min, [wk.type === 'cash' ? 'cash' : 'voucher']: given.min[wk.type === 'cash' ? 'cash' : 'voucher'] + wkTotal, total: given.min.total + wkTotal },
+    max: { ...given.max, [wk.type === 'cash' ? 'cash' : 'voucher']: given.max[wk.type === 'cash' ? 'cash' : 'voucher'] == null ? null : given.max[wk.type === 'cash' ? 'cash' : 'voucher'] + wkTotal, total: given.max.total == null ? null : given.max.total + wkTotal },
+  }
   const { places, awards, part, min, max } = budget
   const ranged = !!part && part.each > 0
   const range = (lo, hi) => (hi == null ? `${money(symbol, lo)}+` : lo === hi ? money(symbol, lo) : `${money(symbol, lo)} to ${money(symbol, hi)}`)
@@ -717,6 +725,14 @@ export function PrizeSummary({ budget, symbol = '', cpmTarget, legacyPot = null 
   }
   for (const a of awards) {
     lines.push({ icon: 'star', label: a.label, value: money(symbol, a.amount), note: a.type === 'cash' ? 'cash' : 'voucher' })
+  }
+  if (wk) {
+    lines.push({
+      icon: 'fire',
+      label: 'Video of the Week',
+      value: money(symbol, wkTotal),
+      note: `${money(symbol, wk.amount)} ${wk.type === 'cash' ? 'cash' : 'voucher'} x ${wk.rounds} round${wk.rounds === 1 ? '' : 's'}${(wk.boards || 1) > 1 ? ` x ${wk.boards} groups` : ''}, to the most viewed video of each round`,
+    })
   }
   // A SPLIT CHALLENGE ADDS UP EVERY GROUP. Each group is a line; the headline is the sum.
   for (const g of budget.groups || []) {
@@ -793,13 +809,39 @@ export function PrizeSummary({ budget, symbol = '', cpmTarget, legacyPot = null 
 
       <div className="flex flex-wrap items-center gap-x-6 gap-y-1 border-t border-gray-100 bg-cloud/50 px-4 py-2.5 text-xs sm:px-5">
         <span><span className="text-smoke">Winners </span><span className="font-semibold text-ink">{winnersNote || '0'}</span></span>
-        <span><span className="text-smoke">CPM target </span><span className="font-semibold text-ink">{cpmTarget || '-'}</span></span>
+        <span><span className="text-smoke">CPM target </span><span className="font-semibold text-ink">{cpmTarget ? `${symbol}${Number(cpmTarget).toFixed(2)}` : '-'}</span></span>
       </div>
+      {/* THE VIEWS THIS POT HAS TO BUY (Ethan): what the challenge needs to reach to land on its CPM target. Pot / CPM x
+          1,000, for the certain pot and, when the taking-part reward makes it a range, for the most it could cost. */}
+      <ViewsNeeded symbol={symbol} cpm={Number(cpmTarget)} lo={legacyPot != null ? legacyPot : min.total} hi={legacyPot != null ? null : (ranged ? max.total : null)} />
       {legacyPot != null && (
         <p className="border-t border-gray-100 px-4 py-2.5 text-xs text-smoke sm:px-5">
           Carried over from before values were itemised. Add a value to each prize row and this starts adding itself up.
         </p>
       )}
+    </div>
+  )
+}
+
+/** "2.7M views to meet a €0.50 CPM" under the prize pot. Exported for tests. */
+export function viewsForCpm(pot, cpm) {
+  if (!(pot > 0) || !(cpm > 0)) return null
+  return Math.round((pot / cpm) * 1000)
+}
+
+function ViewsNeeded({ symbol, cpm, lo, hi }) {
+  const need = viewsForCpm(lo, cpm)
+  if (need == null) return null
+  const most = hi != null && hi > lo ? viewsForCpm(hi, cpm) : null
+  const fmt = (n) => n.toLocaleString('en-GB')
+  return (
+    <div className="flex items-center gap-3 border-t border-gray-100 bg-white px-4 py-3 sm:px-5">
+      <Icon name="eye" className="h-5 w-5 shrink-0 text-brand" />
+      <p className="min-w-0 flex-1 text-sm text-ink">
+        <span className="font-bold tabular-nums">{fmt(need)} views</span>
+        <span className="text-smoke"> to meet a {symbol}{cpm.toFixed(2)} CPM</span>
+        {most != null && <span className="block text-xs text-smoke">{fmt(most)} if the whole taking-part reward is paid out</span>}
+      </p>
     </div>
   )
 }

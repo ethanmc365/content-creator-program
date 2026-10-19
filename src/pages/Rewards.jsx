@@ -4,6 +4,7 @@ import { Badge, EmptyState, PageHeader, Skeleton } from '../components/ui'
 import Icon from '../components/Icon'
 import Reveal from '../components/network/Reveal'
 import { cx, formatDate, formatMoney } from '../lib/utils'
+import { useLocalHint } from '../lib/localMoney'
 import { rewardsTotal } from '../lib/programme'
 import { walletTickets } from '../lib/wallet'
 import { useViewAs, ViewingAsBanner } from '../components/ViewingAs'
@@ -93,6 +94,8 @@ export default function Rewards() {
   const earned = rewardsTotal(rewards.filter((r) => r.status === 'distributed'))
   const pending = rewardsTotal(rewards.filter((r) => r.status === 'pending'))
   const showTotal = (t) => `${t.converted ? '≈ ' : ''}${formatMoney(t.amount, t.currency)}`
+  // A UK creator also gets the figure in pounds, rounded (lib/localMoney).
+  const hint = useLocalHint()
   const sources = [
     { key: 'challenge', label: tr('Challenges'), icon: 'trophy', n: rewards.filter((r) => r.challenge_id).length },
     { key: 'milestone', label: tr('Milestones'), icon: 'flag', n: rewards.filter((r) => r.milestone_id).length },
@@ -124,10 +127,12 @@ export default function Rewards() {
                 <div>
                   <p className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.14em] text-white/85"><Icon name="money" className="h-4 w-4" />{tr('Total received')}</p>
                   <p className="mt-1 text-4xl font-bold tabular-nums tracking-tight sm:text-5xl">{showTotal(earned)}</p>
+                  {hint(earned.amount, earned.currency) && <p className="mt-1 text-sm font-semibold tabular-nums text-white/85">{hint(earned.amount, earned.currency)}</p>}
                 </div>
                 <div className="sm:border-l sm:border-white/25 sm:pl-6">
                   <p className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.14em] text-white/85"><Icon name="clock" className="h-4 w-4" />{tr('On its way')}</p>
                   <p className="mt-1 text-2xl font-bold tabular-nums sm:text-3xl">{showTotal(pending)}</p>
+                  {hint(pending.amount, pending.currency) && <p className="mt-0.5 text-xs font-semibold tabular-nums text-white/85">{hint(pending.amount, pending.currency)}</p>}
                   <p className="mt-1 text-xs text-white/85">{pending.amount > 0 ? tr('The team is processing it. Nothing for you to do.') : tr('Nothing pending right now.')}</p>
                 </div>
               </div>
@@ -236,7 +241,10 @@ export default function Rewards() {
                           : tr('Added {date}', { date: formatDate(r.created_at) })}
                     </p>
                   </div>
-                  <span className="text-base font-bold tabular-nums">{formatMoney(r.amount, r.currency)}</span>
+                  <span className="text-right text-base font-bold tabular-nums">
+                    {formatMoney(r.amount, r.currency)}
+                    {hint(r.amount, r.currency) && <span className="block text-xs font-medium text-smoke">{hint(r.amount, r.currency)}</span>}
+                  </span>
                   {/* The row's own status, in words rather than the database's. */}
                   <Badge tone={r.status === 'distributed' ? 'green' : sentInvoice(r) ? 'light' : 'amber'}>
                     {r.status === 'distributed' ? tr('Paid out') : sentInvoice(r) ? tr('Invoice sent') : tr('Pending')}

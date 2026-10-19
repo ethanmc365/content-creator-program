@@ -292,28 +292,37 @@ export function useMessageTranslations() {
  * and wanted one Translate that turns all of them into the reader's language at once, and back. `text(t)` is what to
  * draw for one of them. Nothing is translated until the button is pressed; results are remembered like any other.
  */
-export function useBulkTranslate(texts) {
+export function useBulkTranslate(texts, { auto = false } = {}) {
   const locale = useLocale()
-  const [on, setOn] = useState(false)
+  const [on, setOn] = useState(auto)
   const [busy, setBusy] = useState(false)
   const [done, setDone] = useState(() => new Map())
   const [failed, setFailed] = useState(false)
-  useEffect(() => { setOn(false); setDone(new Map()) }, [locale])
+  // Texts already asked about in this locale, worked or not, so `auto` never asks twice for the same answer.
+  const tried = useRef(new Set())
+  useEffect(() => { setOn(auto); setDone(new Map()); tried.current = new Set() }, [locale, auto])
+  const fill = useCallback(async (quiet) => {
+    const need = [...new Set((texts || []).filter((t) => t && /\p{L}{2,}/u.test(t) && !tried.current.has(t)))]
+    if (!need.length) return true
+    need.forEach((t) => tried.current.add(t))
+    setBusy(true)
+    const res = await Promise.all(need.map((t) => translateNow(t, locale)))
+    let bad = 0
+    setDone((cur) => {
+      const next = new Map(cur)
+      need.forEach((t, i) => { if (res[i].failed) { bad += 1; tried.current.delete(t) } else next.set(t, res[i].value) })
+      return next
+    })
+    setBusy(false)
+    if (bad === need.length && !quiet) { setFailed(true); setTimeout(() => setFailed(false), 6000); return false }
+    return true
+  }, [texts, locale])
+  // AUTO: new answers (a live survey keeps receiving them) are translated as they arrive.
+  useEffect(() => { if (auto && on) fill(true) }, [auto, on, fill])
   const toggle = useCallback(async () => {
     if (on) { setOn(false); return }
-    const need = [...new Set((texts || []).filter((t) => t && /\p{L}{2,}/u.test(t) && !done.has(t)))]
-    if (need.length) {
-      setBusy(true)
-      const res = await Promise.all(need.map((t) => translateNow(t, locale)))
-      const next = new Map(done)
-      let bad = 0
-      need.forEach((t, i) => { if (res[i].failed) bad += 1; else next.set(t, res[i].value) })
-      setDone(next)
-      setBusy(false)
-      if (bad === need.length) { setFailed(true); setTimeout(() => setFailed(false), 6000); return }
-    }
-    setOn(true)
-  }, [on, texts, done, locale])
+    if (await fill(false)) setOn(true)
+  }, [on, fill])
   return {
     on,
     busy,

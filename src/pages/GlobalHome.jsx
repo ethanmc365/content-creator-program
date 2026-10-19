@@ -191,18 +191,29 @@ function MineChip({ to, icon, value, label }) {
 // move: the views your challenge entries have earned, what you have won, and your best finish (which opens that
 // challenge). A creator with nothing yet gets one door instead of three zeros. Frosted tiles on the orange card, kept
 // clear of the plane's corner like the chips were.
-function Highlights({ me, isAdmin, liveCount = 0 }) {
+function Highlights({ me, live = [] }) {
   const tr = useT()
   if (!me) return <div className="h-[4.25rem] lg:max-w-[calc(100%-21.5rem)] xl:max-w-[calc(100%-23.5rem)]" />
   const fresh = !me.viewsEarned && !me.wonEur && !me.best
-  // NOTHING OF YOUR OWN YET: the community's week, and the door to change that (the team gets the challenges).
-  const week = fresh ? [
-    { key: 'wv', icon: 'video', to: '/challenges', value: Number(me.weekVideos || 0).toLocaleString('en-GB'), label: tr('videos posted this week') },
-    { key: 'wj', icon: 'userPlus', to: '/creators', value: Number(me.weekJoined || 0).toLocaleString('en-GB'), label: tr('new creators this week') },
-    isAdmin
-      ? { key: 'go', icon: 'flag', to: '/challenges', value: String(liveCount), label: liveCount === 1 ? tr('challenge running now') : tr('challenges running now') }
-      : { key: 'go', icon: 'sparkles', to: '/challenges', value: tr('Post'), label: tr('your first video to start your highlights') },
-  ] : null
+  // NOTHING OF YOUR OWN YET (a new creator, or the team): what is worth having, not the community's week. Ethan: videos
+  // posted this week, new creators this week and challenges running "are not that valuable to the creators", and not
+  // every creator can enter every challenge. So: the biggest prize in a challenge YOU can enter, the Video of the Week
+  // when one is running, and the hooks to start from.
+  const week = fresh ? (() => {
+    const money = (n, cur) => formatMoney(Math.round(n), cur || 'EUR')
+    const firstPrize = (c) => Number(String(c.prize_structure?.[0]?.amount ?? '').replace(/[^\d.]/g, '')) || 0
+    const best = [...live].sort((a, b) => firstPrize(b.challenge) - firstPrize(a.challenge))[0]?.challenge
+    const weekly = live.find((x) => x.challenge.weekly_prize?.amount)?.challenge
+    return [
+      best && firstPrize(best) > 0
+        ? { key: 'top', icon: 'trophy', to: `/challenges/${best.id}`, value: money(firstPrize(best), best.prize_currency), label: tr('first prize you can win'), sub: best.title }
+        : { key: 'top', icon: 'trophy', to: '/challenges', value: tr('Challenges'), label: tr('see what you can win') },
+      weekly
+        ? { key: 'wk', icon: 'fire', to: `/challenges/${weekly.id}`, value: money(weekly.weekly_prize.amount, weekly.weekly_prize.currency), label: tr('Video of the Week, every week'), sub: weekly.title }
+        : { key: 'wk', icon: 'joystick', to: '/game', value: tr('Play'), label: tr("today's travel puzzles") },
+      { key: 'ideas', icon: 'bulb', to: '/ideas', value: tr('Ideas'), label: tr('hooks that worked for other creators') },
+    ]
+  })() : null
   if (fresh) return <HighlightTiles tiles={week} />
   const tiles = [
     { key: 'views', icon: 'eye', to: '/challenges', value: formatViews(me.viewsEarned), label: tr('views your videos earned') },
@@ -218,8 +229,6 @@ function Highlights({ me, isAdmin, liveCount = 0 }) {
   ].filter(Boolean)
   return <HighlightTiles tiles={tiles} />
 }
-
-const weekAgoIso = () => new Date(Date.now() - 7 * 86400000).toISOString()
 
 function HighlightTiles({ tiles }) {
   return (
@@ -293,7 +302,7 @@ export default function GlobalHome() {
           .eq('profiles.is_admin', false).in('profiles.is_test', testFlags()).eq('profiles.status', 'active'),
         profilesApi.profiles().select('id', { count: 'exact', head: true })
           .eq('status', 'active').eq('is_admin', false).in('is_test', testFlags()).is('deletion_requested_at', null),
-        challengesApi.challenges().select('id, title, community_id, status, end_date, scoring').eq('status', 'active'),
+        challengesApi.challenges().select('id, title, community_id, status, end_date, scoring, prize_structure, prize_currency, weekly_prize').eq('status', 'active'),
         // ANNOUNCEMENTS FROM EVERY ROOM THIS CREATOR CAN READ, not just the
         // worldwide one. Somebody in the UK and Spain had no way to see either
         // market's announcements from the hub, which is what a hub is for.
@@ -432,11 +441,7 @@ export default function GlobalHome() {
       challengesApi.results().select('rank, challenge_id, challenges!inner(title, winners_published_at)')
         .eq('creator_id', uid).not('rank', 'is', null).not('challenges.winners_published_at', 'is', null)
         .order('rank', { ascending: true }).limit(1),
-      // The community's week, for somebody with no highlights of their own yet (a new creator, or the team).
-      submissionsApi.submissions().select('id', { count: 'exact', head: true }).gte('submitted_at', weekAgoIso()),
-      profilesApi.profiles().select('id', { count: 'exact', head: true })
-        .eq('status', 'active').eq('is_admin', false).eq('is_test', false).gte('created_at', weekAgoIso()),
-    ]).then(([{ count: videos }, { count: myVideos }, { count: myConns }, { data: myViews }, { data: myRewards }, { data: best }, { count: weekVideos }, { count: weekJoined }]) => {
+    ]).then(([{ count: videos }, { count: myVideos }, { count: myConns }, { data: myViews }, { data: myRewards }, { data: best }]) => {
       if (cancelled) return
       // POINTS AND RANK ARE NO LONGER READ HERE. Nothing on this page renders
       // them - the chips were cut to connections and videos a while back - and
@@ -449,8 +454,6 @@ export default function GlobalHome() {
         viewsEarned: (myViews || []).reduce((sum, r) => sum + (Number(r.logged_views) || 0), 0),
         wonEur: Math.round((myRewards || []).reduce((sum, r) => sum + (convert(Number(r.amount) || 0, r.currency || 'EUR', 'EUR') || 0), 0)),
         best: best?.[0] ? { rank: best[0].rank, id: best[0].challenge_id, title: best[0].challenges?.title } : null,
-        weekVideos: weekVideos ?? 0,
-        weekJoined: weekJoined ?? 0,
       })
     })
     return () => { cancelled = true }
@@ -804,7 +807,7 @@ export default function GlobalHome() {
             {/* NO BAND, MORE ROOM. A VIP sees no challenges, so the global challenge band is not drawn - and the plane,
                 parked a rem below a box that ends at the chips, rose into the kilometres figure. Without the band the
                 box keeps 3.5rem of air at its foot for the plane to fly in. */}
-            <div className={cx('relative', !globalLive && !vipBand && 'pb-14')}>
+            <div className={cx('relative', !globalLive && !vipBand && 'pb-1')}>
             {/* With the challenge band under it the figures' box is the plane's
                 anchor, and that box is shorter than the plane - so it drops
                 further to fly between the figures and the band, not over the
@@ -977,7 +980,7 @@ export default function GlobalHome() {
                       label={Number(vipOverview?.lifetime?.videos) === 1 ? tr('video posted') : tr('videos posted')} />
                   </div>
                 ) : (
-                  <Highlights me={me} isAdmin={isAdmin} liveCount={Object.keys(d?.live || {}).length} />
+                  <Highlights me={me} live={myLive} />
                 )}
               </div>
             </div>

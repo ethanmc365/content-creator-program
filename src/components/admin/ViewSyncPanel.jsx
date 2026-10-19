@@ -48,7 +48,7 @@ function Stat({ label, children }) {
   )
 }
 
-export default function ViewSyncPanel({ challengeId, submissions = [], onSynced, onShowEntries, onSaveViews }) {
+export default function ViewSyncPanel({ challengeId, submissions = [], finished = false, onSynced, onShowEntries, onSaveViews }) {
   const [status, setStatus] = useState(null)
   const [backlog, setBacklog] = useState(null)
   const [starting, setStarting] = useState(false)
@@ -181,6 +181,11 @@ export default function ViewSyncPanel({ challengeId, submissions = [], onSynced,
   const typed = submissions.filter((s) => s.views_source === 'manual' && s.logged_views != null && !s.views_sync_error).length
   const pct = running && run.total ? Math.round((run.done / run.total) * 100) : 0
   const queued = backlog?.stale ?? 0
+  // THIS CHALLENGE'S OWN LAST READING. "Last read" was the last sweep of ANY challenge, so a finished challenge said
+  // "30 minutes ago" because another market's challenge had just been read (Ethan thought this one was still being
+  // scraped). The scheduled sweep stops reading a challenge once its end date passes or its winners are published;
+  // only "Sync now" reads it after that.
+  const ownLastRead = submissions.reduce((m, s) => (s.views_synced_at && s.views_synced_at > m ? s.views_synced_at : m), '')
 
   async function runNow() {
     setStarting(true)
@@ -224,7 +229,9 @@ export default function ViewSyncPanel({ challengeId, submissions = [], onSynced,
           <div className="min-w-0">
             <h2 className="text-base font-semibold">View counts</h2>
             <p className="mt-0.5 max-w-md text-sm leading-relaxed text-smoke">
-              Read off each entry&apos;s link automatically. Type in any entry&apos;s box below to override it.
+              {finished
+                ? 'This challenge has finished, so its views are no longer read automatically. Sync now reads them once more if you need to.'
+                : <>Read off each entry&apos;s link automatically. Type in any entry&apos;s box below to override it.</>}
             </p>
           </div>
         </div>
@@ -242,7 +249,7 @@ export default function ViewSyncPanel({ challengeId, submissions = [], onSynced,
       {/* HOW OFTEN, AS CHIPS AND NOT A DROPDOWN. The menu opened inside this card's `overflow-hidden`, which the
           progress bar needs. Six options fit on one row, so there is no menu to clip: every choice is visible and one
           press picks it. */}
-      <div className="flex flex-col gap-2 border-t border-gray-100 px-5 py-4 sm:flex-row sm:items-center sm:gap-4 sm:px-7">
+      {!finished && <div className="flex flex-col gap-2 border-t border-gray-100 px-5 py-4 sm:flex-row sm:items-center sm:gap-4 sm:px-7">
         <p className="shrink-0 text-[11px] font-semibold uppercase tracking-[0.12em] text-smoke">Sync automatically every</p>
         <div role="radiogroup" aria-label="How often view counts are read" className="flex flex-wrap gap-1.5">
           {CADENCES.map((c) => {
@@ -261,7 +268,7 @@ export default function ViewSyncPanel({ challengeId, submissions = [], onSynced,
             )
           })}
         </div>
-      </div>
+      </div>}
 
       {running ? (
         <div className="h-1 w-full bg-cloud">
@@ -271,15 +278,15 @@ export default function ViewSyncPanel({ challengeId, submissions = [], onSynced,
 
       {/* ---- Facts, evenly spaced instead of crowded to one side ---- */}
       <dl className="grid grid-cols-2 gap-x-6 gap-y-5 border-t border-gray-100 bg-cloud/40 px-5 py-5 sm:grid-cols-4 sm:px-7">
-        <Stat label="Last read">{lastRun?.at ? timeAgo(lastRun.at) : 'never'}</Stat>
-        <Stat label="Next">{nextDue(lastRun?.at, settings.interval_hours ?? 24)}</Stat>
+        <Stat label="Last read">{ownLastRead ? timeAgo(ownLastRead) : 'never'}</Stat>
+        <Stat label="Next">{finished ? 'Stopped, challenge finished' : nextDue(lastRun?.at, settings.interval_hours ?? 24)}</Stat>
         <Stat label="This challenge">
           <span className="tabular-nums">{readFine} of {submissions.length}</span> read
           {unread > 0 && <span className="block text-xs font-medium text-smoke">{unread} new, being read now</span>}
           {typed > 0 && <span className="block text-xs font-medium text-smoke">{typed} typed in by hand</span>}
         </Stat>
-        <Stat label="Waiting to read">
-          {queued > 0 ? <span className="tabular-nums">{queued} entries</span> : 'nothing'}
+        <Stat label={finished ? 'Other challenges' : 'Waiting to read'}>
+          {queued > 0 ? <span className="tabular-nums">{queued} entries waiting</span> : 'nothing waiting'}
         </Stat>
       </dl>
 
