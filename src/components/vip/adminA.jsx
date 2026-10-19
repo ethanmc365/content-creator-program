@@ -58,7 +58,7 @@ export function WhoSwitch({ value, onChange, counts }) {
 }
 
 /** The whole month at a glance: who is ahead, what it is costing, and whether that fits the budget. */
-export function VipOverviewTab({ programme }) {
+export function VipOverviewTab({ programme, slots = null }) {
   const tr = useKindT()
   const [data, setData] = useState(null)
   const [videos, setVideos] = useState(null)
@@ -158,6 +158,10 @@ export function VipOverviewTab({ programme }) {
         </div>
       ) : null}
 
+      {/* THE TEAM'S MAIN PAGE (19 Oct 2026): VIP tools opens here, so the quick money row, the board over any days and
+          every balance live in this tab (slots from VipHub), instead of on a page of their own beside the tools. */}
+      {slots?.pulse}
+
       <TrendCard programmeId={programme.id} refreshKey={Number(totals.views) || 0} />
 
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-2 [&:empty]:hidden">
@@ -168,7 +172,7 @@ export function VipOverviewTab({ programme }) {
       {/* ONE BOARD, A SWITCH. It was two boards stacked (8 Oct, migration 365). Now it is one board and the switch picks
           who is on it; the people are ranked on the view they have chosen, and the numbers above stay the whole
           programme. */}
-      {(() => {
+      {slots?.board ? slots.board : (() => {
         const vipList = members.filter((m) => !teamIds.has(m.profile_id))
         const teamList = members.filter((m) => teamIds.has(m.profile_id))
         const list = who === 'team' ? teamList : who === 'vip' ? vipList : members
@@ -229,6 +233,8 @@ export function VipOverviewTab({ programme }) {
         </section>
         )
       })()}
+
+      {slots?.money}
 
       <AllVideos videos={videos} onTypeViews={typeViews} onCountAgain={(v) => setStatus(v, 'tracking')} />
 

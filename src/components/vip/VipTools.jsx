@@ -73,7 +73,7 @@ export function VipToolsSkeleton() {
   )
 }
 
-export default function VipTools({ programmeId }) {
+export default function VipTools({ programmeId, overviewSlots = null }) {
   const { isAdmin, profile } = useAuth()
   const isOwner = profile?.platform_role === 'owner'
   const [params, setParams] = useSearchParams()
@@ -120,7 +120,7 @@ export default function VipTools({ programmeId }) {
   if (!seen.has(seenKey)) setSeen((s) => new Set(s).add(seenKey))
 
   const render = {
-    overview: (p) => <VipOverviewTab programme={p} />,
+    overview: (p) => <VipOverviewTab programme={p} slots={p.id === programmeId ? overviewSlots : null} />,
     members: (p) => <VipMembersTab programme={p} />,
     requirements: (p) => <VipRequirementsTab programme={p} />,
     preview: (p) => <VipPreviewTab programme={p} />,

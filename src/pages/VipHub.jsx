@@ -94,7 +94,9 @@ export default function VipHub() {
   // for them, it is the third view beside the page and the tools.
   const meMode = access === true && mode === 'me'
   const staffMode = access === true && !meMode
-  const toolsMode = mode === 'tools'
+  // ONE VIEW FOR THE TEAM (19 Oct 2026): the tools ARE the page. Their first tab, Overview, holds the month's pay,
+  // the board, the balances and the stay-in check; the other view is My videos.
+  const toolsMode = mode === 'tools' || mode === 'page'
   const who = mode === 'as' ? (params.get('who') || null) : null
   const [people, setPeople] = useState(undefined)
   const [previewOv, setPreviewOv] = useState(undefined)
@@ -311,7 +313,11 @@ export default function VipHub() {
       {/* PAGE AND TOOLS CROSS OVER, THEY DO NOT CUT. Each view arrives in its own keyed wrapper with a short fade and
           lift (`vip-mode-in`), the tools' code and markets are already warm (above), and the fallback is the tools' own
           outline rather than one grey block. */}
-      {toolsMode && staffMode ? <div key="tools" className="vip-mode-in"><Suspense fallback={<VipToolsFallback />}><VipTools programmeId={staffOv?.programme?.id || programme.id} /></Suspense></div> : (<div key="page" className="vip-mode-in">
+      {toolsMode && staffMode ? <div key="tools" className="vip-mode-in"><Suspense fallback={<VipToolsFallback />}><VipTools programmeId={staffOv?.programme?.id || programme.id} overviewSlots={{
+        pulse: <TeamPulse programme={programme} onTool={(t) => setParams({ mode: 'tools', tab: t }, { replace: true })} />,
+        board: <StaffLeaderboard programme={programme} board={board} rules={rules} month={month} />,
+        money: <StaffMoney programme={programme} member={member} stats={stats} month={month} cur={cur} official={official} onTool={(t) => setParams({ mode: 'tools', tab: t }, { replace: true })} />,
+      }} /></Suspense></div> : (<div key="page" className="vip-mode-in">
 
       {/* ---------------- this month, live ---------------- */}
       {tab === 'month' && <section
@@ -364,10 +370,7 @@ export default function VipHub() {
           doesn't make sense as a separate tab. It should be the payouts, a general overview" - the month's pay so far
           (the hero above), the board, every balance and the stay-in check, in one column. The creator's sections (rooms,
           ideas, library...) are not repeated here; the tools hold everything else. */}
-      {isStaff ? (
-        <StaffOverview programme={programme} member={member} stats={stats} month={month} cur={cur} board={board} rules={rules} official={official}
-          onTool={(t) => setParams({ mode: 'tools', tab: t }, { replace: true })} />
-      ) : (<>
+      {isStaff ? null : (<>
       {/* Phones and tablets: the sections as a strip of chips. */}
       <div className="mb-5 lg:hidden"><VipChipNav value={tab} onChange={go} hidden={hiddenTabs} links={isStaff ? null : VIP_LINKS} official={official} /></div>
 
@@ -520,14 +523,13 @@ function StaffBar({ mode, onMode, official = false, full = false, canSelf = fals
   return (
     <div className={cx('flex shrink-0 justify-center', full ? '' : 'px-1 pb-1 lg:px-1.5 lg:pb-0')}>
       <Segmented
-        className={full ? cx('!grid w-full [&>button>span]:justify-center [&>button]:!py-2 [&>button]:!text-[13px]', canSelf ? 'grid-cols-3' : 'grid-cols-2') : undefined}
+        className={full ? cx('!grid w-full [&>button>span]:justify-center [&>button]:!py-2 [&>button]:!text-[13px]', canSelf ? 'grid-cols-2' : 'grid-cols-1') : undefined}
         size="sm"
         id="vip-staff-mode"
         label={tr('How to see this page')}
-        value={mode}
+        value={mode === 'page' ? 'tools' : mode}
         onChange={onMode}
         options={[
-          { value: 'page', label: <><Icon name="wallet" className="h-3.5 w-3.5" />{tr('Overview')}</> },
           { value: 'tools', label: <><Icon name="key" className="h-3.5 w-3.5" />{official ? tr('Tools') : tr('VIP tools')}</> },
           ...(canSelf ? [{ value: 'me', label: <><Icon name="video" className="h-3.5 w-3.5" />{tr('My videos')}</> }] : []),
         ]}
@@ -545,30 +547,36 @@ function OverviewHead({ icon, title, onOpen, label }) {
   )
 }
 
-// THE TEAM'S OVERVIEW: pay, board, balances and (VIPs only) the stay-in check, each with the way into its tool.
-function StaffOverview({ programme, member, stats, month, cur, board, rules, official, onTool }) {
+// THE TEAM'S OVERVIEW PIECES, drawn inside VIP tools > Overview (VipOverviewTab `slots`): the board over any days,
+// then the money - how they are paid, every balance and payout, and (VIPs only) the stay-in check.
+function StaffLeaderboard({ programme, board, rules, month }) {
   const tr = useKindT()
   const [allBoard, setAllBoard] = useState(false)
   return (
-    <div className="vip-stage space-y-6">
-      <TeamPulse programme={programme} onTool={onTool} />
+    <section className="rounded-card border border-gray-100 bg-white p-4 shadow-card animate-rise sm:p-5">
+      <div className="mb-4 flex items-center justify-between gap-3">
+        <h2 className="flex items-center gap-2 text-[15px] font-bold text-ink"><Icon name="trophy" className="h-5 w-5 text-brand" />{tr('Leaderboard')}</h2>
+        {board?.length > 6 && <button type="button" onClick={() => setAllBoard((v) => !v)} className="text-xs font-semibold text-brand hover:underline">{allBoard ? tr('Show fewer') : tr('Full leaderboard')}</button>}
+      </div>
+      {board !== null && board.length === 0
+        ? <p className="rounded-xl bg-cloud/60 px-4 py-8 text-center text-sm text-smoke">{tr('No videos counted in {m} yet this month.', { m: programme.name })}</p>
+        : <StaffBoard programme={programme} monthRows={board} rules={rules} month={month} limit={allBoard ? null : 6} onFull={() => setAllBoard(true)} />}
+    </section>
+  )
+}
+
+function StaffMoney({ programme, member, stats, month, cur, official, onTool }) {
+  const tr = useKindT()
+  return (
+    <div className="space-y-6">
       <PayStrip staff member={member} programme={programme} stats={stats} month={month} cur={cur} />
-      <section className="rounded-card border border-gray-100 bg-white p-4 shadow-card animate-rise sm:p-5" style={{ animationDelay: '60ms' }}>
-        <div className="mb-4 flex items-center justify-between gap-3">
-          <h2 className="flex items-center gap-2 text-[15px] font-bold text-ink"><Icon name="trophy" className="h-5 w-5 text-brand" />{tr('Leaderboard')}</h2>
-          {board?.length > 6 && <button type="button" onClick={() => setAllBoard((v) => !v)} className="text-xs font-semibold text-brand hover:underline">{allBoard ? tr('Show fewer') : tr('Full leaderboard')}</button>}
-        </div>
-        {board !== null && board.length === 0
-          ? <p className="rounded-xl bg-cloud/60 px-4 py-8 text-center text-sm text-smoke">{tr('No videos counted in {m} yet this month.', { m: programme.name })}</p>
-          : <StaffBoard programme={programme} monthRows={board} rules={rules} month={month} limit={allBoard ? null : 6} onFull={() => setAllBoard(true)} />}
-      </section>
-      <section className="animate-rise" style={{ animationDelay: '120ms' }}>
-        <OverviewHead icon="wallet" title={tr('Balances and payouts')} onOpen={() => onTool('wallets')} label={tr('Open in tools')} />
+      <section className="animate-rise">
+        <OverviewHead icon="wallet" title={tr('Balances and payouts')} onOpen={() => onTool('wallets')} label={tr('Open the tool')} />
         <VipWalletsTab programme={programme} />
       </section>
       {!official && (
-        <section className="animate-rise" style={{ animationDelay: '180ms' }}>
-          <OverviewHead icon="shield" title={tr('Stay-in check')} onOpen={() => onTool('requirements')} label={tr('Open in tools')} />
+        <section className="animate-rise">
+          <OverviewHead icon="shield" title={tr('Stay-in check')} onOpen={() => onTool('requirements')} label={tr('Open the tool')} />
           <VipRequirementsTab programme={programme} />
         </section>
       )}

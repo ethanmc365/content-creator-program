@@ -464,13 +464,13 @@ function CreatorsTable({ data, cur, all, from, to }) {
   }
 
   const gridOverview = 'sm:grid-cols-[2rem_minmax(0,1fr)_6.5rem_4rem_5.5rem_6rem]'
-  const gridPlatforms = { gridTemplateColumns: `2rem minmax(10rem,1fr) ${cols.map(() => '6.25rem').join(' ')} 5.25rem 6rem` }
+  const gridPlatforms = { gridTemplateColumns: `2rem minmax(11rem,2.6fr) ${cols.map(() => 'minmax(0,1fr)').join(' ')} minmax(0,0.7fr) minmax(0,1fr)` }
 
   return (
     <div className="space-y-4">
       {/* THE PLATFORMS, SIDE BY SIDE: videos, views and each one's share of the views gained. */}
       {mode === 'platforms' && (
-        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <div className={cx('grid grid-cols-2 gap-3 sm:grid-cols-3', { 3: 'lg:grid-cols-4', 4: 'lg:grid-cols-5', 5: 'lg:grid-cols-6' }[totals.length] || 'lg:grid-cols-4')}>
           {totals.map((t, i) => (
             <div key={t.platform} className="rounded-card border border-gray-100 bg-white p-4 shadow-card animate-rise" style={{ animationDelay: `${i * 50}ms` }}>
               <div className="flex items-center gap-2 text-[13px] font-bold text-ink"><SocialMark brand={BRAND_OF[t.platform] || 'link'} colored className="h-4 w-4" />{t.platform}</div>
@@ -539,55 +539,64 @@ function CreatorsTable({ data, cur, all, from, to }) {
           </div>
         ) : (
           <div key="platforms" className="animate-tab-in">
-            {/* A desktop gets the sheet: a column per platform (videos over views), then the totals. It scrolls sideways
-                inside the card when the window is narrow rather than squeezing the numbers. */}
-            <div className="hidden overflow-x-auto sm:block">
-              <div className="min-w-max">
-                <div className="grid items-end gap-3 bg-cloud/60 px-4 py-2 text-[10.5px] font-bold text-gray-400" style={gridPlatforms}>
-                  <span>#</span>
-                  <SortHead k="name" sort={sort} onSort={onSort}>{tr('Creator')}</SortHead>
-                  {cols.map((p) => (
-                    <span key={p} className="flex flex-col items-end gap-0.5">
-                      <SortHead k={`v:${p}`} sort={sort} onSort={onSort} className="justify-end normal-case text-ink"><SocialMark brand={BRAND_OF[p] || 'link'} colored className="mr-1 h-3.5 w-3.5" />{p}</SortHead>
-                      <span className="font-semibold normal-case tracking-normal text-gray-400">{tr('views · videos')}</span>
-                    </span>
-                  ))}
-                  <SortHead k="videos" sort={sort} onSort={onSort} className="justify-end">{tr('Videos')}</SortHead>
-                  <SortHead k="views" sort={sort} onSort={onSort} className="justify-end">{tr('Total views')}</SortHead>
-                </div>
-                <ul className="divide-y divide-gray-50">
-                  {rows.map((r, i) => (
-                    <li key={r.profile_id} className="grid items-center gap-3 px-4 py-3 animate-rise" style={{ ...gridPlatforms, animationDelay: `${Math.min(i, 10) * 30}ms` }}>
-                      <span className="flex h-7 w-7 items-center justify-center rounded-full bg-cloud text-xs font-extrabold tabular-nums text-smoke">{i + 1}</span>
-                      <PersonLink id={r.profile_id} name={r.name} photo={r.photo} sub={all ? r.programme : null} />
-                      {cols.map((p) => {
-                        const x = plat(r, p)
-                        const none = !x.videos && !x.views
-                        return (
-                          <span key={p} className={cx('text-right tabular-nums', none && 'text-gray-300')}>
-                            <span className="block text-sm font-bold text-ink">{none ? '-' : formatViews(x.views)}</span>
-                            <span className="block text-[11px] text-smoke">{none ? '' : x.videos === 1 ? tr('1 video') : tr('{n} videos', { n: x.videos })}</span>
-                          </span>
-                        )
-                      })}
-                      <span className="text-right text-sm font-semibold tabular-nums text-ink">{r.videos}</span>
-                      <span className="text-right text-sm font-extrabold tabular-nums text-ink">{formatViews(r.views)}</span>
-                    </li>
-                  ))}
-                  <li className="grid items-center gap-3 bg-brand-tint/40 px-4 py-3" style={gridPlatforms}>
-                    <span />
-                    <span className="text-sm font-bold text-ink">{tr('Total')}</span>
-                    {totals.map((t) => (
-                      <span key={t.platform} className="text-right tabular-nums">
-                        <span className="block text-sm font-extrabold text-ink">{formatViews(t.views)}</span>
-                        <span className="block text-[11px] text-smoke">{t.videos === 1 ? tr('1 video') : tr('{n} videos', { n: t.videos })}</span>
-                      </span>
-                    ))}
-                    <span className="text-right text-sm font-bold tabular-nums text-ink">{totalVideos}</span>
-                    <span className="text-right text-sm font-extrabold tabular-nums text-brand">{formatViews(totalViews)}</span>
-                  </li>
-                </ul>
+            {/* A desktop gets the sheet: a column per platform (its logo, views over videos), then the totals. The
+                totals row sits on top, above the names (the team, 19 Oct 2026), and the columns share the width so
+                nothing scrolls sideways. */}
+            <div className="hidden sm:block">
+              <div className="grid items-center gap-3 border-b border-brand/10 bg-gradient-to-r from-brand-tint/70 via-brand-tint/30 to-white px-4 py-3" style={gridPlatforms}>
+                <span className="flex h-7 w-7 items-center justify-center rounded-full bg-white text-brand shadow-sm"><Icon name="chart" className="h-3.5 w-3.5" /></span>
+                <span>
+                  <span className="block text-sm font-bold text-ink">{tr('Total')}</span>
+                  <span className="block text-[11px] text-smoke">{tr('{n} creators', { n: rows.length })}</span>
+                </span>
+                {totals.map((t, i) => (
+                  <span key={t.platform} className="text-right tabular-nums animate-pop-in" style={{ animationDelay: `${i * 50}ms` }}>
+                    <span className="block text-sm font-extrabold text-ink">{formatViews(t.views)}</span>
+                    <span className="block text-[11px] text-smoke">{t.videos === 1 ? tr('1 video') : tr('{n} videos', { n: t.videos })}</span>
+                  </span>
+                ))}
+                <span className="text-right text-sm font-bold tabular-nums text-ink">{totalVideos}</span>
+                <span className="text-right text-base font-extrabold tabular-nums text-brand">{formatViews(totalViews)}</span>
               </div>
+              <div className="grid items-center gap-3 bg-cloud/60 px-4 py-2 text-[10.5px] font-bold text-gray-400" style={gridPlatforms}>
+                <span>#</span>
+                <SortHead k="name" sort={sort} onSort={onSort}>{tr('Creator')}</SortHead>
+                {cols.map((p) => (
+                  <span key={p} className="flex justify-end">
+                    <button type="button" onClick={() => onSort(`v:${p}`)} title={tr('{p}: views and videos', { p })} aria-label={tr('Sort by {p} views', { p })}
+                      className={cx('inline-flex items-center gap-1 rounded-full px-2 py-1 transition-all duration-200', sort.key === `v:${p}` ? 'bg-white shadow-card ring-1 ring-brand/30' : 'hoverable:hover:bg-white hoverable:hover:shadow-sm')}>
+                      <SocialMark brand={BRAND_OF[p] || 'link'} colored className="h-[18px] w-[18px]" />
+                      <Icon name={sort.key === `v:${p}` && sort.dir > 0 ? 'chevronUp' : 'chevronDown'} className={cx('h-3 w-3 transition-opacity', sort.key === `v:${p}` ? 'text-brand opacity-100' : 'opacity-0')} strokeWidth={2.6} />
+                    </button>
+                  </span>
+                ))}
+                <SortHead k="videos" sort={sort} onSort={onSort} className="justify-end">{tr('Videos')}</SortHead>
+                <SortHead k="views" sort={sort} onSort={onSort} className="justify-end">{tr('Total views')}</SortHead>
+              </div>
+              <ul className="divide-y divide-gray-50">
+                {rows.map((r, i) => (
+                  <li key={r.profile_id} className="grid items-center gap-3 px-4 py-3 transition-colors animate-rise hoverable:hover:bg-cloud/40" style={{ ...gridPlatforms, animationDelay: `${Math.min(i, 10) * 30}ms` }}>
+                    <span className={cx('flex h-7 w-7 items-center justify-center rounded-full text-xs font-extrabold tabular-nums', i === 0 && r.views > 0 && sort.key === 'views' && sort.dir < 0 ? 'bg-brand text-white' : 'bg-cloud text-smoke')}>{i + 1}</span>
+                    <PersonLink id={r.profile_id} name={r.name} photo={r.photo} sub={all ? r.programme : null} />
+                    {cols.map((p) => {
+                      const x = plat(r, p)
+                      const none = !x.videos && !x.views
+                      return (
+                        <span key={p} className="text-right tabular-nums">
+                          {none ? <span className="text-sm text-gray-300">-</span> : (
+                            <>
+                              <span className="block text-sm font-bold text-ink">{formatViews(x.views)}</span>
+                              <span className="block text-[11px] text-smoke">{x.videos === 1 ? tr('1 video') : tr('{n} videos', { n: x.videos })}</span>
+                            </>
+                          )}
+                        </span>
+                      )
+                    })}
+                    <span className="text-right text-sm font-semibold tabular-nums text-ink">{r.videos}</span>
+                    <span className="text-right text-sm font-extrabold tabular-nums text-ink">{formatViews(r.views)}</span>
+                  </li>
+                ))}
+              </ul>
             </div>
             {/* A phone: each creator as a card, one line per platform. */}
             <ul className="divide-y divide-gray-50 sm:hidden">
