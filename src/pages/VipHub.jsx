@@ -4,7 +4,7 @@ import { Suspense, useCallback, useEffect, useState } from 'react'
 import { lazyRoute } from '../lib/lazyRoute'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
-import { Avatar, PageHeader, Skeleton } from '../components/ui'
+import { Avatar, PageHeader, Skeleton, Toggle } from '../components/ui'
 import Icon from '../components/Icon'
 import Segmented from '../components/network/Segmented'
 import { ProgrammePill, ProgrammeSwitch, SpaceSwitch, VIP_LINKS, VipBalanceMini, VipChipNav, VipSideNav } from '../components/vip/hubNav'
@@ -25,7 +25,9 @@ const loadVipTools = () => import('../components/vip/VipTools')
 const VipTools = lazyRoute(loadVipTools)
 const VideoIdeasBoard = lazyRoute(() => import('../components/VideoIdeas'))
 import { ProgrammeKindContext, VipPreviewContext, daysLeft, isOfficial, money, monthLabel, nf, perK, projectedMonthEarnings, useVipAccess, useVipOverview, vipRpc, vipRpcAs, useKindT } from '../lib/vip'
-import { cx } from '../lib/utils'
+import { cx, formatViews } from '../lib/utils'
+import { confirm, notice } from '../lib/confirm'
+import { pickClass } from '../lib/pick'
 import { useIsMobile } from '../lib/useKeyboardInset'
 import ReaderText from '../components/ReaderText'
 import { vipApi } from '../api/vip'
@@ -48,6 +50,8 @@ import { marketsApi } from '../api/markets'
 // one person's own (videos, stats, payouts, perks) are hidden.
 const STAFF_HIDDEN = new Set(['videos', 'stats', 'payouts', 'earnings', 'perks', 'recap'])
 const PREVIEW_HIDDEN = new Set(['recap'])
+// The team's own tracked videos are not paid through the platform, so their own page has no money sections.
+const SELF_STAFF_HIDDEN = new Set(['payouts', 'earnings', 'perks', 'map'])
 const STAFF_PICK = 'tryp_vip_staff_programme'
 // ...AND THEN EXACTLY THE CREATOR'S PAGE (migration 311). The team view above is kept one press away, but the page now
 // OPENS as a creator sees it: a real VIP of the market (picked from a list, the test account included) through
@@ -83,9 +87,13 @@ export default function VipHub() {
   const access = useVipAccess(profile?.id, false)
   const [staffPick, setStaffPick] = useState(() => { try { return localStorage.getItem(STAFF_PICK) || null } catch { return null } })
   const [staffOv, setStaffOv] = useState(undefined)
-  const staffMode = own === null && access === true
   const asMode = params.get('mode')
-  const mode = asMode === 'tools' ? 'tools' : asMode === 'as' ? 'as' : 'page'
+  const mode = asMode === 'tools' ? 'tools' : asMode === 'as' ? 'as' : asMode === 'me' ? 'me' : 'page'
+  // THE TEAM'S OWN VIDEOS (migration 436). Somebody who runs an official programme can track their own videos in it
+  // (`mode=me`, "My videos"). They stay the team everywhere else: being tracked never turns /vip into a creator's page
+  // for them, it is the third view beside the page and the tools.
+  const meMode = access === true && mode === 'me'
+  const staffMode = access === true && !meMode
   const toolsMode = mode === 'tools'
   const who = mode === 'as' ? (params.get('who') || null) : null
   const [people, setPeople] = useState(undefined)
@@ -96,7 +104,7 @@ export default function VipHub() {
       setStaffOv(d || null)
     } catch { setStaffOv(null) }
   }, [staffPick])
-  useEffect(() => { if (staffMode) loadStaff() }, [staffMode, loadStaff])
+  useEffect(() => { if (access === true) loadStaff() }, [access, loadStaff])
   // The tools are one press away for the team, so their code and their market list load now, in the background.
   useEffect(() => {
     if (!staffMode) return
@@ -105,7 +113,7 @@ export default function VipHub() {
   const pickProgramme = (id, kind) => {
     setStaffPick(id)
     try { localStorage.setItem(STAFF_PICK, id); if (kind) localStorage.setItem(`${STAFF_PICK}_${kind}`, id) } catch { /* private mode */ }
-    if (mode === 'as') setParams({}, { replace: true })
+    if (mode === 'as' || mode === 'me') setParams({}, { replace: true })
   }
   // VIP COMMUNITY OR OFFICIAL CREATORS: each space remembers the market last opened in it.
   const pickSpace = (kind, firstId) => {
@@ -147,13 +155,17 @@ export default function VipHub() {
 
   // While the staff question is still being asked, keep the skeleton rather than flashing "not a VIP".
   const staffShown = previewing ? (staffOv === undefined ? undefined : previewOv) : staffOv
-  const overview = own === null ? (access === undefined || (staffMode && staffShown === undefined) ? undefined : staffMode ? staffShown : null) : own
+  const overview = meMode
+    ? (own === undefined ? undefined : own)
+    : staffMode ? (staffShown === undefined ? undefined : staffShown)
+    : own === null ? (access === undefined ? undefined : null) : own
   const reload = staffMode ? (previewing ? loadPreview : loadStaff) : reloadOwn
   const isStaff = !!overview?.staff
   // The member being previewed, or null for "a new VIP" / not previewing.
   const previewWho = previewing ? who : null
   const asked = params.get('tab') === 'leaderboard' ? 'board' : params.get('tab')
-  const hiddenTabs = isStaff ? STAFF_HIDDEN : previewing ? PREVIEW_HIDDEN : null
+  const selfStaff = !isStaff && !!overview?.member?.staff_self
+  const hiddenTabs = isStaff ? STAFF_HIDDEN : previewing ? PREVIEW_HIDDEN : selfStaff ? SELF_STAFF_HIDDEN : null
   const allowed = ['month', 'videos', 'stats', 'payouts', 'earnings', 'board', 'earn', 'perks', 'ideas', 'library', 'map', 'recap'].filter((k) => !hiddenTabs?.has(k))
   const tab = allowed.includes(asked) ? asked : 'month'
   const go = (v) => { setParams(() => { const n = new URLSearchParams(); if (mode === 'as') { n.set('mode', 'as'); if (who) n.set('who', who); if (params.get('from')) n.set('from', params.get('from')) } if (v !== 'month') n.set('tab', v); return n }, { replace: true }); if (window.scrollY > 320) gentleScrollToSelector('[data-vip-anchor]') }
@@ -219,6 +231,21 @@ export default function VipHub() {
       </div>
     )
   }
+  // MY VIDEOS, NOT TRACKED YET (or switched off): the one card that starts it.
+  const officialProgs = (staffOv?.programmes || []).filter((p) => p.kind === 'official')
+  const startStaffSelf = async (programmeId, onBoard) => {
+    await vipRpc('vip_staff_self', { p_programme: programmeId, p_track: true, p_on_board: onBoard })
+    await reloadOwn()
+  }
+  if (meMode && (overview === null || (overview.member?.staff_self && overview.member.status === 'left'))) {
+    return (
+      <div className="page max-w-5xl">
+        <PageHeader title={tr('My videos')} inlineAction />
+        <StaffControl isMobile={isMobile} programmes={staffOv?.programmes || []} mode={mode} onSpace={pickSpace} onMode={pickView} official canSelf={officialProgs.length > 0} />
+        <StaffSelfStart programmes={officialProgs} was={overview?.member?.staff_self ? overview.programme?.id : null} onStart={startStaffSelf} />
+      </div>
+    )
+  }
   // NOT A VIP AND NOT THE TEAM: the locked VIP community page, not a dead end.
   if (overview === null) return <VipLockedPage />
 
@@ -239,7 +266,7 @@ export default function VipHub() {
     <ProgrammeKindContext.Provider value={programme.kind || 'vip'}>
     <div className="page max-w-5xl">
       <PageHeader
-        title={official ? tr('Official creators') : tr('VIP')}
+        title={meMode ? tr('My videos') : official ? tr('Official creators') : tr('VIP')}
         inlineAction
         // THE FLAG, IN WHITE.
         // ON A PHONE THE MARKETS MOVE INTO THE CONTROL CARD, as a row that scrolls - see below.
@@ -258,6 +285,8 @@ export default function VipHub() {
 
       {/* ONE CONTROL CARD FOR THE TEAM: which community, then page or tools - side by side on a desktop, stacked on a
           phone. It was two cards and a sentence, four rows of navigation before anything to read. */}
+      {meMode && <StaffControl isMobile={isMobile} programmes={programmes} mode={mode} onSpace={pickSpace} onMode={pickView} official canSelf />}
+      {meMode && selfStaff && <StaffSelfBar overview={overview} onChanged={reloadOwn} />}
       {staffMode && (mode === 'as'
         ? <PreviewBanner name={whoName} market={programme.name} fromCreators={params.get('from') === 'creators'} onBack={() => (params.get('from') === 'creators' ? navigate(-1) : setParams({ mode: 'tools', tab: 'preview' }, { replace: true }))} />
         : (
@@ -269,12 +298,12 @@ export default function VipHub() {
               {staffMode && spaceProgrammes.length > 1 && (
                 <ProgrammeSwitch row programmes={spaceProgrammes} value={programme.id} onChange={(id) => pickProgramme(id, space)} />
               )}
-              <StaffBar mode={mode} onMode={pickView} official={official} full />
+              <StaffBar mode={mode} onMode={pickView} official={official} full canSelf={programmes.some((p) => p.kind === 'official')} />
             </div>
           ) : (
           <div className="relative z-20 mb-4 flex flex-col gap-1.5 rounded-card border border-gray-100 bg-white p-1.5 shadow-card animate-rise lg:flex-row lg:items-center">
             <SpaceSwitch bare programmes={programmes} value={space} onChange={pickSpace} />
-            <StaffBar mode={mode} onMode={pickView} official={official} />
+            <StaffBar mode={mode} onMode={pickView} official={official} canSelf={programmes.some((p) => p.kind === 'official')} />
           </div>
           )
         ))}
@@ -296,12 +325,16 @@ export default function VipHub() {
               <span className="relative flex h-2 w-2"><span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-white/40" /><span className="relative inline-flex h-2 w-2 rounded-full bg-white" /></span>
               {isStaff ? (official ? tr('{m} so far, every official creator', { m: monthLabel(month.year, month.month) }) : tr('{m} so far, every VIP', { m: monthLabel(month.year, month.month) })) : tr('{m} so far', { m: monthLabel(month.year, month.month) })}
             </p>
-            {!isStaff && look?.tagline && <p className="mt-1 text-sm font-semibold text-white/80"><ReaderText text={look.tagline} /></p>}
+            {!isStaff && !selfStaff && look?.tagline && <p className="mt-1 text-sm font-semibold text-white/80"><ReaderText text={look.tagline} /></p>}
             <p className="mt-2 text-5xl font-bold tabular-nums tracking-tight sm:text-6xl">
-              <CountUp duration={VIP_COUNT_MS} value={stats.base} format={(n) => money(n, cur)} />
+              {selfStaff
+                ? <CountUp duration={VIP_COUNT_MS} value={Number(stats.views) || 0} format={formatViews} />
+                : <CountUp duration={VIP_COUNT_MS} value={stats.base} format={(n) => money(n, cur)} />}
             </p>
             <p className="mt-2 text-sm text-white/85">
-              {isStaff
+              {selfStaff
+                ? tr('Views your own videos gained this month, from {n} videos', { n: stats.videos })
+                : isStaff
                 ? tr('{n} views counted across {m} this month, at {r} per 1,000', { n: nf(stats.views), m: programme.name, r: perK(stats.effective_cpm, cur) })
                 : tr('{n} views counted this month, at {r} per 1,000', { n: nf(stats.views), r: perK(stats.effective_cpm, cur) })}
             </p>
@@ -310,7 +343,7 @@ export default function VipHub() {
                 ? tr('Plus your {a} monthly fee once you reach {n} videos ({v} so far).', { a: money(member.monthly_fee, cur, { cents: false }), n: member.fee_min_videos, v: stats.videos })
                 : tr('Plus your {a} monthly fee.', { a: money(member.monthly_fee, cur, { cents: false }) })}</p>
             )}
-            {stats.projected_base != null && (
+            {stats.projected_base != null && !selfStaff && (
               <p className="mt-1 text-sm font-semibold text-white">{tr('On pace for about {a} by the end of the month.', { a: money(isStaff ? stats.projected_base : projectedMonthEarnings(stats, member, programme), cur, { cents: false }) })}</p>
             )}
           </div>
@@ -325,7 +358,7 @@ export default function VipHub() {
       </section>}
 
       {paused && <p className="mb-4 rounded-card border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">{official ? tr('Your place is paused, so new views are not being counted. Ask the team if that is a surprise.') : tr('Your VIP place is paused, so new views are not being counted. Ask your market lead if that is a surprise.')}</p>}
-      {!overview.payment_ready && <div className="mb-4"><PaymentBanner /></div>}
+      {!overview.payment_ready && !selfStaff && <div className="mb-4"><PaymentBanner /></div>}
 
       {/* Phones and tablets: the sections as a strip of chips. */}
       <div className="mb-5 lg:hidden"><VipChipNav value={tab} onChange={go} hidden={hiddenTabs} links={isStaff ? null : VIP_LINKS} official={official} /></div>
@@ -356,10 +389,10 @@ export default function VipHub() {
             ) : (
               <>
                 {/* SMALL, THEN THE TARGET, THEN THE PAY: the stay-in rule is a one-row card now. */}
-                {official ? <FeeProgressCard member={member} stats={stats} cur={cur} /> : <StayInCard compact />}
-                <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]">
+                {selfStaff ? null : official ? <FeeProgressCard member={member} stats={stats} cur={cur} /> : <StayInCard compact />}
+                <div className={cx('grid grid-cols-1 gap-4', !selfStaff && 'lg:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]')}>
                   <TargetCard member={member} stats={stats} onSetGoal={previewing ? null : () => go('stats')} />
-                  <HowPaidCard stats={stats} cur={cur} member={member} />
+                  {!selfStaff && <HowPaidCard stats={stats} cur={cur} member={member} />}
                 </div>
                 <LatestVideos videos={overview.videos} cpm={stats.effective_cpm} currency={cur} onSeeAll={() => go('videos')} onChanged={refresh} />
               </>
@@ -445,8 +478,8 @@ export default function VipHub() {
       {/* NO QUICK LINKS CARD. The team: the links to the VIP rooms "are unnecessary. You can remove the quick link card
           entirely and just have the other right column"; a VIP's recap and portfolio join the sections. */}
       <aside className="hidden space-y-4 lg:sticky lg:top-24 lg:block">
-        <VipSideNav value={tab} onChange={go} hidden={hiddenTabs} links={isStaff ? null : VIP_LINKS} official={official} />
-        {!isStaff && <VipBalanceMini onOpen={() => go('payouts')} />}
+        <VipSideNav value={tab} onChange={go} hidden={hiddenTabs} links={isStaff ? null : VIP_LINKS} official={official} unpaid={selfStaff} />
+        {!isStaff && !selfStaff && <VipBalanceMini onOpen={() => go('payouts')} />}
       </aside>
       </div>
 
@@ -473,12 +506,12 @@ function VipToolsFallback() {
 }
 
 // PAGE OR TOOLS: one sliding gradient, nothing else to choose. Sits inside the team's control card.
-function StaffBar({ mode, onMode, official = false, full = false }) {
+function StaffBar({ mode, onMode, official = false, full = false, canSelf = false }) {
   const tr = useKindT()
   return (
     <div className={cx('flex shrink-0 justify-center', full ? '' : 'px-1 pb-1 lg:px-1.5 lg:pb-0')}>
       <Segmented
-        className={full ? '!grid w-full grid-cols-2 [&>button>span]:justify-center [&>button]:!py-2 [&>button]:!text-[13px]' : undefined}
+        className={full ? cx('!grid w-full [&>button>span]:justify-center [&>button]:!py-2 [&>button]:!text-[13px]', canSelf ? 'grid-cols-3' : 'grid-cols-2') : undefined}
         size="sm"
         id="vip-staff-mode"
         label={tr('How to see this page')}
@@ -487,8 +520,106 @@ function StaffBar({ mode, onMode, official = false, full = false }) {
         options={[
           { value: 'page', label: <><Icon name={official ? 'badge' : 'star'} className="h-3.5 w-3.5" />{official ? tr('Their page') : tr('VIP page')}</> },
           { value: 'tools', label: <><Icon name="key" className="h-3.5 w-3.5" />{official ? tr('Tools') : tr('VIP tools')}</> },
+          ...(canSelf ? [{ value: 'me', label: <><Icon name="video" className="h-3.5 w-3.5" />{tr('My videos')}</> }] : []),
         ]}
       />
+    </div>
+  )
+}
+
+// THE TEAM'S CONTROL CARD IN "MY VIDEOS": both spaces unlit (pressing one goes back to its page) and the view switch.
+function StaffControl({ isMobile, programmes, mode, onSpace, onMode, official, canSelf }) {
+  return isMobile ? (
+    <div className="relative z-20 mb-4 space-y-2 rounded-card border border-gray-100 bg-white p-2 shadow-card animate-rise">
+      <SpaceSwitch bare programmes={programmes} value={null} onChange={onSpace} />
+      <StaffBar mode={mode} onMode={onMode} official={official} full canSelf={canSelf} />
+    </div>
+  ) : (
+    <div className="relative z-20 mb-4 flex flex-col gap-1.5 rounded-card border border-gray-100 bg-white p-1.5 shadow-card animate-rise lg:flex-row lg:items-center">
+      <SpaceSwitch bare programmes={programmes} value={null} onChange={onSpace} />
+      <StaffBar mode={mode} onMode={onMode} official={official} canSelf={canSelf} />
+    </div>
+  )
+}
+
+// MY VIDEOS, THE FIRST TIME (migration 436). The team (Marta runs Official Spain and posts too): track your own videos
+// like an official creator - views read automatically, on your own page - without pay and without a second account.
+function StaffSelfStart({ programmes, was, onStart }) {
+  const tr = useKindT()
+  const [pick, setPick] = useState(() => (programmes.some((p) => p.id === was) ? was : programmes[0]?.id || null))
+  const [onBoard, setOnBoard] = useState(true)
+  const [busy, setBusy] = useState(false)
+  const chosen = pick && programmes.some((p) => p.id === pick) ? pick : programmes[0]?.id
+  const start = async () => {
+    if (!chosen) return
+    setBusy(true)
+    try { await onStart(chosen, onBoard) } catch (e) { notice(e.message || String(e)) } finally { setBusy(false) }
+  }
+  if (!programmes.length) {
+    return <p className="rounded-card border border-dashed border-gray-200 px-6 py-10 text-center text-sm text-smoke animate-rise">{tr('Your own videos are tracked in an official creators programme, and you do not run one yet.')}</p>
+  }
+  return (
+    <section className="overflow-hidden rounded-card border border-gray-100 bg-white shadow-card animate-rise">
+      <div className="bg-gradient-to-br from-brand-tint via-white to-white px-5 pb-4 pt-6 sm:px-7">
+        <Icon name="video" className="h-7 w-7 text-brand" />
+        <h2 className="mt-3 text-xl font-bold text-ink">{was ? tr('Track your own videos again') : tr('Track your own videos')}</h2>
+        <p className="mt-1.5 max-w-xl text-sm text-smoke">{tr('Add the TikTok, Instagram and Facebook videos you post for Tryp.com and their views are read automatically, the same as an official creator\'s. They are not paid through the platform, and you stay the team everywhere else.')}</p>
+      </div>
+      <div className="space-y-4 px-5 pb-6 pt-2 sm:px-7">
+        {programmes.length > 1 && (
+          <div>
+            <p className="mb-2 text-xs font-bold uppercase tracking-wide text-smoke">{tr('Tracked in')}</p>
+            <div className="flex flex-wrap gap-2">
+              {programmes.map((p) => (
+                <button key={p.id} type="button" onClick={() => setPick(p.id)} className={pickClass(chosen === p.id, 'rounded-full border px-3.5 py-2 text-sm font-semibold')}>{p.name}</button>
+              ))}
+            </div>
+          </div>
+        )}
+        <label className="flex items-start gap-3 rounded-xl bg-cloud/70 px-4 py-3">
+          <span className="min-w-0 flex-1">
+            <span className="block text-sm font-semibold text-ink">{tr('Count me on the board and in the bonuses')}</span>
+            <span className="mt-0.5 block text-xs text-smoke">{onBoard
+              ? tr('You show on the official creators\' leaderboard and in its totals, like everybody else.')
+              : tr('Only you see your videos and views. Nobody else\'s board, totals or bonuses include you.')}</span>
+          </span>
+          <Toggle on={onBoard} onChange={setOnBoard} label={tr('Count me on the board and in the bonuses')} />
+        </label>
+        <button type="button" disabled={busy || !chosen} onClick={start} className="inline-flex min-h-11 items-center gap-2 rounded-full bg-gradient-to-r from-brand to-brand-light px-5 py-2.5 text-sm font-bold text-white shadow-card transition-transform duration-200 disabled:opacity-60 hoverable:hover:scale-105">
+          <Icon name="video" className="h-4 w-4" />{busy ? tr('Starting…') : was ? tr('Track my videos again') : tr('Start tracking my videos')}
+        </button>
+      </div>
+    </section>
+  )
+}
+
+// MY VIDEOS, WHILE TRACKING: where they are tracked, whether they count on the board, and the way out.
+function StaffSelfBar({ overview, onChanged }) {
+  const tr = useKindT()
+  const [busy, setBusy] = useState(false)
+  const onBoard = overview.member?.on_board !== false
+  const run = async (track, board) => {
+    setBusy(true)
+    try { await vipRpc('vip_staff_self', { p_programme: overview.programme.id, p_track: track, p_on_board: board }); await onChanged() }
+    catch (e) { notice(e.message || String(e)) } finally { setBusy(false) }
+  }
+  const stop = async () => {
+    if (!(await confirm(tr('Your videos stay saved, but no new views are read and you leave the board. You can start again any time.'), { title: tr('Stop tracking your videos?'), confirmLabel: tr('Stop tracking') }))) return
+    run(false, null)
+  }
+  return (
+    <div className="relative z-10 mb-4 flex flex-wrap items-center gap-x-4 gap-y-2.5 rounded-card border border-gray-100 bg-white px-4 py-3 shadow-card animate-rise">
+      <span className="w-full min-w-0 text-sm sm:w-auto sm:flex-1">
+        <span className="flex items-center gap-1.5 font-bold text-ink"><Icon name="video" className="h-4 w-4 text-brand" />{tr('Your own videos')}</span>
+        <span className="block text-xs text-smoke">{tr('Tracked in {p}. {n} views this month.', { p: overview.programme.name, n: formatViews(overview.stats?.views || 0) })}</span>
+      </span>
+      <span className="flex w-full items-center justify-between gap-3 sm:w-auto sm:justify-end">
+        <label className="flex items-center gap-2 text-xs font-semibold text-ink">
+          {tr('On the board')}
+          <Toggle size="sm" on={onBoard} disabled={busy} onChange={(v) => run(true, v)} label={tr('Count me on the board and in the bonuses')} />
+        </label>
+        <button type="button" disabled={busy} onClick={stop} className="inline-flex min-h-9 items-center rounded-full bg-cloud px-3.5 py-1.5 text-xs font-bold text-smoke transition-transform duration-200 disabled:opacity-60 hoverable:hover:scale-105">{tr('Stop tracking')}</button>
+      </span>
     </div>
   )
 }

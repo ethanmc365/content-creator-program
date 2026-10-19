@@ -1,7 +1,7 @@
 import { createPortal } from 'react-dom'
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, useCallback } from 'react'
 import { confirm, notice, saved } from '../lib/confirm'
-import { loadDraft, saveDraft, clearDraft } from '../lib/drafts'
+import { loadDraft, saveDraft, clearDraft, listDrafts, DRAFTS_EVENT } from '../lib/drafts'
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
@@ -1485,10 +1485,50 @@ export default function Messages() {
   // A stable sort is what makes that true: `Array.prototype.sort` has been
   // required to be stable since ES2019, so returning 0 for two unpinned threads
   // genuinely leaves them where they were rather than shuffling them.
+  // UNSENT DRAFTS RIDE ABOVE EVERYTHING (19 Oct 2026). The team: start a DM, leave it, come back - "have it show up at
+  // the very top as a draft, above the very first person, so I can easily go back to it and finish it". Drafts were
+  // already kept per chat (lib/drafts); now the inbox reads them, and hears every one that starts or empties
+  // (`DRAFTS_EVENT`), so deleting the text in the chat takes the row away. The chat that is open is not a draft of
+  // anything yet - it is being written - so it stays where it is until you leave it. One row per chat: a chat shown as a
+  // draft is taken out of the list below. A first message to somebody new (`dm-to-<id>`) is a draft too.
+  const [draftList, setDraftList] = useState(() => listDrafts('dm-'))
+  useEffect(() => {
+    const read = () => setDraftList(listDrafts('dm-'))
+    const onStorage = (e) => { if (!e.key || e.key.startsWith('tryp_draft')) read() }
+    window.addEventListener(DRAFTS_EVENT, read)
+    window.addEventListener('storage', onStorage)
+    return () => { window.removeEventListener(DRAFTS_EVENT, read); window.removeEventListener('storage', onStorage) }
+  }, [])
+  // Leaving a chat is when its draft becomes one: read the list again whenever the open chat changes.
+  useEffect(() => { setDraftList(listDrafts('dm-')) }, [conversationId, draftTo?.id, threadOpen])
+  const openDraftKey = threadOpen ? dmDraftKey(conversationId, draftTo?.id) : ''
+  const drafts = useMemo(() => {
+    if (q) return []
+    const byId = new Map(conversations.map((c) => [c.id, c]))
+    const byPerson = new Map(people.map((p) => [p.id, p]))
+    for (const c of conversations) if (c.other?.id && !byPerson.has(c.other.id)) byPerson.set(c.other.id, c.other)
+    const out = []
+    for (const d of draftList) {
+      if (d.key === openDraftKey) continue
+      const preview = stripMarkup(d.text).replace(/\s+/g, ' ').trim()
+      if (!preview) continue
+      if (d.key.startsWith('dm-to-')) {
+        const person = byPerson.get(d.key.slice(6))
+        if (person) out.push({ key: d.key, preview, at: d.at, person, to: `/messages?to=${person.id}` })
+      } else {
+        const c = byId.get(d.key.slice(3))
+        if (c) out.push({ key: d.key, preview, at: d.at, conversation: c, to: `/messages/${c.id}` })
+      }
+    }
+    return out
+  }, [q, draftList, openDraftKey, conversations, people])
+  const draftConvIds = useMemo(() => new Set(drafts.map((d) => d.conversation?.id).filter(Boolean)), [drafts])
+  const discardDraft = (d) => { clearDraft(d.key); setDraftList(listDrafts('dm-')) }
   const shownConversations = useMemo(() => {
-    if (!pinned.length) return matching
+    const rest = draftConvIds.size ? matching.filter((c) => !draftConvIds.has(c.id)) : matching
+    if (!pinned.length) return rest
     const rank = new Map(pinned.map((id, i) => [id, i]))
-    return [...matching].sort((a, b) => {
+    return [...rest].sort((a, b) => {
       const ra = rank.has(a.id) ? rank.get(a.id) : Infinity
       const rb = rank.has(b.id) ? rank.get(b.id) : Infinity
       return ra - rb
@@ -1496,7 +1536,7 @@ export default function Messages() {
     // `matching` is rebuilt every render by design (it is a filter over state),
     // so depending on it here is depending on the thing that changes - which is
     // correct: the sort has to re-run when the inbox or the search does.
-  }, [matching, pinned])
+  }, [matching, pinned, draftConvIds])
   // Creators you match but haven't messaged yet: "start a new chat with…".
   const talkingTo = new Set(conversations.map((c) => c.other?.id).filter(Boolean))
   const searchMatches = q
@@ -1636,6 +1676,8 @@ export default function Messages() {
           conversations={conversations}
           discover={discover}
           discoverPeople={discoverPeople}
+          discardDraft={discardDraft}
+          drafts={drafts}
           invites={invites}
           loadingList={loadingList}
           myConnections={myConnections}

@@ -5,6 +5,7 @@ import { Avatar, Badge, EmptyState, Skeleton } from '../components/ui'
 import { Link } from 'react-router-dom'
 import Reveal from '../components/network/Reveal'
 import { groupName } from '../lib/groups'
+import { AnimatePresence, motion } from 'motion/react'
 
 // Part of Messages.jsx: every value it shows comes in as a prop from the page.
 export default function MessagesInbox({
@@ -16,6 +17,8 @@ export default function MessagesInbox({
   conversations,
   discover,
   discoverPeople,
+  discardDraft,
+  drafts = [],
   invites,
   loadingList,
   myConnections,
@@ -116,6 +119,71 @@ export default function MessagesInbox({
             </div>
           </div>
         )}
+
+        {/* DRAFTS, ABOVE THE FIRST PERSON. A message started and left is the thing most likely to be wanted next, so
+            it waits at the top in brand words ("Draft: ...") until it is sent or emptied. Rows slide in and fold away. */}
+        <AnimatePresence initial={false}>
+          {drafts.length > 0 && (
+            <motion.div
+              key="drafts"
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
+              className="overflow-hidden border-b border-gray-100"
+              data-dm-drafts
+            >
+              <p className="flex items-center gap-1.5 px-5 pb-1 pt-3 text-[11px] font-semibold uppercase tracking-wide text-brand">
+                <Icon name="pencil" className="h-3 w-3" />{drafts.length === 1 ? tr('Draft') : tr('Drafts')}
+              </p>
+              <AnimatePresence initial={false}>
+                {drafts.map((d) => {
+                  const c = d.conversation
+                  const name = c ? (c.kind === 'group' ? groupName(c, c.members, user.id) : (c.other?.name ?? 'Creator')) : (d.person?.name ?? 'Creator')
+                  const open = () => navigate(d.to, { state: { fromInbox: true } })
+                  return (
+                    <motion.div
+                      key={d.key}
+                      layout="position"
+                      initial={{ opacity: 0, y: -8 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, height: 0, paddingTop: 0, paddingBottom: 0 }}
+                      transition={{ duration: 0.24, ease: [0.22, 1, 0.36, 1] }}
+                      role="button"
+                      tabIndex={0}
+                      onClick={open}
+                      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open() } }}
+                      className="group/draft relative flex w-full cursor-pointer select-none items-center gap-3 overflow-hidden px-5 py-3.5 text-left transition-colors hoverable:hover:bg-cloud active:bg-cloud/70"
+                      data-dm-draft={d.key}
+                    >
+                      <span className="relative shrink-0">
+                        {c?.kind === 'group'
+                          ? <GroupAvatar conversation={c} members={c.members} />
+                          : <Avatar src={(c?.other || d.person)?.photo_url} name={name} size="md" />}
+                        <span aria-hidden className="absolute -bottom-0.5 -right-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-white shadow-card ring-2 ring-white">
+                          <Icon name="pencil" className="h-3 w-3 text-brand" />
+                        </span>
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-semibold">{name}</p>
+                        <p className="truncate text-xs text-smoke"><span className="font-semibold text-brand">{tr('Draft')}:</span> {d.preview}</p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); discardDraft(d) }}
+                        aria-label={tr('Delete draft')}
+                        title={tr('Delete draft')}
+                        className="shrink-0 rounded-full p-1.5 text-gray-300 transition-colors hoverable:hover:bg-white hoverable:hover:text-ink"
+                      >
+                        <Icon name="close" className="h-4 w-4" />
+                      </button>
+                    </motion.div>
+                  )
+                })}
+              </AnimatePresence>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {loadingList && (
           <div className="space-y-4 p-5">

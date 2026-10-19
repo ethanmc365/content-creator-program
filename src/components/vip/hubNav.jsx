@@ -31,7 +31,7 @@ export const VIP_SECTIONS = [
 ]
 
 /** The column on the right, desktop only. */
-export function VipSideNav({ value, onChange, hidden, links, official = false }) {
+export function VipSideNav({ value, onChange, hidden, links, official = false, unpaid = false }) {
   const tr = useKindT()
   return (
     <nav data-vip-anchor aria-label={official ? tr('Sections') : tr('VIP sections')} className="rounded-card border border-gray-100 bg-white p-2 shadow-card animate-rise">
@@ -56,7 +56,7 @@ export function VipSideNav({ value, onChange, hidden, links, official = false })
                 </span>
                 <span className="relative min-w-0 flex-1">
                   <span className={cx('block truncate text-[13.5px] leading-tight', on ? 'font-bold text-ink' : 'font-semibold text-ink/85')}>{tr(s.label)}</span>
-                  <span className="mt-0.5 block truncate text-[11px] text-smoke">{official && s.key === 'map' ? tr('Every official creator') : tr(s.hint)}</span>
+                  <span className="mt-0.5 block truncate text-[11px] text-smoke">{official && s.key === 'map' ? tr('Every official creator') : unpaid && s.key === 'month' ? tr('Your views so far') : tr(s.hint)}</span>
                 </span>
                 <Icon name="chevronRight" className={cx('relative h-4 w-4 shrink-0 transition-all duration-200', on ? 'text-brand' : 'text-gray-300 opacity-0 group-hover:translate-x-0.5 group-hover:opacity-100')} />
               </button>

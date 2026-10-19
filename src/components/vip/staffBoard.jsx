@@ -6,6 +6,7 @@ import Icon from '../Icon'
 import PeriodPicker from '../PeriodPicker'
 import { CountUp, VIP_COUNT_MS } from '../network/Motion'
 import { VipBoardList } from './parts'
+import SocialMark from '../SocialMark'
 import { PERIODS, periodRange } from '../../lib/analyticsPeriod'
 import { cx, formatDate, formatViews } from '../../lib/utils'
 import { money, vipRpc, useKindT } from '../../lib/vip'
@@ -19,6 +20,22 @@ import { money, vipRpc, useKindT } from '../../lib/vip'
 const BOARD_PERIODS = ['this_month', 'last_7', 'this_week', 'last_week', 'last_30', 'last_month', 'custom']
 const PICKER = BOARD_PERIODS.map((k) => PERIODS.find((p) => p.key === k)).filter(Boolean)
 const ymd = (d) => format(d, 'yyyy-MM-dd')
+const BRAND = { Instagram: 'instagram', TikTok: 'tiktok', YouTube: 'youtube', Facebook: 'facebook' }
+const PLATFORM_ORDER = ['TikTok', 'Instagram', 'Facebook', 'YouTube', 'Other']
+const byPlatform = (a, b) => (b.views - a.views) || (b.videos - a.videos) || PLATFORM_ORDER.indexOf(a.platform) - PLATFORM_ORDER.indexOf(b.platform)
+
+// The period's own words went out in English inside a Spanish sentence ("frente a the 7 days before", Marta's
+// screenshot, 19 Oct 2026): analyticsPeriod builds them with the number baked in, so they are matched back to keys here.
+function periodWords(range, tr) {
+  const n = (s) => Number(String(s).match(/\d+/)?.[0])
+  const say = (s) => {
+    if (!s) return s
+    if (/^the \d+ days before$/.test(s)) return tr('the {n} days before', { n: n(s) })
+    if (/^Last \d+ days$/.test(s)) return tr('Last {n} days', { n: n(s) })
+    return tr(s)
+  }
+  return { label: range.key === 'custom' ? null : say(range.label), short: say(range.short) }
+}
 
 export default function StaffBoard({ programme, monthRows, rules, month, limit = null, onFull }) {
   const tr = useKindT()
@@ -54,17 +71,19 @@ export default function StaffBoard({ programme, monthRows, rules, month, limit =
   const total = rows.reduce((a, c) => a + Number(c.views || 0), 0)
   const prevTotal = rows.reduce((a, c) => a + Number(c.prev_views || 0), 0)
   const cur = programme.currency || 'EUR'
+  const words = periodWords(range, tr)
+  const platforms = useMemo(() => [...(data?.platforms || [])].filter((p) => p.videos > 0 || p.views > 0).sort(byPlatform), [data])
 
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="min-w-0 text-xs text-smoke">
           {ranged && range.start
-            ? <><span className="font-semibold text-ink">{range.label}</span> · {from === to ? formatDate(from) : `${formatDate(from)} - ${formatDate(to)}`}</>
+            ? <>{words.label && <><span className="font-semibold text-ink">{words.label}</span> · </>}<span className={words.label ? undefined : 'font-semibold text-ink'}>{from === to ? formatDate(from) : `${formatDate(from)} - ${formatDate(to)}`}</span></>
             : tr('This month so far, with the prizes')}
           {loading && <span className="ml-2 inline-flex items-center gap-1 text-brand"><span className="h-1.5 w-1.5 animate-pulse rounded-full bg-brand" />{tr('Updating')}</span>}
         </p>
-        <PeriodPicker value={periodKey} from={custom.from} to={custom.to} periods={PICKER} width="w-40"
+        <PeriodPicker value={periodKey} from={custom.from} to={custom.to} periods={PICKER} width="w-40" translate
           onChange={(k, f, t) => { setPeriodKey(k); if (k === 'custom') setCustom({ from: f, to: t }) }} />
       </div>
 
@@ -80,8 +99,25 @@ export default function StaffBoard({ programme, monthRows, rules, month, limit =
           <div className="flex flex-wrap items-baseline gap-x-5 gap-y-1 border-b border-gray-50 bg-gradient-to-r from-brand-tint/60 to-white px-4 py-3">
             <span className="text-2xl font-extrabold tabular-nums text-ink"><CountUp duration={VIP_COUNT_MS} value={total} format={formatViews} /></span>
             <span className="text-xs font-semibold text-smoke">{tr('views gained')}</span>
-            {range.prev && prevTotal > 0 && <Delta now={total} before={prevTotal} vs={range.short} />}
+            {range.prev && prevTotal > 0 && <Delta now={total} before={prevTotal} vs={words.short} />}
+            {/* EVERY PLATFORM'S SHARE OF THE STRETCH: videos posted in it and the views gained on it. */}
+            {platforms.length > 0 && (
+              <span className="flex w-full flex-wrap items-center gap-1.5 pt-1.5 sm:ml-auto sm:w-auto sm:pt-0">
+                {platforms.map((p, i) => (
+                  <span key={p.platform} className="inline-flex items-center gap-1.5 rounded-full border border-gray-100 bg-white px-2.5 py-1 text-xs font-semibold tabular-nums text-ink shadow-sm animate-pop-in" style={{ animationDelay: `${120 + i * 60}ms` }} title={p.platform}>
+                    <SocialMark brand={BRAND[p.platform] || 'link'} colored className="h-3.5 w-3.5" />
+                    {formatViews(p.views)}
+                    <span className="font-medium text-smoke">· {p.videos === 1 ? tr('1 video') : tr('{n} videos', { n: p.videos })}</span>
+                  </span>
+                ))}
+              </span>
+            )}
           </div>
+          {platforms.length > 0 && shown.length > 0 && (
+            <p className="flex items-center gap-1.5 border-b border-gray-50 px-4 py-1.5 text-[11px] text-smoke">
+              <Icon name="video" className="h-3.5 w-3.5 text-brand" />{tr('Under each name: videos posted and views gained, per platform')}
+            </p>
+          )}
           {shown.length === 0 ? (
             <p className="px-4 py-8 text-center text-sm text-smoke">{tr('Nobody gained views in these days.')}</p>
           ) : (
@@ -94,6 +130,7 @@ export default function StaffBoard({ programme, monthRows, rules, month, limit =
                     <span className="min-w-0 flex-1">
                       <span className="block truncate text-sm font-semibold text-ink group-hover:text-brand">{c.name}</span>
                       <span className="mt-1 block h-1 max-w-[14rem] overflow-hidden rounded-full bg-gray-100"><span className="block h-full rounded-full bg-gradient-to-r from-brand to-brand-light transition-[width] duration-700" style={{ width: `${Number(c.views) > 0 ? Math.max(2, Math.round((Number(c.views) / lead) * 100)) : 0}%` }} /></span>
+                      <PlatformSplit list={c.platforms} />
                     </span>
                   </Link>
                   <span className="hidden w-20 text-right text-[11px] text-smoke sm:block">{c.videos === 1 ? tr('1 video') : tr('{n} videos', { n: c.videos })}</span>
@@ -112,6 +149,26 @@ export default function StaffBoard({ programme, monthRows, rules, month, limit =
         </div>
       )}
     </div>
+  )
+}
+
+// ONE CREATOR'S STRETCH, PLATFORM BY PLATFORM (the team, 19 Oct 2026: "how many videos they posted on Instagram, TikTok
+// and Facebook, and the views there"). Each chip: the platform's mark, its videos, the views it gained.
+function PlatformSplit({ list }) {
+  const tr = useKindT()
+  const rows = [...(list || [])].sort(byPlatform)
+  if (!rows.length) return null
+  return (
+    <span className="mt-1.5 flex flex-wrap gap-x-3 gap-y-1">
+      {rows.map((p) => (
+        <span key={p.platform} className="inline-flex items-center gap-1 text-[11px] tabular-nums text-smoke" title={`${p.platform}: ${p.videos === 1 ? tr('1 video') : tr('{n} videos', { n: p.videos })}, ${formatViews(p.views)} ${tr('views')}`}>
+          <SocialMark brand={BRAND[p.platform] || 'link'} colored className="h-3.5 w-3.5" />
+          <span className="font-semibold text-ink">{p.videos}</span>
+          <span aria-hidden className="text-gray-300">·</span>
+          <span>{formatViews(p.views)}</span>
+        </span>
+      ))}
+    </span>
   )
 }
 

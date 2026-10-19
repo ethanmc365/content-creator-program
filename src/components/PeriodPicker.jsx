@@ -5,19 +5,24 @@ import CalendarPicker from './CalendarPicker'
 import { DateField } from './DateTimeFields'
 import { PERIODS } from '../lib/analyticsPeriod'
 import { cx } from '../lib/utils'
+import { useT } from '../lib/i18n'
 
 // THE PERIOD CONTROL. The house dropdown (never the OS menu - see ui/Select) with the presets, and "Custom dates"
 // opening a small card of two day fields under it. The custom range is only applied on "Show", so typing a date does not
 // reload the page a digit at a time.
-export default function PeriodPicker({ value, from, to, onChange, disabled = false, periods = PERIODS, className, width = 'w-40' }) {
+export default function PeriodPicker({ value, from, to, onChange, disabled = false, periods = PERIODS, className, width = 'w-40', translate = false }) {
   const id = useId()
+  // Admin pages stay English; a creator-facing picker (`translate`) speaks the reader's language.
+  const t = useT()
+  const tr = translate ? t : (k, v) => (v ? k.replace(/\{(\w+)\}/g, (_, n) => v[n]) : k)
   const [picking, setPicking] = useState('from')
   const [open, setOpen] = useState(false)
   const anchor = useRef(null)
   const [draft, setDraft] = useState({ from, to })
   const options = [...periods.filter((p) => p.key === 'custom'), ...periods.filter((p) => p.key !== 'custom')].map((p) => ({
     value: p.key,
-    label: p.key === 'custom' && value === 'custom' && from && to ? `${from.slice(8, 10)}/${from.slice(5, 7)} to ${to.slice(8, 10)}/${to.slice(5, 7)}` : p.label,
+    // In the creator's language: Marta's Spanish board said "12/10 to 18/10" and "Last 7 days" (19 Oct 2026).
+    label: p.key === 'custom' && value === 'custom' && from && to ? tr('{a} to {b}', { a: `${from.slice(8, 10)}/${from.slice(5, 7)}`, b: `${to.slice(8, 10)}/${to.slice(5, 7)}` }) : tr(p.label),
   }))
   const valid = draft.from && draft.to && draft.from <= draft.to
   return (
