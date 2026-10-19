@@ -63,13 +63,15 @@ export default function StaffBoard({ programme, monthRows, rules, month, limit =
     return () => { alive = false }
   }, [ranged, key]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const rows = useMemo(() => (data?.creators || [])
-    .filter((c) => c.status === 'active' || c.views > 0)
-    .sort((a, b) => b.views - a.views || a.name.localeCompare(b.name)), [data])
+  // Everybody counts in the total; only the ranked are on the board (a team member who opted out of prizes, 437).
+  const counted = useMemo(() => (data?.creators || []).filter((c) => c.status === 'active' || c.views > 0), [data])
+  const rows = useMemo(() => counted
+    .filter((c) => c.ranked !== false)
+    .sort((a, b) => b.views - a.views || a.name.localeCompare(b.name)), [counted])
   const shown = limit ? rows.slice(0, limit) : rows
   const lead = Math.max(1, rows[0]?.views || 0)
-  const total = rows.reduce((a, c) => a + Number(c.views || 0), 0)
-  const prevTotal = rows.reduce((a, c) => a + Number(c.prev_views || 0), 0)
+  const total = counted.reduce((a, c) => a + Number(c.views || 0), 0)
+  const prevTotal = counted.reduce((a, c) => a + Number(c.prev_views || 0), 0)
   const cur = programme.currency || 'EUR'
   const words = periodWords(range, tr)
   const platforms = useMemo(() => [...(data?.platforms || [])].filter((p) => p.videos > 0 || p.views > 0).sort(byPlatform), [data])

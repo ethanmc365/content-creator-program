@@ -13,7 +13,8 @@ import { MarketStandings } from './v3'
 import VipScopeSwitch from './scope'
 import { CopyLinkChip } from './parts'
 import { CHART, FILL, axisTick, tooltipStyle } from '../charts/chartTheme'
-import { cx, formatDate, formatViews } from '../../lib/utils'
+import { cx, downloadCsv, formatDate, formatViews } from '../../lib/utils'
+import SocialMark from '../SocialMark'
 import { PERIODS, periodRange } from '../../lib/analyticsPeriod'
 import { money, monthLabel, nf, perK, shortDay, vipRpc, useKindT } from '../../lib/vip'
 import { safeUrl } from '../../lib/safeUrl'
@@ -25,7 +26,7 @@ import { safeUrl } from '../../lib/safeUrl'
 // dimmed on them rather than removed (the bar never changes shape). Every number comes from `vip_range_analytics`, which reads the
 // videos and their readings themselves, so it is true the moment a video is read - not when a month closes.
 
-export const VIP_PERIODS = ['last_3', 'last_7', 'this_week', 'last_week', 'this_month', 'last_month', 'last_30', 'last_90', 'this_year', 'custom']
+export const VIP_PERIODS = ['last_3', 'last_7', 'this_week', 'last_week', 'this_month', 'last_month', 'last_30', 'last_90', 'this_quarter', 'last_quarter', 'this_year', 'custom']
 const PICKER_PERIODS = VIP_PERIODS.map((k) => PERIODS.find((p) => p.key === k))
 const WHOLE_MONTHS = new Set(['months', 'compare', 'markets'])
 
@@ -147,7 +148,7 @@ export function VipAnalyticsTab({ programme, programmes = [], isAdmin, outer = n
         <div key={view} className={cx('transition-opacity duration-200 animate-tab-in', stale && 'opacity-60')}>
           {view === 'overview' && <Overview data={data} cur={cur} range={range} />}
           {view === 'growth' && <Growth data={data} range={range} all={all} />}
-          {view === 'creators' && <CreatorsTable data={data} cur={cur} all={all} />}
+          {view === 'creators' && <CreatorsTable data={data} cur={cur} all={all} from={from} to={to} />}
           {view === 'health' && <Health data={data} />}
         </div>
       )}
@@ -394,51 +395,226 @@ function Growth({ data, range, all }) {
 }
 
 // ----------------------------------------------------------------------------------------------------------------- creators
-function CreatorsTable({ data, cur, all }) {
+// EVERY CREATOR OVER THE DAYS PICKED, TWO WAYS (19 Oct 2026).
+//
+// The four pills above this list were SORTS, and two of them gave the same order (views pay is views times one rate),
+// so pressing them "did nothing" (the team). Sorting is the column headers now - press one, press again to flip - and
+// the switch chooses what the list SHOWS:
+//   Overview     views, share and change, videos, views pay, last post (as before).
+//   By platform  Marta's sheet: for each creator, the videos posted and the views gained on TikTok, Instagram and
+//                Facebook (and YouTube/other when anyone used them), then the totals. Pick "This quarter" / "Last
+//                quarter" for a quarter. The platform totals sit above it, and the whole table downloads as a CSV.
+// Views are views GAINED in the days picked; videos are videos POSTED in them (vip_range_analytics, 436).
+const PLATFORM_COLS = ['TikTok', 'Instagram', 'Facebook', 'YouTube', 'Other']
+const ALWAYS_COLS = new Set(['TikTok', 'Instagram', 'Facebook'])
+const BRAND_OF = { Instagram: 'instagram', TikTok: 'tiktok', YouTube: 'youtube', Facebook: 'facebook' }
+
+function SortHead({ k, sort, onSort, children, className }) {
+  const on = sort.key === k
+  return (
+    <button type="button" onClick={() => onSort(k)} aria-sort={on ? (sort.dir < 0 ? 'descending' : 'ascending') : 'none'}
+      className={cx('group/sort inline-flex items-center gap-0.5 uppercase tracking-wide transition-colors', on ? 'text-brand' : 'hoverable:hover:text-ink', className)}>
+      {children}
+      <Icon name={on && sort.dir > 0 ? 'chevronUp' : 'chevronDown'} className={cx('h-3 w-3 transition-all duration-200', on ? 'opacity-100' : 'opacity-0 group-hover/sort:opacity-60')} strokeWidth={2.6} />
+    </button>
+  )
+}
+
+function CreatorsTable({ data, cur, all, from, to }) {
   const tr = useKindT()
-  const [sort, setSort] = useState('views')
+  const [mode, setMode] = useState('overview')
+  const [sort, setSort] = useState({ key: 'views', dir: -1 })
+  const onSort = (key) => setSort((s) => (s.key === key ? { key, dir: -s.dir } : { key, dir: key === 'name' ? 1 : -1 }))
+  const plat = (c, p) => (c.platforms || []).find((x) => x.platform === p) || { videos: 0, views: 0 }
+  const cols = useMemo(() => PLATFORM_COLS.filter((p) => ALWAYS_COLS.has(p) || data.creators.some((c) => plat(c, p).videos > 0 || plat(c, p).views > 0)), [data])
+  const totals = useMemo(() => cols.map((p) => ({
+    platform: p,
+    videos: data.creators.reduce((a, c) => a + Number(plat(c, p).videos || 0), 0),
+    views: data.creators.reduce((a, c) => a + Number(plat(c, p).views || 0), 0),
+  })), [data, cols])
   const rows = useMemo(() => {
+    const val = (c) => {
+      const k = sort.key
+      if (k === 'name') return c.name || ''
+      if (k === 'recent') return new Date(c.last_post || 0).getTime()
+      if (k.startsWith('v:')) return Number(plat(c, k.slice(2)).views || 0)
+      if (k.startsWith('n:')) return Number(plat(c, k.slice(2)).videos || 0)
+      return Number(c[k] || 0)
+    }
     const list = data.creators.map((c) => ({ ...c, change: pctMove(c.views, c.prev_views) }))
-    return list.sort((a, b) => (sort === 'pay' ? b.pay - a.pay : sort === 'videos' ? b.videos - a.videos : sort === 'recent' ? new Date(b.last_post || 0) - new Date(a.last_post || 0) : b.views - a.views))
+    return list.sort((a, b) => {
+      const x = val(a); const y = val(b)
+      const d = typeof x === 'string' ? x.localeCompare(y) : x - y
+      return d * sort.dir || b.views - a.views || (a.name || '').localeCompare(b.name || '')
+    })
   }, [data, sort])
   const lead = Math.max(1, ...rows.map((r) => r.views))
-  const totalViews = rows.reduce((a, r) => a + r.views, 0)
+  const totalViews = rows.reduce((a, r) => a + Number(r.views || 0), 0)
+  const totalVideos = rows.reduce((a, r) => a + Number(r.videos || 0), 0)
+  const platformTotalViews = Math.max(1, totals.reduce((a, t) => a + t.views, 0))
+
+  const exportCsv = () => {
+    const out = rows.map((r) => {
+      const o = { creator: r.name, ...(all ? { market: r.programme } : {}) }
+      for (const p of cols) { o[`${p} videos`] = plat(r, p).videos; o[`${p} views`] = plat(r, p).views }
+      o['total videos'] = r.videos; o['total views'] = r.views
+      return o
+    })
+    downloadCsv(`views-by-platform-${from}-to-${to}.csv`, out)
+  }
+
+  const gridOverview = 'sm:grid-cols-[2rem_minmax(0,1fr)_6.5rem_4rem_5.5rem_6rem]'
+  const gridPlatforms = { gridTemplateColumns: `2rem minmax(10rem,1fr) ${cols.map(() => '6.25rem').join(' ')} 5.25rem 6rem` }
+
   return (
-    <section className="overflow-hidden rounded-card border border-gray-100 bg-white shadow-card animate-rise">
-      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-gray-100 px-4 py-3">
-        <p className="text-[13.5px] font-bold text-ink">{tr('Every VIP, over these days')}</p>
-        <Segmented size="sm" value={sort} onChange={setSort} label={tr('Sort by')} options={[
-          { value: 'views', label: tr('Views') }, { value: 'pay', label: tr('Views pay') }, { value: 'videos', label: tr('Videos') }, { value: 'recent', label: tr('Last post') },
-        ]} />
-      </div>
-      <div className="hidden grid-cols-[2rem_minmax(0,1fr)_6.5rem_4rem_5.5rem_6rem] gap-3 bg-cloud/60 px-4 py-2 text-[10.5px] font-bold uppercase tracking-wide text-gray-400 sm:grid">
-        <span>#</span><span>{tr('Creator')}</span><span className="text-right">{tr('Views')}</span><span className="text-right">{tr('Videos')}</span><span className="text-right">{tr('Views pay')}</span><span className="text-right">{tr('Last post')}</span>
-      </div>
-      {rows.length === 0 ? <p className="px-4 py-10 text-center text-sm text-smoke">{tr('No VIPs here yet.')}</p> : (
-        <ul className="divide-y divide-gray-50">
-          {rows.map((r, i) => (
-            <li key={r.profile_id} className="grid grid-cols-[2rem_minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1 px-4 py-3 animate-rise sm:grid-cols-[2rem_minmax(0,1fr)_6.5rem_4rem_5.5rem_6rem]" style={{ animationDelay: `${Math.min(i, 10) * 30}ms` }}>
-              <span className={cx('flex h-7 w-7 items-center justify-center rounded-full text-xs font-extrabold tabular-nums', i === 0 && r.views > 0 ? 'bg-brand text-white' : 'bg-cloud text-smoke')}>{i + 1}</span>
-              <div className="min-w-0">
-                <PersonLink id={r.profile_id} name={r.name} photo={r.photo} sub={all ? r.programme : r.status === 'paused' ? tr('Paused') : null} />
-                <span className="mt-1.5 block h-1 max-w-[12rem] overflow-hidden rounded-full bg-gray-100"><span className="block h-full rounded-full bg-brand" style={{ width: `${r.views > 0 ? Math.max(3, (r.views / lead) * 100) : 0}%` }} /></span>
-              </div>
-              <div className="text-right sm:hidden">
-                <p className="text-sm font-bold tabular-nums text-ink">{formatViews(r.views)}</p>
-                <p className="text-[11px] text-smoke">{tr('{n} videos', { n: r.videos })} · {money(r.pay, r.currency || cur, { cents: false })}</p>
-              </div>
-              <div className="hidden text-right sm:block">
-                <p className="text-sm font-bold tabular-nums text-ink">{formatViews(r.views)}</p>
-                <p className="text-[11px] tabular-nums text-smoke">{totalViews ? `${Math.round((r.views / totalViews) * 100)}%` : ''}{r.change != null && r.change !== 0 && <span className={cx('ml-1 font-bold', r.change > 0 ? 'text-emerald-600' : 'text-red-500')}>{r.change > 0 ? '+' : ''}{r.change}%</span>}</p>
-              </div>
-              <span className="hidden text-right text-sm tabular-nums text-smoke sm:block">{r.videos}</span>
-              <span className="hidden text-right text-sm tabular-nums text-ink sm:block">{money(r.pay, r.currency || cur, { cents: false })}</span>
-              <span className="hidden text-right text-xs text-smoke sm:block">{r.last_post ? formatDate(r.last_post) : tr('Never')}</span>
-            </li>
+    <div className="space-y-4">
+      {/* THE PLATFORMS, SIDE BY SIDE: videos, views and each one's share of the views gained. */}
+      {mode === 'platforms' && (
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+          {totals.map((t, i) => (
+            <div key={t.platform} className="rounded-card border border-gray-100 bg-white p-4 shadow-card animate-rise" style={{ animationDelay: `${i * 50}ms` }}>
+              <div className="flex items-center gap-2 text-[13px] font-bold text-ink"><SocialMark brand={BRAND_OF[t.platform] || 'link'} colored className="h-4 w-4" />{t.platform}</div>
+              <p className="mt-2 text-2xl font-bold tabular-nums leading-none text-ink">{formatViews(t.views)}</p>
+              <p className="mt-1 text-xs text-smoke">{t.videos === 1 ? tr('1 video') : tr('{n} videos', { n: nf(t.videos) })}{t.videos > 0 ? ` · ${tr('{n} a video', { n: formatViews(Math.round(t.views / t.videos)) })}` : ''}</p>
+              <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-cloud"><div className="h-full rounded-full bg-brand transition-[width] duration-700" style={{ width: `${Math.round((t.views / platformTotalViews) * 100)}%` }} /></div>
+              <p className="mt-1 text-[11px] font-semibold tabular-nums text-smoke">{tr('{p}% of the views', { p: Math.round((t.views / platformTotalViews) * 100) })}</p>
+            </div>
           ))}
-        </ul>
+          <div className="rounded-card border border-brand/20 bg-gradient-to-br from-brand-tint/70 to-white p-4 shadow-card animate-rise" style={{ animationDelay: `${totals.length * 50}ms` }}>
+            <div className="flex items-center gap-2 text-[13px] font-bold text-ink"><Icon name="chart" className="h-4 w-4 text-brand" />{tr('Total')}</div>
+            <p className="mt-2 text-2xl font-bold tabular-nums leading-none text-ink">{formatViews(totalViews)}</p>
+            <p className="mt-1 text-xs text-smoke">{totalVideos === 1 ? tr('1 video') : tr('{n} videos', { n: nf(totalVideos) })}</p>
+          </div>
+        </div>
       )}
-    </section>
+
+      <section className="overflow-hidden rounded-card border border-gray-100 bg-white shadow-card animate-rise">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-gray-100 px-4 py-3">
+          <p className="text-[13.5px] font-bold text-ink">{tr('Every VIP, over these days')}</p>
+          <div className="flex flex-wrap items-center gap-2">
+            <Segmented id="vip-creators-mode" size="sm" value={mode} onChange={setMode} label={tr('Show')} options={[
+              { value: 'overview', label: <><Icon name="chart" className="h-3.5 w-3.5" />{tr('Overview')}</> },
+              { value: 'platforms', label: <><Icon name="video" className="h-3.5 w-3.5" />{tr('By platform')}</> },
+            ]} />
+            {mode === 'platforms' && rows.length > 0 && (
+              <button type="button" onClick={exportCsv} className="inline-flex min-h-8 items-center gap-1.5 rounded-full border border-gray-200 bg-white px-3 py-1 text-xs font-semibold text-ink transition-transform duration-200 animate-pop-in hoverable:hover:scale-105">
+                <Icon name="download" className="h-3.5 w-3.5 text-brand" />{tr('CSV')}
+              </button>
+            )}
+          </div>
+        </div>
+
+        {rows.length === 0 ? <p className="px-4 py-10 text-center text-sm text-smoke">{tr('No VIPs here yet.')}</p> : mode === 'overview' ? (
+          <div key="overview" className="animate-tab-in">
+            <div className={cx('hidden gap-3 bg-cloud/60 px-4 py-2 text-[10.5px] font-bold text-gray-400 sm:grid', gridOverview)}>
+              <span>#</span>
+              <SortHead k="name" sort={sort} onSort={onSort}>{tr('Creator')}</SortHead>
+              <SortHead k="views" sort={sort} onSort={onSort} className="justify-end">{tr('Views')}</SortHead>
+              <SortHead k="videos" sort={sort} onSort={onSort} className="justify-end">{tr('Videos')}</SortHead>
+              <SortHead k="pay" sort={sort} onSort={onSort} className="justify-end">{tr('Views pay')}</SortHead>
+              <SortHead k="recent" sort={sort} onSort={onSort} className="justify-end">{tr('Last post')}</SortHead>
+            </div>
+            <ul className="divide-y divide-gray-50">
+              {rows.map((r, i) => (
+                <li key={r.profile_id} className={cx('grid grid-cols-[2rem_minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1 px-4 py-3 animate-rise', gridOverview)} style={{ animationDelay: `${Math.min(i, 10) * 30}ms` }}>
+                  <span className={cx('flex h-7 w-7 items-center justify-center rounded-full text-xs font-extrabold tabular-nums', i === 0 && r.views > 0 ? 'bg-brand text-white' : 'bg-cloud text-smoke')}>{i + 1}</span>
+                  <div className="min-w-0">
+                    <PersonLink id={r.profile_id} name={r.name} photo={r.photo} sub={all ? r.programme : r.status === 'paused' ? tr('Paused') : r.ranked === false ? tr('Counted, not ranked') : null} />
+                    <span className="mt-1.5 block h-1 max-w-[12rem] overflow-hidden rounded-full bg-gray-100"><span className="block h-full rounded-full bg-brand transition-[width] duration-700" style={{ width: `${r.views > 0 ? Math.max(3, (r.views / lead) * 100) : 0}%` }} /></span>
+                  </div>
+                  <div className="text-right sm:hidden">
+                    <p className="text-sm font-bold tabular-nums text-ink">{formatViews(r.views)}</p>
+                    <p className="text-[11px] text-smoke">{tr('{n} videos', { n: r.videos })} · {money(r.pay, r.currency || cur, { cents: false })}</p>
+                  </div>
+                  <div className="hidden text-right sm:block">
+                    <p className="text-sm font-bold tabular-nums text-ink">{formatViews(r.views)}</p>
+                    <p className="text-[11px] tabular-nums text-smoke">{totalViews ? `${Math.round((r.views / totalViews) * 100)}%` : ''}{r.change != null && r.change !== 0 && <span className={cx('ml-1 font-bold', r.change > 0 ? 'text-emerald-600' : 'text-red-500')}>{r.change > 0 ? '+' : ''}{r.change}%</span>}</p>
+                  </div>
+                  <span className="hidden text-right text-sm tabular-nums text-smoke sm:block">{r.videos}</span>
+                  <span className="hidden text-right text-sm tabular-nums text-ink sm:block">{money(r.pay, r.currency || cur, { cents: false })}</span>
+                  <span className="hidden text-right text-xs text-smoke sm:block">{r.last_post ? formatDate(r.last_post) : tr('Never')}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : (
+          <div key="platforms" className="animate-tab-in">
+            {/* A desktop gets the sheet: a column per platform (videos over views), then the totals. It scrolls sideways
+                inside the card when the window is narrow rather than squeezing the numbers. */}
+            <div className="hidden overflow-x-auto sm:block">
+              <div className="min-w-max">
+                <div className="grid items-end gap-3 bg-cloud/60 px-4 py-2 text-[10.5px] font-bold text-gray-400" style={gridPlatforms}>
+                  <span>#</span>
+                  <SortHead k="name" sort={sort} onSort={onSort}>{tr('Creator')}</SortHead>
+                  {cols.map((p) => (
+                    <span key={p} className="flex flex-col items-end gap-0.5">
+                      <SortHead k={`v:${p}`} sort={sort} onSort={onSort} className="justify-end normal-case text-ink"><SocialMark brand={BRAND_OF[p] || 'link'} colored className="mr-1 h-3.5 w-3.5" />{p}</SortHead>
+                      <span className="font-semibold normal-case tracking-normal text-gray-400">{tr('views · videos')}</span>
+                    </span>
+                  ))}
+                  <SortHead k="videos" sort={sort} onSort={onSort} className="justify-end">{tr('Videos')}</SortHead>
+                  <SortHead k="views" sort={sort} onSort={onSort} className="justify-end">{tr('Total views')}</SortHead>
+                </div>
+                <ul className="divide-y divide-gray-50">
+                  {rows.map((r, i) => (
+                    <li key={r.profile_id} className="grid items-center gap-3 px-4 py-3 animate-rise" style={{ ...gridPlatforms, animationDelay: `${Math.min(i, 10) * 30}ms` }}>
+                      <span className="flex h-7 w-7 items-center justify-center rounded-full bg-cloud text-xs font-extrabold tabular-nums text-smoke">{i + 1}</span>
+                      <PersonLink id={r.profile_id} name={r.name} photo={r.photo} sub={all ? r.programme : null} />
+                      {cols.map((p) => {
+                        const x = plat(r, p)
+                        const none = !x.videos && !x.views
+                        return (
+                          <span key={p} className={cx('text-right tabular-nums', none && 'text-gray-300')}>
+                            <span className="block text-sm font-bold text-ink">{none ? '-' : formatViews(x.views)}</span>
+                            <span className="block text-[11px] text-smoke">{none ? '' : x.videos === 1 ? tr('1 video') : tr('{n} videos', { n: x.videos })}</span>
+                          </span>
+                        )
+                      })}
+                      <span className="text-right text-sm font-semibold tabular-nums text-ink">{r.videos}</span>
+                      <span className="text-right text-sm font-extrabold tabular-nums text-ink">{formatViews(r.views)}</span>
+                    </li>
+                  ))}
+                  <li className="grid items-center gap-3 bg-brand-tint/40 px-4 py-3" style={gridPlatforms}>
+                    <span />
+                    <span className="text-sm font-bold text-ink">{tr('Total')}</span>
+                    {totals.map((t) => (
+                      <span key={t.platform} className="text-right tabular-nums">
+                        <span className="block text-sm font-extrabold text-ink">{formatViews(t.views)}</span>
+                        <span className="block text-[11px] text-smoke">{t.videos === 1 ? tr('1 video') : tr('{n} videos', { n: t.videos })}</span>
+                      </span>
+                    ))}
+                    <span className="text-right text-sm font-bold tabular-nums text-ink">{totalVideos}</span>
+                    <span className="text-right text-sm font-extrabold tabular-nums text-brand">{formatViews(totalViews)}</span>
+                  </li>
+                </ul>
+              </div>
+            </div>
+            {/* A phone: each creator as a card, one line per platform. */}
+            <ul className="divide-y divide-gray-50 sm:hidden">
+              {rows.map((r, i) => (
+                <li key={r.profile_id} className="px-4 py-3 animate-rise" style={{ animationDelay: `${Math.min(i, 10) * 30}ms` }}>
+                  <div className="flex items-center justify-between gap-3">
+                    <PersonLink id={r.profile_id} name={r.name} photo={r.photo} sub={all ? r.programme : null} />
+                    <span className="shrink-0 text-right"><span className="block text-sm font-extrabold tabular-nums text-ink">{formatViews(r.views)}</span><span className="block text-[11px] text-smoke">{tr('{n} videos', { n: r.videos })}</span></span>
+                  </div>
+                  <div className="mt-2 grid grid-cols-3 gap-1.5">
+                    {cols.slice(0, 3).concat(cols.slice(3).filter((p) => plat(r, p).videos || plat(r, p).views)).map((p) => {
+                      const x = plat(r, p)
+                      return (
+                        <span key={p} className={cx('rounded-xl bg-cloud/70 px-2 py-1.5 text-center tabular-nums', !x.videos && !x.views && 'opacity-50')}>
+                          <span className="flex items-center justify-center gap-1 text-[13px] font-bold text-ink"><SocialMark brand={BRAND_OF[p] || 'link'} colored className="h-3.5 w-3.5" />{formatViews(x.views)}</span>
+                          <span className="block text-[11px] text-smoke">{x.videos === 1 ? tr('1 video') : tr('{n} videos', { n: x.videos })}</span>
+                        </span>
+                      )
+                    })}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </section>
+    </div>
   )
 }
 

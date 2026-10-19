@@ -28,6 +28,7 @@ export const PERIODS = [
   { key: 'last_30', label: 'Last 30 days' },
   { key: 'last_90', label: 'Last 90 days' },
   { key: 'this_quarter', label: 'This quarter' },
+  { key: 'last_quarter', label: 'Last quarter' },
   { key: 'this_year', label: 'This year' },
   { key: 'custom', label: 'Custom dates' },
 ]
@@ -84,6 +85,12 @@ export function periodRange(key, now, custom = null) {
     case 'this_quarter': {
       const s = startOfQuarter(now)
       return mk(s, now, sameStretch(s, now, subQuarters(s, 1)), 'This quarter', 'the same stretch last quarter')
+    }
+    // A WHOLE QUARTER (19 Oct 2026, Marta: videos and views per platform "for each quarter").
+    case 'last_quarter': {
+      const e = startOfQuarter(now)
+      const s = subQuarters(e, 1)
+      return mk(s, e, { start: subQuarters(s, 1), end: s }, 'Last quarter', 'the quarter before')
     }
     case 'this_year': {
       const s = startOfYear(now)

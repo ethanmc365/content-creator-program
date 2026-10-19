@@ -17,7 +17,7 @@ import { VipAnnouncements, VipStats } from '../components/vip/mine'
 import { MarketStandings, PerksPath, VipChallengeCard, VipLibrary, VipMap, VipMySettings } from '../components/vip/v3'
 import { VipWallet, StayInCard } from '../components/vip/wallet'
 import { HowPaidCard, LatestVideos, TargetCard } from '../components/vip/month'
-import { TeamPulse } from '../components/vip/teamTools'
+import { TeamPulse, VipRequirementsTab, VipWalletsTab } from '../components/vip/teamTools'
 import { VipLockedPage } from '../components/vip/VipLocked'
 import { VipRecapPanel } from './VipRecap'
 // The team's tools are only ever drawn for the team, so creators never download them.
@@ -167,7 +167,7 @@ export default function VipHub() {
   const selfStaff = !isStaff && !!overview?.member?.staff_self
   const hiddenTabs = isStaff ? STAFF_HIDDEN : previewing ? PREVIEW_HIDDEN : selfStaff ? SELF_STAFF_HIDDEN : null
   const allowed = ['month', 'videos', 'stats', 'payouts', 'earnings', 'board', 'earn', 'perks', 'ideas', 'library', 'map', 'recap'].filter((k) => !hiddenTabs?.has(k))
-  const tab = allowed.includes(asked) ? asked : 'month'
+  const tab = !isStaff && allowed.includes(asked) ? asked : 'month'
   const go = (v) => { setParams(() => { const n = new URLSearchParams(); if (mode === 'as') { n.set('mode', 'as'); if (who) n.set('who', who); if (params.get('from')) n.set('from', params.get('from')) } if (v !== 'month') n.set('tab', v); return n }, { replace: true }); if (window.scrollY > 320) gentleScrollToSelector('[data-vip-anchor]') }
   const [board, setBoard] = useState(null)
   const [rules, setRules] = useState(null)
@@ -360,6 +360,14 @@ export default function VipHub() {
       {paused && <p className="mb-4 rounded-card border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">{official ? tr('Your place is paused, so new views are not being counted. Ask the team if that is a surprise.') : tr('Your VIP place is paused, so new views are not being counted. Ask your market lead if that is a surprise.')}</p>}
       {!overview.payment_ready && !selfStaff && <div className="mb-4"><PaymentBanner /></div>}
 
+      {/* THE TEAM'S OVERVIEW (19 Oct 2026). The team: the VIP page beside the tools "is pretty much a creator view, so it
+          doesn't make sense as a separate tab. It should be the payouts, a general overview" - the month's pay so far
+          (the hero above), the board, every balance and the stay-in check, in one column. The creator's sections (rooms,
+          ideas, library...) are not repeated here; the tools hold everything else. */}
+      {isStaff ? (
+        <StaffOverview programme={programme} member={member} stats={stats} month={month} cur={cur} board={board} rules={rules} official={official}
+          onTool={(t) => setParams({ mode: 'tools', tab: t }, { replace: true })} />
+      ) : (<>
       {/* Phones and tablets: the sections as a strip of chips. */}
       <div className="mb-5 lg:hidden"><VipChipNav value={tab} onChange={go} hidden={hiddenTabs} links={isStaff ? null : VIP_LINKS} official={official} /></div>
 
@@ -482,6 +490,7 @@ export default function VipHub() {
         {!isStaff && !selfStaff && <VipBalanceMini onOpen={() => go('payouts')} />}
       </aside>
       </div>
+      </>)}
 
       </div>)}
 
@@ -518,11 +527,51 @@ function StaffBar({ mode, onMode, official = false, full = false, canSelf = fals
         value={mode}
         onChange={onMode}
         options={[
-          { value: 'page', label: <><Icon name={official ? 'badge' : 'star'} className="h-3.5 w-3.5" />{official ? tr('Their page') : tr('VIP page')}</> },
+          { value: 'page', label: <><Icon name="wallet" className="h-3.5 w-3.5" />{tr('Overview')}</> },
           { value: 'tools', label: <><Icon name="key" className="h-3.5 w-3.5" />{official ? tr('Tools') : tr('VIP tools')}</> },
           ...(canSelf ? [{ value: 'me', label: <><Icon name="video" className="h-3.5 w-3.5" />{tr('My videos')}</> }] : []),
         ]}
       />
+    </div>
+  )
+}
+
+function OverviewHead({ icon, title, onOpen, label }) {
+  return (
+    <div className="mb-3 flex items-center justify-between gap-3">
+      <h2 className="flex items-center gap-2 text-[15px] font-bold text-ink"><Icon name={icon} className="h-5 w-5 text-brand" />{title}</h2>
+      <button type="button" onClick={onOpen} className="inline-flex items-center gap-1 text-xs font-semibold text-brand transition-transform duration-200 hoverable:hover:translate-x-0.5">{label}<Icon name="chevronRight" className="h-3 w-3" /></button>
+    </div>
+  )
+}
+
+// THE TEAM'S OVERVIEW: pay, board, balances and (VIPs only) the stay-in check, each with the way into its tool.
+function StaffOverview({ programme, member, stats, month, cur, board, rules, official, onTool }) {
+  const tr = useKindT()
+  const [allBoard, setAllBoard] = useState(false)
+  return (
+    <div className="vip-stage space-y-6">
+      <TeamPulse programme={programme} onTool={onTool} />
+      <PayStrip staff member={member} programme={programme} stats={stats} month={month} cur={cur} />
+      <section className="rounded-card border border-gray-100 bg-white p-4 shadow-card animate-rise sm:p-5" style={{ animationDelay: '60ms' }}>
+        <div className="mb-4 flex items-center justify-between gap-3">
+          <h2 className="flex items-center gap-2 text-[15px] font-bold text-ink"><Icon name="trophy" className="h-5 w-5 text-brand" />{tr('Leaderboard')}</h2>
+          {board?.length > 6 && <button type="button" onClick={() => setAllBoard((v) => !v)} className="text-xs font-semibold text-brand hover:underline">{allBoard ? tr('Show fewer') : tr('Full leaderboard')}</button>}
+        </div>
+        {board !== null && board.length === 0
+          ? <p className="rounded-xl bg-cloud/60 px-4 py-8 text-center text-sm text-smoke">{tr('No videos counted in {m} yet this month.', { m: programme.name })}</p>
+          : <StaffBoard programme={programme} monthRows={board} rules={rules} month={month} limit={allBoard ? null : 6} onFull={() => setAllBoard(true)} />}
+      </section>
+      <section className="animate-rise" style={{ animationDelay: '120ms' }}>
+        <OverviewHead icon="wallet" title={tr('Balances and payouts')} onOpen={() => onTool('wallets')} label={tr('Open in tools')} />
+        <VipWalletsTab programme={programme} />
+      </section>
+      {!official && (
+        <section className="animate-rise" style={{ animationDelay: '180ms' }}>
+          <OverviewHead icon="shield" title={tr('Stay-in check')} onOpen={() => onTool('requirements')} label={tr('Open in tools')} />
+          <VipRequirementsTab programme={programme} />
+        </section>
+      )}
     </div>
   )
 }
@@ -578,12 +627,12 @@ function StaffSelfStart({ programmes, was, onStart }) {
         )}
         <label className="flex items-start gap-3 rounded-xl bg-cloud/70 px-4 py-3">
           <span className="min-w-0 flex-1">
-            <span className="block text-sm font-semibold text-ink">{tr('Count me on the board and in the bonuses')}</span>
-            <span className="mt-0.5 block text-xs text-smoke">{onBoard
-              ? tr('You show on the official creators\' leaderboard and in its totals, like everybody else.')
-              : tr('Only you see your videos and views. Nobody else\'s board, totals or bonuses include you.')}</span>
+            <span className="block text-sm font-semibold text-ink">{tr('Rank me and let me win prizes')}</span>
+            <span className="mt-0.5 block text-xs text-smoke">{tr('Your videos and views always count towards the official creators\' totals and analytics.')}{' '}{onBoard
+              ? tr('On: you also show on the leaderboard and can win the bonuses and monthly challenges.')
+              : tr('Off: you are counted, but you are not ranked on the leaderboard and never win a prize.')}</span>
           </span>
-          <Toggle on={onBoard} onChange={setOnBoard} label={tr('Count me on the board and in the bonuses')} />
+          <Toggle on={onBoard} onChange={setOnBoard} label={tr('Rank me and let me win prizes')} />
         </label>
         <button type="button" disabled={busy || !chosen} onClick={start} className="inline-flex min-h-11 items-center gap-2 rounded-full bg-gradient-to-r from-brand to-brand-light px-5 py-2.5 text-sm font-bold text-white shadow-card transition-transform duration-200 disabled:opacity-60 hoverable:hover:scale-105">
           <Icon name="video" className="h-4 w-4" />{busy ? tr('Starting…') : was ? tr('Track my videos again') : tr('Start tracking my videos')}
@@ -611,12 +660,12 @@ function StaffSelfBar({ overview, onChanged }) {
     <div className="relative z-10 mb-4 flex flex-wrap items-center gap-x-4 gap-y-2.5 rounded-card border border-gray-100 bg-white px-4 py-3 shadow-card animate-rise">
       <span className="w-full min-w-0 text-sm sm:w-auto sm:flex-1">
         <span className="flex items-center gap-1.5 font-bold text-ink"><Icon name="video" className="h-4 w-4 text-brand" />{tr('Your own videos')}</span>
-        <span className="block text-xs text-smoke">{tr('Tracked in {p}. {n} views this month.', { p: overview.programme.name, n: formatViews(overview.stats?.views || 0) })}</span>
+        <span className="block text-xs text-smoke">{tr('Tracked in {p}. {n} views this month.', { p: overview.programme.name, n: formatViews(overview.stats?.views || 0) })}{' '}{onBoard ? tr('Counted, ranked and in the prizes.') : tr('Counted in the totals, not ranked, no prizes.')}</span>
       </span>
       <span className="flex w-full items-center justify-between gap-3 sm:w-auto sm:justify-end">
-        <label className="flex items-center gap-2 text-xs font-semibold text-ink">
-          {tr('On the board')}
-          <Toggle size="sm" on={onBoard} disabled={busy} onChange={(v) => run(true, v)} label={tr('Count me on the board and in the bonuses')} />
+        <label className="flex items-center gap-2 text-xs font-semibold text-ink" title={tr('Your views always count. This only decides whether you are ranked and can win prizes.')}>
+          {tr('Ranked and in prizes')}
+          <Toggle size="sm" on={onBoard} disabled={busy} onChange={(v) => run(true, v)} label={tr('Rank me and let me win prizes')} />
         </label>
         <button type="button" disabled={busy} onClick={stop} className="inline-flex min-h-9 items-center rounded-full bg-cloud px-3.5 py-1.5 text-xs font-bold text-smoke transition-transform duration-200 disabled:opacity-60 hoverable:hover:scale-105">{tr('Stop tracking')}</button>
       </span>
@@ -670,7 +719,8 @@ function PayStrip({ member, programme, stats, month, cur, staff = false }) {
     if (!staff || !official) return undefined
     let alive = true
     vipApi.members().select('profile_id, cpm, monthly_fee, fee_min_videos, monthly_cap, invoice_outside, profiles:profile_id(name, photo_url)')
-      .eq('programme_id', programme.id).eq('status', 'active')
+      // The team's own tracked videos are not a deal (migration 436), so they are not listed here.
+      .eq('programme_id', programme.id).eq('status', 'active').neq('source', 'staff')
       .then(({ data }) => { if (alive) setDeals((data || []).sort((a, b) => (Number(b.monthly_fee) || 0) - (Number(a.monthly_fee) || 0) || (a.profiles?.name || '').localeCompare(b.profiles?.name || ''))) })
     return () => { alive = false }
   }, [staff, official, programme.id])
