@@ -283,6 +283,9 @@ export function useMessageTranslations() {
       const s = state.get(m.id)
       return s?.on && s.body === m.body ? s.value : m.body
     },
+    // This message's own entry (undefined until it is translated): what a memoised chat row compares to know its
+    // translation changed, since every function above is new on every render.
+    entryFor: (m) => state.get(m.id),
     toggle,
   }
 }

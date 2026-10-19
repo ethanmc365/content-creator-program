@@ -12,9 +12,10 @@ import { useT } from '../lib/i18n'
 // A room holds 200 messages, so the parent of an old reply may genuinely not be
 // in memory. That says "message no longer here" rather than drawing an empty
 // bar, because a blank quote looks like a bug and a missing one is a fact.
-export function QuotedParent({ id, lookup, onDark = false }) {
+// `parent` can be handed in directly (a memoised chat row does, so it is not redrawn whenever any message changes).
+export function QuotedParent({ id, lookup, parent: given, onDark = false }) {
   const tr = useT()
-  const parent = lookup.get(id)
+  const parent = given !== undefined ? given : lookup?.get(id)
 
   const jump = () => {
     const el = document.getElementById(`msg-${id}`)

@@ -60,19 +60,47 @@ export function useProfileNames(ids) {
   return map
 }
 
+// Reactions already loaded this session, by message id. A room you come back to draws its chips WITH its messages, and
+// the refresh behind them changes nothing on screen unless a reaction really changed - before, every room switch drew
+// the messages bare, then redrew every row that had a reaction once the fetch landed.
+const SEEN_REACTIONS = new Map()
+const rowsFor = (ids) => ids.flatMap((id) => SEEN_REACTIONS.get(id) || [])
+const sameRows = (a, b) => {
+  if (a.length !== b.length) return false
+  const ids = new Set(a.map((r) => r.id))
+  return b.every((r) => ids.has(r.id))
+}
+
 export function useReactions(messageIds, myId) {
-  const [rows, setRows] = useState([])
   const key = messageIds.join(',')
+  const [rows, setRows] = useState(() => rowsFor(messageIds))
+  // A new set of messages (another room) takes what is known about them in the same render.
+  const [rowsKey, setRowsKey] = useState(key)
+  if (rowsKey !== key) {
+    setRowsKey(key)
+    setRows(rowsFor(messageIds))
+  }
 
   useEffect(() => {
     if (!messageIds.length) { setRows([]); return }
     let alive = true
     chatApi.reactions().select('id, message_id, creator_id, emoji')
       .in('message_id', messageIds)
-      .then(({ data }) => { if (alive) setRows(data || []) })
+      .then(({ data }) => { if (alive) setRows((cur) => (sameRows(cur, data || []) ? cur : data || [])) })
     return () => { alive = false }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key])
+
+  // Keep the session's copy as current as the screen (optimistic toggles and realtime included).
+  useEffect(() => {
+    const by = new Map()
+    for (const r of rows) {
+      if (!by.has(r.message_id)) by.set(r.message_id, [])
+      by.get(r.message_id).push(r)
+    }
+    for (const id of messageIds) SEEN_REACTIONS.set(id, by.get(id) || [])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rows])
 
   // Realtime on the whole table then filtered client-side: the id list changes
   // on every page of history, and re-subscribing per list would churn a

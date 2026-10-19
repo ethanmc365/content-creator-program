@@ -23,7 +23,6 @@ import ChatAdminTools from '../components/ChatAdminTools'
 import ReportMessage from '../components/ReportMessage'
 import { useNowTick } from '../lib/messageActions'
 import { playSend, playSendFail, playInbound } from '../lib/appSounds'
-import { buildIntro, parseLegacyIntro } from '../lib/intro'
 import { loadRelationships } from '../lib/connections'
 import { textBeforeCaret } from '../lib/richEditor'
 import { saveDraft, clearDraft } from '../lib/drafts'
@@ -38,7 +37,7 @@ import { onResume } from '../lib/resume'
 import { profilesApi } from '../api/profiles'
 import { chatApi } from '../api/chat'
 import { marketsApi } from '../api/markets'
-import { scopedKey, ROOM_CACHE, roomCacheFor, ROOM_ORDER_KEY, loadRoomOrder, hasContent, VipChip } from './NetworkChatParts'
+import { scopedKey, keepUnchanged, sameReads, ROOM_CACHE, roomCacheFor, ROOM_ORDER_KEY, loadRoomOrder, hasContent, VipChip } from './NetworkChatParts'
 import NetworkChatRoomNav from './NetworkChatRoomNav'
 import NetworkChatComposerDock from './NetworkChatComposerDock'
 import NetworkChatThread from './NetworkChatThread'
@@ -140,7 +139,7 @@ export default function NetworkChat() {
   // `channel_reads` table the legacy chat uses, keyed by the same namespaced
   // channel string these messages are written with, so a market room's receipts
   // can no more mix with another market's than its messages can.
-  const [reads, setReads] = useState(new Map())
+  const [reads, setReads] = useState(() => (cachedKey && cacheFor.reads.get(cachedKey)) || new Map())
   // Which admin tool (poll / game / resource) is open, if any.
   const [adminTool, setAdminTool] = useState(null)
   const scrollerRef = useRef(null)
@@ -294,6 +293,20 @@ export default function NetworkChat() {
     [channels, channelKey],
   )
 
+  // CHANGING ROOM IS ONE STEP (19 Oct 2026). The first render of a new room used to draw the OLD room's messages again
+  // under the new room's name (every row, as Introductions changes how a row draws), and only the effect after it
+  // swapped them. Now the swap happens in this render: the new room's messages from the cache, or nothing and the
+  // skeleton while they load.
+  const switchKey = community && active ? scopedKey(community, active.key) : null
+  if (switchKey && messagesKey && switchKey !== messagesKey) {
+    const kept = ROOM_CACHE.messages.get(switchKey)
+    setMessages(kept || [])
+    setMessagesKey(switchKey)
+    setLoading(!kept)
+    // The receipts too, or every row redraws twice: once with the last room's readers, once with this room's.
+    setReads(ROOM_CACHE.reads.get(switchKey) || new Map())
+  }
+
   // THE INTRODUCTIONS ROOM DRAWS CARDS. A new intro carries `intro` (migration 262); an old one is read back out of its
   // text with parseLegacyIntro, so the whole room looks the same. Each card ends in a Connect button, so the reader's
   // relationships are loaded once, here.
@@ -318,19 +331,17 @@ export default function NetworkChat() {
     profilesApi.profiles()
       .select('id, countries_visited, bucket_list, instagram_url, tiktok_url, youtube_url, facebook_url, languages')
       .in('id', introSenders.split(','))
-      .then(({ data }) => { if (alive && data) setIntroProfiles(new Map(data.map((p) => [p.id, p]))) })
+      .then(({ data }) => {
+        if (!alive || !data) return
+        // A profile that has not changed keeps its object, so the intro card drawn from it does not redraw.
+        setIntroProfiles((cur) => new Map(data.map((p) => {
+          const was = cur.get(p.id)
+          return [p.id, was && JSON.stringify(was) === JSON.stringify(p) ? was : p]
+        })))
+      })
     return () => { alive = false }
   }, [introSenders])
-  const introOf = (m) => {
-    if (m.intro) return m.intro
-    if (!isIntroRoom || m.image_url || m.video_url) return null
-    const legacy = parseLegacyIntro(m.body)
-    if (!legacy) return null
-    const p = introProfiles.get(m.sender_id)
-    if (!p) return legacy
-    const rich = buildIntro(p, {}, {})
-    return { ...legacy, visited: rich.visited, dreams: rich.dreams, socials: rich.socials, stats: { countries: rich.stats.countries, flights: 0, videos: 0 } }
-  }
+  // Worked out per row (introOfMessage), so a row only redraws when its own message or its sender's profile changes.
 
   // THE HEADER'S SEARCH BUTTON SEARCHES THIS ROOM WHILE IT IS OPEN.
   // See lib/chatSearch for why this is a module-level channel rather than a
@@ -428,16 +439,22 @@ export default function NetworkChat() {
       .eq('deleted', false)
       .order('created_at', { ascending: true })
       .limit(200)
-    ROOM_CACHE.messages.set(key, data || [])
-    setMessages(data || [])
+    // A refresh hands back the same rows as new objects; the unchanged ones keep the object already on screen, so their
+    // memoised rows (NetworkChatThread) do not redraw.
+    const fresh = keepUnchanged(ROOM_CACHE.messages.get(key), data || [])
+    ROOM_CACHE.messages.set(key, fresh)
+    setMessages(fresh)
     setMessagesKey(key)
     setLoading(false)
   }, [community, active])
   // Keep the cache as current as the screen (realtime inserts, edits, deletes), so coming back shows the latest.
   const liveKey = community && active ? scopedKey(community, active.key) : null
+  // ONLY WHEN `messages` ARE THIS ROOM'S (19 Oct 2026). On the commit that changes room, `liveKey` is already the new
+  // room while `messages` still hold the old one's, and this ran first: it filed General's messages under
+  // Introductions, so `load` then "restored" General into Introductions and it sat there until the fetch replaced it.
   useEffect(() => {
-    if (liveKey && !loading) ROOM_CACHE.messages.set(liveKey, messages.filter((m) => !m.pending && !m.failed))
-  }, [liveKey, messages, loading])
+    if (liveKey && !loading && messagesKey === liveKey) ROOM_CACHE.messages.set(liveKey, messages.filter((m) => !m.pending && !m.failed))
+  }, [liveKey, messages, loading, messagesKey])
 
   useEffect(() => { load() }, [load])
 
@@ -702,7 +719,12 @@ export default function NetworkChat() {
     if (!roomKey) return undefined
     let alive = true
     chatApi.channelReads().select('user_id, last_read_at').eq('channel', roomKey)
-      .then(({ data }) => { if (alive) setReads(new Map((data || []).map((r) => [r.user_id, r.last_read_at]))) })
+      .then(({ data }) => {
+        if (!alive) return
+        const next = new Map((data || []).map((r) => [r.user_id, r.last_read_at]))
+        // Unchanged since the cached copy: keep the same Map, so nothing redraws.
+        setReads((cur) => (sameReads(cur, next) ? cur : next))
+      })
     const ch = supabase.channel(`net-reads-${roomKey}`)
       .on('postgres_changes',
         { event: '*', schema: 'public', table: 'channel_reads', filter: `channel=eq.${roomKey}` },
@@ -713,6 +735,9 @@ export default function NetworkChat() {
       .subscribe()
     return () => { alive = false; supabase.removeChannel(ch) }
   }, [roomKey])
+
+  // Only once `reads` are this room's (the switch above swaps them in the same render as the messages).
+  useEffect(() => { if (roomKey && messagesKey === roomKey) ROOM_CACHE.reads.set(roomKey, reads) }, [roomKey, messagesKey, reads])
 
   // WRITING "I HAVE READ THIS ROOM" (migration 250).
   //
@@ -774,14 +799,31 @@ export default function NetworkChat() {
   // Everyone whose watermark is at or past this message, minus me and the
   // sender. `members` is the room's own roster, so a reader who left the market
   // does not linger in the count.
-  const seenBy = useCallback((msg) => {
-    if (!msg) return []
-    const t = new Date(msg.created_at).getTime()
-    return members.filter((mem) => {
-      if (mem.id === user?.id || mem.id === msg.sender_id) return false
+  //
+  // WORKED OUT ONCE PER CHANGE, NOT ONCE PER ROW PER COMMIT (19 Oct 2026). This filtered the whole member list - every
+  // creator, in Worldwide - and parsed two dates per member, for every message an admin can see, on every commit of
+  // the page. That was most of what was left of the room-switch lag once the rows stopped redrawing. Now the readers
+  // are sorted newest watermark first once and a message's readers are the prefix at or past it (the row's memo
+  // compares the result by who is in it).
+  const seenBy = useMemo(() => {
+    const ranked = []
+    for (const mem of members) {
+      if (!mem || mem.id === user?.id) continue
       const r = reads.get(mem.id)
-      return !!r && new Date(r).getTime() >= t
-    })
+      const at = r ? new Date(r).getTime() : NaN
+      if (at === at) ranked.push([at, mem])
+    }
+    ranked.sort((a, b) => b[0] - a[0])
+    return (msg) => {
+      if (!msg) return []
+      const t = new Date(msg.created_at).getTime()
+      const out = []
+      for (const [at, mem] of ranked) {
+        if (at < t) break
+        if (mem.id !== msg.sender_id) out.push(mem)
+      }
+      return out
+    }
   }, [members, reads, user?.id])
 
   // CLOSING A SEARCH PUTS YOU BACK WHERE YOU WERE. The team: pressing the X on the room's search "seems to reload the
@@ -1263,7 +1305,8 @@ export default function NetworkChat() {
         unreadDir={unreadDir}
         unreadSince={unreadSince}
         onJumpUnread={() => firstUnread && scrollToMessage(firstUnread.id)}
-        introOf={introOf}
+        isIntroRoom={isIntroRoom}
+        introProfiles={introProfiles}
         introducing={introducing}
         isAdmin={isAdmin}
         jumpToEnd={jumpToEnd}

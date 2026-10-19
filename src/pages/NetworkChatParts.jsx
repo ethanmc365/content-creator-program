@@ -5,6 +5,7 @@ import GameEventCard from '../components/GameEventCard'
 import ResourceCard from '../components/ResourceCard'
 import LiveLeaderboardCard from '../components/LiveLeaderboardCard'
 import { cx } from '../lib/utils'
+import { buildIntro, parseLegacyIntro } from '../lib/intro'
 import { SOFT_SPRING } from '../lib/motion'
 
 // Per-market chat. Spain's General, the UK's General and the Worldwide General
@@ -39,7 +40,7 @@ export const scopedKey = scopedChannel
 
 // What the rooms already read this session: channel lists by community, the sidebar, and messages by room. Module
 // level, so it outlives the page unmounting when somebody opens a profile and comes back.
-export const ROOM_CACHE = { user: null, channels: new Map(), sidebar: null, messages: new Map() }
+export const ROOM_CACHE = { user: null, channels: new Map(), sidebar: null, messages: new Map(), reads: new Map() }
 
 export function roomCacheFor(userId) {
   if (ROOM_CACHE.user !== (userId || null)) {
@@ -47,6 +48,7 @@ export function roomCacheFor(userId) {
     ROOM_CACHE.channels.clear()
     ROOM_CACHE.sidebar = null
     ROOM_CACHE.messages.clear()
+    ROOM_CACHE.reads.clear()
   }
   return ROOM_CACHE
 }
@@ -165,4 +167,41 @@ export function VipChip({ dark = false }) {
       dark ? 'bg-white/15 text-white' : 'bg-ink text-white',
     )}>VIP</span>
   )
+}
+
+// THE INTRO CARD A MESSAGE DRAWS, or null. A new intro carries `intro` (migration 262); an old one is read back out of
+// its text, with the sender's profile (when it has loaded) filling in the flags and socials the old text never had.
+export function introOfMessage(m, isIntroRoom, profile) {
+  if (m.intro) return m.intro
+  if (!isIntroRoom || m.image_url || m.video_url) return null
+  const legacy = parseLegacyIntro(m.body)
+  if (!legacy) return null
+  if (!profile) return legacy
+  const rich = buildIntro(profile, {}, {})
+  return { ...legacy, visited: rich.visited, dreams: rich.dreams, socials: rich.socials, stats: { countries: rich.stats.countries, flights: 0, videos: 0 } }
+}
+
+// `next` with every row that has not changed since `prev` replaced by the object from `prev`. Compared field by field,
+// one level into embeds (the sender's `profiles`), which is all a message row has.
+const sameValue = (a, b) => {
+  if (a === b) return true
+  if (!a || !b || typeof a !== 'object' || typeof b !== 'object') return false
+  const ka = Object.keys(a)
+  return ka.length === Object.keys(b).length && ka.every((k) => a[k] === b[k] || JSON.stringify(a[k]) === JSON.stringify(b[k]))
+}
+export function keepUnchanged(prev, next) {
+  if (!prev?.length) return next
+  const byId = new Map(prev.map((m) => [m.id, m]))
+  return next.map((row) => {
+    const old = byId.get(row.id)
+    return old && sameValue(old, row) ? old : row
+  })
+}
+
+// Two read-receipt maps (profile id -> last_read_at) with the same entries.
+export function sameReads(a, b) {
+  if (a === b) return true
+  if (!a || !b || a.size !== b.size) return false
+  for (const [k, v] of a) if (b.get(k) !== v) return false
+  return true
 }
