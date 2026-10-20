@@ -1,6 +1,9 @@
 // The analytics tabs, shared by the page and a challenge's own page (AnalyticsTabs). Order set by Ethan.
 export const TABS = [
   { key: 'overview', label: 'Overview' },
+  // TARGETS & PROFIT (20 Oct 2026): the team's "CCC Targets" sheet, live. Second because it is the one the business
+  // runs on: views against the monthly target, and what they earned and cost.
+  { key: 'targets', label: 'Targets & profit' },
   // VIEWS GAINED PER WEEK, COMMUNITY / VIP / BOTH, AND THE WEEKLY SNAPSHOT. See analytics/ViewsReport.
   { key: 'views', label: 'Weekly views' },
   { key: 'programme', label: 'Challenges' },

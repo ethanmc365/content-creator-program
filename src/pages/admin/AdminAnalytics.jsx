@@ -40,6 +40,7 @@ import ChartPanel from '../../components/charts/ChartPanel'
 import Icon from '../../components/Icon'
 import { flagFromIso } from '../../lib/flags'
 import Recruitment from './analytics/Recruitment'
+import Targets from './analytics/Targets'
 import { TABS } from './analytics/tabs'
 
 const VIEW_PERIODS = ['last_7', 'this_week', 'last_week', 'last_3', 'this_month', 'last_month', 'last_30', 'last_90', 'custom'].map((k) => PERIODS.find((p) => p.key === k))
@@ -680,18 +681,21 @@ export default function AdminAnalytics() {
   // league table with one row in it. NO MARKET PICKER ON ERRORS: a crash is a property of the code and the
   // route, not of a market, and a control that cannot change the answer teaches people controls do not work - so
   // on those two tabs the bar stays where it is but is dimmed and switched off.
-  const shell = (body, { filters = true, markets: marketsOn = true, period: periodCtl = false, extra } = {}) => (
+  const shell = (body, { filters = true, bar = true, markets: marketsOn = true, period: periodCtl = false, extra } = {}) => (
     <div className="page">
       <PageHeader back="/admin" title="Analytics" />
       {tabBar}
       {/* Kept in place on the two tabs it cannot change (dimmed, not removed), so
           the body starts at the same height on every tab and nothing jumps. */}
-      <div aria-hidden={!filters} className={cx('transition-opacity duration-200', !filters && 'pointer-events-none select-none opacity-35')}>{filterBar(!marketsOn, !periodCtl, extra)}</div>
+      {bar && <div aria-hidden={!filters} className={cx('transition-opacity duration-200', !filters && 'pointer-events-none select-none opacity-35')}>{filterBar(!marketsOn, !periodCtl, extra)}</div>}
       <div key={tab} className={cx('animate-tab-in transition-opacity duration-200', marketPending && 'opacity-50')}>{body}</div>
     </div>
   )
 
   if (tab === 'errors') return shell(<ErrorWatch />, { filters: false })
+  // TARGETS & PROFIT HAS ITS OWN CONTROLS (who, which months, which costs) and the plan is programme-wide, not per market,
+  // so the page's bar is left out rather than dimmed: two bars of controls, one of them dead, read as one broken one.
+  if (tab === 'targets') return shell(<Targets />, { filters: false, bar: false })
   if (tab === 'recruitment') return shell(<Recruitment raw={scoped} market={market} markets={markets} scopeLabel={scopeLabel} range={periodOn ? range : null} />, { period: true })
   // WEEKLY VIEWS USES THE PAGE'S OWN BAR (14 Oct 2026). It used to grey the bar out and draw a second panel of controls
   // under it. Now the markets narrow it, the period picker holds the views periods (a year of days at most, so All time

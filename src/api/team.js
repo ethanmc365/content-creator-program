@@ -5,6 +5,7 @@ import { supabase } from '../lib/supabase'
 
 export const makeTeamApi = (db = supabase) => ({
   adminAuditLog: () => db.from('admin_audit_log'),
+  cccTargets: () => db.from('ccc_targets'),
   adminNotes: () => db.from('admin_notes'),
   applicationDecisions: () => db.from('application_decisions'),
   clientErrors: () => db.from('client_errors'),
@@ -30,6 +31,7 @@ export const makeTeamApi = (db = supabase) => ({
   adminSetAdmin: (args, opts) => db.rpc('admin_set_admin', args, opts),
   adminViewsGained: (args, opts) => db.rpc('admin_views_gained', args, opts),
   adminVipEarnings: (args, opts) => db.rpc('admin_vip_earnings', args, opts),
+  adminCccActuals: (args, opts) => db.rpc('admin_ccc_actuals', args, opts),
   adminWeeklyActivity: (args, opts) => db.rpc('admin_weekly_activity', args, opts),
   approveTeamMember: (args, opts) => db.rpc('approve_team_member', args, opts),
   claimTeamInvite: (args, opts) => db.rpc('claim_team_invite', args, opts),
