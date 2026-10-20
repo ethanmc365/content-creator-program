@@ -9,8 +9,9 @@ export const notificationsApi = (db = supabase) => ({
   remove: (id) => db.from('notifications').delete().eq('id', id),
   removeRead: (userId) => db.from('notifications').delete().eq('recipient_id', userId).eq('read', true),
   removeAll: (userId) => db.from('notifications').delete().eq('recipient_id', userId),
-  notifyMarket: (marketId, args) => db.rpc('notify_community', { p_community: marketId, ...args }),
-  notifyEveryone: (args) => db.rpc('notify_all', args),
+  // Migration 445: the team's one door to a mass notification. notify_community / notify_all are owner-only.
+  sendChallengePush: (challengeId, marketId, title, body) =>
+    db.rpc('admin_send_challenge_push', { p_challenge: challengeId, p_market: marketId ?? null, p_title: title, p_body: body }),
   savePushSubscription: (row) => db.from('push_subscriptions').upsert(row, { onConflict: 'endpoint' }),
 })
 

@@ -173,6 +173,8 @@ export async function saveViewSyncSettings({ intervalHours }) {
 // always read as a sentence. Deriving one from the other by trimming a prefix
 // produced "Every Twice a day".
 export const CADENCES = [
+  { hours: 1, label: 'Every hour', short: 'hour' },
+  { hours: 2, label: 'Every 2 hours', short: '2 hours' },
   { hours: 3, label: 'Every 3 hours', short: '3 hours' },
   { hours: 6, label: 'Every 6 hours', short: '6 hours' },
   { hours: 12, label: 'Twice a day', short: '12 hours' },

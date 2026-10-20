@@ -6,6 +6,7 @@ import { supabase } from '../lib/supabase'
 export const makeTeamApi = (db = supabase) => ({
   adminAuditLog: () => db.from('admin_audit_log'),
   cccTargets: () => db.from('ccc_targets'),
+  cccPlans: () => db.from('ccc_plans'),
   adminNotes: () => db.from('admin_notes'),
   applicationDecisions: () => db.from('application_decisions'),
   clientErrors: () => db.from('client_errors'),

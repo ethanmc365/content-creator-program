@@ -57,6 +57,11 @@ export default {
         // quickly, and others float in smoothly. Let's just ensure that everything comes in nicely together." A page
         // that mixed fade-up (0.4s ease-out), tab-in, slide-in-right and pop-in had four speeds and four curves.
         // `rise` is the one: a short lift on the platform's deceleration curve, staggered by its parent (.rise-stagger).
+        // The Back button slides in from the side it sends you to. Never from opacity 0 (a hidden tab freezes keyframes).
+        'back-in': {
+          from: { opacity: '0.35', transform: 'translateX(-10px)' },
+          to: { opacity: '1', transform: 'translateX(0)' },
+        },
         rise: {
           from: { opacity: '0', transform: 'translateY(10px)' },
           to: { opacity: '1', transform: 'translateY(0)' },
@@ -284,6 +289,7 @@ export default {
         'cta-glow': 'cta-glow 6s ease-in-out infinite',
         'fade-up': 'fade-up 0.4s ease-out both',
         rise: 'rise 0.6s cubic-bezier(0.22, 1, 0.36, 1) both',
+        'back-in': 'back-in 0.45s cubic-bezier(0.22, 1, 0.36, 1) both',
         'tab-in': 'tab-in 220ms cubic-bezier(0.22, 1, 0.36, 1) both',
         'selected-in': 'selected-in 320ms cubic-bezier(0.22, 1, 0.36, 1) both',
         'slide-in-right': 'slide-in-right 0.55s cubic-bezier(0.22, 1, 0.36, 1) both',

@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react'
-import { useAuth } from '../../context/AuthContext'
 import { Modal, Spinner } from '../ui'
 import Icon from '../Icon'
 import { cx } from '../../lib/utils'
@@ -50,7 +49,7 @@ export function SendPushButton({ challenge, label }) {
 }
 
 export default function ChallengePush({ challenge, open, onClose }) {
-  const { user } = useAuth()
+
   const [title, setTitle] = useState('')
   const [body, setBody] = useState('')
   const [scope, setScope] = useState('market')
@@ -112,17 +111,8 @@ export default function ChallengePush({ challenge, open, onClose }) {
   async function send() {
     if (!title.trim() || !body.trim() || sending) return
     setSending(true)
-    const link = `/challenges/${challenge.id}`
-    const args = {
-      p_except: user?.id ?? null,
-      p_type: 'challenge',
-      p_title: title.trim(),
-      p_body: body.trim(),
-      p_link: link,
-    }
-    const { error } = toMarket
-      ? await notifications.notifyMarket(marketId, args)
-      : await notifications.notifyEveryone(args)
+    // admin_send_challenge_push (migration 445): checks the team, builds the link, leaves the sender out.
+    const { error } = await notifications.sendChallengePush(challenge.id, toMarket ? marketId : null, title.trim(), body.trim())
     setSending(false)
     if (error) {
       notice(error.message, { title: 'That did not send' })

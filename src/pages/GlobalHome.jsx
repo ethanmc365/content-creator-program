@@ -302,7 +302,7 @@ export default function GlobalHome() {
           .eq('profiles.is_admin', false).in('profiles.is_test', testFlags()).eq('profiles.status', 'active'),
         profilesApi.profiles().select('id', { count: 'exact', head: true })
           .eq('status', 'active').eq('is_admin', false).in('is_test', testFlags()).is('deletion_requested_at', null),
-        challengesApi.challenges().select('id, title, community_id, status, end_date, scoring, prize_structure, prize_currency, weekly_prize').eq('status', 'active'),
+        challengesApi.challenges().select('id, title, community_id, status, end_date, closes_at, timezone, scoring, prize_structure, prize_currency, weekly_prize').eq('status', 'active'),
         // ANNOUNCEMENTS FROM EVERY ROOM THIS CREATOR CAN READ, not just the
         // worldwide one. Somebody in the UK and Spain had no way to see either
         // market's announcements from the hub, which is what a hub is for.

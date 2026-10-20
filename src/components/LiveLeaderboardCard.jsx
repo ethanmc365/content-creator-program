@@ -7,7 +7,7 @@ import { LiveDot } from './network/Motion'
 import { useLiveLeaderboard } from '../lib/liveLeaderboard'
 import { podiumTier, placeNumber } from '../lib/podiumTiers'
 import { useAuth } from '../context/AuthContext'
-import { formatViews, shortAgo, cx } from '../lib/utils'
+import { formatViews, shortAgo, cx, challengeDaysLeft } from '../lib/utils'
 import { useT } from '../lib/i18n'
 
 // THE LEADERBOARD ITSELF, IN A CHAT (migration 251).
@@ -174,7 +174,7 @@ export default function LiveLeaderboardCard({ challengeId, groupId = null, compa
   const shownIds = new Set([...top.map((r) => r.creator_id), ...(hasPodium ? rows.filter((r) => Number(r.rank) <= 3).map((r) => r.creator_id) : [])])
   const mine = !loading && user?.id ? rows.find((r) => r.creator_id === user.id) : null
   const mineShown = mine && shownIds.has(mine.creator_id)
-  const endsIn = !loading && challenge.end_date ? Math.ceil((new Date(challenge.end_date) - now) / 86_400_000) : null
+  const endsIn = !loading && challenge.end_date ? challengeDaysLeft(challenge, now) : null
 
   return (
     <motion.div

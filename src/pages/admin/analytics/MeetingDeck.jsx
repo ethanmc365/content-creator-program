@@ -30,7 +30,7 @@ export default function MeetingDeck({ data, scope, market, marketName, allMarket
   useEffect(() => { setPicked(new Set(market ? [market] : [])); setGlobal(!market) }, [market])
   useEffect(() => {
     let alive = true
-    challengesApi.challenges().select('id, title, status, start_date, end_date, scoring, community_id').in('status', ['active', 'completed', 'archived'])
+    challengesApi.challenges().select('id, title, status, start_date, end_date, closes_at, timezone, scoring, community_id').in('status', ['active', 'completed', 'archived'])
       .order('start_date', { ascending: false }).limit(12)
       .then(({ data: c }) => { if (alive) setChallenges(c || []) })
     return () => { alive = false }

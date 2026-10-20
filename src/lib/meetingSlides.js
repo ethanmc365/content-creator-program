@@ -5,6 +5,7 @@
 // the caller, or drawn as an initial) built from the same `admin_views_gained` answer as the page, so the deck, the page
 // and the CSV cannot disagree. Pure functions: no network, no DOM.
 import { compact, foldWeeks, pctChange, rangeLabel, snapshotSvg, viewsFor } from './weeklySnapshot'
+import { challengeDaysLeft } from './utils'
 
 const ORANGE = '#d94407'
 const ORANGE_LIGHT = '#f5853f'
@@ -135,7 +136,7 @@ export function challengeSlide(ch, { results = [], entries = 0, creators = 0, vi
   const tile = (x, label, big) => `<g><rect x="${x}" y="148" width="250" height="100" rx="20" fill="#ffffff" stroke="#ece6e1"/>
     <text x="${x + 20}" y="178" font-size="12" font-weight="700" letter-spacing="1.4" fill="${SMOKE}">${esc(label.toUpperCase())}</text>
     <text x="${x + 20}" y="224" font-size="40" font-weight="800" fill="${INK}">${esc(big)}</text></g>`
-  const left = ch.status === 'active' && ch.end_date ? Math.max(0, Math.ceil((Date.parse(ch.end_date) - Date.now()) / 864e5)) : null
+  const left = ch.status === 'active' && ch.end_date ? Math.max(0, challengeDaysLeft(ch) ?? 0) : null
   return frame(
     { kicker: `Challenge · ${title}`, title: ch.title, date, badge: badge || 'globe', tone: ch.status === 'active' ? 'ink' : 'green' },
     `${tile(48, 'Entries', String(entries))}${tile(318, 'Creators', String(creators))}${tile(588, 'Views', compact(views))}

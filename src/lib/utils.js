@@ -353,6 +353,27 @@ export function challengeDeadline(endDate, closesAt = null) {
   return d
 }
 
+/**
+ * Whole days left AFTER today, counted on the challenge's own calendar: 0 on the last day ("Ends today"), 1 the day
+ * before, -1 once it has closed. Never round a fraction of a day up: `ceil((end - now) / day)` said "1 day left" all
+ * through the final day of the October Global Challenge.
+ */
+export function challengeDaysLeft(challenge, nowMs = Date.now()) {
+  if (!challenge?.end_date && !challenge?.closes_at) return null
+  const closes = challengeDeadline(challenge.end_date, challenge.closes_at).getTime()
+  if (nowMs >= closes) return -1
+  const tz = challenge.timezone
+  if (tz) {
+    try {
+      const fmt = new Intl.DateTimeFormat('en-CA', { timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit' })
+      const day = (ms) => { const [y, m, d] = fmt.format(new Date(ms)).split('-').map(Number); return Date.UTC(y, m - 1, d) }
+      return Math.round((day(closes - 1) - day(nowMs)) / 86400000)
+    } catch { /* unknown zone: fall through */ }
+  }
+  // `closes` is midnight in the challenge's clock, so the part-day before it is today.
+  return Math.max(0, Math.ceil((closes - nowMs) / 86400000) - 1)
+}
+
 // ---- Typed date + time (no calendar picker) ----
 
 /* "25/01/2026" + "14:30" -> ISO string, or null if invalid/incomplete. */

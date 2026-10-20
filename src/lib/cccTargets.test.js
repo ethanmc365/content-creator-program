@@ -1,14 +1,17 @@
 import { describe, expect, it } from 'vitest'
 import {
-  addMonths, allocateChallenges, buildMonths, buildPlan, challengeCost, combineSegments, csvRows, monthRange, monthState,
-  neededGrowth, statusOf, summarise,
+  addMonths, allocateChallenges, buildMonths, challengeCost, combineSegments, csvRows, defaultRange, monthRange, monthState,
+  neededGrowth, planOf, planTarget, spreadViews, statusOf, summarise,
 } from './cccTargets'
 
-const SHEET = [
-  ['2026-09', 7500000], ['2026-10', 9825000], ['2026-11', 12175000], ['2026-12', 14550000], ['2027-01', 16954000],
+// The plans as migration 446 seeded them: community January 2027 = 17M at 7% a month; VIP October 2026 = 12M here.
+const plans = [
+  { segment: 'community', start_year: 2026, start_month: 9, anchor_year: 2027, anchor_month: 1, anchor_views: 17000000, growth: 0.07, epm: 0.9, cpm: 0.5 },
+  { segment: 'vip', start_year: 2026, start_month: 9, anchor_year: 2026, anchor_month: 10, anchor_views: 12000000, growth: 0.07, epm: 0.9, cpm: 0.25 },
 ]
-const targets = SHEET.map(([k, v]) => ({ segment: 'community', year: +k.slice(0, 4), month: +k.slice(5), view_target: v, epm: 0.9, cpm: 0.5, other_costs: 0 }))
-  .concat([{ segment: 'vip', year: 2026, month: 10, view_target: 12000000, epm: 0.9, cpm: 0.25, other_costs: 100, suggested: true }])
+const PLAN = { '2026-09': 12969000, '2026-10': 13877000, '2026-11': 14848000, '2026-12': 15888000, '2027-01': 17000000 }
+// Exceptions only: October VIP has other costs, nothing is set by hand.
+const targets = [{ segment: 'vip', year: 2026, month: 10, view_target: null, pinned: false, epm: null, cpm: null, other_costs: 100 }]
 
 // The real platform figures on 20 Oct 2026 (admin_ccc_actuals).
 const actuals = {
@@ -47,14 +50,38 @@ describe('months', () => {
   })
 })
 
+describe('the growth plan', () => {
+  it('January is 17M and every other month is 7% a step, backwards and forwards', () => {
+    const p = planOf(plans, 'community')
+    for (const [k, v] of Object.entries(PLAN)) expect(planTarget(p, k)).toBe(v)
+    expect(planTarget(p, '2027-02')).toBe(18190000)
+    expect(planTarget(p, '2026-08')).toBeNull() // before the plan starts
+  })
+  it('moving the anchor moves every month (October to 10M -> November 10.7M)', () => {
+    const p = { ...planOf(plans, 'community'), anchor: '2026-10', anchorViews: 10000000 }
+    expect(planTarget(p, '2026-11')).toBe(10700000)
+    expect(planTarget(p, '2026-09')).toBe(9346000)
+  })
+  it('a month set by hand changes only that month', () => {
+    const t = [{ segment: 'community', year: 2026, month: 11, view_target: 20000000, pinned: true }]
+    const rows = buildMonths({ segment: 'community', months, plans, targets: t, actuals, now: NOW })
+    expect(rows[2].target).toBe(20000000)
+    expect(rows[2].pinned).toBe(true)
+    expect(rows[3].target).toBe(PLAN['2026-12'])
+  })
+  it('shows nine months ahead, so new months arrive on their own', () => {
+    expect(defaultRange(plans, '2026-10')).toEqual({ from: '2026-09', to: '2027-07' })
+    expect(defaultRange(plans, '2027-03')).toEqual({ from: '2026-09', to: '2027-12' })
+  })
+})
+
 describe('the sheet, reproduced', () => {
-  const rows = buildMonths({ segment: 'community', months, targets, actuals, now: NOW, costMode: 'target' })
+  const rows = buildMonths({ segment: 'community', months, plans, targets, actuals, now: NOW, costMode: 'target' })
   it('estimated earnings, costs and margin come from the target', () => {
-    expect(rows[0].estEarnings).toBeCloseTo(6750)
-    expect(rows[0].estCost).toBeCloseTo(3750)
-    expect(rows[0].estMargin).toBeCloseTo(3000)
-    expect(rows[1].estEarnings).toBeCloseTo(8842.5)
-    expect(rows[4].estEarnings).toBeCloseTo(15258.6)
+    expect(rows[0].estEarnings).toBeCloseTo(12969000 * 0.9 / 1000)
+    expect(rows[0].estCost).toBeCloseTo(12969000 * 0.5 / 1000)
+    expect(rows[0].estMargin).toBeCloseTo(12969000 * 0.4 / 1000)
+    expect(rows[4].estEarnings).toBeCloseTo(15300)
   })
   it('October achieved is the platform figure the sheet copied (5,755k)', () => {
     expect(rows[1].achieved).toBe(5755005)
@@ -72,13 +99,14 @@ describe('real costs', () => {
   it('spreads a challenge over the months it ran, by days, and leaves drafts out unless asked', () => {
     const a = allocateChallenges(actuals.challenges, months)
     expect(a['2026-09'].total + a['2026-10'].total + a['2026-11'].total).toBeCloseTo(1500)
-    expect(a['2026-09'].total).toBeCloseTo(780 * (10 + 1 / 24) / (27 + 23.98 / 24), 0)
+    expect(a['2026-09'].total).toBeCloseTo(780 * 10 / 28, 5) // 21 Sep - 18 Oct, whole days
+    expect(a['2026-09'].lines.some((l) => l.id === 'es')).toBe(false) // opens at midnight in Madrid = 1 Oct
     expect(a['2026-11'].lines.some((l) => l.planned)).toBe(false)
     const withDraft = allocateChallenges(actuals.challenges, months, { includePlanned: true })
     expect(withDraft['2026-11'].lines.some((l) => l.planned)).toBe(true)
   })
   it('community actual cost = challenges + other rewards + other costs', () => {
-    const rows = buildMonths({ segment: 'community', months, targets, actuals, now: NOW })
+    const rows = buildMonths({ segment: 'community', months, plans, targets, actuals, now: NOW })
     const oct = rows[1]
     expect(oct.actualCost).toBeCloseTo(oct.costs.challenges + 30)
     expect(oct.actualCpm).toBeGreaterThan(0)
@@ -87,7 +115,7 @@ describe('real costs', () => {
 })
 
 describe('VIP', () => {
-  const rows = buildMonths({ segment: 'vip', months, targets, actuals, now: NOW })
+  const rows = buildMonths({ segment: 'vip', months, plans, targets, actuals, now: NOW })
   it('reads September from the team sheet and October from the platform (VIP + official)', () => {
     expect(rows[0].achieved).toBe(5137612)
     expect(rows[0].source).toBe('sheet')
@@ -99,34 +127,33 @@ describe('VIP', () => {
     expect(oct.status).toBe('on-track')
     expect(oct.realCost).toBeCloseTo(1620.94 + 923.56 + 100)
     expect(oct.projectedCost).toBeCloseTo((1620.94 + 923.56) / (19.5 / 31) + 100)
-    expect(oct.suggested).toBe(true)
   })
 })
 
 describe('override, combine, summary', () => {
   it('an override replaces the measured figure and says so', () => {
-    const t = targets.map((x) => (x.month === 9 && x.segment === 'community' ? { ...x, achieved_override: 3100000 } : x))
-    const rows = buildMonths({ segment: 'community', months, targets: t, actuals, now: NOW })
+    const t = [...targets, { segment: 'community', year: 2026, month: 9, achieved_override: 3100000 }]
+    const rows = buildMonths({ segment: 'community', months, plans, targets: t, actuals, now: NOW })
     expect(rows[0].achieved).toBe(3100000)
     expect(rows[0].measured).toBe(2132298)
     expect(rows[0].source).toBe('override')
   })
   it('combines segments by adding', () => {
-    const c = buildMonths({ segment: 'community', months, targets, actuals, now: NOW })
-    const v = buildMonths({ segment: 'vip', months, targets, actuals, now: NOW })
+    const c = buildMonths({ segment: 'community', months, plans, targets, actuals, now: NOW })
+    const v = buildMonths({ segment: 'vip', months, plans, targets, actuals, now: NOW })
     const all = combineSegments(c, v)
     expect(all[1].achieved).toBe(c[1].achieved + v[1].achieved)
-    expect(all[1].target).toBe(9825000 + 12000000)
-    expect(all[0].target).toBe(7500000)
+    expect(all[1].target).toBe(PLAN['2026-10'] + 12000000)
+    expect(all[0].target).toBe(PLAN['2026-09'] + 11215000)
   })
   it('summarises the months measured so far', () => {
-    const rows = buildMonths({ segment: 'community', months, targets, actuals, now: NOW })
+    const rows = buildMonths({ segment: 'community', months, plans, targets, actuals, now: NOW })
     const s = summarise(rows)
     expect(s.measuredMonths).toBe(2)
     expect(s.achieved).toBe(2132298 + 5755005)
-    expect(s.targetToDate).toBeCloseTo(7500000 + 9825000 * (19.5 / 31))
+    expect(s.targetToDate).toBeCloseTo(PLAN['2026-09'] + PLAN['2026-10'] * (19.5 / 31))
     expect(s.live.key).toBe('2026-10')
-    expect(s.planViews).toBe(SHEET.reduce((n, [, v]) => n + v, 0))
+    expect(s.planViews).toBe(Object.values(PLAN).reduce((n, v) => n + v, 0))
   })
 })
 
@@ -142,22 +169,19 @@ describe('status and growth', () => {
     expect(neededGrowth(100, 121, 2)).toBeCloseTo(0.1)
     expect(neededGrowth(0, 10, 2)).toBeNull()
   })
-  it('builds a plan: straight line to January, then 7% a month', () => {
-    const p = buildPlan({ start: '2026-09', startValue: 7500000, goal: '2027-01', goalValue: 16954000, until: '2027-03', after: 0.07 })
-    expect(p.map((x) => x.key)).toEqual(['2026-09', '2026-10', '2026-11', '2026-12', '2027-01', '2027-02', '2027-03'])
-    expect(p[0].view_target).toBe(7500000)
-    expect(p[4].view_target).toBe(16954000)
-    expect(p[5].view_target).toBe(18141000) // the sheet's February
-    expect(p[6].view_target).toBe(19411000) // and March
-  })
-  it('builds a compound plan', () => {
-    const p = buildPlan({ start: '2026-10', startValue: 100, goal: '2026-12', goalValue: 121, shape: 'compound' })
-    expect(p).toHaveLength(3)
+  it('counts challenges run off the platform, spread by days (Desafio Setembro, 27 Aug - 27 Sep)', () => {
+    const imp = { ...actuals, imported: [{ id: 'h1', title: 'Desafio Setembro', country_code: 'PO', starts_at: '2026-08-27', ends_at: '2026-09-27', total_views: 184184, prize_total: 290, prize_currency: 'EUR' }] }
+    const rows = buildMonths({ segment: 'community', months, plans, targets, actuals: imp, now: NOW })
+    expect(rows[0].offPlatform).toBe(Math.round(184184 * 27 / 32))
+    expect(rows[0].achieved).toBe(2132298 + Math.round(184184 * 27 / 32))
+    expect(rows[0].costs.lines.some((l) => l.title === 'Desafio Setembro')).toBe(true)
+    expect(spreadViews([], months)['2026-09']).toBe(0)
   })
   it('exports one CSV row per month', () => {
-    const rows = buildMonths({ segment: 'community', months, targets, actuals, now: NOW })
+    const rows = buildMonths({ segment: 'community', months, plans, targets, actuals, now: NOW })
     const csv = csvRows(rows, 'Community')
     expect(csv).toHaveLength(5)
-    expect(csv[1].state).toBe('in progress')
+    expect(csv[1].state).toBe('In progress')
+    expect(csv[1].target_set).toBe('Growth plan')
   })
 })

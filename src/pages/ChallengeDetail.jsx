@@ -55,6 +55,7 @@ import { marketsApi } from '../api/markets'
 import ChallengeDetailSubmitModal from './ChallengeDetailSubmitModal'
 import ChallengeDetailLeaderboard from './ChallengeDetailLeaderboard'
 import ChallengeDetailEntryBody from './ChallengeDetailEntryBody'
+import { useRestorableState } from '../lib/restorable'
 
 
 // The platform's own key in SocialMark's table. Two spellings of one list is
@@ -177,9 +178,10 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
   // A FINISHED CHALLENGE OPENS ON ITS LEADERBOARD, FROM THE FIRST FRAME (19 Oct 2026). It used to open on the brief and
   // flip to the board once the results had loaded, so every past challenge showed its brief for a moment first. Until
   // somebody picks a tab, the tab is DERIVED from the challenge: no effect, no second render, no flip.
-  const [entryLimit, setEntryLimit] = useState(ENTRY_PAGE)
+  const [entryLimit, setEntryLimit] = useRestorableState(`ch:${id}:limit`, ENTRY_PAGE)
   const [nowMs] = useState(() => Date.now())
-  const [pickedTab, setTab] = useState(() => {
+  // Kept against the history entry (lib/restorable): Back from a creator's profile lands on the tab you left.
+  const [pickedTab, setTab] = useRestorableState(`ch:${id}:tab`, () => {
     const t = initialTab || searchParams.get('tab')
     return ['entries', 'brief', 'leaderboard', 'countries'].includes(t) ? t : null
   })
@@ -204,15 +206,22 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
   // The offer whose card is open from the dark callout beside the tabs (joining bonus, boost, voucher day).
   const [offerOpen, setOfferOpen] = useState(null)
   // MY ENTRIES AND A NAME SEARCH ON THE ENTRIES TAB.
-  const [entryScope, setEntryScope] = useState('all') // all | mine
+  const [entryScope, setEntryScope] = useRestorableState(`ch:${id}:scope`, 'all') // all | mine
   const [entryQuery, setEntryQuery] = useState('')
   // How the entries are ordered and which platform.
   // A finished challenge opens its entries on Most views; a running one on Newest. Derived until somebody picks.
-  const [pickedSort, setEntrySort] = useState(null) // newest | views | points | oldest
+  const [pickedSort, setEntrySort] = useRestorableState(`ch:${id}:sort`, null) // newest | views | points | oldest
   const entrySort = pickedSort ?? (finished ? 'views' : 'newest')
-  const [entryPlatform, setEntryPlatform] = useState('')
-  // A new filter starts again from the first page.
-  useEffect(() => { setEntryLimit(ENTRY_PAGE) }, [entryScope, entryQuery, entrySort, entryPlatform, tab])
+  const [entryPlatform, setEntryPlatform] = useRestorableState(`ch:${id}:platform`, '')
+  // A new filter starts again from the first page - a CHANGE, not the first render, which would throw away the page
+  // count Back has just restored.
+  const filterKey = `${entryScope}|${entryQuery}|${pickedSort}|${entryPlatform}|${pickedTab}` // picks, not derived values: loading the challenge must not count as a change
+  const lastFilterKey = useRef(filterKey)
+  useEffect(() => {
+    if (lastFilterKey.current === filterKey) return
+    lastFilterKey.current = filterKey
+    setEntryLimit(ENTRY_PAGE)
+  }, [filterKey, setEntryLimit])
   const [allPrizes, setAllPrizes] = useState(false) // a phone shows five places until asked
   // Which of the two running orders the brief tab renders. See the note there.
   const isMobile = useIsMobile()
@@ -432,7 +441,7 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
     deepLinkedRef.current = true
     if (searchParams.get('submit')) setShowSubmit(true)
     const t = searchParams.get('tab')
-    if (t === 'entries' || t === 'brief' || t === 'leaderboard' || t === 'countries') setTab(t)
+    if (pickedTab == null && (t === 'entries' || t === 'brief' || t === 'leaderboard' || t === 'countries')) setTab(t)
   }, [challenge]) // eslint-disable-line react-hooks/exhaustive-deps
 
   function fail(field, message) {

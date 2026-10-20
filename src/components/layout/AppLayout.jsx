@@ -355,13 +355,19 @@ export default function AppLayout() {
     const stop = () => { touched = true }
     window.addEventListener('touchstart', stop, { passive: true, once: true })
     window.addEventListener('wheel', stop, { passive: true, once: true })
-    const timers = [60, 180, 400].map((ms) => setTimeout(() => {
+    window.addEventListener('keydown', stop, { once: true })
+    window.addEventListener('pointerdown', stop, { passive: true, once: true })
+    // Up to ~3s, not 400ms: a challenge's entries arrive after a fetch, and until they do the page is too short to hold
+    // the saved offset (the browser clamps it). Each beat re-asserts only if the reader has not taken over.
+    const timers = [60, 180, 400, 700, 1100, 1600, 2300, 3000].map((ms) => setTimeout(() => {
       if (!touched && Math.abs(window.scrollY - saved) > 2) window.scrollTo({ top: saved, left: 0, behavior: 'instant' })
     }, ms))
     return () => {
       timers.forEach(clearTimeout)
       window.removeEventListener('touchstart', stop)
       window.removeEventListener('wheel', stop)
+      window.removeEventListener('keydown', stop)
+      window.removeEventListener('pointerdown', stop)
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pathname])

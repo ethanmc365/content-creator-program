@@ -81,7 +81,7 @@ export default function ChapterHome() {
           .select('profile_id, profiles!inner(is_admin, is_test, status)', { count: 'exact', head: true })
           .eq('community_id', chapter.id).eq('status', 'active')
           .eq('profiles.is_admin', false).in('profiles.is_test', testFlags()).eq('profiles.status', 'active'),
-        challengesApi.challenges().select('id, title, status, end_date, scoring, description, submissions(count)')
+        challengesApi.challenges().select('id, title, status, end_date, closes_at, timezone, scoring, description, submissions(count)')
           .eq('community_id', chapter.id).order('end_date', { ascending: false }).limit(6),
         // VIEWS, NOT POINTS. Points are a per-challenge scoring mode - only a
         // brief scored that way writes any - so this board was ranking the

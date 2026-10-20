@@ -192,7 +192,7 @@ export default function BonusPointsCard({ rules, now = 0, className, boost = nul
           )
         })}
       </ul>
-      <BonusDetail rule={open} state={open ? stateOf(open) : null} onClose={() => setOpen(null)} pick={tx.pick} />
+      <BonusDetail rule={open} streaks={bonuses.filter((r) => r.kind === 'consistency').length} state={open ? stateOf(open) : null} onClose={() => setOpen(null)} pick={tx.pick} />
       <OfferDetail offer={offer} onClose={() => setOffer(null)} />
     </section>
   )
@@ -205,7 +205,7 @@ export default function BonusPointsCard({ rules, now = 0, className, boost = nul
 // is its own line with its own icon, because they are different KINDS of fact -
 // "post on four platforms" is an instruction and "the video has to pass 500
 // views" is a condition on whether that instruction counted.
-function BonusDetail({ rule, state, onClose, pick = (x) => x }) {
+function BonusDetail({ rule, state, streaks = 0, onClose, pick = (x) => x }) {
   const tr = useT()
   if (!rule) return null
   const claim = claimLine(rule, tr)
@@ -214,6 +214,10 @@ function BonusDetail({ rule, state, onClose, pick = (x) => x }) {
     { icon: 'check', label: tr('How you earn it'), value: howToEarn(rule, tr) },
     // THE CEILING SITS UNDER HOW YOU EARN IT.
     claim ? { icon: 'ticket', label: tr('How many times'), value: `${claim.text}.` } : null,
+    // Migration 445: streak bonuses do not stack. Posting every day also covers every week, and only the bigger counts.
+    rule.kind === 'consistency' && streaks > 1
+      ? { icon: 'star', label: tr('With the other streak bonuses'), value: tr('Streak bonuses do not add up. If you complete more than one, you get the biggest.') }
+      : null,
     min > 0
       ? { icon: 'eye', label: tr('Before it counts'), value: tr('The video has to pass {n} views. It is added as soon as it does.', { n: min.toLocaleString() }) }
       : null,

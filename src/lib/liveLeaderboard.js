@@ -27,7 +27,7 @@ const EMPTY = { status: 'loading', challenge: null, rows: [], prevRanks: new Map
 async function read(challengeId, groupId) {
   const [{ data: challenge, error: chErr }, { data: rows, error: rowErr }] = await Promise.all([
     challengesApi.challenges()
-      .select('id, title, scoring, status, end_date, prize_structure, prize_currency, winners_count, winners_published_at, results_status, results_updated_at, participation_threshold, participation_prize, participation_basis, participation_scope, community_id')
+      .select('id, title, scoring, status, end_date, closes_at, timezone, prize_structure, prize_currency, winners_count, winners_published_at, results_status, results_updated_at, participation_threshold, participation_prize, participation_basis, participation_scope, community_id')
       .eq('id', challengeId)
       .maybeSingle(),
     (() => {

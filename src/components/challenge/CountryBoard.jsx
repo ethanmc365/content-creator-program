@@ -7,6 +7,7 @@ import FlagTile from '../network/FlagTile'
 import { formatViews, cx } from '../../lib/utils'
 import { useT } from '../../lib/i18n'
 import { challengesApi } from '../../api/challenges'
+import { useRestorableState } from '../../lib/restorable'
 
 // COUNTRY AGAINST COUNTRY (migration 324).
 //
@@ -89,8 +90,8 @@ export default function CountryBoard({ challenge, refreshKey, meId }) {
   // THE LAST BOARD IS KEPT FOR THE SESSION, so going back to this tab draws at once instead of a skeleton that
   // shortened the page and threw the reader's scroll up (14 Oct 2026). It refreshes underneath.
   const [data, setData] = useState(() => BOARD_CACHE.get(challenge.id))
-  const [measure, setMeasure] = useState(scoring === 'points' ? 'points' : 'views')
-  const [open, setOpen] = useState(null)
+  const [measure, setMeasure] = useRestorableState(`cb:${challenge.id}:measure`, scoring === 'points' ? 'points' : 'views')
+  const [open, setOpen] = useRestorableState(`cb:${challenge.id}:open`, null)
   const listRef = useRef(null)
   // The bars grow from nothing ONCE, when the numbers first arrive. Switching the measure afterwards moves them from where they are.
   const [grown, setGrown] = useState(false)

@@ -24,6 +24,7 @@ import SocialMark, { brandForUrl } from '../components/SocialMark'
 import { socialHref, linkHref } from '../lib/socialLinks'
 import { Avatar, Badge, Skeleton, EmptyState } from '../components/ui'
 import Icon from '../components/Icon'
+import BackLink from '../components/BackLink'
 // Admin-only, and it pulls the VIP admin screens and the map with it: loaded the first time an admin opens it.
 const CreatorPeek = lazyRoute(() => import('../components/admin/CreatorPeek'))
 import { OnlineDot, LastOnline } from '../components/PresenceBadge'
@@ -306,6 +307,7 @@ export default function Profile() {
   if (loading) {
     return (
       <div className="page space-y-8">
+        <BackLink to="/creators" className="!mb-0 -mt-2 sm:-mt-4" />
         <div className="flex items-center gap-6">
           <Skeleton className="h-28 w-28 rounded-full" />
           <div className="flex-1 space-y-3"><Skeleton className="h-6 w-48" /><Skeleton className="h-4 w-72" /></div>
@@ -771,6 +773,9 @@ export default function Profile() {
 
   return (
     <div className="page space-y-10">
+      {/* BACK, TOP LEFT (20 Oct 2026): a profile is nearly always opened from somewhere (a leaderboard, an entry, a chat),
+          and Back returns to that exact place - same tab, same list, same scroll. */}
+      <BackLink to="/creators" className="!mb-0 -mt-2 -mb-6 sm:-mt-4 sm:-mb-4" />
       {/* ---------- Header ---------- */}
       <section className="flex flex-col items-center gap-6 text-center sm:flex-row sm:items-start sm:text-left">
         {/* BIGGER. The avatar is the only picture in the header and it was the

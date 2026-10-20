@@ -6,7 +6,7 @@ import Icon from './Icon'
 import FlagTile from './network/FlagTile'
 import { claimNag, finishNag, onNagChange, onTourRunning, releaseNag, tourRunning } from '../lib/appNag'
 import { lockScroll } from '../lib/scrollLock'
-import { formatMoney, formatViews, cx } from '../lib/utils'
+import { formatMoney, formatViews, cx, challengeDaysLeft } from '../lib/utils'
 import { useT } from '../lib/i18n'
 import { challengesApi } from '../api/challenges'
 import { submissionsApi } from '../api/submissions'
@@ -50,12 +50,12 @@ export default function GlobalChallengePrompt() {
       const { data: net } = await marketsApi.communities().select('id').eq('kind', 'network').maybeSingle()
       if (!alive || !net) return
       const { data: ch } = await challengesApi.challenges()
-        .select('id, title, end_date, scoring, prize_amount, prize_currency, status, community_id, join_bonus_points')
+        .select('id, title, end_date, closes_at, timezone, scoring, prize_amount, prize_currency, status, community_id, join_bonus_points')
         .eq('community_id', net.id).eq('status', 'active').order('end_date', { ascending: false }).limit(1).maybeSingle()
       if (!alive || !ch) return
       const s = seen(ch.id)
       if (!preview && (s.stop || s.n >= MAX_SHOWS || Date.now() - s.last < GAP_MS)) return
-      if (new Date(ch.end_date).getTime() < Date.now()) return
+      if (challengeDaysLeft(ch) < 0) return
       const { count } = await submissionsApi.submissions().select('id', { count: 'exact', head: true }).eq('challenge_id', ch.id).eq('creator_id', user.id)
       if (!alive) return
       if (count > 0 && !preview) { mark(ch.id, { stop: true }); return }
@@ -66,7 +66,7 @@ export default function GlobalChallengePrompt() {
       const { data: board } = await challengesApi.challengeMarketBoard({ p_challenge: ch.id })
       if (!alive) { releaseNag('global-challenge'); return }
       if (preview) { try { localStorage.setItem(ADMIN_PREVIEW, '1') } catch { /* private mode */ } } else mark(ch.id, { n: s.n + 1, last: Date.now() })
-      setCard({ ch, board, left: Math.max(0, Math.ceil((new Date(ch.end_date).getTime() - Date.now()) / 86400000)) })
+      setCard({ ch, board, left: Math.max(0, challengeDaysLeft(ch) ?? 0) })
     }, 2200)
     return () => { alive = false; clearTimeout(id) }
   }, [user?.id, profile, turn, card, blocked])
@@ -110,7 +110,7 @@ function PromptCard({ card, name, onClose }) {
             {total > 0 ? tr('{n} creators have already entered, and you can feel the leaderboard moving.', { n: total }) : tr('Be the first to put your country on the board.')}
           </p>
           <div className="relative mt-4 flex flex-wrap gap-2 text-xs font-bold">
-            <span className="rounded-full bg-white/20 px-3 py-1">{left === 1 ? tr('1 day left') : tr('{n} days left', { n: left })}</span>
+            <span className="rounded-full bg-white/20 px-3 py-1">{left === 0 ? tr('Ends today') : left === 1 ? tr('1 day left') : tr('{n} days left', { n: left })}</span>
             {Number(ch.prize_amount) > 0 && <span className="rounded-full bg-white/20 px-3 py-1">{tr('{a} in prizes', { a: formatMoney(ch.prize_amount, ch.prize_currency || 'EUR') })}</span>}
             <span className="rounded-full bg-white/20 px-3 py-1">{tr('Points for every video')}</span>
           </div>

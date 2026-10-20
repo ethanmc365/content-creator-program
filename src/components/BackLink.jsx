@@ -1,4 +1,4 @@
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import Icon from './Icon'
 import { cx } from '../lib/utils'
 import { useT } from '../lib/i18n'
@@ -16,33 +16,31 @@ import { useT } from '../lib/i18n'
 // somewhere to go back TO, and wrong on a cold load from a notification or a
 // shared link, where it would take the creator out of the app entirely. The
 // length check is how you tell the two apart.
+// IN-APP HISTORY, NOT `history.length` (20 Oct 2026). `history.length` counts pages from before the app was opened
+// too, so a profile opened from a shared link would "go back" out of the app. The router's first entry has the key
+// 'default'; anything else was reached by navigating inside the app, and Back (button, Cmd+[, swipe) lands on that
+// page with its tab, list and scroll position put back (lib/restorable + AppLayout's scroll memory).
 export default function BackLink({ to = '/global', label = 'Back', className }) {
   const tr = useT()
   const navigate = useNavigate()
-  const canGoBack = typeof window !== 'undefined' && window.history.length > 1
+  const { key } = useLocation()
+  const canGoBack = key !== 'default'
 
-  // ON A PHONE IT IS JUST THE ARROW.
-  //
-  // The word "Back" next to a back arrow is the arrow said twice, and on a
-  // 375px screen the pair took a full-width row above every page heading. The
-  // label stays from `sm` up, where the space is free and the extra clarity
-  // costs nothing, and stays in the accessible name everywhere.
+  // ON A PHONE IT IS JUST THE ARROW, in a round white button so it still reads as a control. The label joins it from
+  // `sm` up, where the space is free, and stays in the accessible name everywhere.
   const classes = cx(
-    'group -ml-1 mb-2 inline-flex items-center gap-1 rounded-full py-1 pl-1 text-sm font-medium text-smoke sm:mb-4 sm:pr-3',
-    'transition-colors hover:text-brand',
+    'group -ml-1 mb-2 inline-flex h-9 items-center gap-1.5 rounded-full border border-gray-200 bg-white pl-2 pr-2 text-sm font-semibold text-ink shadow-sm animate-back-in sm:mb-4 sm:pr-4',
+    'transition-[transform,box-shadow,color] duration-200 hoverable:hover:-translate-y-0.5 hoverable:hover:text-brand hoverable:hover:shadow-md active:scale-95',
     className,
   )
 
   const inner = (
     <>
-      <span className="flex h-6 w-6 items-center justify-center rounded-full transition-transform duration-200 group-hover:-translate-x-0.5">
+      <span className="flex h-5 w-5 items-center justify-center transition-transform duration-200 group-hover:-translate-x-0.5">
         <Icon name="chevronLeft" className="h-4 w-4" />
       </span>
-      {/* Translated HERE, not at the call site: the default ("Back") is set in
-          this signature, so a caller that passes nothing has no string to wrap.
-          `tr` on a value that is already Spanish is a lookup that misses and
-          returns what it was given, so a caller passing its own translated
-          label is unaffected. */}
+      {/* Translated HERE: the default ("Back") is set in this signature, so a caller that passes nothing has no string to
+          wrap. `tr` on an already-translated label misses and returns it unchanged. */}
       <span className="hidden sm:inline">{tr(label)}</span>
     </>
   )

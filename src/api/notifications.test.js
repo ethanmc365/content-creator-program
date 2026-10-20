@@ -20,11 +20,14 @@ describe('notifications api', () => {
       ['from', 'notifications'], ['delete'], ['eq', 'recipient_id', 'u1'], ['eq', 'read', true],
     ])
   })
-  it('sends to a market or everyone through the RPCs', async () => {
+  it('sends a challenge push through the admin door, never notify_community/notify_all (owner-only)', async () => {
     const { client, calls } = recordingClient()
-    await notificationsApi(client).notifyMarket('m1', { p_title: 'Hi' })
-    await notificationsApi(client).notifyEveryone({ p_title: 'Hi' })
-    expect(calls).toEqual([['rpc', 'notify_community', { p_community: 'm1', p_title: 'Hi' }], ['rpc', 'notify_all', { p_title: 'Hi' }]])
+    await notificationsApi(client).sendChallengePush('c1', 'm1', 'Hi', 'Body')
+    await notificationsApi(client).sendChallengePush('c1', null, 'Hi', 'Body')
+    expect(calls).toEqual([
+      ['rpc', 'admin_send_challenge_push', { p_challenge: 'c1', p_market: 'm1', p_title: 'Hi', p_body: 'Body' }],
+      ['rpc', 'admin_send_challenge_push', { p_challenge: 'c1', p_market: null, p_title: 'Hi', p_body: 'Body' }],
+    ])
   })
   it('stores a push subscription once per endpoint', async () => {
     const { client, calls } = recordingClient()

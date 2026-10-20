@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom'
 import Icon from '../Icon'
 import FlagStack from './FlagStack'
-import { challengeDeadline, cx } from '../../lib/utils'
+import { challengeDaysLeft, cx } from '../../lib/utils'
 import { useT } from '../../lib/i18n'
 
 // THE LIVE CHALLENGE, AS ONE ROW, ON EVERY SCREEN.
@@ -32,8 +32,7 @@ import { useT } from '../../lib/i18n'
 export default function LiveNowRow({ challenge, market, global: isGlobal, now, expanded = false }) {
   const tr = useT()
   if (!challenge) return null
-  const closes = challengeDeadline(challenge.end_date, challenge.closes_at)
-  const days = Math.max(0, Math.ceil((closes - now) / 86400000))
+  const days = Math.max(0, challengeDaysLeft(challenge, now) ?? 0)
   const gradient = isGlobal
     // THE GLOBAL ONE WEARS THE GLOBAL CARD'S GROUND: the darker ember-to-orange gradient /challenges paints it in, so
     // the worldwide brief is told apart from a market's at a glance, here as there.

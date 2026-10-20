@@ -1,7 +1,7 @@
 import { Modal } from '../../../../components/ui'
 import Icon from '../../../../components/Icon'
 import { cx, formatViews } from '../../../../lib/utils'
-import { ProgressBar, StatusChip, eur, pct, views } from './parts'
+import { ProgressBar, StatusChip, Term, eur, pct, views } from './parts'
 
 // ONE MONTH, IN FULL: views against target for each side, the money line by line (what each challenge cost this month,
 // the other rewards, VIP and official pay, other costs), and the plan's own numbers beside them.
@@ -34,8 +34,9 @@ export default function MonthDetail({ monthKey, seg, segRows, costMode, onClose,
               </button>
             </div>
             <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
-              <Fig label={live ? 'Views so far' : 'Views'} value={r.achieved != null ? views(r.achieved) : '-'} sub={r.source === 'override' ? `Set by hand (platform: ${views(r.measured)})` : r.source === 'sheet' ? 'From the team sheet' : null} />
-              <Fig label="Target" value={r.target != null ? views(r.target) : 'Not set'} sub={r.pct != null ? `${pct(r.pct, 1)} reached` : null} />
+              <Fig label={live ? 'Views so far' : 'Views'} value={r.achieved != null ? views(r.achieved) : '-'}
+                sub={r.source === 'override' ? `Set by hand (platform: ${views(r.measured)})` : r.source === 'sheet' ? 'From the VIP sheet' : r.offPlatform ? `Incl. ${formatViews(r.offPlatform)} off the platform` : null} />
+              <Fig label="Target" value={r.target != null ? views(r.target) : 'Not set'} sub={r.pinned ? 'Set by hand' : r.pct != null ? `${pct(r.pct, 1)} reached` : 'From the growth plan'} />
               {live && <Fig label="On pace for" value={views(r.projected)} sub={r.projectedPct != null ? `${pct(r.projectedPct)} of target` : null} />}
               {live && <Fig label="Needed a day" value={r.neededPerDay != null ? formatViews(r.neededPerDay) : '-'} sub={`Doing ${formatViews(r.perDay)} a day`} />}
               {!live && <Fig label="Videos" value={r.videos ?? '-'} sub={r.creators != null ? `${r.creators} creators gaining views` : null} />}
@@ -46,10 +47,10 @@ export default function MonthDetail({ monthKey, seg, segRows, costMode, onClose,
             <div className="mt-4 grid gap-4 sm:grid-cols-2">
               <div>
                 <p className="mb-1.5 text-[13px] font-bold text-gray-500">Money</p>
-                <Row label="Earnings" plan={r.estEarnings} actual={r.actualEarnings} pace={live ? r.projectedEarnings : null} />
+                <Row label={<Term k="epm">Earnings</Term>} plan={r.estEarnings} actual={r.actualEarnings} pace={live ? r.projectedEarnings : null} />
                 <Row label={costMode === 'target' ? 'Costs (at target CPM)' : 'Costs'} plan={r.estCost} actual={r.actualCost} pace={live ? r.projectedCost : null} />
                 <Row label="Margin" plan={r.estMargin} actual={r.actualMargin} pace={live ? r.projectedMargin : null} strong />
-                <p className="mt-1.5 text-[13px] text-smoke">EPM {eur(r.epm, true)} · target CPM {eur(r.cpm, true)}</p>
+                <p className="mt-2 flex flex-wrap gap-x-4 text-[13px] text-smoke"><span><Term k="epm">EPM</Term> {eur(r.epm, true)}</span><span><Term k="cpm">Target CPM</Term> {eur(r.cpm, true)}</span></p>
               </div>
               <div>
                 <p className="mb-1.5 text-[13px] font-bold text-gray-500">Real costs{live ? ' so far' : ''}</p>
@@ -89,7 +90,7 @@ function CostLines({ r, seg }) {
   const lines = []
   if (seg === 'community') {
     for (const l of r.costs?.lines || []) {
-      lines.push({ k: l.id, label: l.title, sub: `${pct(l.share)} of its prize money falls in this month${l.planned ? ' · draft' : ''}${l.market ? ` · ${l.market}` : ''}`, n: l.amount })
+      lines.push({ k: l.id, label: l.title, sub: `${pct(l.share)} of its prize money falls in this month${l.planned ? ' · draft' : ''}${l.status === 'imported' ? ' · ran off the platform' : ''}${l.market ? ` · ${l.market}` : ''}`, n: l.amount })
     }
     if (r.costs?.rewards) lines.push({ k: 'rewards', label: 'Other rewards', sub: 'Milestones, referrals and weekly prizes', n: r.costs.rewards })
   } else {

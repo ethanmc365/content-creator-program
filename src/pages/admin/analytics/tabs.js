@@ -1,12 +1,12 @@
 // The analytics tabs, shared by the page and a challenge's own page (AnalyticsTabs). Order set by Ethan.
 export const TABS = [
   { key: 'overview', label: 'Overview' },
-  // TARGETS & PROFIT (20 Oct 2026): the team's "CCC Targets" sheet, live. Second because it is the one the business
-  // runs on: views against the monthly target, and what they earned and cost.
-  { key: 'targets', label: 'Targets & profit' },
   // VIEWS GAINED PER WEEK, COMMUNITY / VIP / BOTH, AND THE WEEKLY SNAPSHOT. See analytics/ViewsReport.
   { key: 'views', label: 'Weekly views' },
   { key: 'programme', label: 'Challenges' },
+  // TARGETS & PROFIT (20 Oct 2026): the team's "CCC Targets" sheet, live. Fourth since the same evening (Ethan: not
+  // the immediate thing, "just a few over").
+  { key: 'targets', label: 'Targets & profit' },
   // MARKET AGAINST MARKET, THIRD. It reads the same datasets the Challenges tab
   // does and answers the question straight after it - "and how does that split
   // by market" - so it sits next to it rather than at the far end of the strip.

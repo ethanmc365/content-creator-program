@@ -5,6 +5,11 @@
 // views achieved. Its "actual costs" were achieved x 0.50 because nothing better was to hand; here they are the money
 // the platform actually committed (prize pots, vouchers, VIP pay) plus whatever the team adds as other costs.
 //
+// THE PLAN RUNS ITSELF (migration 446). Each side has one ANCHOR (a month and its view target) and a monthly GROWTH:
+// every month's target is anchor x (1 + growth) ^ (months from the anchor), forwards and backwards, so January at 17M
+// and 7% gives every other month, and a month that has not come yet is simply the next step. A month can still be
+// SET BY HAND (`pinned` in ccc_targets); that changes that month only.
+//
 // A month is one of three things, and every figure says which:
 //   done    the month is over: final views, final costs.
 //   live    today is inside it: views so far, and the pace they set for the whole month (on track / behind).
@@ -80,8 +85,10 @@ export function allocateChallenges(challenges = [], months = [], { rates = FALLB
   for (const c of challenges) {
     const cost = challengeCost(c, rates)
     if (cost.planned && !includePlanned) continue
-    const s = new Date(c.starts_at).getTime()
-    const e = new Date(c.ends_at).getTime()
+    // To the nearest midnight (UTC): a challenge that opens at midnight in Madrid starts at 23:00 UTC the day before,
+    // which put an hour of RETO OCTUBRE (EUR 1) into September.
+    const s = Math.round(new Date(c.starts_at).getTime() / DAY) * DAY
+    const e = Math.round(new Date(c.ends_at).getTime() / DAY) * DAY
     if (!(e > s) || cost.total <= 0) continue
     const span = e - s
     for (const k of months) {
@@ -100,15 +107,80 @@ export function allocateChallenges(challenges = [], months = [], { rates = FALLB
 
 const num = (v) => (v == null || v === '' ? null : Number(v))
 
+// ---- THE GROWTH PLAN ------------------------------------------------------------------------------------------------
+const DEFAULT_PLANS = {
+  community: { segment: 'community', start: '2026-09', anchor: '2027-01', anchorViews: 17_000_000, growth: 0.07, epm: 0.9, cpm: 0.5 },
+  vip: { segment: 'vip', start: '2026-09', anchor: '2026-10', anchorViews: 16_000_000, growth: 0.07, epm: 0.9, cpm: 0.25 },
+}
+/** A ccc_plans row (or nothing) as the page uses it. */
+export function planOf(plans = [], segment) {
+  const r = (plans || []).find((p) => p.segment === segment)
+  if (!r) return { ...DEFAULT_PLANS[segment] }
+  return {
+    segment,
+    start: monthKey(r.start_year, r.start_month),
+    anchor: monthKey(r.anchor_year, r.anchor_month),
+    anchorViews: Number(r.anchor_views) || 0,
+    growth: Number(r.growth) || 0,
+    epm: Number(r.epm),
+    cpm: Number(r.cpm),
+  }
+}
+/** Whole months from a to b (b later = positive). */
+export function monthsBetween(a, b) {
+  const x = parseMonth(a)
+  const y = parseMonth(b)
+  return (y.year - x.year) * 12 + (y.month - x.month)
+}
+/** The plan's target for a month: the anchor grown (or shrunk) by the growth, to the nearest 1,000. */
+export function planTarget(plan, key) {
+  if (!plan || !key || key < plan.start) return null
+  const v = plan.anchorViews * (1 + plan.growth) ** monthsBetween(plan.anchor, key)
+  return Math.round(v / 1000) * 1000
+}
+/** The months the page shows by default: the plan's first month to nine months from now (it grows on its own). */
+export function defaultRange(plans = [], nowKey) {
+  const ps = ['community', 'vip'].map((s) => planOf(plans, s))
+  const from = ps.map((p) => p.start).sort()[0]
+  const ends = [addMonths(nowKey, 9), ...ps.map((p) => p.anchor)].sort()
+  return { from, to: ends[ends.length - 1] }
+}
+
+// A CHALLENGE THAT RAN OFF THE PLATFORM (challenge_history, migration 446): its views and its prize money, spread over
+// the days it ran like a platform challenge's cost. `ends_at` is the last DAY, so it runs to the end of it.
+function importedAsChallenge(h) {
+  return {
+    id: `h-${h.id}`, title: h.title, market: h.country_code, status: 'imported', imported: true,
+    starts_at: `${h.starts_at}T00:00:00Z`, ends_at: new Date(Date.parse(`${h.ends_at}T00:00:00Z`) + DAY).toISOString(),
+    prize_amount: h.prize_total, prize_currency: h.prize_currency, rewards: [], views: Number(h.total_views) || 0,
+  }
+}
+export function spreadViews(items = [], months = []) {
+  const out = Object.fromEntries(months.map((k) => [k, 0]))
+  for (const c of items) {
+    const s = Math.round(new Date(c.starts_at).getTime() / DAY) * DAY
+    const e = Math.round(new Date(c.ends_at).getTime() / DAY) * DAY
+    if (!(e > s) || !(c.views > 0)) continue
+    for (const k of months) {
+      const overlap = Math.min(e, monthEnd(k)) - Math.max(s, monthStart(k))
+      if (overlap > 0) out[k] += c.views * (overlap / (e - s))
+    }
+  }
+  return out
+}
+
 /**
  * One segment's months: plan, measured, projected and money, ready to draw.
  * `segment` is 'community' or 'vip'; use combineSegments for both.
  */
-export function buildMonths({ segment, months, targets = [], actuals, now = Date.now(), costMode = 'real', includePlanned = false }) {
+export function buildMonths({ segment, months, plans = [], targets = [], actuals, now = Date.now(), costMode = 'real', includePlanned = false }) {
   const rates = ratesFrom(actuals?.fx)
   const byKey = Object.fromEntries((actuals?.months || []).map((m) => [m.month, m]))
+  const growthPlan = planOf(plans, segment)
   const plan = Object.fromEntries(targets.filter((t) => t.segment === segment).map((t) => [monthKey(t.year, t.month), t]))
-  const challenges = segment === 'community' ? allocateChallenges(actuals?.challenges, months, { rates, includePlanned }) : {}
+  const imported = segment === 'community' ? (actuals?.imported || []).map(importedAsChallenge) : []
+  const importedViews = spreadViews(imported, months)
+  const challenges = segment === 'community' ? allocateChallenges([...(actuals?.challenges || []), ...imported], months, { rates, includePlanned }) : {}
   const other = {}
   for (const r of actuals?.other_rewards || []) {
     if (segment !== 'community') break
@@ -128,16 +200,18 @@ export function buildMonths({ segment, months, targets = [], actuals, now = Date
     const t = plan[key]
     const a = byKey[key]
     const st = monthState(key, now)
-    const target = t ? Number(t.view_target) || 0 : null
-    const epm = t ? Number(t.epm) : 0.9
-    const cpm = t ? Number(t.cpm) : (segment === 'vip' ? 0.25 : 0.5)
+    const pinned = !!(t?.pinned && t.view_target != null)
+    const target = pinned ? Number(t.view_target) : planTarget(growthPlan, key)
+    const epm = num(t?.epm) ?? growthPlan.epm
+    const cpm = num(t?.cpm) ?? growthPlan.cpm
     const otherCosts = t ? Number(t.other_costs) || 0 : 0
     const override = t ? num(t.achieved_override) : null
 
     let measured = null
     let source = 'platform'
+    const offPlatform = Math.round(importedViews[key] || 0)
     if (a) {
-      if (segment === 'community') measured = Number(a.community_views) || 0
+      if (segment === 'community') measured = (Number(a.community_views) || 0) + offPlatform
       else if (a.vip_sheet_views != null) { measured = Number(a.vip_sheet_views) || 0; source = 'sheet' }
       else measured = (Number(a.vip_views) || 0) + (Number(a.official_views) || 0)
     }
@@ -171,7 +245,7 @@ export function buildMonths({ segment, months, targets = [], actuals, now = Date
 
     return {
       key, label: monthLabel(key), longLabel: monthLabel(key, 'long'), ...st,
-      hasPlan: !!t, suggested: !!t?.suggested, note: t?.note || null, id: t?.id || null,
+      hasPlan: target != null, pinned, note: t?.note || null, id: t?.id || null, offPlatform,
       target, epm, cpm, otherCosts, override, measured: measuredOn ? measured : null, source,
       achieved, projected, pct, projectedPct, status, neededPerDay,
       perDay: achieved != null && st.elapsed > 0 ? achieved / st.elapsed : null,
@@ -225,7 +299,7 @@ export function combineSegments(a = [], b = []) {
     const estCost = add(x.estCost, y.estCost)
     return {
       ...x,
-      hasPlan: x.hasPlan || y.hasPlan, suggested: x.suggested || y.suggested, note: null, id: null,
+      hasPlan: x.hasPlan || y.hasPlan, pinned: false, note: null, id: null, offPlatform: x.offPlatform || 0,
       target, achieved, projected, pct, projectedPct, status: statusOf(x.state, projectedPct),
       measured: add(x.measured, y.measured), override: null, source: 'platform',
       neededPerDay: x.state === 'live' && target != null && x.left > 0 ? Math.max(0, (target - achieved) / x.left) : null,
@@ -279,48 +353,29 @@ export function neededGrowth(from, to, months) {
   return (to / from) ** (1 / months) - 1
 }
 
-/**
- * THE PLAN BUILDER. From a start month and value to a goal month and value, every month between filled in (straight
- * line or the same % every month), then `after` (a fraction, 0.07) a month until `until`.
- * Returns [{ key, view_target }].
- */
-export function buildPlan({ start, startValue, goal, goalValue, until, shape = 'linear', after = 0.07 }) {
-  if (!start || !goal || goal < start || !(startValue >= 0) || !(goalValue >= 0)) return []
-  const steps = monthRange(start, goal).length - 1
-  const rate = neededGrowth(startValue, goalValue, steps)
-  const out = []
-  monthRange(start, goal).forEach((key, i) => {
-    const v = steps === 0 ? goalValue
-      : shape === 'compound' && rate != null ? startValue * (1 + rate) ** i
-        : startValue + (goalValue - startValue) * (i / steps)
-    out.push({ key, view_target: Math.round(v / 1000) * 1000 })
-  })
-  if (until && until > goal) {
-    let v = goalValue
-    for (const key of monthRange(addMonths(goal, 1), until)) {
-      v *= 1 + (Number(after) || 0)
-      out.push({ key, view_target: Math.round(v / 1000) * 1000 })
-    }
-  }
-  return out
-}
-
-/** The sheet, as rows for a CSV: one line per month with every figure the page shows. */
+/** The sheet as a CSV: one line per month, plain numbers (no symbols), so it opens straight into a spreadsheet. */
 export function csvRows(rows, segmentLabel) {
   const r2 = (n) => (n == null ? '' : Math.round(n * 100) / 100)
+  const whole = (n) => (n == null ? '' : Math.round(n))
   return rows.map((r) => ({
-    segment: segmentLabel, month: r.longLabel, state: r.state === 'live' ? 'in progress' : r.state === 'done' ? 'complete' : 'upcoming',
-    target: r.target ?? '', achieved: r.achieved ?? '', projected: r.state === 'live' ? Math.round(r.projected || 0) : '',
-    pct: r.pct == null ? '' : Math.round(r.pct * 1000) / 10, epm: r2(r.epm), cpm: r2(r.cpm),
+    segment: segmentLabel, month: r.longLabel,
+    state: r.state === 'live' ? 'In progress' : r.state === 'done' ? 'Complete' : 'Upcoming',
+    status: STATUS[r.status]?.label || '',
+    target: whole(r.target), target_set: r.pinned ? 'Set by hand' : r.target != null ? 'Growth plan' : '',
+    achieved: whole(r.achieved), projected: r.state === 'live' ? whole(r.projected) : '',
+    pct: r.pct == null ? '' : Math.round(r.pct * 1000) / 10,
+    epm: r2(r.epm), cpm: r2(r.cpm),
     est_earnings: r2(r.estEarnings), est_costs: r2(r.estCost), est_margin: r2(r.estMargin),
     actual_earnings: r2(r.actualEarnings), actual_costs: r2(r.actualCost), actual_margin: r2(r.actualMargin), actual_cpm: r2(r.actualCpm),
+    note: r.note || '',
   }))
 }
 export const CSV_COLUMNS = [
-  { key: 'segment', label: 'Segment' }, { key: 'month', label: 'Month' }, { key: 'state', label: 'State' },
-  { key: 'target', label: 'View target' }, { key: 'achieved', label: 'Achieved' }, { key: 'projected', label: 'On pace for' },
-  { key: 'pct', label: '% of target' }, { key: 'epm', label: 'EPM (EUR)' }, { key: 'cpm', label: 'Target CPM (EUR)' },
-  { key: 'est_earnings', label: 'Estimated earnings (EUR)' }, { key: 'est_costs', label: 'Estimated costs (EUR)' }, { key: 'est_margin', label: 'Estimated margin (EUR)' },
+  { key: 'segment', label: 'Side' }, { key: 'month', label: 'Month' }, { key: 'state', label: 'Month state' },
+  { key: 'status', label: 'Result' }, { key: 'target', label: 'View target' }, { key: 'target_set', label: 'Target from' },
+  { key: 'achieved', label: 'Views achieved' }, { key: 'projected', label: 'On pace for' }, { key: 'pct', label: '% of target' },
+  { key: 'epm', label: 'EPM (EUR per 1,000 views)' }, { key: 'cpm', label: 'Target CPM (EUR per 1,000 views)' },
+  { key: 'est_earnings', label: 'Planned earnings (EUR)' }, { key: 'est_costs', label: 'Planned costs (EUR)' }, { key: 'est_margin', label: 'Planned margin (EUR)' },
   { key: 'actual_earnings', label: 'Actual earnings (EUR)' }, { key: 'actual_costs', label: 'Actual costs (EUR)' }, { key: 'actual_margin', label: 'Actual margin (EUR)' },
-  { key: 'actual_cpm', label: 'Actual CPM (EUR)' },
+  { key: 'actual_cpm', label: 'Actual CPM (EUR)' }, { key: 'note', label: 'Note' },
 ]
