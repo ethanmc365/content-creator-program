@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useAuth } from '../../context/AuthContext'
-import { PageHeader, Skeleton, Spinner, Select, Avatar } from '../../components/ui'
+import { PageHeader, Skeleton, Select, Avatar } from '../../components/ui'
 import Icon from '../../components/Icon'
 import { PLATFORMS as PLATFORM_MARKS } from '../../components/VideoThumb'
 import { useScopedMarkets } from '../../components/admin/MarketScope'
@@ -58,9 +58,9 @@ export default function AdminVideoTracker() {
 
   const [rows, setRows] = useState(null)
   const [err, setErr] = useState('')
-  const [syncing, setSyncing] = useState(false)
-  const [syncNote, setSyncNote] = useState('')
-  const [editing, setEditing] = useState(null)   // a row, or {} for a new one
+  // NO "ADD A VIDEO" AND NO SYNC BUTTON (20 Oct 2026): "everything should be done automatically". Rows arrive by
+  // themselves when an entry's views are counted (the hourly sweep) and VIP videos are read live; only Edit is left.
+  const [editing, setEditing] = useState(null)   // the row being edited
 
   // THE FILTER IS ONE OBJECT, not six pieces of state, because every consumer of it takes the whole thing
   // (`visibleVideos`) and because that makes "clear all" one line rather than six. `q` HAS NO CONTROL AND IS NOT DEAD.
@@ -86,25 +86,6 @@ export default function AdminVideoTracker() {
     setRows(videos.data || [])
   }, [])
   useEffect(() => { load() }, [load])
-
-  async function sync() {
-    setSyncing(true)
-    setSyncNote('')
-    const { data, error } = await contentApi.syncTrackedVideos()
-    setSyncing(false)
-    if (error) { setErr(error.message); return }
-    setErr('')
-    // SAY WHAT IT DID, INCLUDING WHEN IT DID NOTHING. A sync that reports
-    // nothing is indistinguishable from a sync that failed, which is the
-    // report the view-sync button collected twice before it learned to count.
-    const n = data || {}
-    setSyncNote(
-      n.added || n.updated || n.dropped
-        ? `${n.added || 0} new, ${n.updated || 0} refreshed, ${n.dropped || 0} retired`
-        : 'Nothing changed.',
-    )
-    load()
-  }
 
   const challenges = useMemo(() => challengeOptions(rows || []), [rows])
   // The selected challenge as a whole object - its label and its market - for
@@ -162,28 +143,9 @@ export default function AdminVideoTracker() {
       <PageHeader
         back="/admin"
         title={tr('Video tracker')}
-        action={
-          <div className="flex flex-wrap gap-2">
-            {/* FEWER BUTTONS (15 Oct 2026): the sync is a round icon beside Add, its name in the tooltip. */}
-            <button type="button" onClick={sync} disabled={syncing} title={tr('Sync from entries')} aria-label={tr('Sync from entries')}
-              className="flex h-10 w-10 items-center justify-center rounded-full border border-gray-200 bg-white text-smoke transition-all duration-200 hoverable:hover:-translate-y-0.5 hoverable:hover:border-brand hoverable:hover:text-brand disabled:opacity-50">
-              {syncing ? <Spinner className="h-4 w-4" /> : <Icon name="refresh" className="h-4 w-4" strokeWidth={2.2} />}
-            </button>
-            <button type="button" onClick={() => setEditing({})} className="btn-primary">
-              <Icon name="plus" className="h-4 w-4" strokeWidth={2.4} />
-              {tr('Add a video')}
-            </button>
-          </div>
-        }
       />
 
       {err && <p className="mb-5 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">{err}</p>}
-      {syncNote && (
-        <p className="mb-5 flex items-center gap-2 rounded-xl bg-cloud/70 px-4 py-3 text-sm text-ink">
-          <Icon name="check" className="h-4 w-4 shrink-0 text-brand" />
-          {syncNote}
-        </p>
-      )}
 
       {/* NO `note` HERE. It said "3 videos", eighty pixels above a line in the
           filter card that says "3 videos · best 15.2k" - the same fact twice on
@@ -226,56 +188,47 @@ export default function AdminVideoTracker() {
         )}
       </div>
 
-      {/* (The standing "syncing the top 3 of every challenge, plus anything over 10k views" line used to sit here as a
-          paragraph of its own.
-
-          Right, and the reason is that it was answering a question nobody had
-          asked yet. It exists for "why isn't my video in here", which is asked
-          about ONCE, by somebody who is already looking for a control. So it is
-          a control: `3 / 10k` beside Export, which says the same two numbers in
-          six characters and opens the panel that explains them in full. See
-          `RulesModal`.) */}
-
-      {/* ONE CARD, NOT A WALL OF TILES AND A LOOSE ROW OF PILLS. And on the tiles: "some of these metrics are not
-          necessary. Why do we need the views from the best videos? Number of videos you can keep, the other two maybe
-          change them or delete them."
-
-          So the four StatCards are gone and what survives of them - how many
-          videos, and the best one - is a single line at the top of the same
-          card the filters live in. Two 96px tiles to say "3" and "15.2k" was
-          the page shouting a number it had already put on every card.
-
-          The line still describes WHAT IS ON SCREEN rather than the table: a
-          page whose totals ignore its own filter tells you the wrong thing
-          every time you use it. */}
-      {/* ONE LINE, THREE FILTERS, AND NO SEARCH BOX.
-
-          THE SEARCH BOX WENT BECAUSE OF WHAT IT COST, NOT WHAT IT DID. It was
-          the widest thing on the line - a flexible 240px - and at three videos
-          it answers a question nobody has. `visibleVideos` still takes `q` and
-          is still tested on it (see lib/videoTracker): the FILTER survives, the
-          control does not, and it is one input away from coming back the day
-          this list is four hundred rows.
-
-          SQUARED, TO MATCH THE CARD THEY SIT IN. `variant="field"` is the same
-          `rounded-xl` and the same padding as `.input`, so the three selects and
-          the three buttons beside them are one shape family rather than a row of
-          lozenges inside a rounded rectangle. The buttons pick up the same
-          radius and height by hand.
-
-          Nothing in this row may move when anything in it changes - the widths
-          are fixed and the right-hand group is anchored by its RIGHT edge, so a
-          count going from "3 videos" to "13 videos" moves nothing but its own
-          left edge. Below `lg` it wraps by itself, which is the right answer on
-          a phone and needs no second rule to say so. */}
-      <div className="mb-6 animate-fade-up rounded-card border border-gray-100 bg-white p-2 shadow-card [animation-delay:80ms] sm:p-2.5">
-        <div className="flex flex-wrap items-center gap-1.5 xl:flex-nowrap">
-          {/* THE SEARCH BOX IS BACK, now that the list is hundreds of videos. It matches the creator, their handle, the
-              hook (typed or read off the video), the caption, the challenge, the market and the link, accents ignored. */}
-          {/* ONE LINE ON A DESKTOP. The team: the placeholder was cut off ("Search creator hook or the cap") and the
-              count, best and Export fell to a second line. The box says "Search", and every control is a little narrower
-              so the whole strip fits beside the month rail. */}
-          <div className="relative w-full sm:w-[10rem] sm:shrink-0">
+      {/* TWO LINES, NOTHING SQUEEZED (20 Oct 2026). One line of six controls plus the count and the export ran out of room:
+          "United Kingdom" was cut off in its field and the download button slid over the card's edge. So the count and
+          the CSV button have a line of their own (room for "10M" and more), and the five filters share the full width
+          below it. Search and sort are short words, so the challenge and the country get the wider columns. */}
+      <div className="mb-6 animate-fade-up rounded-card border border-gray-100 bg-white p-2.5 shadow-card [animation-delay:80ms] sm:p-3">
+        <div className="mb-2.5 flex flex-wrap items-center gap-x-3 gap-y-2 px-1">
+          <span className="text-sm font-semibold text-ink">
+            {rows ? totals.count : '—'} {totals.count === 1 ? tr('video') : tr('videos')}
+          </span>
+          {totals.best > 0 && (
+            <span className="text-sm text-smoke">
+              {tr('best')} <strong className="font-semibold tabular-nums text-brand">{formatViews(totals.best)}</strong>
+            </span>
+          )}
+          {filter.month && <span className="text-sm text-smoke">{monthLabel(filter.month)}</span>}
+          <span className="ml-auto flex items-center gap-2">
+            {/* Always rendered and only `invisible` when inert, so nothing on the line moves when it appears. */}
+            <button
+              type="button"
+              onClick={() => setFilter({ market: '', challenge: '', platform: '', month: '', q: '', sort: filter.sort, source: '', country: '' })}
+              aria-hidden={!filtered}
+              tabIndex={filtered ? 0 : -1}
+              className={cx('px-2 py-2 text-sm font-medium text-smoke transition-colors hover:text-ink', !filtered && 'invisible')}
+            >
+              {tr('Clear')}
+            </button>
+            <button
+              type="button"
+              onClick={() => downloadCsv(exportName(), toCsvRows(shown), CSV_COLUMNS)}
+              disabled={!shown.length}
+              title={tr('Download CSV of these videos')}
+              className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-gray-200 bg-white px-3.5 text-sm font-semibold text-ink transition-all duration-200 disabled:opacity-40 hoverable:hover:-translate-y-0.5 hoverable:hover:border-brand"
+            >
+              <Icon name="download" className="h-4 w-4 text-brand" />
+              CSV
+            </button>
+          </span>
+        </div>
+        <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-[minmax(0,0.8fr)_minmax(0,1.3fr)_minmax(0,1fr)_minmax(0,1.3fr)_minmax(0,0.9fr)]">
+          {/* The search matches the creator, their handle, the hook, the caption, the challenge, the market and the link. */}
+          <div className="relative min-w-0">
             <Icon name="magnifier" className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-300" />
             <input
               type="search"
@@ -289,15 +242,8 @@ export default function AdminVideoTracker() {
           <Select
             value={scopeValue}
             onChange={setScope}
-            // FIXED WIDTHS, NOT MINIMUMS. A `min-w` select grows to fit
-            // whatever is chosen, so picking "Tryp.com Creative Challenge"
-            // pushed the two selects to its right along by 55px - the same
-            // complaint as the Clear button ("I don't like how everything
-            // moves"), from a different cause. The trigger truncates instead;
-            // the full label is one click away and is also the heading above
-            // the grid.
             variant="field"
-            className="w-[11.5rem] shrink-0"
+            className="w-full min-w-0"
             ariaLabel={tr('Challenge')}
             options={[{ value: '', label: tr('Every challenge') },
               ...challenges.filter((c) => !filter.source || c.source === filter.source || (!c.source && filter.source === 'community')).map((c) => ({ value: c.key, label: c.label }))]}
@@ -305,10 +251,8 @@ export default function AdminVideoTracker() {
           <Select
             value={filter.platform}
             onChange={(v) => set({ platform: v })}
-            // WIDE ENOUGH FOR ITS OWN PLACEHOLDER. The padding, the chevron and its gap take 52px, so the label needs
-            // 112 of its own.
             variant="field"
-            className="w-[10.5rem] shrink-0"
+            className="w-full min-w-0"
             ariaLabel={tr('Platform')}
             options={[{ value: '', label: tr('Every platform') },
               ...PLATFORMS.map((p) => ({ value: p, label: p }))]}
@@ -317,74 +261,20 @@ export default function AdminVideoTracker() {
             value={filter.country}
             onChange={(v) => set({ country: v })}
             variant="field"
-            className="w-[10.5rem] shrink-0"
+            className="w-full min-w-0"
             ariaLabel={tr('Country')}
             options={[{ value: '', label: tr('Every country') },
-              ...countries.map((c) => ({ value: c.key, label: `${c.code ? `${flagFromIso(c.code)} ` : ''}${c.name} (${c.count})` }))]}
+              ...countries.map((c) => ({ value: c.key, label: `${c.code ? `${flagFromIso(c.code)} ` : ''}${c.name} · ${c.count}` }))]}
           />
           <Select
             value={filter.sort}
             onChange={(v) => set({ sort: v })}
             variant="field"
-            className="w-[9rem] shrink-0"
+            className="w-full min-w-0"
             ariaLabel={tr('Sort')}
             options={Object.entries(SORTS).map(([k, s]) => ({ value: k, label: tr(s.label) }))}
           />
-
-          {/* IT IS ALWAYS THERE, AND SOMETIMES INVISIBLE.
-
-              A control that appears when it becomes useful is a reasonable
-              instinct and it is wrong in a WRAPPING row: adding an item to a
-              flex-wrap line does not add a button, it re-flows every button on
-              the line. So the space is reserved permanently and only the
-              button's visibility changes.
-
-              `invisible` rather than `opacity-0`: it must also leave the tab
-              order when it does nothing. */}
-          <button
-            type="button"
-            onClick={() => setFilter({ market: '', challenge: '', platform: '', month: '', q: '', sort: filter.sort, source: '', country: '' })}
-            aria-hidden={!filtered}
-            tabIndex={filtered ? 0 : -1}
-            className={cx(
-              'rounded-xl px-2 py-2.5 text-sm font-medium text-smoke transition-colors hover:text-ink',
-              !filtered && 'invisible',
-            )}
-          >
-            {tr('Clear')}
-          </button>
-
-          <div className="ml-auto flex items-center gap-x-2 gap-y-1 whitespace-nowrap text-sm">
-          <span className="font-semibold text-ink">
-            {rows ? totals.count : '—'} {totals.count === 1 ? tr('video') : tr('videos')}
-          </span>
-          {totals.best > 0 && (
-            <>
-              <span className="text-gray-300" aria-hidden>·</span>
-              <span className="text-smoke">
-                {tr('best')} <strong className="font-semibold text-brand">{formatViews(totals.best)}</strong>
-              </span>
-            </>
-          )}
-          {filter.month && (
-            <>
-              <span className="text-gray-300" aria-hidden>·</span>
-              <span className="text-smoke">{monthLabel(filter.month)}</span>
-            </>
-          )}
-          {/* "over 10k" is gone (). The threshold is still the rule; it is simply not restated on every visit. */}
-          <button
-            type="button"
-            onClick={() => downloadCsv(exportName(), toCsvRows(shown), CSV_COLUMNS)}
-            disabled={!shown.length}
-            title={tr('Download CSV of these videos')} aria-label={tr('Download CSV of these videos')}
-            className="flex h-9 w-9 items-center justify-center rounded-xl border border-gray-200 text-smoke transition-all duration-200 disabled:opacity-40 hoverable:hover:border-brand hoverable:hover:text-brand"
-          >
-            <Icon name="download" className="h-4 w-4" />
-          </button>
-          </div>
         </div>
-
       </div>
 
       {/* --------------------------------------------- the grid + the months --
@@ -417,7 +307,7 @@ export default function AdminVideoTracker() {
               </p>
               <p className="mx-auto mt-1.5 max-w-sm text-sm leading-relaxed text-smoke">
                 {rows.length === 0
-                  ? tr('Press "Sync from entries" to pull in every video over the line from across the platform, or add one by hand from any market.')
+                  ? tr('Every video over the view line appears here by itself once its views are counted.')
                   : tr('Try a wider filter, or clear them all.')}
               </p>
             </div>
