@@ -18,7 +18,7 @@ import { convert, FALLBACK_RATES } from './programme'
 
 export const SEGMENTS = [
   { key: 'community', label: 'Community', hint: 'Every creator in the challenges' },
-  { key: 'vip', label: 'VIP', hint: 'Paid creators: VIP and official' },
+  { key: 'vip', label: 'VIP', hint: 'VIP creators only (official creators are not counted)' },
   { key: 'all', label: 'Combined', hint: 'Community and VIP together' },
 ]
 
@@ -110,7 +110,7 @@ const num = (v) => (v == null || v === '' ? null : Number(v))
 // ---- THE GROWTH PLAN ------------------------------------------------------------------------------------------------
 const DEFAULT_PLANS = {
   community: { segment: 'community', start: '2026-09', anchor: '2027-01', anchorViews: 17_000_000, growth: 0.07, epm: 0.9, cpm: 0.5 },
-  vip: { segment: 'vip', start: '2026-10', anchor: '2027-01', anchorViews: 18_400_000, growth: 0.07, epm: 0.9, cpm: 0.25 },
+  vip: { segment: 'vip', start: '2026-10', anchor: '2027-01', anchorViews: 14_700_000, growth: 0.07, epm: 0.9, cpm: 0.25 },
 }
 /** A ccc_plans row (or nothing) as the page uses it. */
 export function planOf(plans = [], segment) {
@@ -194,6 +194,7 @@ export function buildMonths({ segment, months, plans = [], targets = [], actuals
   const vipPay = {}
   for (const r of actuals?.vip_pay || []) {
     if (segment !== 'vip') break
+    if (r.kind === 'official') continue
     const slot = vipPay[r.month] || (vipPay[r.month] = { total: 0, vip: 0, official: 0, live: false, source: r.source })
     const a = eur(r.amount, r.currency, rates)
     slot.total += a
@@ -218,7 +219,8 @@ export function buildMonths({ segment, months, plans = [], targets = [], actuals
     if (a) {
       if (segment === 'community') measured = (Number(a.community_views) || 0) + offPlatform
       else if (a.vip_sheet_views != null) { measured = Number(a.vip_sheet_views) || 0; source = 'sheet' }
-      else measured = (Number(a.vip_views) || 0) + (Number(a.official_views) || 0)
+      // VIP CREATORS ONLY (20 Oct 2026, Ethan): official creators are Tryp.com's own team and are not counted here.
+      else measured = Number(a.vip_views) || 0
     }
     const measuredOn = st.state !== 'future' && measured != null
     const achieved = st.state === 'future' ? null : (override != null ? override : measuredOn ? measured : null)
@@ -332,6 +334,9 @@ export function summarise(rows = []) {
   const live = rows.find((r) => r.state === 'live') || null
   const targetToDate = due(measured, 'target')
   const achieved = sum(measured, 'achieved')
+  // Only months that HAVE a target are held against it: VIP September has views but no plan (the plan starts in
+  // October), and counting its views against October's plan to date read "175%".
+  const achievedPlanned = sum(measured.filter((r) => r.target != null), 'achieved')
   const earnings = sum(measured, 'actualEarnings')
   const cost = sum(measured, 'actualCost')
   const margin = earnings - cost
@@ -340,7 +345,7 @@ export function summarise(rows = []) {
   const bestMonth = measured.reduce((b, r) => (!b || (r.projected || 0) > (b.projected || 0) ? r : b), null)
   return {
     months: rows.length, measuredMonths: measured.length, live, lastDone, bestMonth,
-    targetToDate, achieved, pctToDate: targetToDate ? achieved / targetToDate : null,
+    targetToDate, achieved, pctToDate: targetToDate ? achievedPlanned / targetToDate : null,
     earnings, cost, margin, marginPct: earnings > 0 ? margin / earnings : null, cpm: achieved > 0 ? cost / achieved * 1000 : null,
     estEarnings: due(measured, 'estEarnings'), estCost: due(measured, 'estCost'), estMargin: due(measured, 'estMargin'),
     planViews: sum(planned, 'target'), planEarnings: sum(planned, 'estEarnings'), planCost: sum(planned, 'estCost'), planMargin: sum(planned, 'estMargin'),

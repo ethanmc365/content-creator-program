@@ -481,8 +481,8 @@ function Legend({ swatch, label }) {
 // WHERE THE MONEY WENT, month by month. "Include draft challenges" adds the prize money of challenges not yet published,
 // spread over the months they will run, so next month's committed spend shows before it goes live.
 function CostsCard({ rows, seg, includePlanned, setIncludePlanned, onOpen }) {
-  const keys = seg === 'community' ? ['challenges', 'rewards', 'other'] : seg === 'vip' ? ['vip', 'official', 'other'] : ['community', 'vip']
-  const names = { challenges: 'Challenge prizes and vouchers', rewards: 'Other rewards', other: 'Other costs', vip: seg === 'all' ? 'VIP and official' : 'VIP pay', official: 'Official creators pay', community: 'Community' }
+  const keys = seg === 'community' ? ['challenges', 'rewards', 'other'] : seg === 'vip' ? ['vip', 'other'] : ['community', 'vip']
+  const names = { challenges: 'Challenge prizes and vouchers', rewards: 'Other rewards', other: 'Other costs', vip: 'VIP pay', community: 'Community' }
   const fills = [FILL.brand, FILL.amber, FILL.gray]
   const swatches = ['bg-gradient-to-t from-brand to-brand-light', 'bg-gradient-to-t from-amber-500 to-amber-300', 'bg-gray-300']
   const valueOf = (r, k) => Number(r.costs?.[k]) || 0
@@ -544,7 +544,8 @@ function HowItWorks({ plans }) {
     ['Targets', `A growth plan, not typed in month by month. Community: ${line(c)}. VIP: ${line(v)}. Every other month follows, rounded to a clean figure, so new months appear with a target on their own. Edit plan changes the anchor, the growth or a single month.`],
     ['Views achieved', 'Views gained inside each month on every entry, read from the platform, plus challenges that ran off the platform (spread by the days they ran). VIP months before October 2026 come from the VIP sheet.'],
     ['Earnings', `Views achieved ÷ 1,000 × the EPM: what 1,000 views are worth to Tryp.com (community €${c.epm.toFixed(2)}, VIP €${v.epm.toFixed(2)}).`],
-    ['Costs', 'Counted automatically: every challenge prize pot (or what was paid, if more) and its vouchers, spread over the days it ran; other rewards; VIP and official creator pay (closed months from statements, this month live).'],
+    ['VIP', 'VIP creators only: official creators (Tryp.com Official) are not counted in VIP views or VIP pay.'],
+    ['Costs', 'Counted automatically: every challenge prize pot (or what was paid, if more) and its vouchers, spread over the days it ran; other rewards; VIP creator pay (closed months from statements, this month live).'],
     ['Planned costs', `The target views × the target CPM, what 1,000 views should cost (community €${c.cpm.toFixed(2)}, VIP €${v.cpm.toFixed(2)}).`],
     ['This month', 'Shows its figures so far and the pace they set, and updates as views come in. When it ends, the same numbers become its final result.'],
   ]

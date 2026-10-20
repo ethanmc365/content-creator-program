@@ -116,17 +116,17 @@ describe('real costs', () => {
 
 describe('VIP', () => {
   const rows = buildMonths({ segment: 'vip', months, plans, targets, actuals, now: NOW })
-  it('reads September from the team sheet and October from the platform (VIP + official)', () => {
+  it('reads September from the team sheet and October from the platform, VIP creators only (no official)', () => {
     expect(rows[0].achieved).toBe(5137612)
     expect(rows[0].source).toBe('sheet')
-    expect(rows[1].achieved).toBe(7711354 + 2423615)
+    expect(rows[1].achieved).toBe(7711354)
   })
   it('projects the live month and its pay at the current pace', () => {
     const oct = rows[1]
     expect(oct.projected).toBeCloseTo(oct.achieved / (19.5 / 31))
     expect(oct.status).toBe('on-track')
-    expect(oct.realCost).toBeCloseTo(1620.94 + 923.56 + 100)
-    expect(oct.projectedCost).toBeCloseTo((1620.94 + 923.56) / (19.5 / 31) + 100)
+    expect(oct.realCost).toBeCloseTo(1620.94 + 100) // official pay (923.56) is not VIP pay
+    expect(oct.projectedCost).toBeCloseTo(1620.94 / (19.5 / 31) + 100)
   })
 })
 
@@ -193,5 +193,14 @@ describe('a challenge for Tryp.com', () => {
     expect(p.profit).toBeCloseTo(5770.69, 1)
     expect(challengeProfit({ views: 100000, spend: 500 }, 0.9).profit).toBeCloseTo(-410)
     expect(challengeProfit({ views: 0, spend: 0 }).margin).toBeNull()
+  })
+})
+
+describe('plan to date', () => {
+  it('holds only months with a target against it', () => {
+    const rows = buildMonths({ segment: 'vip', months, plans: [...plans.filter((p) => p.segment !== 'vip'), { ...plans[1], start_month: 10 }], targets, actuals, now: NOW })
+    const s = summarise(rows)
+    expect(rows[0].target).toBeNull() // September: no VIP plan yet
+    expect(s.pctToDate).toBeCloseTo(7711354 / (12000000 * (19.5 / 31)))
   })
 })

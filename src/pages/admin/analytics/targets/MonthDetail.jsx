@@ -158,7 +158,6 @@ function linesFor(r, seg) {
     if (r.costs?.rewards) lines.push({ k: 'rewards', label: 'Other rewards', sub: 'Milestones, referrals and weekly prizes', n: r.costs.rewards })
   } else {
     if (r.costs?.vip) lines.push({ k: 'vip', label: 'VIP pay', sub: r.costs.source === 'sheet' ? 'From the VIP sheet' : r.costs.live ? 'This month, so far' : 'Closed statements', n: r.costs.vip })
-    if (r.costs?.official) lines.push({ k: 'official', label: 'Official creators pay', sub: r.costs.live ? 'This month, so far' : 'Closed statements', n: r.costs.official })
   }
   if (r.otherCosts) lines.push({ k: 'other', label: 'Other costs', sub: null, n: r.otherCosts })
   return lines
