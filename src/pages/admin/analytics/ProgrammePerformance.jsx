@@ -27,6 +27,7 @@ import { overlaps } from '../../../lib/analyticsPeriod'
 import { challengesApi } from '../../../api/challenges'
 import { moneyApi } from '../../../api/money'
 import { teamApi } from '../../../api/team'
+import { ProfitLine } from './ChallengeProfit'
 
 // Programme performance: what the prize money actually bought.
 //
@@ -594,6 +595,7 @@ function LogCard({ r, currency, live = false, phase = 'live' }) {
         ))}
       </div>
 
+      <ProfitLine className="mt-5" views={r.views} spend={r.spend} currency={currency} live={live && phase === 'live'} />
       {ratios.length > 0 && (
         <p className="mt-5 flex flex-wrap gap-x-5 gap-y-1 border-t border-gray-50 pt-3.5 text-xs text-smoke">
           {ratios.map((t) => <span key={t} className="tabular-nums">{t}</span>)}
@@ -684,6 +686,7 @@ function ChallengeCard({ r, currency, i = 0, onChanged }) {
             ))}
           </span>
         </div>
+        <ProfitLine className="mt-3" views={r.views} spend={r.spend} currency={currency} />
         {cpmVsTarget != null && (
           <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-cloud" title={`CPM against its ${money(r.target, currency, 2)} target`}>
             <div

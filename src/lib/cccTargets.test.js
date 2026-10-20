@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   addMonths, allocateChallenges, buildMonths, challengeCost, combineSegments, csvRows, defaultRange, monthRange, monthState,
-  neededGrowth, planOf, planTarget, spreadViews, statusOf, summarise,
+  challengeProfit, neededGrowth, planOf, planTarget, spreadViews, statusOf, summarise,
 } from './cccTargets'
 
 // The plans as migration 446 seeded them: community January 2027 = 17M at 7% a month; VIP October 2026 = 12M here.
@@ -9,7 +9,7 @@ const plans = [
   { segment: 'community', start_year: 2026, start_month: 9, anchor_year: 2027, anchor_month: 1, anchor_views: 17000000, growth: 0.07, epm: 0.9, cpm: 0.5 },
   { segment: 'vip', start_year: 2026, start_month: 9, anchor_year: 2026, anchor_month: 10, anchor_views: 12000000, growth: 0.07, epm: 0.9, cpm: 0.25 },
 ]
-const PLAN = { '2026-09': 12969000, '2026-10': 13877000, '2026-11': 14848000, '2026-12': 15888000, '2027-01': 17000000 }
+const PLAN = { '2026-09': 13000000, '2026-10': 13900000, '2026-11': 14800000, '2026-12': 15900000, '2027-01': 17000000 }
 // Exceptions only: October VIP has other costs, nothing is set by hand.
 const targets = [{ segment: 'vip', year: 2026, month: 10, view_target: null, pinned: false, epm: null, cpm: null, other_costs: 100 }]
 
@@ -54,13 +54,13 @@ describe('the growth plan', () => {
   it('January is 17M and every other month is 7% a step, backwards and forwards', () => {
     const p = planOf(plans, 'community')
     for (const [k, v] of Object.entries(PLAN)) expect(planTarget(p, k)).toBe(v)
-    expect(planTarget(p, '2027-02')).toBe(18190000)
+    expect(planTarget(p, '2027-02')).toBe(18200000)
     expect(planTarget(p, '2026-08')).toBeNull() // before the plan starts
   })
   it('moving the anchor moves every month (October to 10M -> November 10.7M)', () => {
     const p = { ...planOf(plans, 'community'), anchor: '2026-10', anchorViews: 10000000 }
     expect(planTarget(p, '2026-11')).toBe(10700000)
-    expect(planTarget(p, '2026-09')).toBe(9346000)
+    expect(planTarget(p, '2026-09')).toBe(9300000)
   })
   it('a month set by hand changes only that month', () => {
     const t = [{ segment: 'community', year: 2026, month: 11, view_target: 20000000, pinned: true }]
@@ -78,9 +78,9 @@ describe('the growth plan', () => {
 describe('the sheet, reproduced', () => {
   const rows = buildMonths({ segment: 'community', months, plans, targets, actuals, now: NOW, costMode: 'target' })
   it('estimated earnings, costs and margin come from the target', () => {
-    expect(rows[0].estEarnings).toBeCloseTo(12969000 * 0.9 / 1000)
-    expect(rows[0].estCost).toBeCloseTo(12969000 * 0.5 / 1000)
-    expect(rows[0].estMargin).toBeCloseTo(12969000 * 0.4 / 1000)
+    expect(rows[0].estEarnings).toBeCloseTo(13000000 * 0.9 / 1000)
+    expect(rows[0].estCost).toBeCloseTo(13000000 * 0.5 / 1000)
+    expect(rows[0].estMargin).toBeCloseTo(13000000 * 0.4 / 1000)
     expect(rows[4].estEarnings).toBeCloseTo(15300)
   })
   it('October achieved is the platform figure the sheet copied (5,755k)', () => {
@@ -144,7 +144,7 @@ describe('override, combine, summary', () => {
     const all = combineSegments(c, v)
     expect(all[1].achieved).toBe(c[1].achieved + v[1].achieved)
     expect(all[1].target).toBe(PLAN['2026-10'] + 12000000)
-    expect(all[0].target).toBe(PLAN['2026-09'] + 11215000)
+    expect(all[0].target).toBe(PLAN['2026-09'] + 11200000)
   })
   it('summarises the months measured so far', () => {
     const rows = buildMonths({ segment: 'community', months, plans, targets, actuals, now: NOW })
@@ -183,5 +183,15 @@ describe('status and growth', () => {
     expect(csv).toHaveLength(5)
     expect(csv[1].state).toBe('In progress')
     expect(csv[1].target_set).toBe('Growth plan')
+  })
+})
+
+describe('a challenge for Tryp.com', () => {
+  it('earns views x EPM and keeps what is left after the spend', () => {
+    const p = challengeProfit({ views: 7278549, spend: 780 }, 0.9) // the October Global Challenge
+    expect(p.earnings).toBeCloseTo(6550.69, 1)
+    expect(p.profit).toBeCloseTo(5770.69, 1)
+    expect(challengeProfit({ views: 100000, spend: 500 }, 0.9).profit).toBeCloseTo(-410)
+    expect(challengeProfit({ views: 0, spend: 0 }).margin).toBeNull()
   })
 })

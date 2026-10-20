@@ -6,7 +6,7 @@ import { notice } from '../../../../lib/confirm'
 import { toastSuccess } from '../../../../lib/toast'
 import { addMonths, monthKey, monthLabel, monthRange, parseMonth, planOf, planTarget } from '../../../../lib/cccTargets'
 import { cx, formatViews } from '../../../../lib/utils'
-import { Segmented, Term, parseViews, views } from './parts'
+import { Segmented, parseViews, views } from './parts'
 
 // CHANGING THE PLAN (rebuilt 20 Oct 2026, migration 446). Two ways, as Ethan asked for both:
 //
@@ -32,11 +32,11 @@ function monthForms(targets, segment, keys) {
     return {
       key, id: t?.id || null,
       target: t?.pinned && t.view_target != null ? views(t.view_target) : '',
-      pinned: !!(t?.pinned && t.view_target != null), mode: 'pin',
+      pinned: !!(t?.pinned && t.view_target != null), editing: false,
       epm: fmt(t?.epm), cpm: fmt(t?.cpm),
       other: t && Number(t.other_costs) ? fmt(t.other_costs) : '',
       override: t?.achieved_override != null ? views(t.achieved_override) : '',
-      note: t?.note || '', more: false, dirty: false,
+      note: t?.note || '', dirty: false,
     }
   })
 }
@@ -68,7 +68,7 @@ export default function PlanEditor({ segment: initial, focus, plans, targets, fr
     const n = parseViews(r.target)
     if (n == null) return
     setPlan({ anchor: r.key, anchorViews: views(n) })
-    setRow(r.key, { target: '', pinned: false, mode: 'pin' })
+    setRow(r.key, { target: '', pinned: false, editing: false })
     toastSuccess(`Every month now follows ${monthLabel(r.key, 'long')}`)
   }
 
@@ -165,9 +165,8 @@ export default function PlanEditor({ segment: initial, focus, plans, targets, fr
                 <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm text-smoke">%</span>
               </span>
             </Field>
-            <Field label="Plan starts"><Select variant="field" value={f.start} onChange={(v) => setPlan({ start: v })} options={monthOptions} search={false} ariaLabel="Plan starts" /></Field>
-            <Field label={<Term k="epm">EPM, € per 1,000 views</Term>}><input value={f.epm} onChange={(e) => setPlan({ epm: e.target.value })} inputMode="decimal" className="input tabular-nums" /></Field>
-            <Field label={<Term k="cpm">Target CPM, €</Term>}><input value={f.cpm} onChange={(e) => setPlan({ cpm: e.target.value })} inputMode="decimal" className="input tabular-nums" /></Field>
+            <Field label="EPM (€ per 1,000 views)" hint="What 1,000 views are worth to Tryp.com"><input value={f.epm} onChange={(e) => setPlan({ epm: e.target.value })} inputMode="decimal" className="input tabular-nums" /></Field>
+            <Field label="Target CPM (€ per 1,000 views)" hint="What 1,000 views should cost"><input value={f.cpm} onChange={(e) => setPlan({ cpm: e.target.value })} inputMode="decimal" className="input tabular-nums" /></Field>
           </div>
           <div className="scrollbar-none mt-4 flex gap-2 overflow-x-auto pb-1">
             {preview.map((r, i) => {
@@ -184,59 +183,56 @@ export default function PlanEditor({ segment: initial, focus, plans, targets, fr
           </div>
         </section>
 
-        {/* ---- MONTH BY MONTH ---- */}
+        {/* ---- MONTH BY MONTH: the plan's figure for every month, in plain text. "Change" sets one month by hand. ---- */}
         <section>
           <h4 className="text-[15px] font-bold text-ink">Month by month</h4>
-          <p className="mt-1 text-[13px] text-smoke">Leave a target empty to follow the growth plan. Type one to change a single month, or to re-plan every month from it.</p>
+          <p className="mt-1 text-[13px] text-smoke">Every month follows the growth plan. Change one only if that month needs a different target.</p>
           <ul className="mt-3 divide-y divide-gray-100 rounded-2xl border border-gray-100">
             {rows.filter((r) => r.key >= f.start).map((r) => {
               const auto = planTarget(plan, r.key)
               const typed = parseViews(r.target)
               const anchor = r.key === f.anchor
-              const differs = typed != null && typed !== auto
+              const editingRow = r.editing || (r.dirty && r.target !== '')
+              const shown = r.pinned && typed != null ? typed : auto
               return (
-                <li key={r.key} className={cx('px-3 py-3 transition-colors sm:px-4', r.key === focus && 'bg-brand-tint/40', r.dirty && 'bg-amber-50/50')}>
-                  <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-                    <span className="flex w-48 shrink-0 items-center gap-1.5 text-sm font-semibold text-ink">
-                      {monthLabel(r.key, 'long')}
-                      {anchor && <span className="rounded-full bg-brand px-1.5 py-0.5 text-[11px] font-bold uppercase tracking-wide text-white">Anchor</span>}
-                    </span>
-                    <span className="relative">
-                      <input value={r.target} onChange={(e) => setRow(r.key, { target: e.target.value })}
+                <li key={r.key} className={cx('flex min-h-[3.5rem] flex-wrap items-center gap-x-3 gap-y-2 px-4 py-2.5 transition-colors', r.key === focus && 'bg-brand-tint/40', r.dirty && 'bg-amber-50/50')}>
+                  <span className="flex w-44 shrink-0 items-center gap-1.5 text-sm font-semibold text-ink">
+                    {monthLabel(r.key, 'long')}
+                    {anchor && <span className="rounded-full bg-brand px-1.5 py-0.5 text-[11px] font-bold uppercase tracking-wide text-white">Anchor</span>}
+                  </span>
+                  {editingRow && !anchor ? (
+                    <span className="flex flex-wrap items-center gap-2">
+                      <input value={r.target} onChange={(e) => setRow(r.key, { target: e.target.value })} autoFocus
                         onBlur={() => { const n = parseViews(r.target); if (n != null) setRow(r.key, { target: views(n) }) }}
-                        inputMode="decimal" placeholder={auto != null ? views(auto) : 'Not set'} autoFocus={r.key === focus} disabled={anchor}
-                        aria-label={`Target for ${monthLabel(r.key, 'long')}`}
-                        className={cx('input w-40 !py-1.5 text-right tabular-nums placeholder:text-gray-400', r.pinned && !r.dirty && 'border-brand/40')} />
+                        inputMode="decimal" placeholder={views(auto)} aria-label={`Target for ${monthLabel(r.key, 'long')}`}
+                        className="input w-36 !py-1.5 text-right tabular-nums" />
+                      {typed != null && typed !== auto && (
+                        <span className="flex animate-pop-in gap-1.5">
+                          <span className="rounded-full bg-ink px-2.5 py-1 text-[13px] font-semibold text-white">Just this month</span>
+                          <button type="button" onClick={() => replanFrom(r)} className="rounded-full border border-gray-200 bg-white px-2.5 py-1 text-[13px] font-semibold text-ink transition-all hoverable:hover:-translate-y-0.5 hoverable:hover:border-brand/40 hoverable:hover:text-brand">
+                            Re-plan every month from this
+                          </button>
+                        </span>
+                      )}
+                      <button type="button" onClick={() => setRow(r.key, { target: '', pinned: false, editing: false })} className="text-[13px] font-semibold text-smoke hoverable:hover:text-ink">Cancel</button>
                     </span>
+                  ) : (
+                    <span className="text-[15px] font-bold tabular-nums text-ink">{shown != null ? views(shown) : '-'}</span>
+                  )}
+                  <span className="ml-auto flex items-center gap-2">
                     {r.pinned && !r.dirty && (
-                      <button type="button" onClick={() => setRow(r.key, { target: '', pinned: false })} className="inline-flex items-center gap-1 rounded-full bg-brand-tint px-2.5 py-1 text-[13px] font-semibold text-brand transition-transform hoverable:hover:-translate-y-0.5">
-                        <Icon name="refresh" className="h-3.5 w-3.5" />Set by hand · follow the plan
+                      <button type="button" onClick={() => setRow(r.key, { target: '', pinned: false })} title="Go back to the growth plan's figure"
+                        className="inline-flex items-center gap-1 rounded-full bg-brand-tint px-2.5 py-1 text-[13px] font-semibold text-brand transition-transform hoverable:hover:-translate-y-0.5">
+                        <Icon name="refresh" className="h-3.5 w-3.5" />Set by hand · use the plan
                       </button>
                     )}
-                    {differs && r.dirty && !anchor && (
-                      <span className="flex animate-pop-in gap-1.5">
-                        <span className="rounded-full bg-ink px-2.5 py-1 text-[13px] font-semibold text-white">Just this month</span>
-                        <button type="button" onClick={() => replanFrom(r)} className="rounded-full border border-gray-200 bg-white px-2.5 py-1 text-[13px] font-semibold text-ink transition-all hoverable:hover:-translate-y-0.5 hoverable:hover:border-brand/40 hoverable:hover:text-brand">
-                          Re-plan every month from this
-                        </button>
-                      </span>
+                    {!anchor && !editingRow && !r.pinned && (
+                      <button type="button" onClick={() => setMonths((x) => ({ ...x, [segment]: x[segment].map((y) => (y.key === r.key ? { ...y, editing: true } : y)) }))}
+                        className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[13px] font-semibold text-smoke transition-colors hoverable:hover:bg-cloud hoverable:hover:text-brand">
+                        <Icon name="pencil" className="h-3.5 w-3.5" />Change
+                      </button>
                     )}
-                    <button type="button" onClick={() => setMonths((x) => ({ ...x, [segment]: x[segment].map((y) => (y.key === r.key ? { ...y, more: !y.more } : y)) }))}
-                      aria-expanded={r.more} className="ml-auto inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[13px] font-semibold text-smoke transition-colors hoverable:hover:bg-cloud hoverable:hover:text-ink">
-                      {r.epm || r.cpm || r.other || r.override || r.note ? <span className="h-1.5 w-1.5 rounded-full bg-brand" /> : null}
-                      Rates, costs, note
-                      <Icon name="chevronDown" className={cx('h-4 w-4 transition-transform duration-200', r.more && 'rotate-180')} />
-                    </button>
-                  </div>
-                  {r.more && (
-                    <div className="mt-3 grid animate-rise gap-3 sm:grid-cols-5">
-                      <Field label={<Term k="epm">EPM €</Term>}><input value={r.epm} onChange={(e) => setRow(r.key, { epm: e.target.value })} placeholder={fmt(plan.epm)} inputMode="decimal" className="input !py-1.5 tabular-nums" /></Field>
-                      <Field label={<Term k="cpm">Target CPM €</Term>}><input value={r.cpm} onChange={(e) => setRow(r.key, { cpm: e.target.value })} placeholder={fmt(plan.cpm)} inputMode="decimal" className="input !py-1.5 tabular-nums" /></Field>
-                      <Field label={<Term k="other">Other costs €</Term>}><input value={r.other} onChange={(e) => setRow(r.key, { other: e.target.value })} placeholder="0" inputMode="decimal" className="input !py-1.5 tabular-nums" /></Field>
-                      <Field label="Achieved (by hand)"><input value={r.override} onChange={(e) => setRow(r.key, { override: e.target.value })} placeholder="From the platform" inputMode="decimal" className="input !py-1.5 tabular-nums" /></Field>
-                      <Field label="Note"><input value={r.note} onChange={(e) => setRow(r.key, { note: e.target.value.slice(0, 500) })} placeholder="Optional" className="input !py-1.5" /></Field>
-                    </div>
-                  )}
+                  </span>
                 </li>
               )
             })}
@@ -247,6 +243,12 @@ export default function PlanEditor({ segment: initial, focus, plans, targets, fr
   )
 }
 
-function Field({ label, children }) {
-  return <div className="block"><span className="mb-1 block text-[13px] font-semibold text-smoke">{label}</span>{children}</div>
+function Field({ label, hint, children }) {
+  return (
+    <div className="block">
+      <span className="mb-1 block text-[13px] font-semibold text-smoke">{label}</span>
+      {children}
+      {hint && <span className="mt-1 block text-[13px] text-gray-400">{hint}</span>}
+    </div>
+  )
 }

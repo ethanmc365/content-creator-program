@@ -110,7 +110,7 @@ const num = (v) => (v == null || v === '' ? null : Number(v))
 // ---- THE GROWTH PLAN ------------------------------------------------------------------------------------------------
 const DEFAULT_PLANS = {
   community: { segment: 'community', start: '2026-09', anchor: '2027-01', anchorViews: 17_000_000, growth: 0.07, epm: 0.9, cpm: 0.5 },
-  vip: { segment: 'vip', start: '2026-09', anchor: '2026-10', anchorViews: 16_000_000, growth: 0.07, epm: 0.9, cpm: 0.25 },
+  vip: { segment: 'vip', start: '2026-10', anchor: '2027-01', anchorViews: 18_400_000, growth: 0.07, epm: 0.9, cpm: 0.25 },
 }
 /** A ccc_plans row (or nothing) as the page uses it. */
 export function planOf(plans = [], segment) {
@@ -132,11 +132,16 @@ export function monthsBetween(a, b) {
   const y = parseMonth(b)
   return (y.year - x.year) * 12 + (y.month - x.month)
 }
-/** The plan's target for a month: the anchor grown (or shrunk) by the growth, to the nearest 1,000. */
+/** A clean figure, the way the team writes targets: 12,969,000 -> 13,000,000; 13,877,000 -> 13,900,000. */
+export function niceViews(v) {
+  const step = v >= 1_000_000 ? 100_000 : v >= 100_000 ? 10_000 : 1_000
+  return Math.round(v / step) * step
+}
+/** The plan's target for a month: the anchor grown (or shrunk) by the growth, rounded to a clean figure. */
 export function planTarget(plan, key) {
   if (!plan || !key || key < plan.start) return null
-  const v = plan.anchorViews * (1 + plan.growth) ** monthsBetween(plan.anchor, key)
-  return Math.round(v / 1000) * 1000
+  if (key === plan.anchor) return plan.anchorViews
+  return niceViews(plan.anchorViews * (1 + plan.growth) ** monthsBetween(plan.anchor, key))
 }
 /** The months the page shows by default: the plan's first month to nine months from now (it grows on its own). */
 export function defaultRange(plans = [], nowKey) {
@@ -311,7 +316,7 @@ export function combineSegments(a = [], b = []) {
       actualEarnings, actualCost, actualMargin: actualEarnings == null || actualCost == null ? null : actualEarnings - actualCost,
       projectedEarnings, projectedCost, projectedMargin: projectedEarnings == null || projectedCost == null ? null : projectedEarnings - projectedCost,
       actualCpm: achieved > 0 && actualCost != null ? actualCost / achieved * 1000 : null,
-      costs: { community: x.actualCost, vip: y.actualCost },
+      costs: { community: x.actualCost ?? ((x.costs?.challenges || 0) + (x.costs?.rewards || 0)), vip: y.actualCost ?? 0, lines: x.costs?.lines || [] },
       videos: add(x.videos, y.videos), creators: add(x.creators, y.creators),
     }
   })
@@ -379,3 +384,10 @@ export const CSV_COLUMNS = [
   { key: 'actual_earnings', label: 'Actual earnings (EUR)' }, { key: 'actual_costs', label: 'Actual costs (EUR)' }, { key: 'actual_margin', label: 'Actual margin (EUR)' },
   { key: 'actual_cpm', label: 'Actual CPM (EUR)' }, { key: 'note', label: 'Note' },
 ]
+
+/** One challenge's result for Tryp.com: views x EPM earned, minus what it cost. */
+export function challengeProfit({ views = 0, spend = 0 } = {}, epm = 0.9) {
+  const earnings = (Number(views) || 0) / 1000 * (Number(epm) || 0)
+  const profit = earnings - (Number(spend) || 0)
+  return { earnings, profit, margin: earnings > 0 ? profit / earnings : null }
+}

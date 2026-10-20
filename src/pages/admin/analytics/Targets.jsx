@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, useCallback } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { Bar, CartesianGrid, Cell, ComposedChart, Line, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { Select, Skeleton, Toggle } from '../../../components/ui'
@@ -11,41 +11,33 @@ import {
   CSV_COLUMNS, SEGMENTS, addMonths, buildMonths, combineSegments, csvRows, defaultRange, monthKey, monthLabel, monthRange,
   monthStart, neededGrowth, planOf, summarise,
 } from '../../../lib/cccTargets'
-import { Card, MonthRangePicker, ProgressBar, Segmented, StatusChip, Term, eur, pct, signedPct, toneText, views } from './targets/parts'
-import TargetsSheet from './targets/TargetsSheet'
+import { Card, MonthRangePicker, ProgressBar, Segmented, StatusChip, eur, pct, signedPct, toneText, views } from './targets/parts'
+import MonthTable from './targets/TargetsSheet'
 import MonthDetail from './targets/MonthDetail'
 import PlanEditor from './targets/PlanEditor'
 
-// TARGETS & PROFIT (20 Oct 2026; rebuilt the same evening after the team's first look). The "CCC Targets" sheet, live:
-// every month's view target against what the community (and the VIPs) actually did, what those views earn Tryp.com at
-// the EPM, what they really cost, and the margin.
+// TARGETS & PROFIT (20 Oct 2026, third pass the same evening). The "CCC Targets" sheet, live: every month's view target
+// against what the community (and the VIPs) actually did, what those views earn Tryp.com at the EPM, what they really
+// cost, and the margin.
 //
-// NOTHING IS TYPED IN AFTER THE FACT. The targets come from a growth plan (ccc_plans: one anchor month and a monthly
-// growth, migration 446), so every month, including ones that have not arrived yet, has a target without anybody
-// adding it. Everything measured is `admin_ccc_actuals`, read when the tab opens or Refresh is pressed (no timer): views
-// gained inside each month, challenges that ran off the platform, prize pots and vouchers, other rewards, VIP pay.
-
-const COSTS = [
-  { key: 'real', label: 'Real costs', hint: 'Prize pots, vouchers and VIP pay the platform recorded, plus other costs' },
-  { key: 'target', label: 'At target CPM', hint: 'Achieved views x the target CPM, the way the old sheet worked' },
-]
+// NOTHING IS TYPED IN AFTER THE FACT. Targets come from a growth plan (ccc_plans, migrations 446-447: an anchor month
+// and a monthly growth), so every month, including ones that have not arrived, has a target without anybody adding it.
+// Everything measured is `admin_ccc_actuals`, read when the tab opens or the header's refresh is pressed: views gained
+// inside each month, challenges that ran off the platform, prize pots and vouchers, other rewards, VIP pay.
+//
+// COSTS ARE ALWAYS THE REAL ONES. The "Real costs / At target CPM" switch is gone (the team found it confusing): the
+// target CPM is only used for the PLANNED cost of a month (target views x target CPM).
 const METRICS = [
   { key: 'views', label: 'Views' },
   { key: 'earnings', label: 'Earnings' },
   { key: 'costs', label: 'Costs' },
   { key: 'margin', label: 'Margin' },
 ]
-const COUNT = 700 // the page's numbers count up quickly (the default 1.6s felt slow here)
+const COUNT = 700 // the page's numbers count up quickly
 const isMonth = (s) => /^\d{4}-(0[1-9]|1[0-2])$/.test(s || '')
 const cache = new Map()
 
-function agoText(at, now) {
-  if (!at) return ''
-  const m = Math.floor((now - at) / 60000)
-  return m < 1 ? 'Updated just now' : m < 60 ? `Updated ${m} min ago` : `Updated ${Math.floor(m / 60)} h ago`
-}
-
-export default function Targets() {
+export default function Targets({ refreshKey = 0 }) {
   const [params, setParams] = useSearchParams()
   const setParam = useCallback((patch) => {
     const q = { ...Object.fromEntries(params) }
@@ -54,18 +46,16 @@ export default function Targets() {
   }, [params, setParams])
 
   const seg = ['community', 'vip', 'all'].includes(params.get('seg')) ? params.get('seg') : 'community'
-  const costMode = params.get('costs') === 'target' ? 'target' : 'real'
   const [metric, setMetric] = useState('views')
   const [cumulative, setCumulative] = useState(false)
   const [includePlanned, setIncludePlanned] = useState(false)
   const [openMonth, setOpenMonth] = useState(null)
   const [editing, setEditing] = useState(null) // null | { segment, focus }
   const [tick, setTick] = useState(0)
-  const [clock, setClock] = useState(() => Date.now())
-  useEffect(() => { const id = setInterval(() => setClock(Date.now()), 30_000); return () => clearInterval(id) }, [])
+  const [clock] = useState(() => Date.now())
 
-  // THE PLAN: two growth plans and the months set by hand. Small, read whole. Kept on screen while it re-reads, so a
-  // save never blanks the page (the "flash" the team saw was the page dropping to a skeleton and back).
+  // THE PLAN: two growth plans and any month set by hand. Small, read whole. Kept on screen while it re-reads, so a
+  // save never drops the page to a skeleton (the flash the team saw).
   const [plan, setPlan] = useState({ plans: null, targets: null, error: '' })
   useEffect(() => {
     let alive = true
@@ -78,7 +68,7 @@ export default function Targets() {
       setPlan((old) => (error ? { ...old, error } : { plans: p.data || [], targets: t.data || [], error: '' }))
     })
     return () => { alive = false }
-  }, [tick])
+  }, [tick, refreshKey])
   const { plans, targets } = plan
 
   // THE MONTHS SHOWN. The URL wins; otherwise the plan's first month to nine months from now, so new months join the
@@ -90,9 +80,9 @@ export default function Targets() {
   const to = toRaw < from ? from : toRaw
   const months = useMemo(() => monthRange(from, to), [from, to])
 
-  // WHAT HAPPENED. Only the months that have started are worth asking about.
+  // WHAT HAPPENED. Only months that have started are worth asking about.
   const askTo = to < nowMonth ? to : nowMonth
-  const actualKey = `${from}|${askTo}|${tick}`
+  const actualKey = `${from}|${askTo}|${tick}|${refreshKey}`
   const [actuals, setActuals] = useState({ key: null, data: null, error: '', at: 0 })
   useEffect(() => {
     let alive = true
@@ -116,15 +106,13 @@ export default function Targets() {
   const now = actuals.at
   const segRows = useMemo(() => {
     if (!targets || !plans || !data) return null
-    const opts = { months, plans, targets, actuals: data, now, costMode, includePlanned }
+    const opts = { months, plans, targets, actuals: data, now, includePlanned }
     const community = buildMonths({ ...opts, segment: 'community' })
     const vip = buildMonths({ ...opts, segment: 'vip' })
     return { community, vip, all: combineSegments(community, vip) }
-  }, [targets, plans, data, months, now, costMode, includePlanned])
+  }, [targets, plans, data, months, now, includePlanned])
   const rows = segRows?.[seg] || null
   const summary = useMemo(() => (rows ? summarise(rows) : null), [rows])
-
-  const refresh = () => { cache.clear(); setTick((n) => n + 1) }
   const segLabel = SEGMENTS.find((s) => s.key === seg)?.label
 
   function downloadData() {
@@ -134,33 +122,24 @@ export default function Targets() {
   }
 
   const error = plan.error || actuals.error
+  const heroRow = summary ? (summary.live || summary.lastDone) : null
   return (
     <div className="space-y-6">
-      {/* ---- THE CONTROLS: whose numbers, which months, how costs are counted; then the actions. ---- */}
-      <Card className="flex flex-col gap-3 p-3 lg:flex-row lg:items-center" delay={0}>
-        <Segmented full value={seg} options={SEGMENTS} onChange={(k) => setParam({ seg: k === 'community' ? null : k })} className="lg:w-auto" />
-        <div className="flex flex-wrap items-center gap-2">
-          <MonthRangePicker from={from} to={to} nowKey={nowMonth} planFrom={range.from} planTo={range.to}
-            onChange={(a, b) => setParam(a === range.from && b === range.to ? { from: null, to: null } : { from: a, to: b })} />
-          <Segmented size="sm" value={costMode} options={COSTS} onChange={(k) => setParam({ costs: k === 'real' ? null : k })} />
-        </div>
-        <div className="flex items-center gap-2 lg:ml-auto">
-          <button type="button" onClick={refresh} disabled={loadingActuals} title={`Read the figures again (${agoText(actuals.at, clock).toLowerCase()})`}
-            className="group inline-flex h-9 items-center gap-1.5 rounded-full px-2.5 text-[13px] font-medium text-smoke transition-colors hoverable:hover:bg-cloud hoverable:hover:text-ink disabled:opacity-60">
-            <Icon name="refresh" className={cx('h-4 w-4 text-brand transition-transform duration-500 group-hover:rotate-180', loadingActuals && 'animate-spin')} />
-            <span className="whitespace-nowrap max-sm:hidden lg:hidden 2xl:inline">{loadingActuals ? 'Updating…' : agoText(actuals.at, clock)}</span>
+      {/* ---- THE CONTROLS: whose numbers and which months, then the two actions. One row from `sm` up. ---- */}
+      <Card className="flex flex-col gap-3 p-3 sm:flex-row sm:items-center" delay={0}>
+        <Segmented full value={seg} options={SEGMENTS} onChange={(k) => setParam({ seg: k === 'community' ? null : k })} className="sm:w-fit" />
+        <MonthRangePicker from={from} to={to} nowKey={nowMonth} planFrom={range.from} planTo={range.to}
+          onChange={(a, b) => setParam(a === range.from && b === range.to ? { from: null, to: null } : { from: a, to: b })} />
+        <span className="flex items-center gap-2 sm:ml-auto">
+          <button type="button" disabled={!rows} onClick={downloadData} title="Download these months as a spreadsheet (CSV)"
+            className="inline-flex h-9 items-center gap-1.5 whitespace-nowrap rounded-full border border-gray-200 bg-white px-3.5 text-[13px] font-semibold text-ink shadow-sm transition-all hoverable:hover:-translate-y-0.5 disabled:opacity-40">
+            <Icon name="download" className="h-4 w-4 text-brand" />CSV
           </button>
-          <span className="ml-auto flex items-center gap-2">
-            <button type="button" disabled={!rows} onClick={downloadData} title="Download these months as a spreadsheet (CSV)"
-              className="inline-flex h-9 items-center gap-1.5 rounded-full border border-gray-200 bg-white px-3.5 text-[13px] font-semibold text-ink shadow-sm transition-all hoverable:hover:-translate-y-0.5 disabled:opacity-40">
-              <Icon name="download" className="h-4 w-4 text-brand" />CSV
-            </button>
-            <button type="button" disabled={!targets} onClick={() => setEditing({ segment: seg === 'all' ? 'community' : seg })}
-              className="btn-primary !h-9 whitespace-nowrap !py-0 text-[13px] disabled:opacity-40">
-              <Icon name="sliders" className="h-4 w-4" />Edit plan
-            </button>
-          </span>
-        </div>
+          <button type="button" disabled={!targets} onClick={() => setEditing({ segment: seg === 'all' ? 'community' : seg })}
+            className="btn-primary !h-9 whitespace-nowrap !py-0 text-[13px] disabled:opacity-40">
+            <Icon name="sliders" className="h-4 w-4" />Edit plan
+          </button>
+        </span>
       </Card>
 
       {error && <p role="alert" className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">{error}</p>}
@@ -179,17 +158,17 @@ export default function Targets() {
       {rows && summary && (
         <div key={seg} className={cx('animate-tab-in space-y-6 transition-opacity duration-300', loadingActuals && 'opacity-70')}>
           <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
-            <MonthHero row={summary.live || summary.lastDone} onOpen={(k) => setOpenMonth(k)} segLabel={segLabel} />
-            <GoalCard rows={rows} summary={summary} plan={seg === 'all' ? null : planOf(plans, seg)} />
+            {heroRow ? <MonthHero row={heroRow} onOpen={setOpenMonth} segLabel={segLabel} /> : <PlanAhead rows={rows} segLabel={segLabel} onOpen={setOpenMonth} />}
+            <RoadToGoal rows={rows} summary={summary} plan={seg === 'all' ? null : planOf(plans, seg)} onOpen={setOpenMonth} />
           </div>
 
-          <Totals summary={summary} rows={rows} costMode={costMode} />
+          <Totals summary={summary} rows={rows} />
 
           <TrendChart rows={rows} metric={metric} setMetric={setMetric} cumulative={cumulative} setCumulative={setCumulative} onOpen={setOpenMonth} />
 
-          <TargetsSheet rows={rows} seg={seg} onOpen={setOpenMonth} onEdit={(focus) => setEditing({ segment: seg === 'all' ? 'community' : seg, focus })} />
+          <MonthTable rows={rows} onOpen={setOpenMonth} />
 
-          <CostsCard rows={rows} seg={seg} includePlanned={includePlanned} setIncludePlanned={setIncludePlanned} costMode={costMode} onOpen={setOpenMonth} />
+          <CostsCard rows={rows} seg={seg} includePlanned={includePlanned} setIncludePlanned={setIncludePlanned} onOpen={setOpenMonth} />
 
           <HowItWorks plans={plans} />
         </div>
@@ -200,7 +179,6 @@ export default function Targets() {
           monthKey={openMonth}
           seg={seg}
           segRows={segRows}
-          costMode={costMode}
           onClose={() => setOpenMonth(null)}
           onEdit={(segment) => { setOpenMonth(null); setEditing({ segment, focus: openMonth }) }}
         />
@@ -215,7 +193,7 @@ export default function Targets() {
           to={to}
           nowKey={nowMonth}
           onClose={() => setEditing(null)}
-          onSaved={() => { setEditing(null); setTick((n) => n + 1) }}
+          onSaved={() => { setEditing(null); cache.clear(); setTick((n) => n + 1) }}
         />
       )}
     </div>
@@ -223,16 +201,9 @@ export default function Targets() {
 }
 
 // ---------------------------------------------------------------------------------------------------------------------
-// THIS MONTH. Views so far against the target, where the month should be by today (the tick), where the pace lands
-// (the lighter run), and what it needs a day from here. A finished month shows its final result in the same card.
+// THIS MONTH: its target (the month's KPI), views so far against it, where the month should be by today (the tick), where
+// the pace lands, and what it needs a day from here. A finished month shows its final result in the same card.
 function MonthHero({ row, onOpen, segLabel }) {
-  if (!row) {
-    return (
-      <Card className="flex flex-col justify-center p-6 lg:col-span-2">
-        <p className="text-sm text-smoke">No month in this range has started yet. Pick earlier months above to see results.</p>
-      </Card>
-    )
-  }
   const live = row.state === 'live'
   const expected = live && row.target ? row.target * row.share : null
   const vsExpected = expected ? row.achieved / expected - 1 : null
@@ -253,7 +224,7 @@ function MonthHero({ row, onOpen, segLabel }) {
           <p className="text-4xl font-extrabold tracking-tight tabular-nums sm:text-5xl"><CountUp value={row.achieved || 0} format={views} duration={COUNT} /></p>
         </div>
         <div className="pb-1">
-          <p className="text-[13px] font-medium text-white/80">of the target</p>
+          <p className="text-[13px] font-medium text-white/80">{row.longLabel.split(' ')[0]} target</p>
           <p className="text-xl font-bold tabular-nums sm:text-2xl">{row.target != null ? views(row.target) : 'Not set'}</p>
         </div>
       </div>
@@ -269,15 +240,15 @@ function MonthHero({ row, onOpen, segLabel }) {
       <div className="relative mt-6 grid grid-cols-1 gap-3 sm:grid-cols-3">
         {live ? (
           <>
-            <HeroStat label={<Term k="pace" light>On pace for</Term>} value={views(row.projected)} sub={row.projectedPct != null ? `${pct(row.projectedPct)} of target` : null} />
+            <HeroStat label="On pace for" value={views(row.projected)} sub={row.projectedPct != null ? `${pct(row.projectedPct)} of the target` : null} />
             <HeroStat label="Needed a day" value={row.neededPerDay != null ? formatViews(row.neededPerDay) : '-'} sub={`Doing ${formatViews(row.perDay)} a day now`} />
-            <HeroStat label={<Term k="margin" light>Margin so far</Term>} value={eur(row.actualMargin)} sub={`Heading for ${eur(row.projectedMargin)}`} />
+            <HeroStat label="Margin so far" value={eur(row.actualMargin)} sub={`Heading for ${eur(row.projectedMargin)}`} />
           </>
         ) : (
           <>
             <HeroStat label="Earnings" value={eur(row.actualEarnings)} sub={`Plan ${eur(row.estEarnings)}`} />
             <HeroStat label="Costs" value={eur(row.actualCost)} sub={`Plan ${eur(row.estCost)}`} />
-            <HeroStat label={<Term k="margin" light>Margin</Term>} value={eur(row.actualMargin)} sub={`Plan ${eur(row.estMargin)}`} />
+            <HeroStat label="Margin" value={eur(row.actualMargin)} sub={`Plan ${eur(row.estMargin)}`} />
           </>
         )}
       </div>
@@ -298,87 +269,133 @@ function HeroStat({ label, value, sub }) {
   )
 }
 
-// ---------------------------------------------------------------------------------------------------------------------
-// THE GOAL: a future month's target, how far the current pace is from it, and the monthly growth that closes the gap.
-function GoalCard({ rows, summary, plan }) {
-  const planned = rows.filter((r) => r.target != null && r.state !== 'done')
-  // The anchor month when it is still ahead (January for the community); otherwise three months out.
-  const future = planned.filter((r) => r.state === 'future')
-  const anchorRow = plan && future.find((r) => r.key === plan.anchor)
-  const defaultGoal = (anchorRow || future[2] || future[future.length - 1] || planned[planned.length - 1])?.key
-  const [picked, setGoalKey] = useState(null)
-  const goal = rows.find((r) => r.key === (picked || defaultGoal))
-  const base = summary.live || summary.lastDone
-  if (!goal || goal.target == null) {
-    return <Card className="p-6" delay={80}><p className="text-sm text-smoke">Add a growth plan to track a goal.</p></Card>
-  }
-  const now = base ? base.projected : null
-  const steps = base ? monthRange(base.key, goal.key).length - 1 : null
-  const need = steps > 0 ? neededGrowth(now, goal.target, steps) : null
-  const share = now && goal.target ? Math.min(1, now / goal.target) : 0
-  const reached = now != null && now >= goal.target
-  const R = 52
-  const C = 2 * Math.PI * R
+// MONTHS STILL AHEAD (a range that has not started, e.g. November - December): what the plan asks of each month, a day,
+// and what it would earn, instead of "nothing has started yet".
+function PlanAhead({ rows, segLabel, onOpen }) {
+  const planned = rows.filter((r) => r.target != null)
+  const total = planned.reduce((n, r) => n + r.target, 0)
+  const span = rows.length === 1 ? rows[0].longLabel : `${monthLabel(rows[0].key, 'pick')} – ${monthLabel(rows[rows.length - 1].key, 'pick')}`
   return (
-    <Card className="flex flex-col p-5 sm:p-6" delay={80}>
-      <div className="flex items-center justify-between gap-2">
-        <h3 className="flex items-center gap-2 text-[15px] font-bold text-ink"><Icon name="flag" className="h-5 w-5 text-brand" />Goal</h3>
-        <Select variant="pill" value={goal.key} onChange={setGoalKey} ariaLabel="Goal month" search={false}
-          options={planned.map((r) => ({ value: r.key, label: r.longLabel }))} />
+    <Card className="relative overflow-hidden !border-0 bg-gradient-to-br from-ink to-[#3a1c0d] p-5 text-white shadow-lift sm:p-7 lg:col-span-2" delay={40}>
+      <span aria-hidden className="pointer-events-none absolute -right-16 -top-20 h-56 w-56 rounded-full bg-brand/30 blur-3xl" />
+      <div className="relative flex items-center justify-between gap-3">
+        <p className="text-sm font-semibold text-white/90">{segLabel} · coming up</p>
+        <span className="rounded-full bg-white/15 px-2.5 py-0.5 text-[13px] font-semibold">{span}</span>
       </div>
-      <div className="mt-5 flex items-center gap-5">
-        <svg viewBox="0 0 120 120" className="h-28 w-28 shrink-0 -rotate-90">
-          <defs>
-            <linearGradient id="tg-goal" x1="0" x2="1" y1="0" y2="1"><stop offset="0%" stopColor="#d94407" /><stop offset="100%" stopColor="#f5853f" /></linearGradient>
-          </defs>
-          <circle cx="60" cy="60" r={R} fill="none" stroke={CHART.rest} strokeWidth="11" />
-          <circle cx="60" cy="60" r={R} fill="none" stroke="url(#tg-goal)" strokeWidth="11" strokeLinecap="round"
-            strokeDasharray={C} strokeDashoffset={C * (1 - share)} className="transition-[stroke-dashoffset] duration-700 ease-out" />
-          <text x="60" y="60" transform="rotate(90 60 60)" textAnchor="middle" dominantBaseline="central" className="fill-ink text-[22px] font-extrabold">{pct(share)}</text>
-        </svg>
-        <div className="min-w-0">
-          <p className="text-2xl font-extrabold tabular-nums text-ink">{formatViews(goal.target)}</p>
-          <p className="text-[13px] text-smoke">views in {goal.longLabel}</p>
-          {base && <p className="mt-2 text-[13px] text-smoke">Today: <span className="font-semibold text-ink">{formatViews(now)}</span> {base.state === 'live' ? 'on pace' : 'last month'}</p>}
-        </div>
-      </div>
-      <div className="mt-auto pt-5">
-        {reached ? (
-          <p className="rounded-xl bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-700">Already at the goal pace.</p>
-        ) : (
-          <p className="rounded-xl bg-cloud px-3.5 py-2.5 text-sm text-smoke">
-            Needs <span className="font-bold text-brand">{need != null ? signedPct(need) : '-'}</span> a month for {steps} month{steps === 1 ? '' : 's'}
-            {plan ? <> · the plan grows <span className="font-semibold text-ink">{pct(plan.growth)}</span></> : null}
-          </p>
-        )}
-      </div>
+      <p className="relative mt-5 text-[13px] font-medium text-white/75">The plan asks for</p>
+      <p className="relative text-4xl font-extrabold tracking-tight tabular-nums sm:text-5xl"><CountUp value={total} format={views} duration={COUNT} /></p>
+      <p className="relative mt-1 text-[13px] text-white/75">views over {planned.length} month{planned.length === 1 ? '' : 's'}</p>
+      <ul className="relative mt-5 grid gap-2 sm:grid-cols-2">
+        {planned.slice(0, 6).map((r) => (
+          <li key={r.key}>
+            <button type="button" onClick={() => onOpen(r.key)} className="flex w-full items-center justify-between gap-3 rounded-2xl bg-white/10 px-4 py-3 text-left transition-colors hoverable:hover:bg-white/15">
+              <span>
+                <span className="block text-sm font-semibold">{r.longLabel}</span>
+                <span className="block text-[13px] text-white/70">{formatViews(r.target / r.days)} a day · margin {eur(r.estMargin)}</span>
+              </span>
+              <span className="text-lg font-bold tabular-nums">{formatViews(r.target)}</span>
+            </button>
+          </li>
+        ))}
+      </ul>
     </Card>
   )
 }
 
 // ---------------------------------------------------------------------------------------------------------------------
-// THE TOTALS for the months picked that have started (the month in progress counts up to today).
-function Totals({ summary, rows, costMode }) {
+// THE ROAD TO THE GOAL: every month from now to the goal month as a bar against its target, this month's views and pace
+// drawn into its bar, and the growth needed from today's pace. Replaces a ring that showed "99%" beside 10M views.
+function RoadToGoal({ rows, summary, plan, onOpen }) {
+  const ahead = rows.filter((r) => r.target != null && r.state !== 'done')
+  const future = ahead.filter((r) => r.state === 'future')
+  const anchorRow = plan && future.find((r) => r.key === plan.anchor)
+  const defaultGoal = (anchorRow || future[2] || future[future.length - 1] || ahead[ahead.length - 1])?.key
+  const [picked, setGoalKey] = useState(null)
+  const goal = rows.find((r) => r.key === (picked || defaultGoal))
+  if (!goal || goal.target == null) {
+    return <Card className="p-6" delay={80}><p className="text-sm text-smoke">No month ahead has a target in this range.</p></Card>
+  }
+  const base = summary.live || summary.lastDone
+  const startKey = base && base.key < goal.key ? base.key : ahead[0]?.key
+  const steps = rows.filter((r) => r.key >= startKey && r.key <= goal.key && r.target != null).slice(-6)
+  const max = Math.max(...steps.map((r) => Math.max(r.target, r.projected || 0)))
+  const pace = base ? base.projected : null
+  const gap = base ? monthRange(base.key, goal.key).length - 1 : 0
+  const need = gap > 0 ? neededGrowth(pace, goal.target, gap) : null
+  return (
+    <Card className="flex h-full flex-col p-5 sm:p-6" delay={80}>
+      <div className="flex items-center gap-2">
+        <h3 className="flex shrink-0 items-center gap-2 whitespace-nowrap text-[15px] font-bold text-ink"><Icon name="flag" className="h-5 w-5 text-brand" />Road to</h3>
+        <Select variant="pill" value={goal.key} onChange={setGoalKey} ariaLabel="Goal month" search={false}
+          options={ahead.map((r) => ({ value: r.key, label: r.longLabel }))} />
+      </div>
+      <p className="mt-3 text-3xl font-extrabold tabular-nums text-ink">{formatViews(goal.target)}</p>
+      <p className="text-[13px] text-smoke">views is the target for {goal.longLabel}</p>
+
+      <div className="mt-5 flex flex-1 items-end gap-2" style={{ minHeight: 140 }}>
+        {steps.map((r) => {
+          const h = (n) => `${Math.max(2, (n / max) * 100)}%`
+          const live = r.state === 'live'
+          return (
+            <button key={r.key} type="button" onClick={() => onOpen(r.key)} title={`${r.longLabel}: target ${views(r.target)}`}
+              className="group flex h-full min-w-0 flex-1 flex-col items-center justify-end gap-1.5">
+              <span className="text-[13px] font-semibold tabular-nums text-ink">{formatViews(r.target)}</span>
+              <span className="relative w-full flex-1 overflow-hidden rounded-lg">
+                <span className={cx('absolute inset-x-0 bottom-0 rounded-lg transition-colors', r.key === goal.key ? 'bg-brand/25' : 'bg-cloud group-hover:bg-gray-200')} style={{ height: h(r.target) }} />
+                {live && r.projected != null && <span className="absolute inset-x-0 bottom-0 rounded-lg bg-brand/30" style={{ height: h(Math.min(r.projected, max)) }} />}
+                {live && <span className="absolute inset-x-0 bottom-0 rounded-lg bg-gradient-to-t from-brand to-brand-light" style={{ height: h(r.achieved || 0) }} />}
+              </span>
+              <span className={cx('text-[13px]', live ? 'font-bold text-brand' : 'text-smoke')}>{monthLabel(r.key, 'month').slice(0, 3)}</span>
+            </button>
+          )
+        })}
+      </div>
+
+      <p className="mt-4 rounded-xl bg-cloud px-3.5 py-2.5 text-[13px] leading-relaxed text-smoke">
+        {pace != null && pace >= goal.target ? (
+          <span className="font-semibold text-emerald-700">Today&apos;s pace already reaches it.</span>
+        ) : need != null ? (
+          <>From today&apos;s pace ({formatViews(pace)}) it needs <span className="font-bold text-brand">{signedPct(need)}</span> a month{plan ? <>; the plan grows <span className="font-semibold text-ink">{pct(plan.growth)}</span></> : null}.</>
+        ) : (
+          <>Each month&apos;s target, step by step.</>
+        )}
+      </p>
+    </Card>
+  )
+}
+
+// ---------------------------------------------------------------------------------------------------------------------
+// THE TOTALS for the months picked that have started (the month in progress counts up to today); for a range still
+// ahead, the plan's totals.
+function Totals({ summary, rows }) {
   const measured = rows.filter((r) => r.state !== 'future' && r.achieved != null)
-  if (!measured.length) return null
-  const span = measured.length === 1 ? measured[0].longLabel : `${monthLabel(measured[0].key, 'pick')} – ${monthLabel(measured[measured.length - 1].key, 'pick')}`
-  const tiles = [
-    { label: <Term k="achieved">Views</Term>, value: summary.achieved, format: views, sub: summary.targetToDate ? `${pct(summary.pctToDate)} of ${formatViews(summary.targetToDate)} due` : null, tone: summary.pctToDate >= 1 ? 'good' : summary.pctToDate >= 0.9 ? 'warn' : 'bad' },
-    { label: <Term k="epm">Earnings</Term>, value: summary.earnings, format: (n) => eur(n), sub: `Plan ${eur(summary.estEarnings)}` },
-    { label: <Term k="costs">{costMode === 'target' ? 'Costs at target CPM' : 'Costs'}</Term>, value: summary.cost, format: (n) => eur(n), sub: summary.cpm != null ? `${eur(summary.cpm, true)} per 1,000 views` : null },
-    { label: <Term k="margin">Margin</Term>, value: summary.margin, format: (n) => eur(n), sub: summary.marginPct != null ? `${pct(summary.marginPct)} of earnings` : null, tone: summary.margin >= summary.estMargin ? 'good' : 'warn' },
+  const ahead = !measured.length
+  const list = ahead ? rows.filter((r) => r.target != null) : measured
+  if (!list.length) return null
+  const span = list.length === 1 ? list[0].longLabel : `${monthLabel(list[0].key, 'pick')} – ${monthLabel(list[list.length - 1].key, 'pick')}`
+  const sum = (f) => list.reduce((n, r) => n + (Number(r[f]) || 0), 0)
+  const tiles = ahead ? [
+    { label: 'Target views', value: sum('target'), format: views },
+    { label: 'Planned earnings', value: sum('estEarnings'), format: (n) => eur(n) },
+    { label: 'Planned costs', value: sum('estCost'), format: (n) => eur(n) },
+    { label: 'Planned margin', value: sum('estMargin'), format: (n) => eur(n) },
+  ] : [
+    { label: 'Views', value: summary.achieved, format: views, sub: summary.targetToDate ? `${pct(summary.pctToDate)} of ${formatViews(summary.targetToDate)} due` : null, tone: summary.pctToDate >= 1 ? 'good' : summary.pctToDate >= 0.9 ? 'warn' : 'bad' },
+    { label: 'Earnings', value: summary.earnings, format: (n) => eur(n), sub: `Plan ${eur(summary.estEarnings)}` },
+    { label: 'Costs', value: summary.cost, format: (n) => eur(n), sub: summary.cpm != null ? `${eur(summary.cpm, true)} per 1,000 views` : null },
+    { label: 'Margin', value: summary.margin, format: (n) => eur(n), sub: summary.marginPct != null ? `${pct(summary.marginPct)} of earnings` : null, tone: summary.margin >= summary.estMargin ? 'good' : 'warn' },
   ]
   return (
     <section>
       <div className="mb-3 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 px-1">
-        <h3 className="text-[15px] font-bold text-ink">Totals · {span}</h3>
-        {summary.live && <p className="text-[13px] text-smoke">{summary.live.longLabel.split(' ')[0]} counts up to today</p>}
+        <h3 className="text-[15px] font-bold text-ink">{ahead ? 'The plan' : 'Totals'} · {span}</h3>
+        {summary.live && !ahead && <p className="text-[13px] text-smoke">{summary.live.longLabel.split(' ')[0]} counts up to today</p>}
       </div>
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         {tiles.map((t, i) => (
-          <Card key={i} className="p-4 sm:p-5" delay={100 + i * 40}>
+          <Card key={t.label} className="p-4 sm:p-5" delay={100 + i * 40}>
             <p className="text-[13px] font-semibold text-smoke">{t.label}</p>
-            <p className={cx('mt-1.5 text-xl font-extrabold tabular-nums sm:text-2xl', i === 3 && summary.margin < 0 ? 'text-red-600' : 'text-ink')}>
+            <p className={cx('mt-1.5 text-xl font-extrabold tabular-nums sm:text-2xl', i === 3 && t.value < 0 ? 'text-red-600' : 'text-ink')}>
               <CountUp value={t.value || 0} format={t.format} duration={COUNT} />
             </p>
             {t.sub && <p className={cx('mt-1 text-[13px] leading-snug', t.tone ? toneText[t.tone] : 'text-smoke')}>{t.sub}</p>}
@@ -390,8 +407,8 @@ function Totals({ summary, rows, costMode }) {
 }
 
 // ---------------------------------------------------------------------------------------------------------------------
-// THE CHART. Bars are what happened (this month's so-far solid, the rest of its pace lighter on top); the dashed line
-// is the plan. Switching the measure or the total re-draws the bars from the axis, so the change is visible.
+// THE CHART. Bars are what happened (this month's so-far solid, the rest of its pace lighter on top); the dashed line is
+// the plan. A bar that beats the plan is GREEN, the month in progress too once its pace beats it.
 function TrendChart({ rows, metric, setMetric, cumulative, setCumulative, onOpen }) {
   const series = useMemo(() => {
     const pick = {
@@ -406,13 +423,19 @@ function TrendChart({ rows, metric, setMetric, cumulative, setCumulative, onOpen
     for (const r of rows) {
       const [a, p, t] = pick(r)
       const live = r.state === 'live'
-      const pace = live && p != null && a != null ? Math.max(0, p - a) : null
       if (t != null) runT += t
+      const shownA = a == null ? null : cumulative ? runA + a : a
+      const shownP = p == null ? null : cumulative ? runA + p : p
       if (a != null) runA += a
+      const shownT = t == null ? null : cumulative ? runT : t
+      // Costs are better LOW, so "beating the plan" is being under it.
+      const beats = (v) => v != null && shownT != null && (metric === 'costs' ? v <= shownT : v >= shownT)
       out.push({
-        key: r.key, label: r.label, state: r.state, status: r.status, pace,
-        plan: t == null ? null : cumulative ? runT : t,
-        actual: a == null ? null : cumulative ? runA : a,
+        key: r.key, label: r.label, state: r.state,
+        actual: shownA,
+        pace: live && shownP != null && shownA != null ? Math.max(0, shownP - shownA) : null,
+        plan: shownT,
+        hit: r.state === 'done' ? beats(shownA) : live ? beats(shownP) : false,
       })
     }
     return out
@@ -437,9 +460,6 @@ function TrendChart({ rows, metric, setMetric, cumulative, setCumulative, onOpen
       <div key={`${metric}-${cumulative}`} className="h-64 w-full animate-tab-in sm:h-80">
         <ResponsiveContainer width="100%" height="100%">
           <ComposedChart data={series} margin={{ top: 8, right: 6, left: -4, bottom: 0 }} onClick={(e) => e?.activePayload?.[0] && onOpen(e.activePayload[0].payload.key)}>
-            <defs>
-              <linearGradient id="tg-bar" x1="0" x2="0" y1="0" y2="1"><stop offset="0%" stopColor="#f5853f" /><stop offset="100%" stopColor="#d94407" /></linearGradient>
-            </defs>
             <CartesianGrid vertical={false} stroke={CHART.grid} strokeDasharray="3 3" />
             <XAxis dataKey="label" tick={axisTick} tickLine={false} axisLine={{ stroke: CHART.grid }} tickMargin={8} interval="preserveStartEnd" />
             <YAxis tick={axisTick} tickLine={false} axisLine={false} width={56} tickFormatter={tick} />
@@ -450,17 +470,19 @@ function TrendChart({ rows, metric, setMetric, cumulative, setCumulative, onOpen
                 const s = p?.[0]?.payload
                 return s ? `${l}${s.state === 'live' ? ' · in progress' : s.state === 'future' ? ' · upcoming' : ''}` : l
               }} />
-            <Bar dataKey="actual" stackId="a" fill="url(#tg-bar)" shape={stackShape(['actual', 'pace'], 'actual')} maxBarSize={44} animationDuration={600} animationEasing="ease-out" cursor="pointer">
-              {series.map((s) => <Cell key={s.key} fill={s.state === 'done' && s.status === 'hit' && metric === 'views' ? FILL.green : 'url(#tg-bar)'} />)}
+            <Bar dataKey="actual" stackId="a" fill={FILL.brand} shape={stackShape(['actual', 'pace'], 'actual')} maxBarSize={44} animationDuration={600} animationEasing="ease-out" cursor="pointer">
+              {series.map((s) => <Cell key={s.key} fill={s.hit ? FILL.green : FILL.brand} />)}
             </Bar>
-            <Bar dataKey="pace" stackId="a" fill={FILL.pale} shape={stackShape(['actual', 'pace'], 'pace')} maxBarSize={44} animationDuration={600} animationEasing="ease-out" cursor="pointer" />
+            <Bar dataKey="pace" stackId="a" fill={FILL.pale} shape={stackShape(['actual', 'pace'], 'pace')} maxBarSize={44} animationDuration={600} animationEasing="ease-out" cursor="pointer">
+              {series.map((s) => <Cell key={s.key} fill={s.hit ? 'rgba(16,185,129,0.28)' : FILL.pale} />)}
+            </Bar>
             <Line dataKey="plan" type="monotone" stroke={CHART.ink} strokeWidth={2} strokeDasharray="6 5" dot={{ r: 3, fill: CHART.ink, strokeWidth: 0 }} activeDot={{ r: 5 }} animationDuration={700} connectNulls />
           </ComposedChart>
         </ResponsiveContainer>
       </div>
       <p className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-1 text-[13px] text-smoke">
         <Legend swatch="bg-gradient-to-t from-brand to-brand-light" label="Achieved" />
-        {metric === 'views' && <Legend swatch="bg-gradient-to-t from-emerald-500 to-emerald-300" label="Target hit" />}
+        <Legend swatch="bg-gradient-to-t from-emerald-500 to-emerald-300" label={metric === 'costs' ? 'Under the plan' : 'Beat the plan'} />
         <Legend swatch="bg-brand/25" label="Rest of this month's pace" />
         <span className="inline-flex items-center gap-1.5"><span className="h-0 w-4 border-t-2 border-dashed border-ink" />Plan</span>
       </p>
@@ -472,31 +494,39 @@ function Legend({ swatch, label }) {
 }
 
 // ---------------------------------------------------------------------------------------------------------------------
-// WHERE THE MONEY WENT, month by month.
-function CostsCard({ rows, seg, includePlanned, setIncludePlanned, costMode, onOpen }) {
+// WHERE THE MONEY WENT, month by month. "Include draft challenges" adds the prize money of challenges not yet published,
+// spread over the months they will run, so next month's committed spend shows before it goes live.
+function CostsCard({ rows, seg, includePlanned, setIncludePlanned, onOpen }) {
   const keys = seg === 'community' ? ['challenges', 'rewards', 'other'] : seg === 'vip' ? ['vip', 'official', 'other'] : ['community', 'vip']
   const names = { challenges: 'Challenge prizes and vouchers', rewards: 'Other rewards', other: 'Other costs', vip: seg === 'all' ? 'VIP and official' : 'VIP pay', official: 'Official creators pay', community: 'Community' }
   const fills = [FILL.brand, FILL.amber, FILL.gray]
   const swatches = ['bg-gradient-to-t from-brand to-brand-light', 'bg-gradient-to-t from-amber-500 to-amber-300', 'bg-gray-300']
-  const data = rows.filter((r) => r.state !== 'future').map((r) => ({ key: r.key, label: r.label, state: r.state, ...Object.fromEntries(keys.map((k) => [k, r.costs?.[k] || 0])) }))
+  const valueOf = (r, k) => Number(r.costs?.[k]) || 0
+  const data = rows
+    .filter((r) => r.state !== 'future' || (includePlanned && keys.some((k) => valueOf(r, k) > 0)))
+    .map((r) => ({ key: r.key, label: r.label, state: r.state, ...Object.fromEntries(keys.map((k) => [k, valueOf(r, k)])) }))
+  const drafts = [...new Map(rows.flatMap((r) => r.costs?.lines || []).filter((l) => l.planned).map((l) => [l.id, l])).values()]
   return (
     <Card className="p-5 sm:p-6" delay={220}>
       <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
         <div>
           <h3 className="text-[15px] font-bold text-ink">Where the money went</h3>
-          <p className="text-[13px] text-smoke">
-            {costMode === 'target' ? 'The real spend, for comparison (the figures above use the target CPM).' : 'The real spend behind the cost figures, read from the platform.'}
-          </p>
+          <p className="text-[13px] text-smoke">The real spend, read from the platform. Click a month for every line.</p>
         </div>
-        {seg === 'community' && (
+        {seg !== 'vip' && (
           <label className="inline-flex cursor-pointer items-center gap-2.5 rounded-full border border-gray-200 bg-white py-1.5 pl-3.5 pr-2 text-[13px] font-semibold text-ink shadow-sm">
             Include draft challenges
             <Toggle size="sm" on={includePlanned} onChange={setIncludePlanned} label="Include draft challenges" />
           </label>
         )}
       </div>
+      {includePlanned && seg !== 'vip' && (
+        <p className="mb-3 animate-rise rounded-xl bg-amber-50 px-3.5 py-2 text-[13px] text-amber-800">
+          {drafts.length ? `Counting ${drafts.length === 1 ? 'the draft' : `${drafts.length} drafts`}: ${drafts.map((d) => d.title).join(', ')}.` : 'No draft challenge falls in these months.'}
+        </p>
+      )}
       {data.length === 0 ? (
-        <p className="rounded-xl bg-cloud/60 px-4 py-10 text-center text-sm text-smoke">No month in this range has started yet.</p>
+        <p className="rounded-xl bg-cloud/60 px-4 py-10 text-center text-sm text-smoke">Nothing has been spent in these months yet.</p>
       ) : (
         <div className="h-56 w-full sm:h-64">
           <ResponsiveContainer width="100%" height="100%">
@@ -506,7 +536,7 @@ function CostsCard({ rows, seg, includePlanned, setIncludePlanned, costMode, onO
               <YAxis tick={axisTick} tickLine={false} axisLine={false} width={52} tickFormatter={(v) => `€${formatViews(v)}`} />
               <Tooltip cursor={{ fill: 'rgba(217,68,7,0.06)' }} contentStyle={tooltipStyle} formatter={(v, n) => [eur(v), names[n]]} />
               {keys.map((k, i) => (
-                <Bar key={k} dataKey={k} stackId="c" fill={fills[i]} shape={stackShape(keys, k)} maxBarSize={44} animationDuration={600} cursor="pointer" />
+                <Bar key={`${k}-${includePlanned}`} dataKey={k} stackId="c" fill={fills[i]} shape={stackShape(keys, k)} maxBarSize={44} animationDuration={600} cursor="pointer" />
               ))}
             </ComposedChart>
           </ResponsiveContainer>
@@ -527,10 +557,11 @@ function HowItWorks({ plans }) {
   const v = planOf(plans, 'vip')
   const line = (p) => `${monthLabel(p.anchor, 'long')} = ${formatViews(p.anchorViews)}, ${p.growth >= 0 ? '+' : ''}${(p.growth * 100).toFixed(1).replace(/\.0$/, '')}% a month`
   const items = [
-    ['Targets', `Set by a growth plan, not typed in month by month. Community: ${line(c)}. VIP: ${line(v)}. Every other month follows from that, so new months appear with a target on their own. Edit plan changes the anchor, the growth, or a single month.`],
-    ['Views achieved', 'Views gained inside each month on every challenge entry, read from the platform, plus challenges that ran off the platform (spread by the days they ran). VIP months before October 2026 come from the VIP sheet.'],
-    ['Earnings', 'Views achieved ÷ 1,000 × the EPM.'],
-    ['Costs', 'Every challenge prize pot (or what was paid, if more) and its vouchers, spread over the days it ran; other rewards; VIP and official creator pay (closed months from statements, this month live); plus any other costs added to the plan.'],
+    ['Targets', `A growth plan, not typed in month by month. Community: ${line(c)}. VIP: ${line(v)}. Every other month follows, rounded to a clean figure, so new months appear with a target on their own. Edit plan changes the anchor, the growth or a single month.`],
+    ['Views achieved', 'Views gained inside each month on every entry, read from the platform, plus challenges that ran off the platform (spread by the days they ran). VIP months before October 2026 come from the VIP sheet.'],
+    ['Earnings', `Views achieved ÷ 1,000 × the EPM: what 1,000 views are worth to Tryp.com (community €${c.epm.toFixed(2)}, VIP €${v.epm.toFixed(2)}).`],
+    ['Costs', 'Counted automatically: every challenge prize pot (or what was paid, if more) and its vouchers, spread over the days it ran; other rewards; VIP and official creator pay (closed months from statements, this month live).'],
+    ['Planned costs', `The target views × the target CPM, what 1,000 views should cost (community €${c.cpm.toFixed(2)}, VIP €${v.cpm.toFixed(2)}).`],
     ['This month', 'Shows its figures so far and the pace they set, and updates as views come in. When it ends, the same numbers become its final result.'],
   ]
   return (

@@ -1,198 +1,130 @@
-import { Fragment, useEffect, useRef } from 'react'
-import Icon from '../../../../components/Icon'
 import { cx } from '../../../../lib/utils'
-import { Card, ProgressBar, StatusChip, Term, eur, pct, toneOf, toneText, views } from './parts'
+import { Card, StatusChip, eur, pct, toneOf, views } from './parts'
 
-// THE SHEET, REDRAWN AND TIDIED (20 Oct 2026). The team: "a lot of different numbers, different colours". Months across,
-// eight lines down: the views (target, achieved, % of it, and the pace for the month in progress) and the money
-// (earnings, costs, margin, cost per 1,000). The plan's own estimates live in each month's detail, not here. One colour
-// signal per month (the result chip, and the % beside it); red only for a loss. The first column stays put while the
-// months scroll sideways.
-export default function TargetsSheet({ rows, seg, onOpen, onEdit }) {
-  const editable = seg !== 'all'
-  const groups = [
-    {
-      title: 'Views',
-      lines: [
-        { label: <Term k="target">Target</Term>, cell: (r) => targetCell(r), edit: true },
-        { label: <Term k="achieved">Achieved</Term>, cell: (r) => achievedCell(r), strong: true },
-        { label: '% of target', cell: (r) => pctCell(r) },
-        { label: <Term k="pace">On pace for</Term>, cell: (r) => (r.state === 'live' ? views(r.projected) : ''), only: 'live' },
-      ],
-    },
-    {
-      title: 'Money',
-      lines: [
-        { label: <Term k="epm">Earnings</Term>, cell: (r) => moneyCell(r.actualEarnings, r) },
-        { label: <Term k="costs">Costs</Term>, cell: (r) => moneyCell(r.actualCost, r) },
-        { label: <Term k="margin">Margin</Term>, cell: (r) => marginCell(r), strong: true },
-        { label: <Term k="actualCpm">Cost per 1,000</Term>, cell: (r) => cpmCell(r) },
-      ],
-    },
-  ]
+// MONTH BY MONTH, AS A TABLE YOU CAN READ (20 Oct 2026, third pass). The sheet had months across the top and figures down
+// the side, so a year of months scrolled sideways inside the card and most of it was never seen. Now a month is a ROW:
+// it reads top to bottom like any table, fits the card without scrolling sideways, and a click opens the month in full.
+// One colour signal per month (the result chip and its bar); red only for a loss. On a phone each month is a card.
+export default function MonthTable({ rows, onOpen }) {
   return (
     <Card className="overflow-hidden" delay={200}>
-      <div className="flex flex-wrap items-center justify-between gap-2 px-5 pt-5 sm:px-6">
-        <div>
-          <h3 className="text-[15px] font-bold text-ink">Month by month</h3>
-          <p className="text-[13px] text-smoke">
-            <span className="sm:hidden">Swipe through the months; tap one for the full picture.</span>
-            <span className="max-sm:hidden">Click a month for the full picture{editable ? ', or a target to change it' : ''}.</span>
-          </p>
-        </div>
-        <p className="flex items-center gap-1.5 text-[13px] text-smoke"><span className="h-1.5 w-1.5 rounded-full bg-brand" />Set by hand</p>
+      <div className="px-5 pb-3 pt-5 sm:px-6">
+        <h3 className="text-[15px] font-bold text-ink">Month by month</h3>
+        <p className="text-[13px] text-smoke">Click a month for everything behind it. Months still ahead show the plan.</p>
       </div>
-      <MonthCards rows={rows} onOpen={onOpen} onEdit={editable ? onEdit : null} />
-      <div className="scroll-edge-fade mt-4 hidden overflow-x-auto pb-3 sm:block">
-        <table className="w-max min-w-full border-separate border-spacing-0 text-left text-sm">
+
+      {/* ---- From `md` up: the table. ---- */}
+      <div className="hidden md:block">
+        <table className="w-full table-fixed border-separate border-spacing-0 text-sm">
+          <colgroup>
+            <col className="w-[15%]" /><col className="w-[13%]" /><col className="w-[25%]" /><col className="w-[12%]" /><col className="w-[12%]" /><col className="w-[12%]" /><col className="w-[11%]" />
+          </colgroup>
           <thead>
-            <tr>
-              <th className="sticky left-0 z-20 min-w-[10rem] bg-white px-5 py-2 sm:px-6" />
-              {rows.map((r, i) => (
-                <th key={r.key} className={cx('min-w-[7.75rem] px-3 py-2 text-right align-bottom', r.state === 'live' && 'rounded-t-xl bg-brand-tint/60')}>
-                  <button type="button" onClick={() => onOpen(r.key)} className="group ml-auto flex animate-rise flex-col items-end gap-1.5" style={{ animationDelay: `${Math.min(i, 12) * 25}ms` }}>
-                    <span className="text-sm font-bold text-ink transition-colors group-hover:text-brand">{r.label}</span>
-                    {r.state === 'future' ? <span className="text-[13px] font-medium text-gray-400">Upcoming</span> : <StatusChip status={r.status} live={r.state === 'live'} />}
-                  </button>
-                </th>
-              ))}
+            <tr className="text-left text-[13px] font-semibold text-smoke">
+              <th className="border-y border-gray-100 bg-cloud/60 py-2.5 pl-6 pr-2 font-semibold">Month</th>
+              <th className="border-y border-gray-100 bg-cloud/60 px-2 py-2.5 font-semibold">Result</th>
+              <th className="border-y border-gray-100 bg-cloud/60 px-2 py-2.5 font-semibold">Views against the target</th>
+              <th className="border-y border-gray-100 bg-cloud/60 px-2 py-2.5 text-right font-semibold">Earnings</th>
+              <th className="border-y border-gray-100 bg-cloud/60 px-2 py-2.5 text-right font-semibold">Costs</th>
+              <th className="border-y border-gray-100 bg-cloud/60 px-2 py-2.5 text-right font-semibold">Margin</th>
+              <th className="border-y border-gray-100 bg-cloud/60 py-2.5 pl-2 pr-6 text-right font-semibold">Per 1,000</th>
             </tr>
           </thead>
           <tbody>
-            {groups.map((g) => (
-              <Fragment key={g.title}>
-                <tr>
-                  <td className="sticky left-0 z-10 bg-white px-5 pb-1 pt-4 text-[13px] font-bold uppercase tracking-wide text-gray-400 sm:px-6">{g.title}</td>
-                  {rows.map((r) => <td key={r.key} className={cx(r.state === 'live' && 'bg-brand-tint/30')} />)}
+            {rows.map((r, i) => {
+              const live = r.state === 'live'
+              const future = r.state === 'future'
+              return (
+                <tr key={r.key} onClick={() => onOpen(r.key)} className={cx('group cursor-pointer animate-rise transition-colors', live ? 'bg-brand-tint/40' : 'hoverable:hover:bg-cloud/70')}
+                  style={{ animationDelay: `${Math.min(i, 12) * 25}ms` }}>
+                  <td className="border-b border-gray-50 py-3.5 pl-6 pr-2">
+                    <span className="block font-semibold text-ink transition-colors group-hover:text-brand">{r.longLabel}</span>
+                    {live && <span className="text-[13px] text-smoke">Day {Math.floor(r.elapsed) + 1} of {r.days}</span>}
+                  </td>
+                  <td className="border-b border-gray-50 px-2 py-3.5">
+                    {future ? <span className="text-[13px] font-medium text-gray-400">Upcoming</span> : <StatusChip status={r.status} live={live} />}
+                  </td>
+                  <td className="border-b border-gray-50 px-2 py-3.5">
+                    <ViewsCell r={r} />
+                  </td>
+                  <Money n={future ? r.estEarnings : r.actualEarnings} plan={future} so={live} />
+                  <Money n={future ? r.estCost : r.actualCost} plan={future} so={live} />
+                  <Money n={future ? r.estMargin : r.actualMargin} plan={future} so={live} strong />
+                  <td className="border-b border-gray-50 py-3.5 pl-2 pr-6 text-right tabular-nums">
+                    {future ? <span className="text-gray-400">{eur(r.cpm, true)}</span> : r.actualCpm != null ? eur(r.actualCpm, true) : <span className="text-gray-300">-</span>}
+                  </td>
                 </tr>
-                {g.lines.filter((l) => !l.only || rows.some((r) => r.state === l.only)).map((l, li) => (
-                  <tr key={li} className="group/row">
-                    <td className={cx('sticky left-0 z-10 whitespace-nowrap border-t border-gray-50 bg-white px-5 py-2.5 sm:px-6 group-hover/row:bg-cloud', l.strong ? 'font-semibold text-ink' : 'text-smoke')}>{l.label}</td>
-                    {rows.map((r) => (
-                      <td key={r.key} className={cx('whitespace-nowrap border-t border-gray-50 px-3 py-2.5 text-right tabular-nums text-ink transition-colors group-hover/row:bg-cloud/70',
-                        r.state === 'live' && 'bg-brand-tint/30', r.state === 'future' && 'text-gray-400', l.strong && 'font-bold')}>
-                        {l.edit && editable ? (
-                          <button type="button" onClick={() => onEdit(r.key)} title="Change the plan for this month"
-                            className="group/edit -mr-1 inline-flex items-center gap-1 rounded-md px-1 transition-colors hoverable:hover:bg-brand-tint hoverable:hover:text-brand">
-                            <Icon name="pencil" className="h-3 w-3 opacity-0 transition-opacity group-hover/edit:opacity-100" />
-                            {l.cell(r)}
-                          </button>
-                        ) : l.cell(r)}
-                      </td>
-                    ))}
-                  </tr>
-                ))}
-              </Fragment>
-            ))}
+              )
+            })}
           </tbody>
         </table>
+        <p className="px-6 py-3 text-[13px] text-smoke">Grey figures are the plan (target × EPM and target CPM). &quot;So far&quot; is the month in progress.</p>
       </div>
+
+      {/* ---- On a phone: one card a month, stacked. ---- */}
+      <ul className="space-y-2.5 px-4 pb-4 md:hidden">
+        {rows.map((r) => {
+          const live = r.state === 'live'
+          const future = r.state === 'future'
+          return (
+            <li key={r.key}>
+              <button type="button" onClick={() => onOpen(r.key)} className={cx('w-full rounded-2xl border p-4 text-left', live ? 'border-brand/30 bg-brand-tint/40' : 'border-gray-100 bg-white')}>
+                <span className="flex items-center justify-between gap-2">
+                  <span className="text-[15px] font-bold text-ink">{r.longLabel}</span>
+                  {future ? <span className="text-[13px] font-medium text-gray-400">Upcoming</span> : <StatusChip status={r.status} live={live} />}
+                </span>
+                <span className="mt-3 block"><ViewsCell r={r} /></span>
+                <span className="mt-3 grid grid-cols-3 gap-2 border-t border-gray-100 pt-3 text-[13px]">
+                  {[['Earnings', future ? r.estEarnings : r.actualEarnings], ['Costs', future ? r.estCost : r.actualCost], ['Margin', future ? r.estMargin : r.actualMargin]].map(([l, n]) => (
+                    <span key={l}>
+                      <span className="block text-smoke">{l}</span>
+                      <span className={cx('block font-semibold tabular-nums', future ? 'text-gray-400' : n < 0 ? 'text-red-600' : 'text-ink')}>{eur(n)}</span>
+                    </span>
+                  ))}
+                </span>
+              </button>
+            </li>
+          )
+        })}
+      </ul>
     </Card>
   )
 }
 
-const sub = 'block text-[13px] font-normal text-smoke'
-function targetCell(r) {
-  if (r.target == null) return <span className="text-gray-300">Not set</span>
+const BAR = { good: 'from-emerald-500 to-emerald-400', warn: 'from-amber-500 to-amber-400', bad: 'from-brand to-brand-light', idle: 'from-brand to-brand-light' }
+function ViewsCell({ r }) {
+  if (r.target == null) return <span className="text-gray-300">No target</span>
+  if (r.state === 'future') {
+    return (
+      <span className="flex items-baseline justify-between gap-2 tabular-nums">
+        <span className="text-gray-400">Target</span>
+        <span className="font-semibold text-ink">{views(r.target)}</span>
+      </span>
+    )
+  }
+  const live = r.state === 'live'
+  const shown = live ? r.projected : r.achieved
+  const fill = Math.min(100, ((r.achieved || 0) / r.target) * 100)
+  const paceFill = live ? Math.min(100, ((r.projected || 0) / r.target) * 100) : 0
   return (
-    <span className="inline-flex items-center gap-1.5">
-      {r.pinned && <span title="Set by hand" className="h-1.5 w-1.5 rounded-full bg-brand" />}
-      {views(r.target)}
+    <span className="block">
+      <span className="flex items-baseline justify-between gap-2 tabular-nums">
+        <span className="font-semibold text-ink">{views(r.achieved)}</span>
+        <span className="text-[13px] text-smoke">of {views(r.target)}</span>
+      </span>
+      <span className="relative mt-1.5 block h-2 overflow-hidden rounded-full bg-cloud">
+        {live && <span className="absolute inset-y-0 left-0 rounded-full bg-brand/20" style={{ width: `${paceFill}%` }} />}
+        <span className={cx('absolute inset-y-0 left-0 rounded-full bg-gradient-to-r', BAR[toneOf(r.status)])} style={{ width: `${fill}%` }} />
+      </span>
+      <span className="mt-1 block text-[13px] text-smoke">{live ? `${pct(r.pct)} so far · pace ${pct(r.projectedPct)}` : `${pct(shown / r.target)} of the target`}</span>
     </span>
   )
 }
-function achievedCell(r) {
-  if (r.state === 'future' || r.achieved == null) return ''
+function Money({ n, plan, so, strong }) {
   return (
-    <span className="inline-flex flex-col items-end">
-      <span>{views(r.achieved)}</span>
-      {r.state === 'live' && <span className={sub}>so far</span>}
-      {r.source === 'override' && <span className="text-[13px] font-normal text-amber-600" title={`Platform measured ${views(r.measured)}`}>set by hand</span>}
-    </span>
-  )
-}
-function pctCell(r) {
-  if (r.pct == null) return ''
-  const tone = toneText[toneOf(r.status)]
-  return <span className={cx('font-semibold', tone)}>{pct(r.pct, 1)}</span>
-}
-function cpmCell(r) {
-  if (r.actualCpm == null) return ''
-  return (
-    <span className="inline-flex flex-col items-end">
-      <span>{eur(r.actualCpm, true)}</span>
-      <span className={sub}>target {eur(r.cpm, true)}</span>
-    </span>
-  )
-}
-function moneyCell(n, r) {
-  if (n == null) return ''
-  return (
-    <span className="inline-flex flex-col items-end">
-      <span>{eur(n)}</span>
-      {r.state === 'live' && <span className={sub}>so far</span>}
-    </span>
-  )
-}
-function marginCell(r) {
-  if (r.actualMargin == null) return ''
-  return <span className={r.actualMargin < 0 ? 'text-red-600' : undefined}>{eur(r.actualMargin)}</span>
-}
-
-// ON A PHONE: ONE CARD A MONTH, SWIPED SIDEWAYS, opening on the month in progress (or the last one finished). The table
-// above showed one month at a time behind its label column, which is a spreadsheet nobody can read at 375px.
-function MonthCards({ rows, onOpen, onEdit }) {
-  const ref = useRef(null)
-  const start = rows.findIndex((r) => r.state === 'live') >= 0 ? rows.findIndex((r) => r.state === 'live')
-    : Math.max(0, rows.map((r) => r.state).lastIndexOf('done'))
-  useEffect(() => {
-    const el = ref.current?.children[start]
-    if (el) ref.current.scrollTo({ left: el.offsetLeft - 16, behavior: 'instant' })
-  }, [start])
-  return (
-    <div ref={ref} className="scrollbar-none mt-3 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-4 sm:hidden">
-      {rows.map((r) => {
-        const live = r.state === 'live'
-        const future = r.state === 'future'
-        return (
-          <div key={r.key} className={cx('w-[84%] shrink-0 snap-center rounded-2xl border p-4', live ? 'border-brand/30 bg-brand-tint/40' : 'border-gray-100 bg-white')}>
-            <button type="button" onClick={() => onOpen(r.key)} className="flex w-full items-center justify-between gap-2 text-left">
-              <span className="text-base font-bold text-ink">{r.longLabel}</span>
-              {future ? <span className="text-[13px] font-medium text-gray-400">Upcoming</span> : <StatusChip status={r.status} live={live} />}
-            </button>
-            <div className="mt-3 flex items-end justify-between gap-2">
-              <div>
-                <p className="text-[13px] text-smoke">{future ? 'Target' : live ? 'Views so far' : 'Views'}</p>
-                <p className="text-xl font-extrabold tabular-nums text-ink">{future ? (r.target != null ? views(r.target) : 'Not set') : views(r.achieved)}</p>
-              </div>
-              {!future && r.target != null && (
-                <p className="text-right text-[13px] text-smoke">of {views(r.target)}<span className="block font-semibold text-ink">{pct(r.pct, 1)}</span></p>
-              )}
-            </div>
-            {!future && <ProgressBar className="mt-2" value={r.achieved} projected={live ? r.projected : null} target={r.target} expected={live && r.target ? r.target * r.share : null} />}
-            {live && <p className="mt-1.5 text-[13px] text-smoke">On pace for <span className="font-semibold text-ink">{views(r.projected)}</span> ({pct(r.projectedPct)})</p>}
-            <dl className="mt-3 space-y-1.5 border-t border-gray-100 pt-3 text-sm">
-              {[
-                ['Earnings', r.actualEarnings, r.estEarnings],
-                ['Costs', r.actualCost, r.estCost],
-                ['Margin', r.actualMargin, r.estMargin],
-              ].map(([label, a, e]) => (
-                <div key={label} className={cx('flex items-baseline justify-between gap-2', label === 'Margin' && 'font-semibold')}>
-                  <dt className="text-smoke">{label}</dt>
-                  <dd className="tabular-nums text-ink">
-                    {future ? <span className="text-smoke">plan {eur(e)}</span> : <>{eur(a)} <span className="text-[13px] font-normal text-smoke">plan {eur(e)}</span></>}
-                  </dd>
-                </div>
-              ))}
-            </dl>
-            {onEdit && (
-              <button type="button" onClick={() => onEdit(r.key)} className="mt-3 inline-flex items-center gap-1 text-[13px] font-semibold text-brand">
-                <Icon name="pencil" className="h-3.5 w-3.5" />Edit this month
-              </button>
-            )}
-          </div>
-        )
-      })}
-    </div>
+    <td className="border-b border-gray-50 px-2 py-3.5 text-right tabular-nums">
+      <span className={cx('block', plan ? 'text-gray-400' : n < 0 ? 'text-red-600' : 'text-ink', strong && !plan && 'font-bold')}>{n == null ? '-' : eur(n)}</span>
+      {so && <span className="block text-[13px] text-smoke">so far</span>}
+    </td>
   )
 }

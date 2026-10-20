@@ -87,6 +87,13 @@ export default function AdminAnalytics() {
   const [params, setParams] = useSearchParams()
   const [marketPending, startMarket] = useTransition()
   const [raw, setRaw] = useState(() => RAW_CACHE)
+  // ONE REFRESH FOR EVERY TAB (20 Oct 2026), in the header beside the title instead of inside one tab's controls. Pressing
+  // it re-reads the page's data and remounts the tab (`refreshKey` in its key), so every tab asks again.
+  const [refreshKey, setRefreshKey] = useState(0)
+  const [refreshedAt, setRefreshedAt] = useState(() => Date.now())
+  const [clock, setClock] = useState(() => Date.now())
+  useEffect(() => { const id = setInterval(() => setClock(Date.now()), 30_000); return () => clearInterval(id) }, [])
+  const refreshAll = () => { RAW_CACHE = null; setRefreshKey((n) => n + 1); setRefreshedAt(Date.now()); setClock(Date.now()) }
   // THE MARKET CHIPS DO NOT WAIT FOR THE WHOLE LOAD. The list of markets is one tiny read; it was queued behind every
   // paged table on the page. It is asked for on its own now and drawn the moment it lands.
   const [quickMarkets, setQuickMarkets] = useState(() => MARKETS_CACHE)
@@ -99,6 +106,7 @@ export default function AdminAnalytics() {
   }, [])
   useEffect(() => {
     if (RAW_CACHE && Date.now() - RAW_CACHE.loadedAt < RAW_TTL_MS / 3) return
+    let alive = true
     async function load() {
       // THE BIG ONES ARE PAGED. PostgREST answers with at most a thousand rows
       // and says so only in a header, so a page that COUNTS over a whole table
@@ -189,10 +197,11 @@ export default function AdminAnalytics() {
         loadedAt: Date.now(),
       }
       RAW_CACHE = next
-      setRaw(next)
+      if (alive) setRaw(next)
     }
     load()
-  }, [])
+    return () => { alive = false }
+  }, [refreshKey])
 
   // ---------- Derived datasets ----------
   // THE REPORTING CURRENCY, READ BEFORE THE FIGURES ARE BUILT.
@@ -683,19 +692,19 @@ export default function AdminAnalytics() {
   // on those two tabs the bar stays where it is but is dimmed and switched off.
   const shell = (body, { filters = true, bar = true, markets: marketsOn = true, period: periodCtl = false, extra } = {}) => (
     <div className="page">
-      <PageHeader back="/admin" title="Analytics" />
+      <PageHeader back="/admin" title="Analytics" inlineAction action={<UpdatedButton at={refreshedAt} now={clock} onRefresh={refreshAll} />} />
       {tabBar}
       {/* Kept in place on the two tabs it cannot change (dimmed, not removed), so
           the body starts at the same height on every tab and nothing jumps. */}
       {bar && <div aria-hidden={!filters} className={cx('transition-opacity duration-200', !filters && 'pointer-events-none select-none opacity-35')}>{filterBar(!marketsOn, !periodCtl, extra)}</div>}
-      <div key={tab} className={cx('animate-tab-in transition-opacity duration-200', marketPending && 'opacity-50')}>{body}</div>
+      <div key={`${tab}-${refreshKey}`} className={cx('animate-tab-in transition-opacity duration-200', marketPending && 'opacity-50')}>{body}</div>
     </div>
   )
 
   if (tab === 'errors') return shell(<ErrorWatch />, { filters: false })
   // TARGETS & PROFIT HAS ITS OWN CONTROLS (who, which months, which costs) and the plan is programme-wide, not per market,
   // so the page's bar is left out rather than dimmed: two bars of controls, one of them dead, read as one broken one.
-  if (tab === 'targets') return shell(<Targets />, { filters: false, bar: false })
+  if (tab === 'targets') return shell(<Targets refreshKey={refreshKey} />, { filters: false, bar: false })
   if (tab === 'recruitment') return shell(<Recruitment raw={scoped} market={market} markets={markets} scopeLabel={scopeLabel} range={periodOn ? range : null} />, { period: true })
   // WEEKLY VIEWS USES THE PAGE'S OWN BAR (14 Oct 2026). It used to grey the bar out and draw a second panel of controls
   // under it. Now the markets narrow it, the period picker holds the views periods (a year of days at most, so All time
@@ -996,5 +1005,18 @@ function MarketChips({ rowRef, off, market, markets, onPick, vip }) {
         )
       })}
     </div>
+  )
+}
+
+// "Updated just now", top right of the page, for every tab. Pressing it reads everything again.
+function UpdatedButton({ at, now, onRefresh }) {
+  const m = Math.floor((now - at) / 60000)
+  const text = m < 1 ? 'Updated just now' : m < 60 ? `Updated ${m} min ago` : `Updated ${Math.floor(m / 60)} h ago`
+  return (
+    <button type="button" onClick={onRefresh} title="Read every figure again"
+      className="group inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full border border-gray-200 bg-white px-3.5 text-[13px] font-semibold text-smoke shadow-sm transition-all hoverable:hover:-translate-y-0.5 hoverable:hover:text-ink">
+      <Icon name="refresh" className="h-4 w-4 text-brand transition-transform duration-500 group-hover:rotate-180" />
+      <span className="whitespace-nowrap">{text}</span>
+    </button>
   )
 }

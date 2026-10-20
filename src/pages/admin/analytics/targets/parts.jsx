@@ -58,7 +58,7 @@ export function Segmented({ value, options, onChange, size = 'md', full = false,
     return () => ro?.disconnect()
   }, [value, options.length])
   return (
-    <div ref={row} className={cx('relative flex shrink-0 items-center gap-0.5 rounded-full bg-cloud p-1', full && 'w-full', className)}>
+    <div ref={row} className={cx('relative flex shrink-0 items-center gap-0.5 rounded-full bg-cloud p-1', full ? 'w-full' : 'w-fit', className)}>
       {pill && (
         <span aria-hidden className="absolute bottom-1 top-1 rounded-full bg-brand shadow-card transition-all duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]"
           style={{ left: pill.left, width: pill.width }} />

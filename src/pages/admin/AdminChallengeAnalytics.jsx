@@ -27,6 +27,7 @@ import { moneyApi } from '../../api/money'
 import { challengesApi } from '../../api/challenges'
 import { submissionsApi } from '../../api/submissions'
 import { profilesApi } from '../../api/profiles'
+import { ProfitLine } from './analytics/ChallengeProfit'
 
 // Deep-dive analytics for ONE challenge (admin only).
 // Reached by tapping a bar/row on the main Analytics page.
@@ -261,6 +262,13 @@ export default function AdminChallengeAnalytics() {
       )}
 
       <LiveEconomics challenge={viewChallenge} subs={subs} standings={viewStandings} totalViews={d.totalViews} rewards={d.rewards} />
+
+      {/* ---------- Profit or loss for Tryp.com: views x EPM minus the same spend as the CPM below ---------- */}
+      {(() => {
+        const sp = challengeSpend(viewChallenge, viewStandings, d.totalViews, d.rewards)
+        const live = viewChallenge?.status === 'active' && !viewChallenge?.winners_published_at
+        return <ProfitLine className="mb-6" views={d.totalViews} spend={sp.spend} currency={challenge.prize_currency || 'EUR'} live={live} />
+      })()}
 
       {/* ---------- Headline stats ---------- */}
       <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
