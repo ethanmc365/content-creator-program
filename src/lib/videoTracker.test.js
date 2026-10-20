@@ -204,6 +204,13 @@ describe('toCsvRows', () => {
     expect(text.split('\r\n')[1]).toMatch(/^1,TikTok,.*,\t?@someone,Someone,UK & Ireland,United Kingdom,2026-08-01,15200,Community,/)
   })
 
+  it('keeps every cell on one line, so a caption with line breaks does not stand nine rows tall', () => {
+    const [row] = toCsvRows([v({ screen_text: 'Mă ceartă ai mei\n\nîmi mai iau o vacanță ✈️\nTryp.com  ', creator_name: ' Stefi\nIvan ' })])
+    expect(row.hook).toBe('Mă ceartă ai mei îmi mai iau o vacanță ✈️ Tryp.com')
+    expect(row.creator_name).toBe('Stefi Ivan')
+    expect(toCsv([row], CSV_COLUMNS).split('\r\n')).toHaveLength(2)
+  })
+
   it('writes an empty string rather than undefined for a missing field', () => {
     const [row] = toCsvRows([v({ hook: null, posted_at: null, views: null, market_name: null })])
     expect(row.hook).toBe('')

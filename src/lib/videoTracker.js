@@ -272,20 +272,24 @@ export const CSV_COLUMNS = [
 /** Community / VIP / Official, as the switch on the page names them. */
 export const SOURCE_LABELS = { community: 'Community', vip: 'VIP', official: 'Official' }
 
+// ONE LINE PER CELL (20 Oct 2026). A caption's line breaks went into the file as they were, and Excel wraps any cell
+// holding one, so a single hook stood nine rows tall. Every text cell is folded to one line with single spaces.
+const oneLine = (t) => String(t ?? '').replace(/\s+/g, ' ').trim()
+
 export function toCsvRows(rows) {
   return (rows || []).map((v, i) => ({
     n: i + 1,
-    platform: v.platform || '',
-    video_url: v.video_url || '',
+    platform: oneLine(v.platform || ''),
+    video_url: oneLine(v.video_url || ''),
     handle: atHandle(handleOf(v)),
-    creator_name: v.creator_name || '',
-    market: marketOf(v),
-    country: countryOf(v)?.name || '',
+    creator_name: oneLine(v.creator_name || ''),
+    market: oneLine(marketOf(v)),
+    country: oneLine(countryOf(v)?.name || ''),
     posted_at: v.posted_at ? String(v.posted_at).slice(0, 10) : '',
     views: v.views ?? '',
     type: SOURCE_LABELS[v.source || 'community'] || '',
-    challenge: challengeOf(v) || '',
-    hook: v.screen_text || v.hook || '',
+    challenge: oneLine(challengeOf(v) || ''),
+    hook: oneLine(v.screen_text || v.hook || ''),
   }))
 }
 
