@@ -1,5 +1,5 @@
 import Icon from '../../components/Icon'
-import { DateField, TimeField } from '../../components/DateTimeFields'
+import { DateField } from '../../components/DateTimeFields'
 import { COMMON_ZONES } from '../../lib/timezones'
 import { Select } from '../../components/ui'
 import RichToolbar from '../../components/RichToolbar'
@@ -7,6 +7,7 @@ import RichEditable from '../../components/RichEditable'
 import { cx } from '../../lib/utils'
 import SocialMark from '../../components/SocialMark'
 import { acceptsLabel } from '../../lib/videoLinks'
+import { dayLabel, daysBetween } from '../../lib/zonedDate'
 
 // Part of AdminChallengeForm.jsx: every value it shows comes in as a prop from the page.
 export default function AdminChallengeFormBasics({
@@ -25,6 +26,9 @@ export default function AdminChallengeFormBasics({
   togglePlatform,
   writing,
 }) {
+  const a = ddmmToIso(form.startDateStr)
+  const b = ddmmToIso(form.endDateStr)
+  const span = a && b && b >= a ? daysBetween(a, b) + 1 : null
   return (
     <section className="card space-y-6 max-sm:!rounded-none max-sm:!border-x-0 max-sm:!border-b-0 max-sm:!bg-transparent max-sm:!p-0 max-sm:!pt-6 max-sm:!shadow-none">
       <h2 className="text-lg font-semibold">The basics</h2>
@@ -37,44 +41,42 @@ export default function AdminChallengeFormBasics({
           Dates were three sections further down, past scoring and prizes,
           which is a strange place for the second thing anybody decides. */}
       <div>
-        {/* STARTS AND ENDS ARE TWO BOXES, EACH HOLDING ITS OWN DATE AND TIME. It was four loose fields in a two-column
-            grid, so a date sat under a time that belonged to another date. Now "Starts" is one box with its date and its
-            time side by side, "Ends" is the next, and they stack on a phone. */}
+        {/* STARTS AND ENDS ARE TWO BOXES, ONE DATE EACH (20 Oct 2026). Ethan: "For the start date and the end date, I don't
+            think we necessarily need to have a time. The start date is just the beginning of that day, and the end date
+            is going to be the end of that date." The line under each date says exactly that, in the challenge's clock. */}
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           {[
-            { key: 'start', title: 'Starts', dateStr: form.startDateStr, timeStr: form.startTimeStr, dKey: 'startDateStr', tKey: 'startTimeStr' },
-            { key: 'end', title: 'Ends', dateStr: form.endDateStr, timeStr: form.endTimeStr, dKey: 'endDateStr', tKey: 'endTimeStr' },
-          ].map((b) => (
-            <div key={b.key} className="rounded-xl border border-gray-200 bg-cloud/40 p-3 sm:p-4">
-              <p className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-smoke">
-                <Icon name="calendar" className="h-3.5 w-3.5 text-brand" />{b.title}
-              </p>
-              <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-2.5">
+            { key: 'start', title: 'Starts', dateStr: form.startDateStr, dKey: 'startDateStr', when: (d) => `Opens at the start of ${d}` },
+            { key: 'end', title: 'Ends', dateStr: form.endDateStr, dKey: 'endDateStr', when: (d) => `Closes at the end of ${d} (midnight)` },
+          ].map((b) => {
+            const iso = ddmmToIso(b.dateStr)
+            return (
+              <div key={b.key} className="rounded-xl border border-gray-200 bg-cloud/40 p-3 sm:p-4">
+                <p className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-smoke">
+                  <Icon name="calendar" className="h-3.5 w-3.5 text-brand" />{b.title}
+                </p>
                 <DateField id={`${b.key}_date`} label="Date"
-                  value={ddmmToIso(b.dateStr)}
-                  onChange={(iso) => set({ [b.dKey]: isoToDdmm(iso) })}
+                  value={iso}
+                  onChange={(next) => set({ [b.dKey]: isoToDdmm(next) })}
                   min={b.key === 'end' ? (ddmmToIso(form.startDateStr) || undefined) : undefined}
                   futureError={b.key === 'end' ? 'The challenge would end before it starts.' : undefined} />
-                <TimeField id={`${b.key}_time`} label="Time"
-                  value={b.timeStr}
-                  onChange={(v) => set({ [b.tKey]: v })} />
+                <p className="mt-2 text-xs text-smoke">{iso ? b.when(dayLabel(iso, 'en-GB', { weekday: 'long', day: 'numeric', month: 'long' })) : '\u00a0'}</p>
               </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
-        {/* The market's own clock, guessed and changeable. A UK challenge
-            closing "at midnight" means midnight in London; the same brief in
-            Spain means midnight in Madrid. */}
+        {/* THE CHALLENGE'S CLOCK, SAVED (migration 442). A square box like every other field on the form. */}
         <div className="mt-3 flex flex-wrap items-center gap-2">
-          <span className="text-xs text-smoke">Times are</span>
+          <span className="text-xs text-smoke">Days run on</span>
           <Select
-            className="w-44"
+            variant="field"
+            className="w-48 [&>button]:!py-2"
             ariaLabel="Timezone"
             value={form.tz || 'Europe/London'}
             onChange={(v) => set({ tz: v })}
             options={COMMON_ZONES}
           />
-          <span className="text-xs text-smoke">time.</span>
+          <span className="text-xs text-smoke">time{span ? ` · ${span} days` : ''}.</span>
         </div>
       </div>
 

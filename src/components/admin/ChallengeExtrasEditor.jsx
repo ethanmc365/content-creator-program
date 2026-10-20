@@ -69,7 +69,9 @@ export function JoinBonusEditor({ challengeId }) {
         <div className="mt-3 space-y-3">
           <div className="flex flex-wrap items-center gap-2">
             {[5, 10].map((n) => (
-              <button key={n} type="button" aria-pressed={!custom && pts === n} onClick={() => { setPts(n); setCustom('') }} className={chip(!custom && pts === n)}>+{n} points</button>
+              // PRESSING A PICKED ONE AGAIN UNPICKS IT (20 Oct 2026, Ethan: "whenever I accidentally clicked on something in
+              // the joining bonus, like +10 points, clicking on it again doesn't make it disappear, but it should").
+              <button key={n} type="button" aria-pressed={!custom && pts === n} onClick={() => { setPts(!custom && pts === n ? null : n); setCustom('') }} className={chip(!custom && pts === n)}>+{n} points</button>
             ))}
             {/* TYPE THE NUMBER, "points" FOLLOWS IT: "Make sure it shows that I just type in the number, and then it
                 says 'points' after it, with a similar design to the other ones." */}

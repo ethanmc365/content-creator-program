@@ -386,7 +386,7 @@ export default function AdminAnalytics() {
         cpm: (() => {
           if (!totalViews) return null
           if (c.status === 'active') {
-            const sp = challengeSpend(c, raw.liveStandings?.[c.id] || [], totalViews)
+            const sp = challengeSpend(c, raw.liveStandings?.[c.id] || [], totalViews, rewards.filter((r) => r.challenge_id === c.id))
             return money(sp.spend, c.prize_currency) / (totalViews / 1000)
           }
           const awarded = rewards

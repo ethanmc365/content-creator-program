@@ -115,7 +115,7 @@ export default function GlobalChallengeStrip({ challenge, className = '', arrive
           </Link>
           {firstPrize && <p className="mt-0.5 text-sm text-white/85">{tr('1st place wins {prize}', { prize: localizePrize(firstPrize, getLocale()) })}</p>}
           <div className="mt-3">
-            <CountdownTimer endDate={challenge.end_date} compact onDark />
+            <CountdownTimer endDate={challenge.end_date} closesAt={challenge.closes_at} compact onDark />
           </div>
         </div>
 

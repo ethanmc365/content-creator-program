@@ -134,7 +134,7 @@ export default function Challenges() {
   const [leaders, setLeaders] = useState(cached?.leaders ?? {})
   useEffect(() => {
     const liveIds = challenges
-      .filter((c) => c.status === 'active' && challengeDeadline(c.end_date).getTime() > Date.now())
+      .filter((c) => c.status === 'active' && challengeDeadline(c.end_date, c.closes_at).getTime() > Date.now())
       .map((c) => c.id)
     if (!liveIds.length) return undefined
     let cancelled = false
@@ -170,7 +170,7 @@ export default function Challenges() {
   const [liveGroups, setLiveGroups] = useState(cached?.liveGroups ?? { groups: {}, mine: {} })
   useEffect(() => {
     const liveIds = challenges
-      .filter((c) => c.status === 'active' && challengeDeadline(c.end_date).getTime() > Date.now())
+      .filter((c) => c.status === 'active' && challengeDeadline(c.end_date, c.closes_at).getTime() > Date.now())
       .map((c) => c.id)
     if (!liveIds.length || !user?.id) return undefined
     let alive = true
@@ -195,7 +195,7 @@ export default function Challenges() {
   // in it says so instead of borrowing another market's roster.
   useEffect(() => {
     const liveOnes = challenges.filter(
-      (c) => c.status === 'active' && challengeDeadline(c.end_date).getTime() > Date.now(),
+      (c) => c.status === 'active' && challengeDeadline(c.end_date, c.closes_at).getTime() > Date.now(),
     )
     if (liveOnes.length === 0) return
     let cancelled = false
@@ -233,7 +233,7 @@ export default function Challenges() {
     writePageCache(CACHE_KEY, { challenges, galleries, participation, prizesAwarded, leaders, liveGroups })
   }, [loading, challenges, galleries, participation, prizesAwarded, leaders, liveGroups])
 
-  const isLive = (c) => c.status === 'active' && challengeDeadline(c.end_date).getTime() > nowMs
+  const isLive = (c) => c.status === 'active' && challengeDeadline(c.end_date, c.closes_at).getTime() > nowMs
   // This page is the creator's OWN community's challenge board. RLS already
   // narrows it for a creator; an admin can read every market, so without this
   // they get Spain's live card stacked above the UK's with no way to tell which
@@ -314,7 +314,7 @@ export default function Challenges() {
     const entered = past.filter((c) => enteredIds.has(c.id))
     if (!entered.length) return null
     const [latest] = [...entered].sort(
-      (a, b) => challengeDeadline(b.end_date).getTime() - challengeDeadline(a.end_date).getTime(),
+      (a, b) => challengeDeadline(b.end_date, b.closes_at).getTime() - challengeDeadline(a.end_date, a.closes_at).getTime(),
     )
     // READY MEANS THE WINNERS ARE OUT. Before that a recap can tell you what
     // you posted and what it got, but not where you came - and "your recap is

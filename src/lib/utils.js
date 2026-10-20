@@ -344,7 +344,9 @@ export function ageFromDob(iso) {
  * So we take the end_date's calendar day and return the start of the next day
  * (local time). Used for the countdown and to gate late submissions.
  */
-export function challengeDeadline(endDate) {
+export function challengeDeadline(endDate, closesAt = null) {
+  // Migration 442: the server keeps `closes_at` (the end of the end date in the CHALLENGE's clock, not the viewer's).
+  if (closesAt) return new Date(closesAt)
   const d = new Date(endDate)
   d.setHours(0, 0, 0, 0)
   d.setDate(d.getDate() + 1)

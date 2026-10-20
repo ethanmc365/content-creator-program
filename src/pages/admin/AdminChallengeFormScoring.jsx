@@ -1,5 +1,6 @@
 import { SCORING_MODES, STARTER_POINT_RULES } from '../../lib/scoring'
-import { cx, parseDateTime } from '../../lib/utils'
+import { cx } from '../../lib/utils'
+import { challengeEndIso, challengeStartIso } from '../../lib/zonedDate'
 import Icon from '../../components/Icon'
 import PointRulesEditor from '../../components/network/PointRulesEditor'
 import BoostsEditor from '../../components/admin/BoostsEditor'
@@ -73,8 +74,8 @@ export default function AdminChallengeFormScoring({
             onChange={setRules}
             thresholdMode={form.threshold_mode}
             onThresholdMode={(v) => set({ threshold_mode: v })}
-            challengeStart={parseDateTime(form.startDateStr, form.startTimeStr)}
-            challengeEnd={parseDateTime(form.endDateStr, form.endTimeStr)}
+            challengeStart={challengeStartIso(form.startDateStr, form.tz || 'Europe/London')}
+            challengeEnd={challengeEndIso(form.endDateStr, form.tz || 'Europe/London')}
           />
         </div>
       )}

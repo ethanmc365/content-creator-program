@@ -153,6 +153,7 @@ export default function AdminChallengeAnalytics() {
     const median = viewed.length ? viewed[Math.floor(viewed.length / 2)] : 0
 
     return {
+      rewards, // the reward rows in view: the CPM counts Video of the Week and voucher-day rewards already created
       submissions: subs.length,
       uniqueCreators,
       participation: totalCreators ? Math.round((uniqueCreators / totalCreators) * 100) : 0,
@@ -259,7 +260,7 @@ export default function AdminChallengeAnalytics() {
         </div>
       )}
 
-      <LiveEconomics challenge={viewChallenge} subs={subs} standings={viewStandings} totalViews={d.totalViews} />
+      <LiveEconomics challenge={viewChallenge} subs={subs} standings={viewStandings} totalViews={d.totalViews} rewards={d.rewards} />
 
       {/* ---------- Headline stats ---------- */}
       <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
@@ -275,7 +276,7 @@ export default function AdminChallengeAnalytics() {
         {/* CPM IN THE ECONOMICS TOO, NOT ONLY IN THE BAND. The team could not find it under the band. Same
             `challengeSpend` as the band, so the two cannot disagree, and it stays once the challenge ends. */}
         {(() => {
-          const sp = challengeSpend(viewChallenge, viewStandings, d.totalViews)
+          const sp = challengeSpend(viewChallenge, viewStandings, d.totalViews, d.rewards)
           const ccy = challenge.prize_currency || 'EUR'
           return (
             <StatCard
@@ -683,8 +684,8 @@ function Detail({ label, value }) {
 // The numbers the team tracks a challenge by, in one band: what it is costing so far (the cash prize pot plus every
 // taking-part voucher and award EARNED to date - `challenge_prize_standings`, the one definition), how many views that
 // has bought, and the CPM those two make. `challengeSpend` is pure and tested.
-function LiveEconomics({ challenge, subs, standings, totalViews }) {
-  const spend = challengeSpend(challenge, standings || [], totalViews)
+function LiveEconomics({ challenge, subs, standings, totalViews, rewards }) {
+  const spend = challengeSpend(challenge, standings || [], totalViews, rewards)
   const ccy = challenge.prize_currency || 'EUR'
   const lastRead = subs.reduce((m, s) => (s.views_synced_at && s.views_synced_at > m ? s.views_synced_at : m), '')
   const live = challenge.status === 'active'
@@ -695,9 +696,13 @@ function LiveEconomics({ challenge, subs, standings, totalViews }) {
     { label: 'Total views', value: formatViewsTotal(totalViews), hint: `${subs.length} ${subs.length === 1 ? 'entry' : 'entries'}`, big: true },
     { label: 'Prize pot', value: formatMoney(spend.pot, ccy), hint: spend.awards ? `incl. ${formatMoney(spend.awards, ccy)} awards` : `${challenge.winners_count || ''} paid places`.trim() },
     {
-      label: 'Taking-part vouchers',
-      value: formatMoney(spend.vouchers, ccy),
-      hint: spend.voucherCount ? `${spend.voucherCount} earned` : 'none earned yet',
+      label: spend.extras ? 'Vouchers and weekly' : 'Taking-part vouchers',
+      value: formatMoney(spend.vouchers + spend.extras, ccy),
+      hint: [
+        spend.voucherCount ? `${spend.voucherCount} taking part` : (spend.extras ? '' : 'none earned yet'),
+        spend.weekly ? `${formatMoney(spend.weekly, ccy)} Video of the Week` : '',
+        spend.voucherDays ? `${formatMoney(spend.voucherDays, ccy)} voucher days` : '',
+      ].filter(Boolean).join(' · '),
     },
   ]
   return (

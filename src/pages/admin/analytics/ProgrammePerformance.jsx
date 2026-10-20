@@ -25,6 +25,7 @@ import ChartPanel from '../../../components/charts/ChartPanel'
 import { useNavigate } from 'react-router-dom'
 import { overlaps } from '../../../lib/analyticsPeriod'
 import { challengesApi } from '../../../api/challenges'
+import { moneyApi } from '../../../api/money'
 import { teamApi } from '../../../api/team'
 
 // Programme performance: what the prize money actually bought.
@@ -120,8 +121,12 @@ export default function ProgrammePerformance({ market: scopeMarket = null, curre
       const list = data ?? []
       const live = list.filter((r) => r.status === 'active')
       const spends = await Promise.all(live.map((r) =>
-        challengesApi.challengePrizeStandings({ p_challenge: r.id })
-          .then(({ data: st }) => [r.id, challengeSpend({ prize_amount: r.prize_amount, participation_amount: r.participation_amount }, st || [], r.total_views)])
+        Promise.all([
+          challengesApi.challengePrizeStandings({ p_challenge: r.id }),
+          // Video of the Week and voucher-day rewards already created count too (lib/challengeSpend).
+          moneyApi.rewards().select('amount, status, prize_slot').eq('challenge_id', r.id).in('prize_slot', ['weekly', 'voucher_day']),
+        ])
+          .then(([{ data: st }, { data: rw }]) => [r.id, challengeSpend({ prize_amount: r.prize_amount, participation_amount: r.participation_amount }, st || [], r.total_views, rw || [])])
           .catch(() => [r.id, null])))
       const byId = new Map(spends)
       setRows(list.map((r) => (byId.get(r.id) ? { ...r, live_spend: byId.get(r.id).spend } : r)))

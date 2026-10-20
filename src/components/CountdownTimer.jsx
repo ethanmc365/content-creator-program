@@ -5,8 +5,10 @@ import { useT } from '../lib/i18n'
 
 // Live countdown to a challenge deadline, updating every second.
 // Shown prominently on the home page and challenge pages.
-function getTimeLeft(endDate) {
-  const diff = challengeDeadline(endDate) - new Date()
+// `closesAt` is the server's moment (migration 442: the end of the end date in the challenge's clock); `endDate` alone
+// falls back to the end of that day in the viewer's clock.
+function getTimeLeft(endDate, closesAt) {
+  const diff = (closesAt ? new Date(closesAt) : challengeDeadline(endDate)) - new Date()
   if (diff <= 0) return null
   return {
     days: Math.floor(diff / 86400000),
@@ -34,14 +36,14 @@ function Digits({ value }) {
   )
 }
 
-export default function CountdownTimer({ endDate, compact = false, hero = false, onDark = false }) {
+export default function CountdownTimer({ endDate, closesAt = null, compact = false, hero = false, onDark = false }) {
   const tr = useT()
-  const [left, setLeft] = useState(() => getTimeLeft(endDate))
+  const [left, setLeft] = useState(() => getTimeLeft(endDate, closesAt))
 
   useEffect(() => {
-    const t = setInterval(() => setLeft(getTimeLeft(endDate)), 1000)
+    const t = setInterval(() => setLeft(getTimeLeft(endDate, closesAt)), 1000)
     return () => clearInterval(t)
-  }, [endDate])
+  }, [endDate, closesAt])
 
   if (!left) {
     // White pill so it stays readable on the orange challenge cards as well as

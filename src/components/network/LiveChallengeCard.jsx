@@ -316,7 +316,7 @@ export default function LiveChallengeCard({
               cannot, because they are not the same row. */}
           <div className={cx('min-w-0', compact ? 'mt-5' : 'mt-8 lg:col-start-1 lg:row-start-3 lg:mt-7 lg:self-end')}>
             <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-white/75">{tr("Closes in")}</p>
-            <CountdownTimer endDate={challenge.end_date} hero={!compact} />
+            <CountdownTimer endDate={challenge.end_date} closesAt={challenge.closes_at} hero={!compact} />
           </div>
 
           <div className={cx(

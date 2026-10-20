@@ -10,13 +10,14 @@ import PrizeBreakdownFields, { PrizeSummary, combineBudgets, prizeBudget, prizeK
 import { flagFromIso } from '../../components/network/PlaceSwitcher'
 import { PageHeader, Skeleton, Spinner, Select } from '../../components/ui'
 import { DEFAULT_SCORING, normalisePointRule, isSavedRuleId } from '../../lib/scoring'
-import { cx, parseDateTime, isoToDateInput, isoToTimeInput } from '../../lib/utils'
+import { cx } from '../../lib/utils'
 import { testFlags } from '../../lib/testData'
 import ChallengeTemplates, { SaveAsTemplate } from '../../components/admin/ChallengeTemplates'
 import { templateFromForm } from '../../lib/challengeTemplates'
 import { challengesApi } from '../../api/challenges'
 import WeeklyPrizeFields from '../../components/admin/WeeklyPrizeFields'
 import { cleanWeekly, weeklyRounds } from '../../lib/weekly'
+import { challengeEndIso, challengeStartIso, ymdInZone } from '../../lib/zonedDate'
 import { submissionsApi } from '../../api/submissions'
 import { profilesApi } from '../../api/profiles'
 import { marketsApi } from '../../api/markets'
@@ -39,8 +40,8 @@ const SOCIAL_BRAND = { Instagram: 'instagram', TikTok: 'tiktok', YouTube: 'youtu
 // The shared field does all of that and is the same control as the calendar,
 // "find a time" and the flight log.
 //
-// This form's state is still "DD/MM/YYYY" strings because `parseDateTime`
-// pairs them with the time boxes on save, so the two adapters below sit between
+// This form's state is still "DD/MM/YYYY" strings (the time boxes went on 20 Oct 2026: a challenge is whole days), so
+// the two adapters below sit between
 // that and the ISO the shared field speaks. Converting the whole form's storage
 // would touch validation, the draft-publish block and the edit loader for no
 // visible gain.
@@ -69,6 +70,17 @@ const UNPICKED = 'border-gray-200 bg-white hover:border-brand/40'
 // orange - `text-smoke` on brand orange is unreadable and was the reason this
 // could not simply be a background swap.
 const subText = (on) => (on ? 'text-white/80' : 'text-smoke')
+
+// A CHALLENGE RUNS ON WHOLE DAYS (migration 442, 20 Oct 2026). Ethan: "For the start date and the end date, I don't
+// think we necessarily need to have a time. The start date is just the beginning of that day, and the end date is going
+// to be the end of that date." So the form asks for two dates and the clock they are in ("Times are London"), which is
+// saved now (`challenges.timezone`); before, the picker was decoration and the times were read in the browser's clock.
+// The server keeps `opens_at` / `closes_at` from these, and the countdown, archive, streak bonus and weekly rounds use them.
+const zoneOf = (f) => f.tz || 'Europe/London'
+const startIsoOf = (f) => challengeStartIso(f.startDateStr, zoneOf(f))
+const endIsoOf = (f) => challengeEndIso(f.endDateStr, zoneOf(f))
+// A market's clock, for a new brief (the Global market's is UTC; its briefs are London ones).
+const marketZone = (m) => (m?.timezone && m.timezone !== 'UTC' ? m.timezone : 'Europe/London')
 
 const CURRENCY_SYMBOL = { GBP: '£', EUR: '€', USD: '$', RON: 'lei ', SEK: 'kr ', NOK: 'kr ', DKK: 'kr ' }
 
@@ -197,8 +209,9 @@ export default function AdminChallengeForm() {
     extra_awards: [],
     // Video of the Week (migration 435): null = off.
     weekly_prize: null,
-    startDateStr: '', startTimeStr: '',
-    endDateStr: '', endTimeStr: '',
+    startDateStr: '',
+    endDateStr: '',
+    tz: 'Europe/London',
     status: 'draft',
     // Reporting fields. None of them change what a creator sees; they are what
     // makes a challenge comparable to every other one on the analytics page
@@ -259,7 +272,7 @@ export default function AdminChallengeForm() {
     // all of them and one brief reaches the whole network without any new
     // policy, notification path or special case.
     marketsApi.communities()
-      .select('id, slug, name, kind, country_codes, currency, is_active, cpm_target')
+      .select('id, slug, name, kind, country_codes, currency, is_active, cpm_target, timezone')
       .order('kind', { ascending: false }).order('name')
       .then(({ data }) => {
         if (!alive) return
@@ -403,8 +416,10 @@ export default function AdminChallengeForm() {
       if (data) {
         setForm({
           ...data,
-          startDateStr: isoToDateInput(data.start_date), startTimeStr: isoToTimeInput(data.start_date),
-          endDateStr: isoToDateInput(data.end_date), endTimeStr: isoToTimeInput(data.end_date),
+          // Read in the challenge's own clock, so a brief written in London shows the same dates in Madrid.
+          tz: data.timezone || 'Europe/London',
+          startDateStr: isoToDdmm(ymdInZone(data.start_date, data.timezone || 'Europe/London')),
+          endDateStr: isoToDdmm(ymdInZone(data.end_date, data.timezone || 'Europe/London')),
           prize_structure: Array.isArray(data.prize_structure) ? data.prize_structure : DEFAULT_PRIZES,
           participation_threshold: data.participation_threshold ?? '',
           participation_prize: data.participation_prize ?? '',
@@ -454,9 +469,9 @@ export default function AdminChallengeForm() {
   // there is, so none of them are questions any more.
   const derivedReporting = useMemo(() => {
     const days = (() => {
-      const a = parseDateTime(form.startDateStr, form.startTimeStr)
-      const b = parseDateTime(form.endDateStr, form.endTimeStr)
-      return a && b ? Math.round((b - a) / 86400000) : null
+      const a = challengeStartIso(form.startDateStr, form.tz || 'Europe/London')
+      const b = challengeEndIso(form.endDateStr, form.tz || 'Europe/London')
+      return a && b ? Math.round((Date.parse(b) - Date.parse(a)) / 86400000) : null
     })()
 
     // A market IS the community the brief belongs to. The old free-text box
@@ -488,7 +503,7 @@ export default function AdminChallengeForm() {
       // "Objective" and "how it is won" were the same question asked twice.
       objective: form.scoring === 'points' ? 'videos' : 'views',
     }
-  }, [form.startDateStr, form.startTimeStr, form.endDateStr, form.endTimeStr,
+  }, [form.startDateStr, form.endDateStr, form.tz,
       form.community_id, form.prize_structure, form.participation_prize,
       form.participation_threshold, form.participation_reward_type, form.extra_awards,
       form.format, form.scoring, markets])
@@ -588,13 +603,13 @@ export default function AdminChallengeForm() {
   async function save(e, publishNow = false) {
     e.preventDefault()
     setError('')
-    const startIso = parseDateTime(form.startDateStr, form.startTimeStr)
-    const endIso = parseDateTime(form.endDateStr, form.endTimeStr)
+    const startIso = startIsoOf(form)
+    const endIso = endIsoOf(form)
     if (!startIso || !endIso) {
-      return setError('Enter dates as DD/MM/YYYY and times as HH:MM (24h).')
+      return setError('Pick a start date and an end date.')
     }
     if (new Date(endIso) <= new Date(startIso)) {
-      return setError('The end date must be after the start date.')
+      return setError('The end date cannot be before the start date.')
     }
     if (form.platforms.length === 0) return setError('Pick at least one platform.')
     if (!form.community_id) {
@@ -634,6 +649,7 @@ export default function AdminChallengeForm() {
       extra_awards: cleanExtraAwards(form.extra_awards),
       start_date: startIso,
       end_date: endIso,
+      timezone: zoneOf(form),
       // Optional auto-publish time: a cron flips the draft live at this moment.
       // SCHEDULE PUBLISH IS GONE, and the start date does its job.
       //
@@ -645,7 +661,7 @@ export default function AdminChallengeForm() {
       // a challenge starting today could not be saved and kept as a draft. Publishing a draft whose start has passed is
       // "Save & publish", a deliberate press.
       publish_at: (() => {
-        const iso = parseDateTime(form.startDateStr, form.startTimeStr)
+        const iso = startIsoOf(form)
         return iso && Date.parse(iso) > Date.now() ? iso : null
       })(),
       // "Save & publish" flips a draft live (creators get notified by the DB trigger).
@@ -913,7 +929,7 @@ export default function AdminChallengeForm() {
           {globalCommunity && (
             <button
               type="button"
-              onClick={() => set({ community_id: globalCommunity.id })}
+              onClick={() => set({ community_id: globalCommunity.id, tz: editing ? form.tz : 'Europe/London' })}
               aria-pressed={form.community_id === globalCommunity.id}
               className={cx(
                 'flex w-full items-center gap-4 rounded-xl border p-4 text-left transition-all duration-200 hover:-translate-y-0.5',
@@ -943,6 +959,7 @@ export default function AdminChallengeForm() {
                    form that says EUR at the top and pounds on every line. */
                 onClick={() => setCurrency(m.currency || form.prize_currency, {
                   community_id: m.id,
+                  tz: editing ? form.tz : marketZone(m),
                   cpm_target: m.cpm_target ?? form.cpm_target,
                   market: (m.country_codes || [])[0] || form.market,
                 })}
@@ -1029,14 +1046,17 @@ export default function AdminChallengeForm() {
                   IT IS WIDE ENOUGH TO READ NOW. At `w-28` the button showed "Pound (£)" as "Poun…" - So it is auto-width
                   from `sm` (there are two options and the longer is nine characters, so it cannot run away) and a short
                   label on a phone, where the header row is already carrying a heading. */}
+              {/* SQUARE, LIKE THE FIELDS AROUND IT (20 Oct 2026: "the Euro thing at the top is currently rounded"). */}
               <Select
-                className="hidden w-auto min-w-[8.5rem] sm:block" ariaLabel="Prize currency"
+                variant="field"
+                className="hidden w-auto min-w-[8.5rem] sm:block [&>button]:!py-2" ariaLabel="Prize currency"
                 value={form.prize_currency}
                 onChange={setCurrency}
                 options={CURRENCIES}
               />
               <Select
-                className="w-[5.5rem] sm:hidden" ariaLabel="Prize currency"
+                variant="field"
+                className="w-[6rem] sm:hidden [&>button]:!px-3 [&>button]:!py-2" ariaLabel="Prize currency"
                 value={form.prize_currency}
                 onChange={setCurrency}
                 options={CURRENCIES.map((c) => ({ ...c, label: `${CURRENCY_SYMBOL[c.value] || ''} ${c.value}` }))}
@@ -1081,8 +1101,10 @@ export default function AdminChallengeForm() {
             onChange={(next) => set({ weekly_prize: next })}
             symbol={CURRENCY_SYMBOL[form.prize_currency] || ''}
             currency={form.prize_currency || 'EUR'}
-            start={parseDateTime(form.startDateStr, form.startTimeStr)}
-            end={parseDateTime(form.endDateStr, form.endTimeStr)}
+            start={startIsoOf(form)}
+            end={endIsoOf(form)}
+            tz={zoneOf(form)}
+            live={form.status === 'active'}
             boards={Math.max(1, groups.length)}
           />
 
@@ -1094,7 +1116,7 @@ export default function AdminChallengeForm() {
             weekly={(() => {
               const w = cleanWeekly(form.weekly_prize)
               if (!w) return null
-              const rounds = weeklyRounds(parseDateTime(form.startDateStr, form.startTimeStr), parseDateTime(form.endDateStr, form.endTimeStr), w.every_days).length
+              const rounds = weeklyRounds(startIsoOf(form), endIsoOf(form), w.every_days, { tz: zoneOf(form), roundEnds: w.round_ends }).length
               return { ...w, rounds, boards: Math.max(1, groups.length) }
             })()}
             legacyPot={potIsLegacy && groups.length === 0 ? derivedPot : null}

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { cx } from '../../lib/utils'
 import Icon from '../Icon'
-import { scoringMode } from '../../lib/scoring'
+import { honestRule, scoringMode } from '../../lib/scoring'
 import { useT } from '../../lib/i18n'
 import { challengesApi } from '../../api/challenges'
 
@@ -36,7 +36,7 @@ export function usePointRules(challenge) {
     let alive = true
     challengesApi.pointRules().select('id, kind, label, points, threshold, max_points, min_views, period_days, prompt, starts_at, ends_at')
       .eq('challenge_id', id).eq('is_active', true).order('position')
-      .then(({ data }) => { if (alive) setRules(data || []) })
+      .then(({ data }) => { if (alive) setRules((data || []).map(honestRule)) })
     return () => { alive = false }
   }, [id, points])
   return rules

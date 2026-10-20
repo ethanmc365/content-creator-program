@@ -6,7 +6,7 @@ import { useContentTranslations } from '../../lib/contentTranslate'
 import { TranslateSwitch } from '../TranslatedText'
 import { cx, dateTag, formatMoney } from '../../lib/utils'
 import { voucherDayState } from '../../lib/voucherDays'
-import { ruleWindowState } from '../../lib/scoring'
+import { honestRule, ruleWindowState } from '../../lib/scoring'
 import { isBonusKind } from './ScoringPanel'
 import { SLOT, SLOT_ICON } from '../challenge/SwapIn'
 import { BoostDisc, boostMult } from '../challenge/BoostBanner'
@@ -71,7 +71,8 @@ export default function BonusPointsCard({ rules, now = 0, className, boost = nul
   const [open, setOpen] = useState(null)
   // The joining bonus, the boost and the voucher days open the same card as a bonus rule.
   const [offer, setOffer] = useState(null)
-  const bonuses = (rules || []).filter(isBonusKind)
+  // A streak whose name says another period than it counts is shown with its period's name (lib/scoring honestRule).
+  const bonuses = (rules || []).filter(isBonusKind).map(honestRule)
   // The labels and questions are what an admin typed, so a reader in another language gets them translated, with ONE
   // Translated | Original switch for the whole card.
   const tx = useContentTranslations(bonuses.flatMap((r) => [r.label?.trim(), r.prompt?.trim()]))

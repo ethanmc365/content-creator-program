@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import Icon from '../Icon'
 import { Select } from '../ui'
-import { STARTER_POINT_RULES, RULE_USES_THRESHOLD, CONSISTENCY_PERIODS, challengeWeeks, ruleWindowState, isSavedRuleId } from '../../lib/scoring'
+import { STARTER_POINT_RULES, RULE_USES_THRESHOLD, CONSISTENCY_PERIODS, challengeWeeks, ruleWindowState, isSavedRuleId, consistencyLabel, labelTalksPeriod, labelContradictsPeriod, honestRule } from '../../lib/scoring'
 import { confirm } from '../../lib/confirm'
 import { DateField } from '../DateTimeFields'
 import { cx } from '../../lib/utils'
@@ -48,7 +48,7 @@ const DEFAULTS = {
   total_views_threshold: { label: 'Passed 25,000 views in total', points: 8, threshold: 25000, max_points: null },
   platform_spread: { label: 'Posted on another platform', points: 2, threshold: null, max_points: 8 },
   bonus: { label: 'Bonus', points: 1, threshold: null, max_points: null, prompt: '', min_views: null },
-  consistency: { label: 'Posted every week', points: 5, threshold: null, max_points: null, period_days: 7 },
+  consistency: { label: 'Post a video every week', points: 5, threshold: null, max_points: null, period_days: 7 },
   collab: { label: 'Posted an Instagram collab post with another creator', points: 10, threshold: null, max_points: 30 },
 }
 
@@ -607,6 +607,9 @@ function ConsistencyPeriod({ rule, onChange }) {
   // so the box does not vanish from under somebody typing "14".
   const [custom, setCustom] = useState(() => !CONSISTENCY_PERIODS.some((p) => p.days === days))
   const named = !custom && CONSISTENCY_PERIODS.find((p) => p.days === days)
+  // The name follows the period when it talks about one ("Posted every week" -> "Post a video every day"); a name of
+  // your own that does not mention days or weeks is left alone.
+  const follow = (d) => ({ ...rule, period_days: d, ...(labelTalksPeriod(rule.label) && Number(d) > 0 ? { label: consistencyLabel(d) } : {}) })
   // THE PLATFORM'S OWN DROPDOWN. It was a native <select>, which opens the operating system's menu -
   const options = [
     ...CONSISTENCY_PERIODS.map((p) => ({ value: String(p.days), label: tr(p.label.charAt(0).toUpperCase() + p.label.slice(1)) })),
@@ -620,8 +623,8 @@ function ConsistencyPeriod({ rule, onChange }) {
         ariaLabel="How often they have to post"
         value={named ? String(days) : 'custom'}
         onChange={(v) => {
-          if (v === 'custom') { setCustom(true); onChange({ ...rule, period_days: 3 }) }
-          else { setCustom(false); onChange({ ...rule, period_days: Number(v) }) }
+          if (v === 'custom') { setCustom(true); onChange(follow(3)) }
+          else { setCustom(false); onChange(follow(Number(v))) }
         }}
         options={options}
       />
@@ -629,7 +632,7 @@ function ConsistencyPeriod({ rule, onChange }) {
         <span className="flex shrink-0 items-center gap-1 rounded-lg border border-gray-200 bg-white px-2 py-1.5">
           <NumberBox
             value={rule.period_days ?? null}
-            onChange={(v) => onChange({ ...rule, period_days: v })}
+            onChange={(v) => onChange(follow(v))}
             width="w-7"
             ariaLabel="Days in each window"
           />
@@ -642,6 +645,11 @@ function ConsistencyPeriod({ rule, onChange }) {
 
 export default function PointRulesEditor({ rules, onChange, thresholdMode, onThresholdMode, challengeStart, challengeEnd }) {
   const tr = useT()
+  // A streak saved before its name followed its period ("Posted every week" set to every day) is renamed on opening, so
+  // the next save stores the honest name.
+  useEffect(() => {
+    if ((rules || []).some((r) => r.kind === 'consistency' && labelContradictsPeriod(r.label, r.period_days))) onChange(rules.map(honestRule))
+  }, [rules, onChange])
   const weeks = challengeWeeks(challengeStart, challengeEnd)
   const add = (kind) => onChange([...rules, newRule(kind)])
   const update = (i, next) => onChange(rules.map((r, j) => (j === i ? next : r)))

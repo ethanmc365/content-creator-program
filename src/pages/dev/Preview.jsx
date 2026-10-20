@@ -23,6 +23,7 @@ import VoucherTicket from '../../components/VoucherTicket'
 import Icon from '../../components/Icon'
 import RouteSkeleton from '../../components/RouteSkeleton'
 import PollIntroBench from './PollIntroBench'
+import WeeklyBench from './WeeklyBench'
 
 // Shaped like milestone_progress() + milestone_standings() return, using the
 // real ladder from the live database so the card heights measured here are the
@@ -265,6 +266,7 @@ const SKELETON_SHAPES = ['hub', 'thread', 'list', 'cards', 'profile', 'map', 'ca
 export default function Preview() {
   const q = new URLSearchParams(window.location.search)
   if (q.get('bench') === 'poll') return <PollIntroBench pollId={q.get('poll')} />
+  if (q.get('bench') === 'weekly') return <WeeklyBench />
   // The certificate sheet is FIRST, because it is the thing most often being
   // looked at and the sheet above it is four hundred pixels of skeletons.
   return (

@@ -184,7 +184,7 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
     return ['entries', 'brief', 'leaderboard', 'countries'].includes(t) ? t : null
   })
   const finished = !!challenge && (challenge.status === 'archived' || challenge.status === 'ended'
-    || (challenge.status === 'active' && challengeDeadline(challenge.end_date).getTime() < nowMs))
+    || (challenge.status === 'active' && challengeDeadline(challenge.end_date, challenge.closes_at).getTime() < nowMs))
   const tab = pickedTab ?? (finished ? 'leaderboard' : 'brief') // brief | leaderboard | entries | countries
   // THE PAGE KEEPS ITS HEIGHT WHILE A TAB SWAPS (14 Oct 2026). Opening the Country leaderboard from far down the page
   // briefly showed a short skeleton; the page got shorter, the browser pulled the scroll up, then the board landed and
@@ -680,7 +680,7 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
   }
 
   // Live only while active AND before the deadline (midnight after the end date).
-  const isLive = challenge.status === 'active' && nowMs < challengeDeadline(challenge.end_date).getTime()
+  const isLive = challenge.status === 'active' && nowMs < challengeDeadline(challenge.end_date, challenge.closes_at).getTime()
   const isGlobalChallenge = !!networkId && challenge.community_id === networkId
   const myEntries = submissions.filter((s) => s.creator_id === user.id)
   // The joining bonus is on offer to somebody who has not entered a live points challenge (migration 383).
@@ -1079,7 +1079,7 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
                 <span className="inline-flex h-2 w-2 animate-pulse rounded-full bg-white" />
                 {tr('Closes in')}
               </p>
-              <CountdownTimer endDate={challenge.end_date} />
+              <CountdownTimer endDate={challenge.end_date} closesAt={challenge.closes_at} />
             </div>
 
             <div className="relative w-full sm:w-auto">
@@ -1509,7 +1509,7 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
         // THE JOINING BONUS AND THE VOUCHER DAYS (migration 383) lead the page: they exist to get somebody posting.
         const kickersCard = <ChallengeKickers challenge={challenge} meId={user.id} />
         // VIDEO OF THE WEEK (migration 435): this round's prize, its top three and the winners so far.
-        const weeklyCard = challenge.weekly_prize ? <WeeklyPrizeCard challenge={challenge} groupId={(viewAs ?? myGroup?.id) || null} meId={user.id} /> : null
+        const weeklyCard = challenge.weekly_prize ? <WeeklyPrizeCard challenge={challenge} groupId={(viewAs ?? myGroup?.id) || null} meId={user.id} onPlay={openEntry} /> : null
         if (isMobile) {
           return (
             <div className="space-y-6">

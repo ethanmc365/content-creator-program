@@ -3,13 +3,14 @@ import { Link } from 'react-router-dom'
 import { Avatar, Spinner } from '../ui'
 import Icon from '../Icon'
 import SocialMark from '../SocialMark'
-import { cx, formatDate, formatMoney, formatViews } from '../../lib/utils'
-import { useT } from '../../lib/i18n'
+import { cx, dateTag, formatDate, formatMoney, formatViews } from '../../lib/utils'
+import { useLocale, useT } from '../../lib/i18n'
 import { confirm, notice } from '../../lib/confirm'
 import { toastSuccess } from '../../lib/toast'
 import { pickClass } from '../../lib/pick'
 import { safeUrl } from '../../lib/safeUrl'
 import { challengesApi } from '../../api/challenges'
+import EntryPreview from './EntryPreview'
 
 // VIDEO OF THE WEEK (migration 435, 19 Oct 2026).
 //
@@ -68,26 +69,58 @@ function prizeLabel(w, tr) {
     : tr('{amount} Tryp.com voucher', { amount: formatMoney(w.amount, w.currency || 'EUR') })
 }
 
+// "Sat 31 Oct - Fri 6 Nov". A round ends at midnight, so its last day is the day before `endsAt`. Read in the
+// challenge's own clock, so a creator in Madrid sees the same days as the brief.
+function roundDays(rd, tz, locale) {
+  const opts = { weekday: 'short', day: 'numeric', month: 'short', timeZone: tz }
+  const a = new Date(rd.startsAt).toLocaleDateString(locale, opts)
+  const b = new Date(Date.parse(rd.endsAt) - 60_000).toLocaleDateString(locale, opts)
+  return `${a} - ${b}`
+}
+
+/** A board row in the shape EntryPreview and the player take. */
+const asEntry = (e) => ({
+  id: e.submission_id, creator_id: e.creator_id, video_url: e.video_url, platform: e.platform,
+  thumbnail_url: e.thumbnail_url, platform_video_id: e.platform_video_id, logged_views: e.views,
+  profiles: { name: e.name, photo_url: e.photo_url },
+})
+
 /**
- * THE CREATORS' CARD. `groupId` is the reader's board on a split challenge (null otherwise); `meId` marks you.
+ * THE CREATORS' CARD (rebuilt 20 Oct 2026). Ethan: "It'll show a little mini leaderboard of just that week and also show
+ * who previously won the vouchers there, with a nice UI showing their profile pictures, etc. The actual videos, like the
+ * entries." So: the round you are in and how far through the challenge it is, this round's top five with the leading
+ * videos themselves (press one to watch it), and every past winner with their photo and the video that won.
+ * `groupId` is the reader's board on a split challenge (null otherwise); `meId` marks you; `onPlay(entry)` is the
+ * page's own player.
  */
-export function WeeklyPrizeCard({ challenge, groupId = null, meId }) {
+export function WeeklyPrizeCard({ challenge, groupId = null, meId, onPlay, boardRows = null }) {
   const tr = useT()
+  useLocale() // re-render on a language change
+  const locale = dateTag()
   const weekly = challenge?.weekly_prize
-  const { rows } = useWeeklyBoard(challenge?.id, !!weekly)
+  const tz = challenge?.timezone || 'Europe/London'
+  // `boardRows` is the dev bench's fixture (pages/dev/WeeklyBench); the page always reads the board.
+  const { rows: fetched } = useWeeklyBoard(challenge?.id, !!weekly && !boardRows)
+  const rows = boardRows || fetched
+  // Captured once (render stays pure); the page re-reads the board on its next visit.
+  const [now] = useState(() => Date.now())
   if (!weekly || !rows) return null
   const rounds = roundsOf(rows)
   if (!rounds.length) return null
   const pick = (rd) => rd.boards.find((b) => (b.groupId ?? null) === (groupId ?? null)) || rd.boards[0]
   const current = rounds.find((r) => r.state === 'live') || null
+  const reading = rounds.find((r) => r.state === 'reading') || null
   const past = rounds.filter((r) => ['ready', 'awarded'].includes(r.state))
   const next = !current ? rounds.find((r) => r.state === 'upcoming') : null
-  const board = current ? pick(current) : null
-  const top = (board?.entries || []).slice(0, 3)
+  const shown = current || reading
+  const board = shown ? pick(shown) : null
+  const top = (board?.entries || []).slice(0, 5)
+  const videos = top.filter((e) => e.video_url).slice(0, 3)
+  const play = (e) => onPlay?.(asEntry(e))
 
   return (
     <section className="overflow-hidden rounded-card bg-white shadow-card animate-fade-up">
-      <div className="relative overflow-hidden bg-gradient-to-br from-brand to-brand-light px-5 py-4 text-white">
+      <div className="relative overflow-hidden bg-gradient-to-br from-brand to-brand-light px-5 pb-4 pt-4 text-white">
         <span aria-hidden className="pointer-events-none absolute -right-10 -top-12 h-36 w-36 rounded-full bg-white/15 blur-2xl" />
         <p className="relative flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.14em] text-white/85">
           <Icon name="fire" className="h-4 w-4" />{tr('Video of the Week')}
@@ -95,48 +128,100 @@ export function WeeklyPrizeCard({ challenge, groupId = null, meId }) {
         <p className="relative mt-1 text-xl font-bold">{prizeLabel(weekly, tr)}</p>
         <p className="relative mt-0.5 text-xs text-white/85">
           {current
-            ? tr('Round {n} · {left}', { n: current.round, left: timeLeft(current.endsAt, tr) })
-            : next ? tr('Round {n} starts {d}', { n: next.round, d: formatDate(next.startsAt) }) : tr('Every round has been decided')}
+            ? tr('Round {n} of {total} · {left}', { n: current.round, total: rounds.length, left: timeLeft(current.endsAt, tr) })
+            : reading ? tr('Round {n} has ended. Reading the final views', { n: reading.round })
+              : next ? tr('Round {n} starts {d}', { n: next.round, d: roundDays(next, tz, locale).split(' - ')[0] }) : tr('Every round has been decided')}
         </p>
+        {/* ONE SEGMENT PER ROUND: decided ones solid, the running one filling up, the rest faint. */}
+        <ol className="relative mt-3 flex gap-1" aria-label={tr('Rounds')}>
+          {rounds.map((rd) => {
+            const done = ['ready', 'awarded', 'reading'].includes(rd.state)
+            const live = rd.state === 'live'
+            const pct = live ? Math.min(100, Math.max(4, ((now - Date.parse(rd.startsAt)) / (Date.parse(rd.endsAt) - Date.parse(rd.startsAt))) * 100)) : 0
+            return (
+              <li key={rd.round} className="h-1.5 flex-1 overflow-hidden rounded-full bg-white/25" title={tr('Round {n}: {d}', { n: rd.round, d: roundDays(rd, tz, locale) })}>
+                <span className={cx('block h-full rounded-full bg-white', done ? 'w-full' : !live && 'w-0')} style={live ? { width: `${pct}%` } : undefined} />
+              </li>
+            )
+          })}
+        </ol>
       </div>
-      <div className="space-y-3 p-4">
-        <p className="text-xs leading-relaxed text-smoke">{tr('The most viewed video posted in each round wins, on top of any other prize.')}</p>
-        {current && (
-          top.length ? (
-            <ol className="space-y-1.5">
-              {top.map((e, i) => (
-                <li key={e.submission_id} className={cx('flex items-center gap-2.5 rounded-xl px-2 py-1.5 animate-fade-up', e.creator_id === meId ? 'bg-brand-tint/50' : 'bg-cloud/60')} style={{ animationDelay: `${i * 60}ms` }}>
-                  <span className={cx('flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[11px] font-bold', i === 0 ? 'bg-brand text-white' : 'bg-white text-smoke')}>{i + 1}</span>
-                  <Link to={`/profile/${e.creator_id}`} className="flex min-w-0 flex-1 items-center gap-2 transition-transform duration-200 hoverable:hover:translate-x-0.5">
-                    <Avatar src={e.photo_url} name={e.name || ''} size="xs" />
-                    <span className="min-w-0 truncate text-[13px] font-semibold text-ink">{e.name}</span>
-                  </Link>
-                  {e.platform && <SocialMark brand={BRAND[e.platform] || 'link'} colored className="h-3.5 w-3.5 shrink-0" />}
-                  <span className="shrink-0 text-[13px] font-bold tabular-nums text-ink">{formatViews(e.views)}</span>
-                </li>
-              ))}
-            </ol>
-          ) : (
-            <p className="rounded-xl border border-dashed border-gray-200 px-3 py-3 text-center text-xs text-smoke">{tr('No videos posted this round yet. The first one leads.')}</p>
-          )
+
+      <div className="space-y-4 p-4">
+        {shown ? (
+          <div>
+            <div className="mb-2 flex items-baseline justify-between gap-2">
+              <p className="text-[11px] font-bold uppercase tracking-wide text-gray-400">{tr('This round')}</p>
+              <p className="text-xs text-smoke">{roundDays(shown, tz, locale)}</p>
+            </div>
+            {top.length ? (
+              <>
+                {videos.length > 0 && (
+                  <ul className="mb-2.5 grid grid-cols-3 gap-2">
+                    {videos.map((e, i) => (
+                      <li key={e.submission_id} className="animate-fade-up" style={{ animationDelay: `${i * 70}ms` }}>
+                        <div className={cx('relative overflow-hidden rounded-xl', i === 0 && 'ring-2 ring-brand ring-offset-1')}>
+                          <EntryPreview submission={asEntry(e)} onPlay={onPlay ? () => play(e) : undefined} compact />
+                          <span className={cx('pointer-events-none absolute left-1.5 top-1.5 flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-[10px] font-bold', i === 0 ? 'bg-brand text-white' : 'bg-white/90 text-ink')}>{i + 1}</span>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                <ol className="space-y-1">
+                  {top.map((e, i) => (
+                    <li key={e.submission_id} className={cx('flex items-center gap-2.5 rounded-xl px-2 py-1.5 animate-fade-up', e.creator_id === meId ? 'bg-brand-tint/50' : i === 0 ? 'bg-cloud' : '')} style={{ animationDelay: `${i * 50}ms` }}>
+                      <span className={cx('flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[11px] font-bold', i === 0 ? 'bg-brand text-white' : 'bg-cloud text-smoke')}>{i + 1}</span>
+                      <Link to={`/profile/${e.creator_id}`} className="flex min-w-0 flex-1 items-center gap-2 transition-transform duration-200 hoverable:hover:translate-x-0.5">
+                        <Avatar src={e.photo_url} name={e.name || ''} size="xs" />
+                        <span className="min-w-0 truncate text-[13px] font-semibold text-ink">{e.creator_id === meId ? tr('You') : e.name}</span>
+                      </Link>
+                      {e.platform && <SocialMark brand={BRAND[e.platform] || 'link'} colored className="h-3.5 w-3.5 shrink-0" />}
+                      <span className="shrink-0 text-[13px] font-bold tabular-nums text-ink">{formatViews(e.views)}</span>
+                    </li>
+                  ))}
+                </ol>
+              </>
+            ) : (
+              <p className="rounded-xl border border-dashed border-gray-200 px-3 py-3 text-center text-xs text-smoke">{tr('No videos posted this round yet. The first one leads.')}</p>
+            )}
+          </div>
+        ) : (
+          <p className="text-xs leading-relaxed text-smoke">{tr('The most viewed video posted in each round wins, on top of any other prize.')}</p>
         )}
+
         {past.length > 0 && (
           <div>
-            <p className="mb-1.5 text-[11px] font-bold uppercase tracking-wide text-gray-400">{tr('Winners so far')}</p>
-            <ul className="space-y-1">
-              {past.map((rd) => {
-                const b = pick(rd)
-                const w = b?.entries?.[0]
+            <p className="mb-2 text-[11px] font-bold uppercase tracking-wide text-gray-400">{tr('Winners so far')}</p>
+            <ul className="space-y-2">
+              {[...past].reverse().map((rd, i) => {
+                const w = pick(rd)?.entries?.[0]
                 return (
-                  <li key={rd.round} className="flex items-center gap-2 text-[13px]">
-                    <span className="w-14 shrink-0 text-xs text-smoke">{tr('Round {n}', { n: rd.round })}</span>
+                  <li key={rd.round} className="flex items-center gap-3 rounded-xl border border-gray-100 p-2 animate-fade-up" style={{ animationDelay: `${i * 60}ms` }}>
                     {w ? (
-                      <Link to={`/profile/${w.creator_id}`} className="flex min-w-0 flex-1 items-center gap-2">
-                        <Avatar src={w.photo_url} name={w.name || ''} size="xs" />
-                        <span className="min-w-0 truncate font-semibold text-ink">{w.name}</span>
-                        <span className="shrink-0 text-xs tabular-nums text-smoke">{formatViews(w.views)}</span>
-                      </Link>
-                    ) : <span className="text-xs text-smoke">{tr('Nobody posted')}</span>}
+                      <>
+                        <Link to={`/profile/${w.creator_id}`} className="relative shrink-0">
+                          <span className="block rounded-full ring-2 ring-brand ring-offset-2">
+                            <Avatar src={w.photo_url} name={w.name || ''} size="sm" />
+                          </span>
+                          <span aria-hidden className="absolute -bottom-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-brand text-white shadow-sm">
+                            <Icon name="trophy" className="h-3 w-3" />
+                          </span>
+                        </Link>
+                        <div className="min-w-0 flex-1">
+                          <Link to={`/profile/${w.creator_id}`} className="block truncate text-sm font-semibold text-ink hover:text-brand">{w.creator_id === meId ? tr('You') : w.name}</Link>
+                          <p className="truncate text-xs text-smoke">{tr('Round {n}', { n: rd.round })} · {roundDays(rd, tz, locale)}</p>
+                          <p className="text-xs font-semibold tabular-nums text-ink">{tr('{n} views', { n: formatViews(w.views) })}</p>
+                        </div>
+                        {w.video_url && (
+                          <div className="w-14 shrink-0 overflow-hidden rounded-lg">
+                            <EntryPreview submission={asEntry(w)} onPlay={onPlay ? () => play(w) : undefined} compact bare />
+                          </div>
+                        )}
+                      </>
+                    ) : (
+                      <p className="px-1 text-xs text-smoke">{tr('Round {n}', { n: rd.round })} · {tr('Nobody posted')}</p>
+                    )}
                   </li>
                 )
               })}
@@ -184,7 +269,10 @@ export function WeeklyPrizeAdmin({ challenge, onAwarded }) {
         <div className="min-w-0">
           <h2 className="flex items-center gap-2 text-base font-semibold"><Icon name="fire" className="h-4 w-4 text-brand" />Video of the Week</h2>
           <p className="mt-0.5 text-sm text-smoke">
-            {formatMoney(weekly.amount, weekly.currency || 'EUR')} {weekly.type === 'cash' ? 'cash' : 'voucher'} a round. Each round is read one last time when it ends, then frozen here for you to check and award.
+            {formatMoney(weekly.amount, weekly.currency || 'EUR')} {weekly.type === 'cash' ? 'cash' : 'voucher'} a round. Each round is read one last time when it ends, then frozen.{' '}
+            {weekly.auto_award !== false
+              ? 'The winner\'s reward is then created by itself and waits on Rewards & Payouts for you to pay out.'
+              : 'Check each winner here and press Award.'}
           </p>
         </div>
       </div>
@@ -202,6 +290,11 @@ export function WeeklyPrizeAdmin({ challenge, onAwarded }) {
                 <div className="flex min-w-0 flex-1 items-center gap-2.5">
                   {w ? (
                     <>
+                      {w.video_url && (
+                        <div className="w-12 shrink-0 overflow-hidden rounded-lg">
+                          <EntryPreview submission={asEntry(w)} compact bare />
+                        </div>
+                      )}
                       <Link to={`/profile/${w.creator_id}`}><Avatar src={w.photo_url} name={w.name || ''} size="sm" /></Link>
                       <div className="min-w-0">
                         <Link to={`/profile/${w.creator_id}`} className="block truncate text-sm font-semibold text-ink hover:text-brand">{w.name}</Link>

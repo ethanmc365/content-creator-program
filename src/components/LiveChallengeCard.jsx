@@ -343,8 +343,8 @@ export default function LiveChallengeCard({ challenge: c, global: isGlobal, entr
             {/* The hero clock is four big tiles. On a phone that is most of
                 what is left of the card, so it gets the compact row instead
                 and the card gets its height back. */}
-            <span className={compact ? 'hidden sm:block lg:hidden' : 'hidden sm:block'}><CountdownTimer endDate={c.end_date} hero /></span>
-            <span className={compact ? 'block sm:hidden lg:block' : 'block sm:hidden'}><CountdownTimer endDate={c.end_date} compact onDark /></span>
+            <span className={compact ? 'hidden sm:block lg:hidden' : 'hidden sm:block'}><CountdownTimer endDate={c.end_date} closesAt={c.closes_at} hero /></span>
+            <span className={compact ? 'block sm:hidden lg:block' : 'block sm:hidden'}><CountdownTimer endDate={c.end_date} closesAt={c.closes_at} compact onDark /></span>
           </div>
 
           <div className={cx('mt-3.5 flex flex-col gap-2.5 sm:mt-7', compact ? 'lg:mt-5' : 'lg:col-start-2 lg:row-start-3 lg:mt-7 lg:items-end lg:self-end')}>

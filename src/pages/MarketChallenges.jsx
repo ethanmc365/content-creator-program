@@ -67,7 +67,7 @@ export default function MarketChallenges() {
       if (cancelled) return
 
       const all = challenges || []
-      const live = all.find((c) => c.status === 'active' && challengeDeadline(c.end_date).getTime() > Date.now())
+      const live = all.find((c) => c.status === 'active' && challengeDeadline(c.end_date, c.closes_at).getTime() > Date.now())
 
       let participation = null
       let winners = {}

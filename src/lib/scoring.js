@@ -94,6 +94,38 @@ export const CONSISTENCY_PERIODS = [
   { days: 7, label: 'every week' },
 ]
 
+// A POSTING STREAK'S NAME FOLLOWS ITS PERIOD (20 Oct 2026). Ethan set a streak to "every day" and it still read "Posted
+// every week": the period changed, the name (which is what creators see as the bonus's title) did not. The editor now
+// renames a streak whose name talks about its period, and a name that contradicts the period is never shown to creators.
+export function consistencyLabel(days) {
+  const d = Number(days) || 7
+  return d === 1 ? 'Post a video every day' : d === 7 ? 'Post a video every week' : `Post a video every ${d} days`
+}
+
+/** Does this name describe how often (so it should follow the period)? */
+export function labelTalksPeriod(label) {
+  return !String(label || '').trim() || /\b(day|days|daily|week|weeks|weekly)\b/i.test(label)
+}
+
+/** True when a streak's name says one period and the rule counts another. */
+export function labelContradictsPeriod(label, days) {
+  const d = Number(days) || 7
+  const t = String(label || '')
+  const daily = /\b(every|each) day\b|\bdaily\b/i.test(t)
+  const week = /\bweek(s|ly)?\b/i.test(t)
+  const nDays = /\bevery (\d+) days\b/i.exec(t)
+  if (nDays && Number(nDays[1]) !== d) return true
+  if (d === 1) return week
+  if (d % 7 === 0) return daily
+  return daily || week
+}
+
+/** The rule as creators should read it: a streak whose name contradicts its period is shown with the period's name. */
+export function honestRule(r) {
+  if (r?.kind !== 'consistency' || !labelContradictsPeriod(r.label, r.period_days)) return r
+  return { ...r, label: consistencyLabel(r.period_days) }
+}
+
 // `min_views` HOLDS A CLAIMED BONUS BACK UNTIL THE ENTRY EARNS IT (migration
 // 181). It is the only field whose owner is not decided by `kind` alone: a
 // bonus with no question is one an ADMIN awards by judgement from the results

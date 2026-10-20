@@ -119,7 +119,7 @@ export default function ChapterHome() {
       // platform-wide creator count, which is how a market with nobody in it
       // reported "0 of 43".
       const live = (challenges || []).find(
-        (c) => c.status === 'active' && challengeDeadline(c.end_date).getTime() > Date.now(),
+        (c) => c.status === 'active' && challengeDeadline(c.end_date, c.closes_at).getTime() > Date.now(),
       )
       let participation = null
       if (live) {

@@ -32,7 +32,7 @@ import { useT } from '../../lib/i18n'
 export default function LiveNowRow({ challenge, market, global: isGlobal, now, expanded = false }) {
   const tr = useT()
   if (!challenge) return null
-  const closes = challengeDeadline(challenge.end_date)
+  const closes = challengeDeadline(challenge.end_date, challenge.closes_at)
   const days = Math.max(0, Math.ceil((closes - now) / 86400000))
   const gradient = isGlobal
     // THE GLOBAL ONE WEARS THE GLOBAL CARD'S GROUND: the darker ember-to-orange gradient /challenges paints it in, so
