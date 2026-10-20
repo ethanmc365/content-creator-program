@@ -1,3 +1,6 @@
+import { ALL_COUNTRIES } from './allCountries'
+import { socialHandle } from './socialLinks'
+
 // THE VIDEO TRACKER'S ARITHMETIC, AWAY FROM ITS PAINT.
 //
 // The page is a grid of cards over a filter bar, which is to say it is almost
@@ -37,6 +40,18 @@ export function reasonLabel(v) {
 export const atHandle = (h) => (h ? `@${String(h).replace(/^@/, '')}` : '')
 
 /**
+ * THE ACCOUNT THAT POSTED IT, without the @. The row's own handle; else the one in the video's link
+ * (`tiktok.com/@sam/video/1`); else what the creator saved on their profile for that platform (migration 440) - a VIP
+ * video stores no handle, so before this every VIP row in the export had a blank Account.
+ */
+export function handleOf(v) {
+  if (v.creator_handle) return String(v.creator_handle).replace(/^@/, '')
+  const inLink = /tiktok\.com\/@([\w.-]+)/i.exec(v.video_url || '') || /youtube\.com\/@([\w.-]+)/i.exec(v.video_url || '')
+  if (inLink) return inLink[1]
+  return socialHandle(v.creator_social, v.platform) || ''
+}
+
+/**
  * The link to the account that posted it.
  *
  * Built from the handle rather than stored, because a handle is the thing the
@@ -45,13 +60,55 @@ export const atHandle = (h) => (h ? `@${String(h).replace(/^@/, '')}` : '')
  * we do not know - a broken link is worse than no link.
  */
 export function creatorLink(v) {
-  const h = v.creator_handle && String(v.creator_handle).replace(/^@/, '')
+  const h = handleOf(v)
   if (!h) return null
   if (v.platform === 'Instagram') return `https://www.instagram.com/${h}/`
   if (v.platform === 'TikTok') return `https://www.tiktok.com/@${h}`
   if (v.platform === 'YouTube') return `https://www.youtube.com/@${h}`
   if (v.platform === 'Facebook') return `https://www.facebook.com/${h}`
   return null
+}
+
+/**
+ * THE CREATOR'S COUNTRY, from their profile (migration 439). `key` is the ISO code where there is one, so "Spain" and
+ * "spain " are one country; `name` is what the profile says. Null for a video added by hand with no creator on it.
+ */
+export function countryOf(v) {
+  const code = v.creator_country_code ? String(v.creator_country_code).toUpperCase() : ''
+  const name = v.creator_country || ALL_COUNTRIES.find((c) => c.iso2 === code)?.name || ''
+  if (!code && !name) return null
+  return { key: code || name.toLowerCase(), code, name: name || code }
+}
+
+/**
+ * THE MARKET A VIDEO WAS FOR, AS A PERSON WOULD SAY IT (20 Oct 2026, Sofia's sheet). One of our markets when it belongs
+ * to one: the challenge's or programme's own market first, then (for a community video) the creator's home market.
+ * Otherwise never "Worldwide": the creator's country, so a Bulgarian's Global Challenge video says Bulgaria.
+ */
+export function marketOf(v) {
+  if (v.market_name && v.market_kind === 'chapter') return v.market_name
+  if ((v.source || 'community') === 'community' && v.home_name) return v.home_name
+  return countryOf(v)?.name || v.market_name || ''
+}
+
+/**
+ * THE COUNTRY FILTER'S OPTIONS: only countries that actually have a video in `rows`, most videos first. `keep` stays
+ * listed (at zero) when it is the one already picked, so a month with none of it does not make the choice vanish.
+ */
+export function countryOptions(rows, keep = '') {
+  const seen = new Map()
+  for (const v of rows || []) {
+    const c = countryOf(v)
+    if (!c) continue
+    const cur = seen.get(c.key) || { ...c, count: 0 }
+    cur.count += 1
+    seen.set(c.key, cur)
+  }
+  if (keep && !seen.has(keep)) {
+    const code = keep.length === 2 ? keep.toUpperCase() : ''
+    seen.set(keep, { key: keep, code, name: ALL_COUNTRIES.find((c) => c.iso2 === code)?.name || keep, count: 0 })
+  }
+  return [...seen.values()].sort((a, b) => b.count - a.count || a.name.localeCompare(b.name))
 }
 
 /** The challenge a row belongs to, live or logged, or null for a loose video. */
@@ -106,7 +163,7 @@ const ts = (d) => (d ? new Date(d).getTime() || 0 : 0)
 export function visibleVideos(rows, filter = {}) {
   const {
     market = '', challenge = '', platform = '', month = '',
-    q = '', sort = 'views', source = '',
+    q = '', sort = 'views', source = '', country = '',
   } = filter
   const needle = fold(q.trim())
 
@@ -117,6 +174,7 @@ export function visibleVideos(rows, filter = {}) {
     if (challenge && challengeKey(v) !== challenge) return false
     if (source && (v.source || 'community') !== source) return false
     if (platform && v.platform !== platform) return false
+    if (country && countryOf(v)?.key !== country) return false
     // (There is no `reason` clause. There was, and the team cut the control - "for the any reason, I would delete that
     // filter, we don't need that filter" - so the clause went with it rather than lingering as an option nothing can
     // set. `reason` is still on every row and still drives the badge; see `reasonLabel`.)
@@ -187,43 +245,47 @@ export function summarise(rows) {
 }
 
 /**
- * THE WHOLE POINT OF THE TOOL, AS A FILE SOMEBODY CAN SEND.
+ * THE TRACKER AS A FILE SOMEBODY CAN SEND.
  *
  * The page is behind an admin login and half the Tryp.com team does not have one, so the tracker has to be able to leave
- * the platform. The column order is reading order rather than schema order: what it was, who made it, how it did, and
- * then the link.
+ * the platform. SHAPED ON MARKETING'S OWN SHEET (20 Oct 2026, Sofia): #, platform, the link, the account, the market,
+ * the date and the views first, in that order, so it pastes straight into what they keep. Views are whole numbers and
+ * the date is ISO, so the sheet sorts them; the hook and the rest follow for anyone who wants them.
  */
+// `{ key, label }`, the shape `toCsv` reads. It was `[key, label]` pairs, which `toCsv` does not read, so every export
+// before 20 Oct 2026 was a file of empty cells under no header.
 export const CSV_COLUMNS = [
-  ['hook', 'Hook'],
-  ['caption', 'Caption'],
-  ['creator_name', 'Creator'],
-  ['handle', 'Account'],
-  ['platform', 'Platform'],
-  ['views', 'Views'],
-  ['challenge', 'Challenge'],
-  ['market_name', 'Market'],
-  ['reason', 'Why it is here'],
-  ['posted_at', 'Posted'],
-  ['tags', 'Tags'],
-  ['notes', 'Notes'],
-  ['video_url', 'Link'],
+  { key: 'n', label: '#' },
+  { key: 'platform', label: 'Platform' },
+  { key: 'video_url', label: 'Video' },
+  { key: 'handle', label: 'Account' },
+  { key: 'creator_name', label: 'Creator' },
+  { key: 'market', label: 'Market' },
+  { key: 'country', label: 'Country' },
+  { key: 'posted_at', label: 'Published' },
+  { key: 'views', label: 'Views' },
+  { key: 'type', label: 'Type' },
+  { key: 'challenge', label: 'Challenge' },
+  { key: 'hook', label: 'Hook' },
 ]
 
+/** Community / VIP / Official, as the switch on the page names them. */
+export const SOURCE_LABELS = { community: 'Community', vip: 'VIP', official: 'Official' }
+
 export function toCsvRows(rows) {
-  return (rows || []).map((v) => ({
-    hook: v.hook || '',
-    caption: v.caption || '',
-    creator_name: v.creator_name || '',
-    handle: atHandle(v.creator_handle),
+  return (rows || []).map((v, i) => ({
+    n: i + 1,
     platform: v.platform || '',
-    views: v.views ?? '',
-    challenge: challengeOf(v) || '',
-    market_name: v.market_name || '',
-    reason: reasonLabel(v).label,
-    posted_at: v.posted_at ? String(v.posted_at).slice(0, 10) : '',
-    tags: (v.tags || []).join(', '),
-    notes: v.notes || '',
     video_url: v.video_url || '',
+    handle: atHandle(handleOf(v)),
+    creator_name: v.creator_name || '',
+    market: marketOf(v),
+    country: countryOf(v)?.name || '',
+    posted_at: v.posted_at ? String(v.posted_at).slice(0, 10) : '',
+    views: v.views ?? '',
+    type: SOURCE_LABELS[v.source || 'community'] || '',
+    challenge: challengeOf(v) || '',
+    hook: v.screen_text || v.hook || '',
   }))
 }
 

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { socialHref, linkHref } from './socialLinks'
+import { socialHref, linkHref, socialHandle } from './socialLinks'
 
 describe('socialHref', () => {
   it('keeps a full link', () => {
@@ -51,5 +51,23 @@ describe('linkHref', () => {
     expect(linkHref('myblog.com/trips')).toBe('https://myblog.com/trips')
     expect(linkHref('https://a.io')).toBe('https://a.io')
     expect(linkHref('justaword')).toBeNull()
+  })
+})
+
+describe('socialHandle', () => {
+  it('reads the handle out of every shape a creator saves', () => {
+    expect(socialHandle('https://www.tiktok.com/@roxanna.travels?_r=1&_t=ZN', 'tiktok')).toBe('roxanna.travels')
+    expect(socialHandle('https://www.instagram.com/yleniatraveling?stkn=MX', 'instagram')).toBe('yleniatraveling')
+    expect(socialHandle('traveltipswithme_', 'tiktok')).toBe('traveltipswithme_')
+    expect(socialHandle('@ariaknaval', 'tiktok')).toBe('ariaknaval')
+    expect(socialHandle('tiktok.com/@juliaafloreesc', 'tiktok')).toBe('juliaafloreesc')
+    expect(socialHandle('instagram.com/@juliaflores.viajes', 'instagram')).toBe('juliaflores.viajes')
+  })
+
+  it('gives null when there is no account in it', () => {
+    expect(socialHandle('https://www.facebook.com/share/19RBQusLR4/?mibextid=wwXIfr', 'facebook')).toBeNull()
+    expect(socialHandle('https://vm.tiktok.com/ZN8BovQ3J/', 'tiktok')).toBeNull()
+    expect(socialHandle('', 'tiktok')).toBeNull()
+    expect(socialHandle(null, 'instagram')).toBeNull()
   })
 })

@@ -80,3 +80,25 @@ export function socialHref(value, platform) {
 export function linkHref(value) {
   return socialHref(value, null)
 }
+
+// Path words that are never an account: `instagram.com/reel/...`, `facebook.com/share/...`.
+const NOT_A_HANDLE = /^(p|reel|reels|tv|stories|share|watch|shorts|channel|c|user|profile\.php|groups|video|t|v|vm|explore)$/i
+
+/**
+ * THE HANDLE, OUT OF WHATEVER WAS SAVED (20 Oct 2026, the video tracker's Account column): a full link, a link with no
+ * scheme, "@sam" or "sam" all give "sam". Null when there is no account in it (a Facebook share link, a short link).
+ */
+export function socialHandle(value, platform) {
+  const href = socialHref(value, platform)
+  if (!href) return null
+  try {
+    const u = new URL(href)
+    if (/^(vm|vt)\./i.test(u.hostname)) return null
+    const first = decodeURIComponent(u.pathname.split('/').filter(Boolean)[0] || '')
+    const h = first.replace(/^@+/, '')
+    if (!h || NOT_A_HANDLE.test(h) || !/^[\w.-]+$/.test(h)) return null
+    return h
+  } catch {
+    return null
+  }
+}

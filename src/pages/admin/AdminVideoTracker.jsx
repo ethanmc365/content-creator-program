@@ -8,9 +8,10 @@ import TrackedVideoSheet from '../../components/admin/TrackedVideoSheet'
 import { cx, formatViews, formatDate, downloadCsv } from '../../lib/utils'
 import {
   CSV_COLUMNS, PLATFORMS, SORTS, atHandle, challengeOf,
-  challengeOptions, creatorLink, monthLabel, monthsOf, summarise,
+  challengeOptions, countryOptions, creatorLink, handleOf, monthLabel, monthsOf, summarise,
   toCsvRows, visibleVideos,
 } from '../../lib/videoTracker'
+import { flagFromIso } from '../../lib/flags'
 import { resolveThumbnail, forgetThumbnail } from '../../lib/videoThumbs'
 import { useT } from '../../lib/i18n'
 import { translateTexts } from '../../lib/contentTranslate'
@@ -67,7 +68,7 @@ export default function AdminVideoTracker() {
   // and is still tested on it, so putting the input back is one element. It stays in the shape so that `Clear` and
   // `filtered` keep meaning the same thing whichever of those two states the page is in.
   const [filter, setFilter] = useState({
-    market: '', challenge: '', platform: '', month: '', q: '', sort: 'views', source: '',
+    market: '', challenge: '', platform: '', month: '', q: '', sort: 'views', source: '', country: '',
   })
   // THE HOOKS IN ANOTHER LANGUAGE. '' is the words as written; a language code translates every hook on the page through
   // the shared cache, original one press away.
@@ -118,7 +119,26 @@ export default function AdminVideoTracker() {
   // THE MONTH COUNTS FOLLOW THE OTHER FILTERS. They counted every row ever tracked, retired ones included, so "September
   // 21" sat under "All months 15" - two numbers for one list.
   const months = useMemo(() => monthsOf(visibleVideos(rows || [], { ...filter, month: '' })), [rows, filter])
-  const filtered = filter.challenge || filter.platform || filter.q || filter.market || filter.month || filter.source
+  const filtered = filter.challenge || filter.platform || filter.q || filter.market || filter.month || filter.source || filter.country
+  // THE COUNTRY FILTER (20 Oct 2026): the creator's own country, so "Bulgaria" can be picked even though Bulgaria is not
+  // one of our markets. Only countries with a video under the OTHER filters are listed (month included), with counts.
+  const countries = useMemo(
+    () => countryOptions(visibleVideos(rows || [], { ...filter, country: '' }), filter.country),
+    [rows, filter],
+  )
+  const chosenCountry = countries.find((c) => c.key === filter.country) || null
+  // The file says what is in it: tryp-videos_october-2026_spain_bulgaria_vip.csv, or _all for the whole tracker.
+  const exportName = () => {
+    const slug = (t) => String(t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
+    const parts = [
+      filter.month ? monthLabel(filter.month) : 'all-months',
+      markets.find((m) => m.id === filter.market)?.name,
+      chosenCountry?.name,
+      filter.source,
+      filter.platform,
+    ].map(slug).filter(Boolean)
+    return `tryp-videos_${parts.join('_')}.csv`
+  }
   const hooks = useTranslatedHooks(shown, hookLang)
   // One dropdown for "which videos": a whole group (community, VIP, official) or one challenge or programme.
   const scopeValue = filter.challenge
@@ -188,7 +208,7 @@ export default function AdminVideoTracker() {
           <div className="flex shrink-0 gap-0.5 rounded-lg bg-cloud p-0.5 max-sm:w-full max-sm:overflow-x-auto">
             {[
               ['', tr('All'), 'squares'],
-              ['community', tr('General'), 'users'],
+              ['community', tr('Community'), 'users'],
               ...(hasVip ? [['vip', tr('VIP'), 'star']] : []),
               ...(hasOfficial ? [['official', tr('Official'), 'badge']] : []),
             ].map(([k, label, icon]) => {
@@ -294,6 +314,15 @@ export default function AdminVideoTracker() {
               ...PLATFORMS.map((p) => ({ value: p, label: p }))]}
           />
           <Select
+            value={filter.country}
+            onChange={(v) => set({ country: v })}
+            variant="field"
+            className="w-[10.5rem] shrink-0"
+            ariaLabel={tr('Country')}
+            options={[{ value: '', label: tr('Every country') },
+              ...countries.map((c) => ({ value: c.key, label: `${c.code ? `${flagFromIso(c.code)} ` : ''}${c.name} (${c.count})` }))]}
+          />
+          <Select
             value={filter.sort}
             onChange={(v) => set({ sort: v })}
             variant="field"
@@ -314,7 +343,7 @@ export default function AdminVideoTracker() {
               order when it does nothing. */}
           <button
             type="button"
-            onClick={() => setFilter({ market: '', challenge: '', platform: '', month: '', q: '', sort: filter.sort, source: '' })}
+            onClick={() => setFilter({ market: '', challenge: '', platform: '', month: '', q: '', sort: filter.sort, source: '', country: '' })}
             aria-hidden={!filtered}
             tabIndex={filtered ? 0 : -1}
             className={cx(
@@ -346,9 +375,9 @@ export default function AdminVideoTracker() {
           {/* "over 10k" is gone (). The threshold is still the rule; it is simply not restated on every visit. */}
           <button
             type="button"
-            onClick={() => downloadCsv(`tryp-video-tracker-${filter.month || new Date().toISOString().slice(0, 10)}.csv`, toCsvRows(shown), CSV_COLUMNS)}
+            onClick={() => downloadCsv(exportName(), toCsvRows(shown), CSV_COLUMNS)}
             disabled={!shown.length}
-            title={tr('Export')} aria-label={tr('Export')}
+            title={tr('Download CSV of these videos')} aria-label={tr('Download CSV of these videos')}
             className="flex h-9 w-9 items-center justify-center rounded-xl border border-gray-200 text-smoke transition-all duration-200 disabled:opacity-40 hoverable:hover:border-brand hoverable:hover:text-brand"
           >
             <Icon name="download" className="h-4 w-4" />
@@ -405,7 +434,7 @@ export default function AdminVideoTracker() {
           {rows && shown.length > 0 && (
             <div className="mb-3 flex flex-wrap items-center justify-between gap-2 px-1">
               <span className="text-sm text-smoke">
-                {filter.source === 'vip' ? tr('Every VIP community video over the line') : filter.source === 'official' ? tr('Every official creator video over the line') : filter.source === 'community' ? tr('General community videos') : ''}
+                {filter.source === 'vip' ? tr('Every VIP community video over the line') : filter.source === 'official' ? tr('Every official creator video over the line') : filter.source === 'community' ? tr('Community videos') : ''}
               </span>
               <HookToggle original={showOriginal} onChange={setShowOriginal} locale={locale} />
             </div>
@@ -500,7 +529,7 @@ export default function AdminVideoTracker() {
 // because the sentence is what somebody came here to steal.
 function VideoCard({ v, onOpen, eager = false, hook = null, translated = false }) {
   const tr = useT()
-  const handle = atHandle(v.creator_handle)
+  const handle = atHandle(handleOf(v))
   const account = creatorLink(v)
   const challenge = challengeOf(v)
 

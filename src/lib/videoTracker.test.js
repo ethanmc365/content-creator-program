@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest'
+import { toCsv } from './utils'
 import {
   challengeKey, challengeOptions, creatorLink, monthKey, monthLabel,
   monthsOf, parseTags, reasonLabel, summarise, toCsvRows, visibleVideos,
+  countryOf, countryOptions, marketOf, CSV_COLUMNS, handleOf,
 } from './videoTracker'
 
 // THE VIDEO TRACKER'S FILTER, ORDER AND TOTALS.
@@ -161,7 +163,7 @@ describe('creatorLink', () => {
   // null rather than a guessed URL shape.
   it('returns null rather than guessing', () => {
     expect(creatorLink(v({ platform: 'Vimeo', creator_handle: 'lisa' }))).toBe(null)
-    expect(creatorLink(v({ creator_handle: null }))).toBe(null)
+    expect(creatorLink(v({ creator_handle: null, video_url: null }))).toBe(null)
   })
 })
 
@@ -184,21 +186,69 @@ describe('parseTags', () => {
 })
 
 describe('toCsvRows', () => {
-  it('flattens a row into the columns the team reads', () => {
-    const [row] = toCsvRows([v({ tags: ['pov', 'price'], views: 15200 })])
-    expect(row.handle).toBe('@someone')
-    expect(row.tags).toBe('pov, price')
-    expect(row.challenge).toBe('The UK one')
-    expect(row.views).toBe(15200)
-    expect(row.posted_at).toBe('2026-08-01')
+  it('flattens a row into the columns marketing keeps, numbered in the order shown', () => {
+    const rows = toCsvRows([
+      v({ views: 15200, market_kind: 'chapter', market_name: 'UK & Ireland', creator_country: 'United Kingdom', creator_country_code: 'GB' }),
+      v({ views: 900, source: 'vip' }),
+    ])
+    expect(rows[0]).toMatchObject({
+      n: 1, platform: 'TikTok', handle: '@someone', market: 'UK & Ireland', country: 'United Kingdom',
+      views: 15200, posted_at: '2026-08-01', type: 'Community', challenge: 'The UK one',
+    })
+    expect(rows[1].n).toBe(2)
+    expect(rows[1].type).toBe('VIP')
+    expect(CSV_COLUMNS.slice(0, 4).map((c) => c.label)).toEqual(['#', 'Platform', 'Video', 'Account'])
+    // Through the real writer: a header line and filled cells, not commas.
+    const text = toCsv(rows, CSV_COLUMNS)
+    expect(text.split('\r\n')[0]).toBe('#,Platform,Video,Account,Creator,Market,Country,Published,Views,Type,Challenge,Hook')
+    expect(text.split('\r\n')[1]).toMatch(/^1,TikTok,.*,\t?@someone,Someone,UK & Ireland,United Kingdom,2026-08-01,15200,Community,/)
   })
 
   it('writes an empty string rather than undefined for a missing field', () => {
-    const [row] = toCsvRows([v({ hook: null, notes: null, posted_at: null, views: null })])
+    const [row] = toCsvRows([v({ hook: null, posted_at: null, views: null, market_name: null })])
     expect(row.hook).toBe('')
-    expect(row.notes).toBe('')
     expect(row.posted_at).toBe('')
     expect(row.views).toBe('')
+    expect(row.country).toBe('')
+  })
+})
+
+describe('handleOf', () => {
+  it('uses the row, then the link, then the profile', () => {
+    expect(handleOf(v({ creator_handle: '@sam' }))).toBe('sam')
+    expect(handleOf(v({ creator_handle: null, video_url: 'https://www.tiktok.com/@marty.reiser/video/769' }))).toBe('marty.reiser')
+    expect(handleOf(v({ creator_handle: null, video_url: 'https://vm.tiktok.com/ZN8/', platform: 'TikTok', creator_social: 'https://www.tiktok.com/@noa?_r=1' }))).toBe('noa')
+    expect(handleOf(v({ creator_handle: null, video_url: 'https://vm.tiktok.com/ZN8/', creator_social: null }))).toBe('')
+  })
+})
+
+describe('the market and the country', () => {
+  it('names the real market, never Worldwide when the country is known', () => {
+    const ww = { market_name: 'Worldwide', market_kind: 'network' }
+    expect(marketOf(v({ ...ww, creator_country: 'Bulgaria', creator_country_code: 'BG' }))).toBe('Bulgaria')
+    expect(marketOf(v({ ...ww, home_name: 'Romania', creator_country: 'Romania' }))).toBe('Romania')
+    expect(marketOf(v({ market_name: 'Spain', market_kind: 'chapter', home_name: 'UK & Ireland', creator_country: 'Chile' }))).toBe('Spain')
+    // A VIP's "home" is its programme's market, so a Worldwide VIP falls to the country too.
+    expect(marketOf(v({ ...ww, source: 'vip', home_name: 'Worldwide', creator_country: 'Bulgaria' }))).toBe('Bulgaria')
+    expect(marketOf(v({ ...ww }))).toBe('Worldwide')
+  })
+
+  it('fills a country name from the code alone', () => {
+    expect(countryOf(v({ creator_country_code: 'bg' }))).toMatchObject({ key: 'BG', name: 'Bulgaria' })
+    expect(countryOf(v({}))).toBeNull()
+  })
+
+  it('filters by country and lists only the countries that have a video', () => {
+    const rows = [
+      v({ id: 'a', creator_country: 'Bulgaria', creator_country_code: 'BG' }),
+      v({ id: 'b', creator_country: 'Spain', creator_country_code: 'ES' }),
+      v({ id: 'c', creator_country: 'Spain', creator_country_code: 'ES' }),
+      v({ id: 'd' }),
+    ]
+    expect(visibleVideos(rows, { country: 'BG' }).map((r) => r.id)).toEqual(['a'])
+    expect(countryOptions(rows).map((c) => [c.key, c.count])).toEqual([['ES', 2], ['BG', 1]])
+    // The one already picked stays listed at zero.
+    expect(countryOptions(rows, 'SE').find((c) => c.key === 'SE')).toMatchObject({ name: 'Sweden', count: 0 })
   })
 })
 
