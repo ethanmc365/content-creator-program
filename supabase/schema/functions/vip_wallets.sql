@@ -30,7 +30,7 @@ begin
                      left join public.invoices i on i.reward_id = l.reward_id
                     where l.profile_id = m.profile_id and l.kind in ('payout', 'voucher') order by l.created_at desc limit 1)) x
           from public.vip_members_live m join public.profiles pf on pf.id = m.profile_id
-         where m.programme_id = p_programme and not public.vip_hidden_profile(m.profile_id)) z), '[]'::jsonb),
+         where m.programme_id = p_programme and m.source <> 'staff' and not public.vip_hidden_profile(m.profile_id)) z), '[]'::jsonb),
     'requests', coalesce((
       select jsonb_agg(jsonb_build_object('id', l.id, 'name', pf.name, 'photo_url', pf.photo_url, 'profile_id', l.profile_id,
           'kind', l.kind, 'amount', -l.amount, 'at', l.created_at, 'auto', l.auto, 'reward_id', l.reward_id,

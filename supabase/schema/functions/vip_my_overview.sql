@@ -52,7 +52,7 @@ begin
         'terms', p.terms, 'terms_version', p.terms_version, 'community_id', p.community_id, 'kind', p.kind),
     'member', jsonb_build_object('status', m.status, 'cpm', m.cpm, 'monthly_cap', m.monthly_cap,
         'target_videos', m.target_videos, 'target_views', m.target_views, 'own_goal_views', m.own_goal_views, 'tiers', m.tiers, 'monthly_fee', m.monthly_fee,
-        'fee_min_videos', m.fee_min_videos, 'bonuses_on', m.bonuses_on, 'joined_on', m.joined_on, 'invoice_outside', m.invoice_outside,
+        'fee_min_videos', m.fee_min_videos, 'bonuses_on', m.bonuses_on, 'joined_on', m.joined_on, 'invoice_outside', m.invoice_outside, 'on_board', m.on_board, 'staff_self', m.source = 'staff',
         'terms_ok', public.vip_terms_ok(m.profile_id)),
     'month', jsonb_build_object('id', mo.id, 'year', mo.year, 'month', mo.month, 'starts_at', mo.starts_at,
         'ends_at', mo.ends_at, 'status', mo.status),

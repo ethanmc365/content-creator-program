@@ -150,7 +150,7 @@ export default function PlanEditor({ segment: initial, focus, plans, targets, fr
         <Segmented value={segment} options={SIDES} onChange={setSegment} />
 
         {/* ---- THE GROWTH PLAN ---- */}
-        <section className="rounded-2xl border border-brand/15 bg-brand-tint/30 p-4 sm:p-5">
+        <section className="rounded-2xl border border-gray-200 bg-white p-4 shadow-card sm:p-5">
           <h4 className="flex items-center gap-2 text-[15px] font-bold text-ink"><Icon name="trendUp" className="h-5 w-5 text-brand" />Growth plan</h4>
           <p className="mt-1 text-[13px] text-smoke">Pick one month and its target, and how much to grow each month. Every other month follows, backwards and forwards, including months that have not arrived yet.</p>
           <div className="mt-4 grid gap-3 sm:grid-cols-3">

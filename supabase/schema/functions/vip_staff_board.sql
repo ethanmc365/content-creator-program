@@ -20,7 +20,7 @@ begin
         select s.profile_id, s.views, s.videos, row_number() over (order by s.views desc, s.profile_id) rk
           from public.vip_month_stats(mo.id) s
           join public.vip_members_live vm on vm.profile_id = s.profile_id and vm.programme_id = p_programme and vm.status = 'active'
-         where not public.vip_hidden_profile(s.profile_id)
+         where not public.vip_hidden_profile(s.profile_id) and not public.vip_unranked(s.profile_id)
       ) z join public.profiles pr on pr.id = z.profile_id
   ), '[]'::jsonb);
 end $function$;

@@ -15,3 +15,13 @@ describe('sourceFrom', () => {
     expect(sourceFrom('https://x.app/', '').source).toBe('direct')
   })
 })
+
+describe('recruiter links', () => {
+  it('reads the code from /r/<code> only', async () => {
+    const { recruiterCode } = await import('./signupSource')
+    expect(recruiterCode('/r/paula')).toBe('paula')
+    expect(recruiterCode('/r/Paula-VIP/')).toBe('paula-vip')
+    expect(recruiterCode('/signup')).toBeNull()
+    expect(recruiterCode('/r/a')).toBeNull()
+  })
+})

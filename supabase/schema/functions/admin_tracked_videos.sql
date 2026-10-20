@@ -3,7 +3,7 @@
 
 -- SECURITY DEFINER; API roles that may call it: authenticated, service_role
 CREATE OR REPLACE FUNCTION public.admin_tracked_videos()
- RETURNS TABLE(id uuid, submission_id uuid, challenge_id uuid, challenge_title text, history_id uuid, history_title text, community_id uuid, market_name text, market_slug text, creator_id uuid, creator_name text, creator_handle text, creator_photo text, platform text, video_url text, platform_video_id text, thumbnail_url text, posted_at timestamp with time zone, views bigint, views_source text, views_synced_at timestamp with time zone, hook text, hook_source text, caption text, notes text, tags text[], reason text, rank integer, qualifies boolean, pinned boolean, created_at timestamp with time zone, updated_at timestamp with time zone, screen_text text, source text, programme_id uuid, programme_name text, screen_lang text, home_id uuid, home_name text)
+ RETURNS TABLE(id uuid, submission_id uuid, challenge_id uuid, challenge_title text, history_id uuid, history_title text, community_id uuid, market_name text, market_slug text, creator_id uuid, creator_name text, creator_handle text, creator_photo text, platform text, video_url text, platform_video_id text, thumbnail_url text, posted_at timestamp with time zone, views bigint, views_source text, views_synced_at timestamp with time zone, hook text, hook_source text, caption text, notes text, tags text[], reason text, rank integer, qualifies boolean, pinned boolean, created_at timestamp with time zone, updated_at timestamp with time zone, screen_text text, source text, programme_id uuid, programme_name text, screen_lang text, home_id uuid, home_name text, creator_country text, creator_country_code text, market_kind text, creator_social text)
  LANGUAGE sql
  STABLE SECURITY DEFINER
  SET search_path TO 'public'
@@ -24,7 +24,9 @@ AS $function$
     t.created_at, t.updated_at,
     nullif(btrim(coalesce(t.screen_text, s.screen_text, '')), ''),
     'community'::text, null::uuid, null::text, m.language,
-    hm.id, hm.name
+    hm.id, hm.name,
+    nullif(btrim(p.country), ''), nullif(upper(btrim(p.country_code)), ''), m.kind,
+    nullif(btrim(case lower(t.platform) when 'tiktok' then p.tiktok_url when 'instagram' then p.instagram_url when 'youtube' then p.youtube_url when 'facebook' then p.facebook_url end), '')
   from public.tracked_videos t
   left join public.submissions s on s.id = t.submission_id
   left join public.challenges c on c.id = t.challenge_id
@@ -50,7 +52,9 @@ AS $function$
     v.submitted_at, coalesce(v.views_synced_at, v.submitted_at),
     nullif(btrim(coalesce(v.screen_text, '')), ''),
     coalesce(vp.kind, 'vip'), vp.id, vp.name, m.language,
-    vp.community_id, m.name
+    vp.community_id, m.name,
+    nullif(btrim(p.country), ''), nullif(upper(btrim(p.country_code)), ''), m.kind,
+    nullif(btrim(case lower(v.platform) when 'tiktok' then p.tiktok_url when 'instagram' then p.instagram_url when 'youtube' then p.youtube_url when 'facebook' then p.facebook_url end), '')
   from public.vip_videos v
   join public.profiles p on p.id = v.profile_id
   left join public.vip_programmes vp on vp.id = v.programme_id

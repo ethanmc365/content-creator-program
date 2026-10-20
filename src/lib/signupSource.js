@@ -27,9 +27,21 @@ export function sourceFrom(href, referrer) {
   }
 }
 
-/** Called once per page load before sign-in; keeps the FIRST touch only. */
+/** A recruiter link (/r/<code>, migration 449): the code, or null. */
+export function recruiterCode(pathname) {
+  const m = String(pathname || '').match(/^\/r\/([a-z0-9][a-z0-9-]{1,38}[a-z0-9])\/?$/i)
+  return m ? m[1].toLowerCase() : null
+}
+
+/** Called once per page load before sign-in; keeps the FIRST touch only - except a recruiter's own link, which wins:
+ *  somebody who saw an Instagram post and then signed up through Paula's link was recruited by Paula. */
 export function rememberSignupSource() {
   try {
+    const code = recruiterCode(window.location.pathname)
+    if (code) {
+      localStorage.setItem(KEY, JSON.stringify({ source: 'recruiter', medium: 'link', campaign: code, landing: window.location.pathname.slice(0, 80), at: new Date().toISOString() }))
+      return
+    }
     if (localStorage.getItem(KEY)) return
     const s = sourceFrom(window.location.href, document.referrer)
     if (s) localStorage.setItem(KEY, JSON.stringify(s))

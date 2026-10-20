@@ -14,6 +14,7 @@ import { allRows } from '../../../lib/fetchAll'
 import { profilesApi } from '../../../api/profiles'
 import { teamApi } from '../../../api/team'
 import { inRange, change } from '../../../lib/analyticsPeriod'
+import RecruiterLinks from './RecruiterLinks'
 
 // RECRUITMENT (14 Oct 2026). Built for Lorenzo, who joined to grow the community: "where the creators are signing up
 // from, what languages they speak, and, for the creators dropping off, where they're dropping off and anyone to follow
@@ -42,11 +43,13 @@ const STAGES = [
   ['languages', 'Languages'], ['map', 'Travel map'], ['review', 'Final review'],
 ]
 const SOURCE_LABEL = {
-  referral: 'Creator referral', vip: 'VIP sign-up link', team: 'Team invite', instagram: 'Instagram', tiktok: 'TikTok',
+  referral: 'Creator referral', recruiter: 'Recruiter link', vip: 'VIP sign-up link', team: 'Team invite', instagram: 'Instagram', tiktok: 'TikTok',
   facebook: 'Facebook', youtube: 'YouTube', linkedin: 'LinkedIn', google: 'Google', whatsapp: 'WhatsApp', x: 'X',
   direct: 'Direct / typed in', 'tryp.com': 'Tryp.com', untracked: 'Before tracking (14 Oct)',
 }
 function sourceOf(p) {
+  // A recruiter's link (migration 449) is the most specific answer there is, so it comes first.
+  if (p.signup_source?.source === 'recruiter') return 'recruiter'
   if (p.referred_by) return 'referral'
   if (p.team_invite_id || p.team_application) return 'team'
   if (p.is_vip) return 'vip'
@@ -217,6 +220,8 @@ export default function Recruitment({ raw, market, markets, scopeLabel, range })
           })}
         </div>
       </div>
+
+      <RecruiterLinks />
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
         <ChartPanel

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, useCallback } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { Bar, CartesianGrid, Cell, ComposedChart, Line, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
-import { Select, Skeleton, Toggle } from '../../../components/ui'
+import { Skeleton, Toggle } from '../../../components/ui'
 import Icon from '../../../components/Icon'
 import { CountUp } from '../../../components/network/Motion'
 import { CHART, FILL, axisTick, stackShape, tooltipStyle } from '../../../components/charts/chartTheme'
@@ -9,7 +9,7 @@ import { teamApi } from '../../../api/team'
 import { cx, downloadCsv, formatViews } from '../../../lib/utils'
 import {
   CSV_COLUMNS, SEGMENTS, addMonths, buildMonths, combineSegments, csvRows, defaultRange, monthKey, monthLabel, monthRange,
-  monthStart, neededGrowth, planOf, summarise,
+  monthStart, neededGrowth, planOf, planTarget, summarise,
 } from '../../../lib/cccTargets'
 import { Card, MonthRangePicker, ProgressBar, Segmented, StatusChip, eur, pct, signedPct, toneText, views } from './targets/parts'
 import MonthTable from './targets/TargetsSheet'
@@ -47,7 +47,6 @@ export default function Targets({ refreshKey = 0 }) {
 
   const seg = ['community', 'vip', 'all'].includes(params.get('seg')) ? params.get('seg') : 'community'
   const [metric, setMetric] = useState('views')
-  const [cumulative, setCumulative] = useState(false)
   const [includePlanned, setIncludePlanned] = useState(false)
   const [openMonth, setOpenMonth] = useState(null)
   const [editing, setEditing] = useState(null) // null | { segment, focus }
@@ -159,12 +158,12 @@ export default function Targets({ refreshKey = 0 }) {
         <div key={seg} className={cx('animate-tab-in space-y-6 transition-opacity duration-300', loadingActuals && 'opacity-70')}>
           <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
             {heroRow ? <MonthHero row={heroRow} onOpen={setOpenMonth} segLabel={segLabel} /> : <PlanAhead rows={rows} segLabel={segLabel} onOpen={setOpenMonth} />}
-            <RoadToGoal rows={rows} summary={summary} plan={seg === 'all' ? null : planOf(plans, seg)} onOpen={setOpenMonth} />
+            <NextMonths plans={plans} seg={seg} nowMonth={nowMonth} liveRow={rows.find((r) => r.key === nowMonth) || null} onOpen={setOpenMonth} />
           </div>
 
           <Totals summary={summary} rows={rows} />
 
-          <TrendChart rows={rows} metric={metric} setMetric={setMetric} cumulative={cumulative} setCumulative={setCumulative} onOpen={setOpenMonth} />
+          <TrendChart rows={rows} metric={metric} setMetric={setMetric} onOpen={setOpenMonth} />
 
           <MonthTable rows={rows} onOpen={setOpenMonth} />
 
@@ -303,61 +302,54 @@ function PlanAhead({ rows, segLabel, onOpen }) {
 }
 
 // ---------------------------------------------------------------------------------------------------------------------
-// THE ROAD TO THE GOAL: every month from now to the goal month as a bar against its target, this month's views and pace
-// drawn into its bar, and the growth needed from today's pace. Replaces a ring that showed "99%" beside 10M views.
-function RoadToGoal({ rows, summary, plan, onOpen }) {
-  const ahead = rows.filter((r) => r.target != null && r.state !== 'done')
-  const future = ahead.filter((r) => r.state === 'future')
-  const anchorRow = plan && future.find((r) => r.key === plan.anchor)
-  const defaultGoal = (anchorRow || future[2] || future[future.length - 1] || ahead[ahead.length - 1])?.key
-  const [picked, setGoalKey] = useState(null)
-  const goal = rows.find((r) => r.key === (picked || defaultGoal))
-  if (!goal || goal.target == null) {
-    return <Card className="p-6" delay={80}><p className="text-sm text-smoke">No month ahead has a target in this range.</p></Card>
+// THE NEXT THREE MONTHS, ALWAYS. This month and the three after it, straight from the growth plan (whatever months are
+// picked above), each as a bar against its target with this month's views and pace drawn in, and the growth needed from
+// today's pace to reach the last of them. No picker: the team found a goal dropdown with one month in it pointless.
+function NextMonths({ plans, seg, nowMonth, liveRow, onOpen }) {
+  const keys = monthRange(nowMonth, addMonths(nowMonth, 3))
+  const target = (k) => {
+    const sides = seg === 'all' ? ['community', 'vip'] : [seg]
+    const vals = sides.map((s) => planTarget(planOf(plans, s), k)).filter((v) => v != null)
+    return vals.length ? vals.reduce((n, v) => n + v, 0) : null
   }
-  const base = summary.live || summary.lastDone
-  const startKey = base && base.key < goal.key ? base.key : ahead[0]?.key
-  const steps = rows.filter((r) => r.key >= startKey && r.key <= goal.key && r.target != null).slice(-6)
-  const max = Math.max(...steps.map((r) => Math.max(r.target, r.projected || 0)))
-  const pace = base ? base.projected : null
-  const gap = base ? monthRange(base.key, goal.key).length - 1 : 0
-  const need = gap > 0 ? neededGrowth(pace, goal.target, gap) : null
+  const steps = keys.map((k) => ({ key: k, target: target(k), live: k === nowMonth ? liveRow : null })).filter((r) => r.target != null)
+  if (!steps.length) return <Card className="p-6" delay={80}><p className="text-sm text-smoke">The growth plan has no months ahead yet.</p></Card>
+  const goal = steps[steps.length - 1]
+  const max = Math.max(...steps.map((r) => Math.max(r.target, r.live?.projected || 0)))
+  const pace = liveRow?.projected ?? null
+  const gap = monthRange(nowMonth, goal.key).length - 1
+  const need = pace && gap > 0 ? neededGrowth(pace, goal.target, gap) : null
+  const growth = seg === 'all' ? null : planOf(plans, seg).growth
   return (
     <Card className="flex h-full flex-col p-5 sm:p-6" delay={80}>
-      <div className="flex items-center gap-2">
-        <h3 className="flex shrink-0 items-center gap-2 whitespace-nowrap text-[15px] font-bold text-ink"><Icon name="flag" className="h-5 w-5 text-brand" />Road to</h3>
-        <Select variant="pill" value={goal.key} onChange={setGoalKey} ariaLabel="Goal month" search={false}
-          options={ahead.map((r) => ({ value: r.key, label: r.longLabel }))} />
-      </div>
+      <h3 className="flex items-center gap-2 text-[15px] font-bold text-ink"><Icon name="flag" className="h-5 w-5 text-brand" />The next three months</h3>
       <p className="mt-3 text-3xl font-extrabold tabular-nums text-ink">{formatViews(goal.target)}</p>
-      <p className="text-[13px] text-smoke">views is the target for {goal.longLabel}</p>
-
+      <p className="text-[13px] text-smoke">views is the target for {monthLabel(goal.key, 'long')}</p>
       <div className="mt-5 flex flex-1 items-end gap-2" style={{ minHeight: 140 }}>
         {steps.map((r) => {
           const h = (n) => `${Math.max(2, (n / max) * 100)}%`
-          const live = r.state === 'live'
+          const live = !!r.live
           return (
-            <button key={r.key} type="button" onClick={() => onOpen(r.key)} title={`${r.longLabel}: target ${views(r.target)}`}
+            <button key={r.key} type="button" onClick={() => onOpen(r.key)} title={`${monthLabel(r.key, 'long')}: target ${views(r.target)}`}
               className="group flex h-full min-w-0 flex-1 flex-col items-center justify-end gap-1.5">
               <span className="text-[13px] font-semibold tabular-nums text-ink">{formatViews(r.target)}</span>
               <span className="relative w-full flex-1 overflow-hidden rounded-lg">
                 <span className={cx('absolute inset-x-0 bottom-0 rounded-lg transition-colors', r.key === goal.key ? 'bg-brand/25' : 'bg-cloud group-hover:bg-gray-200')} style={{ height: h(r.target) }} />
-                {live && r.projected != null && <span className="absolute inset-x-0 bottom-0 rounded-lg bg-brand/30" style={{ height: h(Math.min(r.projected, max)) }} />}
-                {live && <span className="absolute inset-x-0 bottom-0 rounded-lg bg-gradient-to-t from-brand to-brand-light" style={{ height: h(r.achieved || 0) }} />}
+                {live && r.live.projected != null && <span className="absolute inset-x-0 bottom-0 rounded-lg bg-brand/30" style={{ height: h(Math.min(r.live.projected, max)) }} />}
+                {live && <span className="absolute inset-x-0 bottom-0 rounded-lg bg-gradient-to-t from-brand to-brand-light" style={{ height: h(r.live.achieved || 0) }} />}
               </span>
-              <span className={cx('text-[13px]', live ? 'font-bold text-brand' : 'text-smoke')}>{monthLabel(r.key, 'month').slice(0, 3)}</span>
+              <span className={cx('text-[13px]', r.key === nowMonth ? 'font-bold text-brand' : 'text-smoke')}>{monthLabel(r.key, 'month').slice(0, 3)}</span>
             </button>
           )
         })}
       </div>
-
       <p className="mt-4 rounded-xl bg-cloud px-3.5 py-2.5 text-[13px] leading-relaxed text-smoke">
         {pace != null && pace >= goal.target ? (
-          <span className="font-semibold text-emerald-700">Today&apos;s pace already reaches it.</span>
+          <span className="font-semibold text-emerald-700">This month&apos;s pace already reaches {monthLabel(goal.key, 'month')}&apos;s target.</span>
         ) : need != null ? (
-          <>From today&apos;s pace ({formatViews(pace)}) it needs <span className="font-bold text-brand">{signedPct(need)}</span> a month{plan ? <>; the plan grows <span className="font-semibold text-ink">{pct(plan.growth)}</span></> : null}.</>
+          <>From this month&apos;s pace ({formatViews(pace)}) it needs <span className="font-bold text-brand">{signedPct(need)}</span> a month{growth != null ? <>; the plan grows <span className="font-semibold text-ink">{pct(growth)}</span></> : null}.</>
         ) : (
-          <>Each month&apos;s target, step by step.</>
+          <>Each month&apos;s target from the growth plan{growth != null ? `, ${pct(growth)} a month` : ''}.</>
         )}
       </p>
     </Card>
@@ -378,18 +370,18 @@ function Totals({ summary, rows }) {
     { label: 'Target views', value: sum('target'), format: views },
     { label: 'Planned earnings', value: sum('estEarnings'), format: (n) => eur(n) },
     { label: 'Planned costs', value: sum('estCost'), format: (n) => eur(n) },
-    { label: 'Planned margin', value: sum('estMargin'), format: (n) => eur(n) },
+    { label: 'Planned margin (profit)', value: sum('estMargin'), format: (n) => eur(n) },
   ] : [
-    { label: 'Views', value: summary.achieved, format: views, sub: summary.targetToDate ? `${pct(summary.pctToDate)} of ${formatViews(summary.targetToDate)} due` : null, tone: summary.pctToDate >= 1 ? 'good' : summary.pctToDate >= 0.9 ? 'warn' : 'bad' },
-    { label: 'Earnings', value: summary.earnings, format: (n) => eur(n), sub: `Plan ${eur(summary.estEarnings)}` },
-    { label: 'Costs', value: summary.cost, format: (n) => eur(n), sub: summary.cpm != null ? `${eur(summary.cpm, true)} per 1,000 views` : null },
-    { label: 'Margin', value: summary.margin, format: (n) => eur(n), sub: summary.marginPct != null ? `${pct(summary.marginPct)} of earnings` : null, tone: summary.margin >= summary.estMargin ? 'good' : 'warn' },
+    { label: 'Views', value: summary.achieved, format: views, sub: summary.targetToDate ? `Plan to date ${formatViews(summary.targetToDate)} · ${pct(summary.pctToDate)} of it` : null, tone: summary.pctToDate >= 1 ? 'good' : summary.pctToDate >= 0.9 ? 'warn' : 'bad' },
+    { label: 'Earnings', value: summary.earnings, format: (n) => eur(n), sub: `Plan to date ${eur(summary.estEarnings)}`, tone: summary.earnings >= summary.estEarnings ? 'good' : 'bad' },
+    { label: 'Costs', value: summary.cost, format: (n) => eur(n), sub: `Plan to date ${eur(summary.estCost)}${summary.cpm != null ? ` · ${eur(summary.cpm, true)} per 1,000` : ''}`, tone: summary.cost <= summary.estCost ? 'good' : 'bad' },
+    { label: 'Margin (profit)', value: summary.margin, format: (n) => eur(n), sub: `Plan to date ${eur(summary.estMargin)}${summary.marginPct != null ? ` · ${pct(summary.marginPct)} of earnings` : ''}`, tone: summary.margin >= summary.estMargin ? 'good' : 'bad' },
   ]
   return (
     <section>
       <div className="mb-3 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 px-1">
         <h3 className="text-[15px] font-bold text-ink">{ahead ? 'The plan' : 'Totals'} · {span}</h3>
-        {summary.live && !ahead && <p className="text-[13px] text-smoke">{summary.live.longLabel.split(' ')[0]} counts up to today</p>}
+        {summary.live && !ahead && <p className="text-[13px] text-smoke">&quot;Plan to date&quot; is where the plan should be by today ({summary.live.longLabel.split(' ')[0]} counts up to today)</p>}
       </div>
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         {tiles.map((t, i) => (
@@ -409,7 +401,7 @@ function Totals({ summary, rows }) {
 // ---------------------------------------------------------------------------------------------------------------------
 // THE CHART. Bars are what happened (this month's so-far solid, the rest of its pace lighter on top); the dashed line is
 // the plan. A bar that beats the plan is GREEN, the month in progress too once its pace beats it.
-function TrendChart({ rows, metric, setMetric, cumulative, setCumulative, onOpen }) {
+function TrendChart({ rows, metric, setMetric, onOpen }) {
   const series = useMemo(() => {
     const pick = {
       views: (r) => [r.achieved, r.projected, r.target],
@@ -418,16 +410,9 @@ function TrendChart({ rows, metric, setMetric, cumulative, setCumulative, onOpen
       margin: (r) => [r.actualMargin, r.projectedMargin, r.estMargin],
     }[metric]
     const out = []
-    let runA = 0
-    let runT = 0
     for (const r of rows) {
-      const [a, p, t] = pick(r)
+      const [shownA, shownP, shownT] = pick(r)
       const live = r.state === 'live'
-      if (t != null) runT += t
-      const shownA = a == null ? null : cumulative ? runA + a : a
-      const shownP = p == null ? null : cumulative ? runA + p : p
-      if (a != null) runA += a
-      const shownT = t == null ? null : cumulative ? runT : t
       // Costs are better LOW, so "beating the plan" is being under it.
       const beats = (v) => v != null && shownT != null && (metric === 'costs' ? v <= shownT : v >= shownT)
       out.push({
@@ -439,7 +424,7 @@ function TrendChart({ rows, metric, setMetric, cumulative, setCumulative, onOpen
       })
     }
     return out
-  }, [rows, metric, cumulative])
+  }, [rows, metric])
   const isMoney = metric !== 'views'
   const fmt = (v) => (isMoney ? eur(v) : views(v))
   const tick = (v) => (isMoney ? `€${formatViews(v)}` : formatViews(v))
@@ -450,14 +435,13 @@ function TrendChart({ rows, metric, setMetric, cumulative, setCumulative, onOpen
       <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
         <div>
           <h3 className="text-[15px] font-bold text-ink">{name} against the plan</h3>
-          <p className="text-[13px] text-smoke">{cumulative ? 'Added up month after month.' : 'Each month on its own.'} Click a month for the detail.</p>
+          <p className="text-[13px] text-smoke">Each month against its own plan. Click a month for the detail.</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <Segmented size="sm" value={metric} options={METRICS} onChange={setMetric} />
-          <Segmented size="sm" value={cumulative ? 'run' : 'month'} options={[{ key: 'month', label: 'Monthly' }, { key: 'run', label: 'Running total' }]} onChange={(k) => setCumulative(k === 'run')} />
         </div>
       </div>
-      <div key={`${metric}-${cumulative}`} className="h-64 w-full animate-tab-in sm:h-80">
+      <div key={metric} className="h-64 w-full animate-tab-in sm:h-80">
         <ResponsiveContainer width="100%" height="100%">
           <ComposedChart data={series} margin={{ top: 8, right: 6, left: -4, bottom: 0 }} onClick={(e) => e?.activePayload?.[0] && onOpen(e.activePayload[0].payload.key)}>
             <CartesianGrid vertical={false} stroke={CHART.grid} strokeDasharray="3 3" />

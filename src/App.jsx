@@ -26,6 +26,7 @@ const Preview = lazyRoute(() => import('./pages/dev/Preview'))
 const CertBench = lazyRoute(() => import('./pages/dev/CertBench'))
 import Login from './pages/auth/Login'
 import Signup from './pages/auth/Signup'
+import RecruitLink from './pages/auth/RecruitLink'
 import ForgotPassword from './pages/auth/ForgotPassword'
 import ResetPassword from './pages/auth/ResetPassword'
 import AuthCallback from './pages/auth/AuthCallback'
@@ -256,6 +257,8 @@ export default function App() {
       <Route path="/signup" element={<Signup />} />
       {/* The VIP sign-up link the team sends a creator directly (migration 294). Same sign-up, VIP wording. */}
       <Route path="/vip/join/:token" element={<Signup />} />
+      {/* A recruiter's own link (migration 449): counts the click, then the community or VIP sign-up. */}
+      <Route path="/r/:code" element={<RecruitLink />} />
       <Route path="/forgot-password" element={<ForgotPassword />} />
       <Route path="/reset-password" element={<ResetPassword />} />
       {/* Where "Continue with Google" comes back to. Eagerly imported, on

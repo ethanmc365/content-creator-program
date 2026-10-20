@@ -54,6 +54,12 @@ CREATE INDEX challenge_voucher_day_wins_reward_id_fk_idx ON public.challenge_vou
 CREATE INDEX challenge_voucher_day_wins_submission_id_fk_idx ON public.challenge_voucher_day_wins USING btree (submission_id);
 CREATE INDEX challenge_voucher_days_challenge ON public.challenge_voucher_days USING btree (challenge_id) WHERE is_active;
 CREATE INDEX challenge_voucher_days_created_by_fk_idx ON public.challenge_voucher_days USING btree (created_by);
+CREATE INDEX challenge_weekly_winners_awarded_by ON public.challenge_weekly_winners USING btree (awarded_by);
+CREATE INDEX challenge_weekly_winners_creator ON public.challenge_weekly_winners USING btree (creator_id);
+CREATE INDEX challenge_weekly_winners_group ON public.challenge_weekly_winners USING btree (group_id);
+CREATE UNIQUE INDEX challenge_weekly_winners_one ON public.challenge_weekly_winners USING btree (challenge_id, COALESCE(group_id, '00000000-0000-0000-0000-000000000000'::uuid), round);
+CREATE INDEX challenge_weekly_winners_reward ON public.challenge_weekly_winners USING btree (reward_id);
+CREATE INDEX challenge_weekly_winners_submission ON public.challenge_weekly_winners USING btree (submission_id);
 CREATE INDEX challenges_community_idx ON public.challenges USING btree (community_id);
 CREATE INDEX challenges_market_idx ON public.challenges USING btree (market);
 CREATE INDEX idx_challenges_created_by ON public.challenges USING btree (created_by);
@@ -219,6 +225,7 @@ CREATE INDEX push_events_created_idx ON public.push_events USING btree (created_
 CREATE INDEX push_events_notification_idx ON public.push_events USING btree (notification_id, event);
 CREATE UNIQUE INDEX push_events_one_per_event ON public.push_events USING btree (notification_id, event);
 CREATE INDEX idx_push_subscriptions_user ON public.push_subscriptions USING btree (user_id);
+CREATE INDEX rank_alerts_creator ON public.rank_alerts USING btree (creator_id);
 CREATE INDEX idx_reactions_creator ON public.reactions USING btree (creator_id);
 CREATE INDEX idx_referrals_referrer ON public.referrals USING btree (referrer_id);
 CREATE INDEX referrals_community_idx ON public.referrals USING btree (community_id);

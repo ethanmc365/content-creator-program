@@ -207,6 +207,63 @@ create table public.calendar_feed_tokens (
 );
 alter table public.calendar_feed_tokens enable row level security;
 
+create table public.ccc_plans (
+  segment text not null,
+  start_year integer not null,
+  start_month integer not null,
+  anchor_year integer not null,
+  anchor_month integer not null,
+  anchor_views bigint not null,
+  growth numeric(6,4) default 0.07 not null,
+  epm numeric(10,4) default 0.90 not null,
+  cpm numeric(10,4) default 0.50 not null,
+  updated_by uuid,
+  updated_at timestamp with time zone default now() not null,
+  constraint ccc_plans_anchor_month_check CHECK (((anchor_month >= 1) AND (anchor_month <= 12))),
+  constraint ccc_plans_anchor_views_check CHECK ((anchor_views >= 0)),
+  constraint ccc_plans_anchor_year_check CHECK (((anchor_year >= 2024) AND (anchor_year <= 2100))),
+  constraint ccc_plans_cpm_check CHECK ((cpm >= (0)::numeric)),
+  constraint ccc_plans_epm_check CHECK ((epm >= (0)::numeric)),
+  constraint ccc_plans_growth_check CHECK (((growth > '-0.5'::numeric) AND (growth < (2)::numeric))),
+  constraint ccc_plans_segment_check CHECK ((segment = ANY (ARRAY['community'::text, 'vip'::text]))),
+  constraint ccc_plans_start_month_check CHECK (((start_month >= 1) AND (start_month <= 12))),
+  constraint ccc_plans_start_year_check CHECK (((start_year >= 2024) AND (start_year <= 2100))),
+  constraint ccc_plans_updated_by_fkey FOREIGN KEY (updated_by) REFERENCES profiles(id) ON DELETE SET NULL,
+  constraint ccc_plans_pkey PRIMARY KEY (segment)
+);
+alter table public.ccc_plans enable row level security;
+
+create table public.ccc_targets (
+  id uuid default gen_random_uuid() not null,
+  segment text not null,
+  year integer not null,
+  month integer not null,
+  view_target bigint,
+  epm numeric(10,4),
+  cpm numeric(10,4),
+  other_costs numeric(12,2) default 0 not null,
+  achieved_override bigint,
+  note text,
+  suggested boolean default false not null,
+  updated_by uuid,
+  updated_at timestamp with time zone default now() not null,
+  created_at timestamp with time zone default now() not null,
+  pinned boolean default false not null,
+  constraint ccc_targets_achieved_override_check CHECK ((achieved_override >= 0)),
+  constraint ccc_targets_cpm_check CHECK ((cpm >= (0)::numeric)),
+  constraint ccc_targets_epm_check CHECK ((epm >= (0)::numeric)),
+  constraint ccc_targets_month_check CHECK (((month >= 1) AND (month <= 12))),
+  constraint ccc_targets_note_check CHECK ((char_length(note) <= 500)),
+  constraint ccc_targets_other_costs_check CHECK ((other_costs >= (0)::numeric)),
+  constraint ccc_targets_segment_check CHECK ((segment = ANY (ARRAY['community'::text, 'vip'::text]))),
+  constraint ccc_targets_view_target_check CHECK ((view_target >= 0)),
+  constraint ccc_targets_year_check CHECK (((year >= 2024) AND (year <= 2100))),
+  constraint ccc_targets_updated_by_fkey FOREIGN KEY (updated_by) REFERENCES profiles(id) ON DELETE SET NULL,
+  constraint ccc_targets_pkey PRIMARY KEY (id),
+  constraint ccc_targets_segment_year_month_key UNIQUE (segment, year, month)
+);
+alter table public.ccc_targets enable row level security;
+
 -- Awarded certificates. facts is frozen at award time so a renamed challenge never rewrites a certificate somebody has already posted.
 create table public.certificate_awards (
   id uuid default gen_random_uuid() not null,
@@ -519,6 +576,32 @@ create table public.challenge_voucher_days (
 );
 alter table public.challenge_voucher_days enable row level security;
 
+create table public.challenge_weekly_winners (
+  id uuid default gen_random_uuid() not null,
+  challenge_id uuid not null,
+  group_id uuid,
+  round integer not null,
+  starts_at timestamp with time zone not null,
+  ends_at timestamp with time zone not null,
+  submission_id uuid,
+  creator_id uuid,
+  views bigint,
+  read_requested_at timestamp with time zone,
+  locked_at timestamp with time zone,
+  reward_id uuid,
+  awarded_at timestamp with time zone,
+  awarded_by uuid,
+  created_at timestamp with time zone default now() not null,
+  constraint challenge_weekly_winners_awarded_by_fkey FOREIGN KEY (awarded_by) REFERENCES profiles(id) ON DELETE SET NULL,
+  constraint challenge_weekly_winners_challenge_id_fkey FOREIGN KEY (challenge_id) REFERENCES challenges(id) ON DELETE CASCADE,
+  constraint challenge_weekly_winners_creator_id_fkey FOREIGN KEY (creator_id) REFERENCES profiles(id) ON DELETE SET NULL,
+  constraint challenge_weekly_winners_group_id_fkey FOREIGN KEY (group_id) REFERENCES challenge_groups(id) ON DELETE CASCADE,
+  constraint challenge_weekly_winners_reward_id_fkey FOREIGN KEY (reward_id) REFERENCES rewards(id) ON DELETE SET NULL,
+  constraint challenge_weekly_winners_submission_id_fkey FOREIGN KEY (submission_id) REFERENCES submissions(id) ON DELETE SET NULL,
+  constraint challenge_weekly_winners_pkey PRIMARY KEY (id)
+);
+alter table public.challenge_weekly_winners enable row level security;
+
 create table public.challenges (
   id uuid default gen_random_uuid() not null,
   title text not null,
@@ -563,6 +646,10 @@ create table public.challenges (
   participation_basis text default 'entries'::text not null,
   join_bonus_points numeric,
   join_bonus_from timestamp with time zone,
+  weekly_prize jsonb,
+  timezone text,
+  opens_at timestamp with time zone,
+  closes_at timestamp with time zone,
   constraint challenges_audience_check CHECK (((audience IS NULL) OR (audience = ANY (ARRAY['general'::text, 'ugc'::text, 'vip'::text])))),
   constraint challenges_content_type_check CHECK (((content_type IS NULL) OR (content_type = ANY (ARRAY['free'::text, 'suggested'::text, 'talking'::text, 'hooks'::text, 'other'::text])))),
   constraint challenges_currency_check CHECK (((prize_currency IS NULL) OR (prize_currency = ANY (ARRAY['GBP'::text, 'EUR'::text, 'USD'::text])))),
@@ -1649,7 +1736,7 @@ create table public.notifications (
   link text default ''::text,
   read boolean default false not null,
   created_at timestamp with time zone default now() not null,
-  constraint notifications_type_check CHECK ((type = ANY (ARRAY['challenge'::text, 'announcement'::text, 'results'::text, 'reward'::text, 'deadline'::text, 'connection'::text, 'dm'::text, 'event'::text, 'application'::text, 'chat'::text, 'submission'::text, 'deletion'::text, 'referral'::text, 'new_member'::text, 'inactive'::text, 'feedback'::text, 'collab'::text, 'mention'::text, 'daily_streak'::text, 'daily_reminder'::text, 'board_answer'::text, 'report'::text, 'event_reminder'::text, 'event_rating'::text, 'reaction'::text, 'community'::text, 'vip'::text]))),
+  constraint notifications_type_check CHECK ((type = ANY (ARRAY['challenge'::text, 'announcement'::text, 'results'::text, 'reward'::text, 'deadline'::text, 'connection'::text, 'dm'::text, 'event'::text, 'application'::text, 'chat'::text, 'submission'::text, 'deletion'::text, 'referral'::text, 'new_member'::text, 'inactive'::text, 'feedback'::text, 'collab'::text, 'mention'::text, 'daily_streak'::text, 'daily_reminder'::text, 'board_answer'::text, 'report'::text, 'event_reminder'::text, 'event_rating'::text, 'reaction'::text, 'community'::text, 'vip'::text, 'rank'::text]))),
   constraint notifications_recipient_id_fkey FOREIGN KEY (recipient_id) REFERENCES profiles(id) ON DELETE CASCADE,
   constraint notifications_pkey PRIMARY KEY (id)
 );
@@ -1932,6 +2019,17 @@ create table public.push_subscriptions (
 );
 alter table public.push_subscriptions enable row level security;
 
+create table public.rank_alerts (
+  challenge_id uuid not null,
+  creator_id uuid not null,
+  last_rank integer,
+  sent_at timestamp with time zone default now() not null,
+  constraint rank_alerts_challenge_id_fkey FOREIGN KEY (challenge_id) REFERENCES challenges(id) ON DELETE CASCADE,
+  constraint rank_alerts_creator_id_fkey FOREIGN KEY (creator_id) REFERENCES profiles(id) ON DELETE CASCADE,
+  constraint rank_alerts_pkey PRIMARY KEY (challenge_id, creator_id)
+);
+alter table public.rank_alerts enable row level security;
+
 create table public.reactions (
   id uuid default gen_random_uuid() not null,
   message_id uuid not null,
@@ -1945,6 +2043,26 @@ create table public.reactions (
   constraint reactions_message_id_creator_id_emoji_key UNIQUE (message_id, creator_id, emoji)
 );
 alter table public.reactions enable row level security;
+
+create table public.recruit_links (
+  id uuid default gen_random_uuid() not null,
+  code text not null,
+  owner_id uuid,
+  kind text not null,
+  label text,
+  clicks integer default 0 not null,
+  created_by uuid,
+  created_at timestamp with time zone default now() not null,
+  archived_at timestamp with time zone,
+  constraint recruit_links_code_check CHECK ((code ~ '^[a-z0-9][a-z0-9-]{1,38}[a-z0-9]$'::text)),
+  constraint recruit_links_kind_check CHECK ((kind = ANY (ARRAY['community'::text, 'vip'::text]))),
+  constraint recruit_links_label_check CHECK ((char_length(label) <= 120)),
+  constraint recruit_links_created_by_fkey FOREIGN KEY (created_by) REFERENCES profiles(id) ON DELETE SET NULL,
+  constraint recruit_links_owner_id_fkey FOREIGN KEY (owner_id) REFERENCES profiles(id) ON DELETE SET NULL,
+  constraint recruit_links_pkey PRIMARY KEY (id),
+  constraint recruit_links_code_key UNIQUE (code)
+);
+alter table public.recruit_links enable row level security;
 
 create table public.referrals (
   id uuid default gen_random_uuid() not null,
@@ -2610,6 +2728,7 @@ create table public.vip_members (
   join_notice_pending boolean default false not null,
   is_team boolean default false not null,
   invoice_outside boolean default false not null,
+  on_board boolean default true not null,
   constraint vip_members_accent_check CHECK (((accent IS NULL) OR (accent ~ '^#[0-9a-fA-F]{6}$'::text))),
   constraint vip_members_cpm_check CHECK (((cpm IS NULL) OR (cpm >= (0)::numeric))),
   constraint vip_members_fee_min_ok CHECK (((fee_min_videos IS NULL) OR (fee_min_videos >= 0))),
@@ -2617,7 +2736,7 @@ create table public.vip_members (
   constraint vip_members_headline_check CHECK (((headline IS NULL) OR (char_length(headline) <= 80))),
   constraint vip_members_monthly_cap_check CHECK (((monthly_cap IS NULL) OR (monthly_cap >= (0)::numeric))),
   constraint vip_members_own_goal_views_check CHECK (((own_goal_views IS NULL) OR (own_goal_views > 0))),
-  constraint vip_members_source_check CHECK ((source = ANY (ARRAY['admin'::text, 'invite'::text, 'transfer'::text]))),
+  constraint vip_members_source_check CHECK ((source = ANY (ARRAY['admin'::text, 'invite'::text, 'transfer'::text, 'staff'::text]))),
   constraint vip_members_status_check CHECK ((status = ANY (ARRAY['active'::text, 'paused'::text, 'left'::text]))),
   constraint vip_members_target_videos_check CHECK (((target_videos IS NULL) OR (target_videos >= 0))),
   constraint vip_members_target_views_check CHECK (((target_views IS NULL) OR (target_views >= 0))),

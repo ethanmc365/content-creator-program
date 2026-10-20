@@ -34,7 +34,7 @@ begin
         join public.profiles pf on pf.id = v.profile_id
        where (mm.id = mo.id or ((r.scope = 'global' or r.audience = 'all') and mm.year = mo.year and mm.month = mo.month
               and mm.programme_id in (select id from public.vip_programmes where kind = (select kind from public.vip_programmes where id = mo.programme_id))))
-         and v.status = 'tracking' and not public.vip_hidden_profile(v.profile_id)
+         and v.status = 'tracking' and not public.vip_hidden_profile(v.profile_id) and not public.vip_unranked(v.profile_id)
          and public.vip_rule_video_ok(r.id, v.id) and public.vip_video_counted(v, mm) > 0
        limit 25) z;
     return jsonb_build_object('mode', 'videos', 'rows', out, 'month', jsonb_build_object('year', mo.year, 'month', mo.month));
@@ -46,7 +46,7 @@ begin
              'views', s.views, 'videos', s.videos, 'me', s.profile_id = v_me) j
       from public.vip_rule_stats(r.id, mo.id) s
       join public.profiles pf on pf.id = s.profile_id
-     where s.views > 0 and not public.vip_hidden_profile(s.profile_id)
+     where s.views > 0 and not public.vip_hidden_profile(s.profile_id) and not public.vip_unranked(s.profile_id)
      limit 25) z;
   select jsonb_build_object('views', s.views, 'videos', s.videos) into mine from public.vip_rule_stats(r.id, mo.id) s where s.profile_id = v_me;
   return jsonb_build_object('mode', 'creators', 'rows', out, 'mine', mine, 'month', jsonb_build_object('year', mo.year, 'month', mo.month));

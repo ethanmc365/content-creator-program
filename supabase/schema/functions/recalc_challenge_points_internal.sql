@@ -18,11 +18,16 @@ declare
   v_join_from timestamptz;
   v_removed   integer := 0;
   v_added     integer := 0;
+  v_tz        text;
+  v_d0        date;
+  v_days      integer;
 begin
   select community_id, threshold_mode, scoring, start_date, end_date, join_bonus_points, join_bonus_from
     into v_community, v_mode, v_scoring, v_start, v_end, v_join_pts, v_join_from
   from public.challenges where id = p_challenge;
   if v_community is null then return; end if;
+  -- 442: the challenge's calendar (its clock, first day, number of days).
+  select x.tz, x.d0, x.days into v_tz, v_d0, v_days from public.challenge_days(p_challenge) x;
 
   -- 363: WORK OUT THE AWARDS FIRST, THEN WRITE ONLY THE DIFFERENCE. Every rescore used to delete and reinsert
   -- every auto award (29,000 rows in 14 hours for ~460 live awards), and realtime has to decode every one of
@@ -180,17 +185,20 @@ begin
   -- CONSISTENCY: an entry in every window between the start and the deadline.
   -- An entry outside the range (published early, or in the minutes before the
   -- archive cron) is counted in the nearest window rather than dropped.
-  if v_start is not null and v_end is not null and v_end > v_start then
+  -- 442: windows of N CALENDAR days in the challenge's clock, counted by the day a video was POSTED; a remainder
+  -- shorter than half a window joins the last one.
+  if v_d0 is not null and coalesce(v_days, 0) > 0 then
     insert into pg_temp._pa_new (community_id, challenge_id, creator_id, rule_id, points, reason, is_auto)
     select v_community, p_challenge, t.creator_id, r.id, r.points, r.label, true
     from public.point_rules r
     cross join lateral (
-      select greatest(1, ceil(extract(epoch from (v_end - v_start)) / (r.period_days * 86400.0)))::int as n
+      select greatest(1, v_days / r.period_days
+        + case when v_days >= r.period_days and (v_days % r.period_days) * 2 >= r.period_days then 1 else 0 end)::int as n
     ) np
     join lateral (
       select s.creator_id,
              count(distinct least(greatest(
-               floor(extract(epoch from (s.submitted_at - v_start)) / (r.period_days * 86400.0))::int, 0), np.n - 1)) as covered
+               ((coalesce(s.posted_at, s.submitted_at) at time zone v_tz)::date - v_d0) / r.period_days, 0), np.n - 1)) as covered
         from public.submissions s
        where s.challenge_id = p_challenge and s.collab_of is null
        group by s.creator_id
@@ -198,6 +206,16 @@ begin
     where r.challenge_id = p_challenge and r.kind = 'consistency' and r.is_active
       and coalesce(r.period_days, 0) > 0 and r.points > 0;
   end if;
+
+  -- 445: STREAK BONUSES DO NOT STACK. Posting every day also covers every week, so a creator who completes more than one
+  -- streak keeps only the biggest (ties: one of them, by rule id). Points move automatically as streaks are completed.
+  delete from pg_temp._pa_new n
+   where n.rule_id in (select r.id from public.point_rules r where r.challenge_id = p_challenge and r.kind = 'consistency')
+     and exists (
+       select 1 from pg_temp._pa_new m
+        where m.creator_id = n.creator_id and m.rule_id <> n.rule_id
+          and m.rule_id in (select r.id from public.point_rules r where r.challenge_id = p_challenge and r.kind = 'consistency')
+          and (m.points > n.points or (m.points = n.points and m.rule_id < n.rule_id)));
 
   -- COLLABS (325, reshaped 334): an INSTAGRAM COLLAB POST. One creator enters it and names the other; the other confirms. Each side of every
   -- confirmed post earns the rule's points, capped per creator by the rule's maximum. The partner needs no entry of their own - the

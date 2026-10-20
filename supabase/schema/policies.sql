@@ -134,6 +134,16 @@ create policy board_questions_update on public.board_questions
   using (((author_id = ( SELECT auth.uid() AS gate)) OR ( SELECT is_admin() AS gate)))
   with check (((author_id = ( SELECT auth.uid() AS gate)) OR ( SELECT is_admin() AS gate)));
 
+create policy ccc_plans_admin on public.ccc_plans
+  as permissive for all to authenticated
+  using (( SELECT is_admin() AS is_admin))
+  with check (( SELECT is_admin() AS is_admin));
+
+create policy ccc_targets_admin on public.ccc_targets
+  as permissive for all to authenticated
+  using (( SELECT is_admin() AS is_admin))
+  with check (( SELECT is_admin() AS is_admin));
+
 create policy "certificate_awards: admin delete" on public.certificate_awards
   as permissive for delete to authenticated
   using (( SELECT is_admin() AS is_admin));
@@ -289,6 +299,12 @@ create policy "challenge_voucher_days: admin update" on public.challenge_voucher
 create policy "voucher days: read" on public.challenge_voucher_days
   as permissive for select to authenticated
   using ((true OR ( SELECT is_admin() AS is_admin)));
+
+create policy weekly_winners_read on public.challenge_weekly_winners
+  as permissive for select to authenticated
+  using ((EXISTS ( SELECT 1
+   FROM challenges c
+  WHERE (c.id = challenge_weekly_winners.challenge_id))));
 
 create policy "challenges: admin delete" on public.challenges
   as permissive for delete to authenticated
@@ -1231,6 +1247,11 @@ create policy "reactions: read for members" on public.reactions
 create policy "reactions: remove own" on public.reactions
   as permissive for delete to authenticated
   using ((creator_id = ( SELECT auth.uid() AS uid)));
+
+create policy recruit_links_team on public.recruit_links
+  as permissive for all to authenticated
+  using (( SELECT is_admin() AS is_admin))
+  with check (( SELECT is_admin() AS is_admin));
 
 create policy "referrals: admin delete" on public.referrals
   as permissive for delete to authenticated

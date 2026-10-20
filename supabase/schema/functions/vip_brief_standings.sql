@@ -31,7 +31,7 @@ begin
               join public.vip_members vm on vm.profile_id = s.profile_id and vm.status = 'active' and vm.programme_id = mo.programme_id
               join public.profiles pf2 on pf2.id = s.profile_id
              where mo.year = b.year and mo.month = b.month and (b.programme_id is null or mo.programme_id = b.programme_id)
-               and (not pf2.is_test or v_all) and not public.vip_hidden_profile(pf2.id)) z
+               and (not pf2.is_test or v_all) and not public.vip_hidden_profile(pf2.id) and not public.vip_unranked(pf2.id)) z
          where z.val > 0) y
       join public.profiles pf on pf.id = y.profile_id
      where y.rk <= 25), '[]'::jsonb);

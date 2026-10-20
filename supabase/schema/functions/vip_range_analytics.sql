@@ -21,7 +21,8 @@ begin
 
   create temporary table if not exists _vip_rg (d date, profile_id uuid, video_id uuid, programme_id uuid, gained numeric) on commit drop;
   truncate _vip_rg;
-  insert into _vip_rg select * from public.vip_daily_gained(v_ids, null, v_pf, p_to);
+  insert into _vip_rg select g.* from public.vip_daily_gained(v_ids, null, v_pf, p_to) g
+   where g.profile_id <> all (array(select hm.profile_id from public.vip_members hm where public.vip_hidden_profile(hm.profile_id)));
 
   select coalesce(jsonb_agg(jsonb_build_object('d', s.d, 'views', round(coalesce(g.views, 0))::bigint, 'creators', coalesce(g.creators, 0),
            'videos', coalesce(pv.n, 0), 'joined', coalesce(jn.n, 0)) order by s.d), '[]'::jsonb) into v_daily
@@ -71,7 +72,18 @@ begin
            coalesce((pr.notif_prefs ->> 'chat')::boolean, true) chat_push_on,
            pr.last_seen_at,
            public.vip_payment_ready(vm.profile_id, p.currency) payment_ready,
-           public.vip_terms_ok(vm.profile_id) terms_ok
+           public.vip_terms_ok(vm.profile_id) terms_ok, not public.vip_unranked(vm.profile_id) ranked,
+           (select coalesce(jsonb_agg(jsonb_build_object('platform', t.platform, 'videos', t.videos, 'views', t.views)
+                                      order by t.views desc, t.videos desc, t.platform), '[]'::jsonb)
+              from (select x.platform,
+                           count(*) filter (where coalesce(x.posted_at, x.submitted_at)::date between p_from and p_to) videos,
+                           round(coalesce(sum(gx.v), 0))::bigint views
+                      from public.vip_videos x
+                      left join (select r.video_id, sum(r.gained) v from _vip_rg r
+                                  where r.profile_id = vm.profile_id and r.d between p_from and p_to group by r.video_id) gx on gx.video_id = x.id
+                     where x.profile_id = vm.profile_id and x.status <> 'removed'
+                     group by x.platform) t
+             where t.videos > 0 or t.views > 0) platforms
       from public.vip_members_live vm
       join public.profiles pr on pr.id = vm.profile_id
       join public.vip_programmes p on p.id = vm.programme_id

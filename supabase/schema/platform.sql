@@ -44,6 +44,7 @@ select cron.schedule('vip-requirements', '20 9 * * *', 'select public.vip_requir
 select cron.schedule('vip-sync', '37 * * * *', 'select public.vip_run_sync()');
 select cron.schedule('vip-weekly-digest', '5 8 * * 1', 'select public.vip_weekly_digest()');
 select cron.schedule('voucher-nudges', '0 10 * * *', 'select public.send_voucher_nudges()');
+select cron.schedule('weekly-prize', '17 * * * *', 'select public.weekly_prize_tick()');
 
 -- Tables in the supabase_realtime publication (clients can subscribe to their changes)
 --   challenges

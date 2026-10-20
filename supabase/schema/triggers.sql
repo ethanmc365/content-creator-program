@@ -12,6 +12,10 @@ CREATE TRIGGER trg_audit_app_settings_upd AFTER UPDATE ON app_settings FOR EACH 
 CREATE TRIGGER app_updates_touch BEFORE UPDATE ON app_updates FOR EACH ROW EXECUTE FUNCTION trg_app_updates_touch();
 CREATE TRIGGER trg_limit_board_answers BEFORE INSERT ON board_answers FOR EACH ROW EXECUTE FUNCTION enforce_write_limit('author_id', 'created_at', '30', '600');
 CREATE TRIGGER trg_on_board_answer AFTER INSERT ON board_answers FOR EACH ROW EXECUTE FUNCTION on_board_answer();
+CREATE TRIGGER trg_ccc_plans_stamp BEFORE INSERT OR UPDATE ON ccc_plans FOR EACH ROW EXECUTE FUNCTION ccc_targets_stamp();
+CREATE TRIGGER trg_sandbox_read_only BEFORE INSERT OR DELETE OR UPDATE ON ccc_plans FOR EACH ROW EXECUTE FUNCTION sandbox_is_read_only();
+CREATE TRIGGER trg_ccc_targets_stamp BEFORE INSERT OR UPDATE ON ccc_targets FOR EACH ROW EXECUTE FUNCTION ccc_targets_stamp();
+CREATE TRIGGER trg_sandbox_read_only BEFORE INSERT OR DELETE OR UPDATE ON ccc_targets FOR EACH ROW EXECUTE FUNCTION sandbox_is_read_only();
 CREATE TRIGGER certificate_awarded_notifies AFTER INSERT ON certificate_awards FOR EACH ROW WHEN (certificates_live()) EXECUTE FUNCTION on_certificate_awarded();
 CREATE TRIGGER trg_zz_api_update_only BEFORE UPDATE ON certificate_awards FOR EACH ROW EXECUTE FUNCTION api_update_only('admin_ok', 'seen_at');
 CREATE TRIGGER trg_points_on_boost AFTER INSERT OR DELETE OR UPDATE ON challenge_boosts FOR EACH ROW EXECUTE FUNCTION trg_recalc_points_on_boost();
@@ -37,6 +41,7 @@ CREATE TRIGGER trg_on_winners_published AFTER INSERT OR UPDATE OF winners_publis
 CREATE TRIGGER trg_points_on_challenge_dates AFTER UPDATE OF start_date, end_date, threshold_mode ON challenges FOR EACH ROW WHEN (old.start_date IS DISTINCT FROM new.start_date OR old.end_date IS DISTINCT FROM new.end_date OR old.threshold_mode IS DISTINCT FROM new.threshold_mode) EXECUTE FUNCTION trg_recalc_points_on_dates();
 CREATE TRIGGER trg_points_on_join_bonus AFTER UPDATE OF join_bonus_points, join_bonus_from ON challenges FOR EACH ROW WHEN (old.join_bonus_points IS DISTINCT FROM new.join_bonus_points OR old.join_bonus_from IS DISTINCT FROM new.join_bonus_from) EXECUTE FUNCTION trg_recalc_points_on_join_bonus();
 CREATE TRIGGER trg_seed_challenge_point_rules AFTER INSERT OR UPDATE OF scoring ON challenges FOR EACH ROW EXECUTE FUNCTION seed_challenge_point_rules();
+CREATE TRIGGER zz_challenge_days BEFORE INSERT OR UPDATE OF start_date, end_date, timezone, community_id ON challenges FOR EACH ROW EXECUTE FUNCTION challenge_set_days();
 CREATE TRIGGER trg_limit_collab_interests BEFORE INSERT ON collab_interests FOR EACH ROW EXECUTE FUNCTION enforce_write_limit('creator_id', 'created_at', '30', '600');
 CREATE TRIGGER trg_on_collab_interest AFTER INSERT ON collab_interests FOR EACH ROW EXECUTE FUNCTION on_collab_interest();
 CREATE TRIGGER trg_on_collab_post_overlap AFTER INSERT ON collab_posts FOR EACH ROW EXECUTE FUNCTION on_collab_post_overlap();
@@ -149,10 +154,13 @@ CREATE TRIGGER trg_vip_profile_sent AFTER UPDATE OF onboarded ON profiles FOR EA
 CREATE TRIGGER trg_vip_protect_flag BEFORE UPDATE ON profiles FOR EACH ROW EXECUTE FUNCTION vip_protect_flag();
 CREATE TRIGGER trg_zz_adults_only BEFORE INSERT OR UPDATE ON profiles FOR EACH ROW EXECUTE FUNCTION trg_adults_only();
 CREATE TRIGGER trg_zz_onboarding_progress AFTER INSERT OR UPDATE ON profiles FOR EACH ROW EXECUTE FUNCTION log_onboarding_progress();
+CREATE TRIGGER trg_push_events_skip_duplicate BEFORE INSERT ON push_events FOR EACH ROW EXECUTE FUNCTION push_events_skip_duplicate();
 CREATE TRIGGER trg_limit_reactions BEFORE INSERT ON reactions FOR EACH ROW EXECUTE FUNCTION enforce_write_limit('creator_id', 'created_at', '120', '60');
 CREATE TRIGGER trg_on_room_reaction AFTER INSERT ON reactions FOR EACH ROW EXECUTE FUNCTION on_room_reaction();
+CREATE TRIGGER trg_sandbox_read_only BEFORE INSERT OR DELETE OR UPDATE ON recruit_links FOR EACH ROW EXECUTE FUNCTION sandbox_is_read_only();
 CREATE TRIGGER trg_on_new_referral AFTER INSERT ON referrals FOR EACH ROW EXECUTE FUNCTION on_new_referral();
 CREATE TRIGGER trg_audit_resources AFTER INSERT OR DELETE ON resources FOR EACH ROW EXECUTE FUNCTION audit_change('content', 'resource', 'title');
+CREATE TRIGGER trg_results_rank_alerts AFTER UPDATE ON results REFERENCING OLD TABLE AS old_rows NEW TABLE AS new_rows FOR EACH STATEMENT EXECUTE FUNCTION notify_rank_changes();
 CREATE TRIGGER sandbox_read_only BEFORE INSERT OR DELETE OR UPDATE ON rewards FOR EACH ROW EXECUTE FUNCTION sandbox_is_read_only();
 CREATE TRIGGER trg_audit_rewards AFTER INSERT OR DELETE ON rewards FOR EACH ROW EXECUTE FUNCTION audit_change('money', 'reward', '');
 CREATE TRIGGER trg_audit_rewards_upd AFTER UPDATE ON rewards FOR EACH ROW EXECUTE FUNCTION audit_change('money', 'reward', '', 'status', 'amount');
@@ -222,6 +230,7 @@ CREATE TRIGGER update_objects_updated_at BEFORE UPDATE ON storage.objects FOR EA
 -- issue_pg_cron_access: on ddl_command_end {"CREATE EXTENSION"} -> grant_pg_cron_access
 -- issue_pg_graphql_access: on ddl_command_end {"CREATE EXTENSION"} -> grant_pg_graphql_access
 -- issue_pg_net_access: on ddl_command_end {"CREATE EXTENSION"} -> grant_pg_net_access
+-- new_tables_get_api_grants: on ddl_command_end {"CREATE TABLE","CREATE TABLE AS","SELECT INTO","CREATE VIEW","CREATE MATERIALIZED VIEW","CREATE FOREIGN TABLE","CREATE SEQUENCE"} -> new_tables_get_api_grants
 -- no_new_function_is_public: on ddl_command_end {"CREATE FUNCTION","ALTER FUNCTION"} -> no_new_function_is_public
 -- pgrst_ddl_watch: on ddl_command_end -> pgrst_ddl_watch
 -- pgrst_drop_watch: on sql_drop -> pgrst_drop_watch

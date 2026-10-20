@@ -9,6 +9,7 @@ CREATE OR REPLACE FUNCTION public.vip_terms_ok(p_profile uuid)
  SET search_path TO 'public'
 AS $function$
   select case
+           when exists (select 1 from public.vip_members s where s.profile_id = p_profile and s.source = 'staff') then true
            when (public.agreement_for('vip', p_profile)).id is null then true
            else exists (select 1 from public.agreement_acceptances x
                          where x.profile_id = p_profile and x.agreement_id = (public.agreement_for('vip', p_profile)).id)

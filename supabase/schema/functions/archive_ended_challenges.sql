@@ -8,20 +8,6 @@ CREATE OR REPLACE FUNCTION public.archive_ended_challenges()
  SECURITY DEFINER
  SET search_path TO 'public'
 AS $function$
-  update public.challenges c
-     set status = 'archived'
-   where c.status = 'active'
-     and now() >= (
-       (date_trunc(
-          'day',
-          c.end_date at time zone coalesce(
-            (select m.timezone from public.communities m where m.id = c.community_id),
-            'Europe/London'
-          )
-        ) + interval '1 day')
-       at time zone coalesce(
-         (select m.timezone from public.communities m where m.id = c.community_id),
-         'Europe/London'
-       )
-     );
+  update public.challenges c set status = 'archived'
+   where c.status = 'active' and c.closes_at is not null and now() >= c.closes_at;
 $function$;
