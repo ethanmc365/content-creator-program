@@ -498,8 +498,9 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
           : `That looks like a ${platform} link. This challenge accepts: ${challenge.platforms.map(acceptsLabel).join(', ')}.`
       )
     }
-    if (!caption.trim()) return fail('caption', 'Please add a caption for your entry.')
-
+    // THE CAPTION IS OPTIONAL (21 Oct 2026). A vm.tiktok.com link often has no readable caption, the box says "or a note
+    // for the team", and a Portuguese creator was stuck on an English "add a caption" error. The database never required
+    // one (the VIP submit and three live entries have none), so it is saved empty rather than refused.
     setSubmitting(true)
 
     // PHOTO POSTS DO NOT COUNT (16 Oct 2026): refused here with a pop-up, before anything is saved. TikTok is never
@@ -540,7 +541,7 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
       challenge_id: id,
       platform,
       video_url: url,
-      caption: caption.trim(),
+      caption: caption.trim() || null,
       ...(resolvedId ? { platform_video_id: resolvedId } : {}),
     }).select('id, collab_of').single()
     if (error) {

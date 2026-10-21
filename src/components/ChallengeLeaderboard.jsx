@@ -113,7 +113,7 @@ export default function ChallengeLeaderboard({
 
   const hasPrizes = paidPlaces.length > 0
   // The prize column holds the voucher pill too, and "€10 Tryp.com voucher" does not fit in 8rem.
-  const prizeCol = participation?.threshold ? 'w-44' : 'w-32'
+  const prizeCol = participation?.threshold ? 'w-48' : 'w-40'
   const fmtScore = (v) => (scoreLabel === 'points' ? `${Number(v || 0).toLocaleString()}` : formatViews(v))
 
   return (
@@ -166,19 +166,21 @@ export default function ChallengeLeaderboard({
           <span
             title={tr('Prize for this place')}
             className={cx(
-              'inline-flex max-w-full items-center gap-1 truncate rounded-full px-2.5 py-1 text-[11px] font-bold tabular-nums',
+              // The words wrap inside the pill instead of being clipped by it: "€50 em dinheiro" is wider than the
+              // name column on a phone and used to run out of the card.
+              'inline-flex max-w-full items-center gap-1 rounded-2xl px-2.5 py-1 text-left text-[11px] font-bold leading-tight tabular-nums',
               row ? 'bg-brand text-white' : 'bg-brand-tint text-brand',
             )}
           >
-            <Icon name="money" className="h-3.5 w-3.5 shrink-0" /> <PrizeText text={prize} />
+            <Icon name="money" className="h-3.5 w-3.5 shrink-0" /> <span className="min-w-0 break-words"><PrizeText text={prize} /></span>
           </span>
         )
         const voucherPill = hasVoucher && (
           <span
             title={tr('Taking-part reward')}
-            className="inline-flex max-w-full items-center gap-1 truncate rounded-full bg-green-50 px-2.5 py-1 text-[11px] font-bold text-green-700"
+            className="inline-flex max-w-full items-center gap-1 rounded-2xl bg-green-50 px-2.5 py-1 text-left text-[11px] font-bold leading-tight text-green-700"
           >
-            <Icon name="ticket" className="h-3.5 w-3.5 shrink-0" /> <PrizeText text={participation.prize} />
+            <Icon name="ticket" className="h-3.5 w-3.5 shrink-0" /> <span className="min-w-0 break-words"><PrizeText text={participation.prize} /></span>
           </span>
         )
         const who = row && (
@@ -209,15 +211,20 @@ export default function ChallengeLeaderboard({
                   </span>
                 )}
               </span>
-              {((prize) || (hasVoucher && hasPrizes)) && (
-                <span className={cx('mt-1.5 flex-wrap items-center gap-1.5', wide ? 'hidden' : 'flex sm:hidden')}>
-                  {prizePill}
-                  {hasVoucher && hasPrizes && voucherPill}
-                </span>
-              )}
             </span>
           </>
         )
+        // THE PHONE'S PRIZE LINE. Under the whole row, level with the name, not inside the name column: that column is
+        // about 60px once the place, avatar, streak and score have their share of a 375px screen, and a "€50 em
+        // dinheiro" pill squeezed into it ran out of the card.
+        const phonePrizes = row
+          ? (prize || (hasVoucher && hasPrizes)) && (
+            <div className={cx('flex basis-full flex-wrap items-center gap-1.5 pl-11 sm:pl-0', wide ? 'hidden' : 'flex sm:hidden')}>
+              {prizePill}
+              {hasVoucher && hasPrizes && voucherPill}
+            </div>
+          )
+          : prize && <div className={cx('basis-full pl-11', wide ? 'hidden' : 'block sm:hidden')}>{prizePill}</div>
         return (
           <div
             key={rank}
@@ -226,8 +233,8 @@ export default function ChallengeLeaderboard({
               ...(podium && row && !mine ? { background: `linear-gradient(90deg, ${tier.disc}14, transparent 55%)` } : {}),
             }}
             className={cx(
-              'animate-fade-up flex items-center gap-3 border-b border-gray-50 py-3 last:border-0 sm:gap-4 sm:py-3.5',
-              wide ? 'px-8' : 'px-4 sm:px-8',
+              'animate-fade-up flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-gray-50 py-3 last:border-0 sm:flex-nowrap sm:gap-4 sm:py-3.5',
+              wide ? 'flex-nowrap px-8' : 'px-4 sm:px-8',
               mine && 'bg-brand-tint/60',
               !row && 'bg-cloud/25',
             )}
@@ -261,7 +268,6 @@ export default function ChallengeLeaderboard({
                       sm. */}
                   <span className={cx('block truncate text-sm font-semibold text-smoke', !wide && 'sm:hidden')}>{wide ? tr('This spot is up for grabs') : tr('Up for grabs')}</span>
                   {!wide && <span className="hidden truncate text-sm font-semibold text-smoke sm:block">{tr('This spot is up for grabs')}</span>}
-                  {prize && <span className={cx('mt-1.5', wide ? 'hidden' : 'block sm:hidden')}>{prizePill}</span>}
                 </span>
               </span>
             )}
@@ -310,6 +316,7 @@ export default function ChallengeLeaderboard({
                   : <span className="text-gray-300">-</span>}
               </span>
             )}
+            {phonePrizes}
           </div>
         )
       })}
