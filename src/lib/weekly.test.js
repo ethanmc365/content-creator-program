@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { cleanWeekly, weeklyRounds } from './weekly'
-import { challengeCloses, challengeEndIso, challengeStartIso, ymdInZone, zonedMidnight } from './zonedDate'
+import { challengeEndIso, challengeStartIso, ymdInZone, zonedMidnight } from './zonedDate'
 
 // The same answers migration 442's rehearsal printed for `weekly_rounds` on the Autumn/Winter Global Challenge.
 const START = '2026-10-23T23:00:00Z' // Sat 24 Oct 00:00 London (BST)
@@ -66,9 +66,5 @@ describe('a challenge runs on whole days in its own zone', () => {
     expect(ymdInZone('2026-10-23T23:00:00Z', 'UTC')).toBe('2026-10-23')
     expect(zonedMidnight('2026-10-25', 'Europe/London')).toBe('2026-10-24T23:00:00.000Z')
     expect(zonedMidnight('2026-10-26', 'Europe/London')).toBe('2026-10-26T00:00:00.000Z')
-  })
-  it('closes at closes_at, or at the end of the end date in the challenge zone', () => {
-    expect(challengeCloses({ closes_at: '2026-11-23T00:00:00Z' }).toISOString()).toBe('2026-11-23T00:00:00.000Z')
-    expect(challengeCloses({ end_date: '2026-11-22T00:00:00Z', timezone: 'Europe/London' }).toISOString()).toBe('2026-11-23T00:00:00.000Z')
   })
 })

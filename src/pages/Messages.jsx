@@ -62,12 +62,7 @@ function savePinnedConversations(ids) {
   try { localStorage.setItem(PINNED_KEY, JSON.stringify(ids.slice(0, MAX_PINNED_CONVERSATIONS))) } catch { /* private mode */ }
 }
 
-// A short label for a DM when it's quoted in a reply.
-// A PREVIEW IS PLAIN TEXT, NOT MARKDOWN.
-//
-// Replying to a message written with the formatting buttons put the RAW body in the quote strip, so a reply to a heading
-// read "## Content tips" and a reply to bold text read "**this**". `stripMarkup` is the one place that knows how to undo
-// the markers, and it keeps @names intact, which is what a one-line quote actually needs.
+// A short plain-text label for a DM quoted in a reply (`stripMarkup` removes formatting, keeps @names).
 function dmPreview(m) {
   if (!m) return 'Message unavailable'
   if (m.body) return stripMarkup(m.body)
@@ -79,44 +74,10 @@ function dmPreview(m) {
   return 'Message'
 }
 
-// Direct messages: inbox (conversation list) + active thread, both realtime.
-// On mobile you see one panel at a time; on desktop they sit side by side.
-// A 1:1 NOBODY HAS SPOKEN IN IS NOT IN ANYBODY'S INBOX.
-//
-// See migration 214 for the whole of it: `last_message_at` is NULL until the
-// first message arrives and is stamped by a trigger from then on, so this reads
-// a fact the database maintains rather than keeping a second one in step. It is
-// applied to the LIST, not to the fetch, because opening one by its URL must
-// still work - a link somebody was sent, or the thread you are in the middle of
-// starting.
-//
-// Groups are exempt on purpose: being added to a group nobody has posted in yet
-// is something that happened TO you and belongs in your inbox. Opening a 1:1 and
-// changing your mind is something you did, to nobody.
-//
-// AT MODULE SCOPE so the CACHED inbox can be strained through it too. A device that wrote its page cache before this
-// shipped is holding rows with the old `now()` timestamp, and without this they would be on screen until the fetch came
-// back - which is precisely the "shows on mobile, not on desktop" the team reported, one more time and for one more
-// second.
-// AND A THREAD YOU HAVE JUST CREATED IS LISTABLE BEFORE ITS FIRST MESSAGE LANDS.
-//
-// `last_message_at` is written by a trigger when a message row appears, and
-// `ensureConversation` creates the conversation BEFORE the message is queued -
-// it has to, because the outbox needs an id to write into. So for the width of
-// one round trip the new row is a conversation with no last message, this
-// function said "not listable", `loadConversations` dropped it, `realActive`
-// found nothing, `draftTo` had already been cleared, and `threadOpen` went
-// false under a thread somebody was looking at. The discover pane is simply
-// what `!threadOpen` renders.
-//
-// `justCreated` is the set of ids this page has minted in this session. It is a
-// SET AND NOT A FLAG because two threads can be opened before either first
-// message posts, and it is passed in rather than read from module state so the
-// cached-inbox strain at mount (which has no such set) keeps the old, stricter
-// meaning: a cache is a record of the past, and nothing in it was created a
-// moment ago.
-// The rule itself lives in lib/inbox now (so the inbox can be fetched before this page mounts); re-exported here
-// for the code and tests that have always imported it from this page.
+// Direct messages: inbox + active thread, both realtime. One panel at a time on mobile, side by side on desktop.
+// A 1:1 nobody has written in is not listed (`last_message_at` is null until the first message; migration 214),
+// but opening it by URL still works. Groups are always listed. A thread this page just created is listable before
+// its first message lands (`justCreated`). The rule lives in lib/inbox and is re-exported here.
 export { isListableConversation }
 
 /** Where an unsent message is kept: per conversation, or per person before the conversation exists. */
@@ -129,29 +90,8 @@ export default function Messages() {
   const navigate = useNavigate()
   const location = useLocation()
 
-  // BACK OUT OF A THREAD AND YOU ARE IN THE INBOX, WHEREVER YOU CAME FROM.
-  //
-  // Both halves of that are true and they are not in conflict: the browser was
-  // doing exactly what a browser does. A thread is reached from four places -
-  // the inbox, a push notification, the bell, and a creator's profile - and
-  // only the first of them leaves the inbox in the history behind it. Open a
-  // DM from the bell while standing on Worldwide and the stack really is
-  // [/global, /messages/:id], so Back really does mean Worldwide. On a desktop
-  // that is defensible, because the inbox and the thread are on screen
-  // TOGETHER and leaving the thread is not leaving the page. On a phone they
-  // are two screens, and backing out of the second one has exactly one sensible
-  // destination.
-  //
-  // So an arrival that did not come from the inbox puts the inbox underneath
-  // itself: replace this entry with the inbox, then push the thread back on
-  // top. One extra entry, no reload (both are client-side), and Back is
-  // suddenly the same gesture whatever route brought you here. Everything that
-  // navigates from WITHIN this page carries `fromInbox` so it is left alone -
-  // without that flag the inbox's own rows would insert a second copy of the
-  // inbox and Back would need pressing twice to reach the page before it.
-  //
-  // The ref makes it once per mount: moving between threads afterwards is
-  // ordinary pushing, and backing through them one at a time is right.
+  // Back from a thread always lands in the inbox: a thread opened from anywhere else (push, bell, profile) puts the
+  // inbox under itself once per mount. Navigation from within this page carries `fromInbox` and is left alone.
   const inboxBehind = useRef(false)
   useEffect(() => {
     if (!conversationId || inboxBehind.current) return
@@ -170,14 +110,7 @@ export default function Messages() {
   // `isListableConversation`: a cache written before migration 214 still holds
   // abandoned threads carrying a `now()` timestamp.
   const [conversations, setConversations] = useState(() => (cachedInbox ?? []).filter((c) => isListableConversation(c))) // enriched with profile/members + unread
-  // GROUPS.
-  //
-  // The inbox holds two shapes now. A 'direct' conversation is the pair it has
-  // always been; a 'group' is a room with a membership table behind it. They
-  // share this page rather than getting a second one because they share
-  // everything that makes a conversation work - media, replies, reactions,
-  // typing, the mobile overlay - and because an inbox split in two is an inbox
-  // you have to check twice.
+  // Groups share this page with 1:1s: media, replies, reactions, typing and the mobile overlay all apply to both.
   const [invites, setInvites] = useState([])          // groups waiting on my answer
   const [showNewGroup, setShowNewGroup] = useState(false)
   const [showGroupSettings, setShowGroupSettings] = useState(false)
@@ -206,15 +139,7 @@ export default function Messages() {
   const closeThreadSearch = useCallback(() => { searchClosedAt.current = Date.now(); setThreadSearchOpen(false); setThreadSearch('') }, [])
   useEffect(() => { setThreadSearchOpen(false); setThreadSearch('') }, [conversationId])
 
-  // ---- The outbox -------------------------------------------------------
-  //
-  // THE DMs HAD NOTHING. `send` awaited the insert and let realtime put the
-  // message on screen, which means a DM written with no signal made a fail
-  // noise, left an empty composer and was simply gone - the one surface where
-  // that matters most, because a DM is addressed to a person who is now waiting
-  // for an answer that was never sent. Queued in `src/lib/outbox.js` now, and
-  // read back from there so it survives the reload. Same module the two chats
-  // use; there is exactly one of these in the codebase.
+  // Sends are queued in lib/outbox (the same module the rooms use), so a DM written offline survives a reload.
   const outboxScope = `dm:${conversationId || 'none'}`
   const [queued, setQueued] = useState(() => queuedFor(outboxScope))
   useEffect(() => {
@@ -275,26 +200,9 @@ export default function Messages() {
   const nowTick = useNowTick()
   const [replyTo, setReplyTo] = useState(null)     // message being replied to
   const [loadingList, setLoadingList] = useState(!cachedInbox)
-  // AND A SECOND, STRICTER FLAG FOR THE SAME QUESTION.
-  //
-  // `loadingList` starts FALSE whenever there is a page cache, because the
-  // point of the cache is to paint the inbox before the network answers. That
-  // is right for the rail and wrong for the discover pane: a cached inbox is a
-  // guess at "who have I already messaged", and the pane badges people on
-  // exactly that. `inboxLoaded` is only ever set by a completed live query, so
-  // the pane waits for the truth while the rail keeps its head start.
+  // `inboxLoaded` is set only by a completed live query; the discover pane waits for it, the rail uses the cache.
   const [inboxLoaded, setInboxLoaded] = useState(false)
-  // PINNED CONVERSATIONS, PER DEVICE.
-  //
-  // localStorage rather than a column, deliberately. Pinning is a view
-  // preference about how YOU want your own inbox arranged - it changes nothing
-  // for the other person and nothing about the data - and the same rule already
-  // governs the rooms sidebar's order and the two sound switches. It also means
-  // no migration and no round trip on a press.
-  //
-  // THREE IS THE LIMIT, and it is a real limit rather than a suggestion. The
-  // whole value of a pin is that the pinned set is small enough to be the first
-  // thing you look at; a fourth pin is the beginning of a second inbox.
+  // Pinned conversations are a per-device preference in localStorage. At most three.
   const [pinned, setPinned] = useState(loadPinnedConversations)
   const [loadingThread, setLoadingThread] = useState(false)
   const [body, setBody] = useState('')
@@ -313,33 +221,15 @@ export default function Messages() {
   const [peopleLoaded, setPeopleLoaded] = useState(!!cachedPeople)
   const [connectionIds, setConnectionIds] = useState(() => new Set(cachedPeople?.connected ?? []))
   const [starting, setStarting] = useState(null) // creator id being opened
-  // ---------------------------------------------------------------------
-  // A THREAD YOU HAVE OPENED BUT NOT YET WRITTEN IN DOES NOT EXIST YET.
-  //
-  // Pressing Message ran `openConversation`, which INSERTS a `conversations`
-  // row on the spot - so changing your mind left a permanent empty thread in
-  // both inboxes, and the other person got a conversation with somebody who had
-  // never said anything to them. Three of the fifty rows in production are
-  // exactly that.
-  //
-  // The row is created on the first SEND instead. Until then the thread is this
-  // piece of state: the other person, held in the client, rendered as a real
-  // (empty) thread so nothing about the screen changes. `ensureConversation`
-  // below is the one place that turns it into a row.
-  //
-  // THE COST, STATED: the very first message to a new person cannot be queued
-  // offline, because the outbox needs a `conversation_id` and only the server
-  // can mint one. Every message after it queues exactly as before. That is the
-  // right trade - an offline first-DM is rare, and a phantom thread is not.
+  // A thread you open but have not written in does not exist yet: the conversation row is created on the first send
+  // (`ensureConversation`). Until then it is a draft held in state. Cost: the first message to a new person cannot be
+  // queued offline, because the outbox needs a conversation id.
   const [draftTo, setDraftTo] = useState(null)   // a profile row, or null
   // Guards a double-press: two sends racing would insert two conversations for
   // the same pair, and the pair has no unique constraint to stop it.
   const ensuringRef = useRef(null)
-  // The conversations THIS PAGE created, which are listable before their first
-  // message exists. See `isListableConversation`. A ref rather than state: it is
-  // read inside `loadConversations`, and putting it in state would either make
-  // that callback change identity on every send (re-running the effect that
-  // calls it) or read a stale value from its closure.
+  // Conversations this page created (listable before their first message). A ref, so `loadConversations` keeps a
+  // stable identity.
   const justCreatedRef = useRef(new Set())
   // path -> short-lived signed URL, for DM images in the private dm-media bucket.
   const [signedUrls, setSignedUrls] = useState(new Map())
@@ -364,11 +254,8 @@ export default function Messages() {
   // bug - see the reaction subscription below.
   const threadIdsRef = useRef(new Set())
 
-  // Visual-viewport tracking drives the WhatsApp-style mobile layout: the whole
-  // thread becomes a fixed overlay pinned to the visible area so the composer
-  // hugs the keyboard, the person you're messaging stays pinned at the top, and
-  // the app header + bottom tab bar collapse away while typing. Same approach as
-  // the #general chat (see useVisualViewport for the iOS reasoning).
+  // Visual-viewport tracking: on mobile the thread is a fixed overlay pinned to the visible area, so the composer
+  // sits on the keyboard (same approach as the rooms; see useVisualViewport).
   const overlayRef = useRef(null)
   // The composer and what floats over it: it rides with the keyboard while the thread scrolls (useChatOverlayHeight).
   const dockRef = useRef(null)
@@ -378,22 +265,8 @@ export default function Messages() {
   useNoFocusPan(overlayRef, isMobile)
   useOverlayTouchLock(overlayRef, isMobile)
 
-  // THE APP HEADER SLIDES AWAY WHILE YOU ARE READING A DM, exactly as it does
-  // in a room.
-  //
-  // The thread already HAS the right top bar - a back arrow, the other person's
-  // face and name, and the search - so the app header above it was a second
-  // 64px bar carrying a logo, a bell and an avatar that nobody is using while
-  // they read. Same module-level channel the rooms use (lib/chatChrome), so
-  // the shell needs to know nothing about DMs.
-  //
-  // `setChrome` calls the channel IN THE HANDLER rather than from an effect
-  // keyed on the state. That is not a style preference: an effect runs after
-  // the commit that grew the overlay, so the header would start sliding one
-  // frame later and the two movements read as a lag instead of as one gesture.
-  // The rooms learned this the hard way; the note in NetworkChat has the
-  // detail. The effect below is still here for the two cases a handler cannot
-  // cover - the width changing under a hidden header, and leaving the page.
+  // The app header slides away while a DM is open, through lib/chatChrome. `setChrome` is called in the handler, not
+  // an effect, so the header and overlay move in the same frame. The effect covers width changes and leaving the page.
   const [chromeHidden, setChromeHidden] = useState(false)
   const setChrome = useCallback((hidden) => {
     setChromeHidden(hidden)
@@ -407,45 +280,27 @@ export default function Messages() {
   const hideChrome = useCallback(() => { if (isMobile) setChrome(true) }, [isMobile, setChrome])
 
   const realActive = conversations.find((c) => c.id === conversationId)
-  // The draft thread is shaped like a conversation so every reader below - the
-  // title, the @-chips, the DM gate, `otherParticipant` - works unchanged. It
-  // has no `id`, which is what keeps it out of the inbox query and out of the
-  // database.
-  // MEMOISED, because a fresh object literal every render would change the
-  // identity of everything downstream that depends on it - `activeMembers`,
-  // the mention list, the relationship effect - and re-run all of them sixty
-  // times a second while nothing had changed.
+  // The draft thread is shaped like a conversation (with no id, so it stays out of the inbox and the database).
+  // Memoised so its identity is stable.
   const active = useMemo(
     () => realActive || (draftTo && !conversationId
       ? { id: null, kind: 'direct', draft: true, other: draftTo, participant_a: user.id, participant_b: draftTo.id }
       : undefined),
     [realActive, draftTo, conversationId, user.id],
   )
-  // IS A THREAD ON SCREEN. `conversationId` used to answer this, and it is the
-  // wrong question now: a draft thread is open and being typed into and has no
-  // id at all, so every layout switch keyed on the id showed the inbox's empty
-  // state over a conversation somebody was looking at. This is the one flag,
-  // and it covers both.
+  // Is a thread on screen (a draft has no id, so `conversationId` alone is not enough).
   const threadOpen = !!active
   useNoScrollChain(scrollerRef, `${threadOpen}-${active?.id ?? ''}`)
 
-  // A THREAD OPENS WITH THE HEADER ALREADY AWAY, and the inbox always has it.
-  // Hiding on scroll alone is not enough: a short conversation never scrolls,
-  // so the room this was copied from used to keep its chrome for ever in
-  // exactly the threads that had the least to show.
-  // BEFORE THE FIRST FRAME, WITHOUT THE SLIDE. As an effect this ran after the thread had painted with the header and a
-  // gap for it, then slid it away. A layout effect lands before paint; `instant` skips the slide.
+  // A thread opens with the header already hidden (a short thread never scrolls); the inbox always shows it.
+  // A layout effect with `instant`, so there is no slide on open.
   useLayoutEffect(() => {
     setChatChromeHidden(isMobile && threadOpen, { instant: true })
     setChromeHidden(isMobile && threadOpen)
   }, [isMobile, threadOpen])
 
-  // Mobile overlay geometry. Keyboard closed: leave room for the top header
-  // (4rem, or nothing once it has slid away) and the bottom tab bar (4.5rem +
-  // safe area). Keyboard open: take the full visible viewport so the header +
-  // tabs are hidden until it closes.
-  // `chromeHidden` and `kbOpen` do the same thing to the top edge for different
-  // reasons, so they are one condition here.
+  // Mobile overlay geometry: keyboard closed leaves room for the header and the tab bar; keyboard open takes the whole
+  // visible viewport.
   const { kbOpen, height: overlayH } = useChatOverlayHeight({ enabled: isMobile, chromeHidden, overlayRef, dockRef, scrollerRef, tuck: 10 })
   const topGone = kbOpen || chromeHidden
   const mobileStyle = isMobile
@@ -456,27 +311,8 @@ export default function Messages() {
         // Clamp to >= 0: on iOS a downward pull at the top makes offsetTop go negative, which would ride the overlay up
         // above the header. `transform` is written frame by frame by useViewportPin, not here.
         paddingTop: topGone ? 'env(safe-area-inset-top)' : undefined,
-        // THE OVERLAY SNAPS. ONLY THE HEADER ANIMATES.
-        //
-        // This is the same fault the rooms had and fixed on 1 Sep, in the file
-        // the rooms were copied FROM - it said `transition: top 300ms, height
-        // 300ms` so that the box would grow in the same beat as the header's
-        // slide, which reads beautifully in a description and janks on a phone.
-        // `top` and `height` are LAYOUT properties: every frame of that
-        // transition relaid out the overlay, its flex column, the scroller and
-        // every message row in the thread, sixty times a second, while iOS was
-        // separately animating the keyboard over the top of it.
-        //
-        // And it made the OTHER half of this bug worse. The thread's re-pin
-        // fires when the keyboard opens; with the box still shrinking for
-        // another 300ms afterwards, whatever it scrolled to was already the
-        // wrong place by the time it got there - which is the last message
-        // ending up under the keyboard. Snapping removes the moving target;
-        // `stickToBottom` now watching clientHeight removes the rest of it.
-        //
-        // The header still slides, on `transform`, which is compositor-only and
-        // cannot jank. It is z-40 over this z-20 box, so it still reads as one
-        // movement.
+        // The overlay snaps; only the header animates (on transform). Animating top/height relaid out the whole thread every
+        // frame and left the last message under the keyboard.
       }
     : undefined
 
@@ -568,14 +404,7 @@ export default function Messages() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user.id])
 
-  // Jump into a conversation with someone from search / the suggestions list,
-  // creating the thread if this is the first time.
-  // OPEN A THREAD WITH SOMEBODY. It creates NOTHING.
-  //
-  // If a conversation with them already exists this is a plain navigation to
-  // it. If one does not, it opens a draft (see `draftTo` above) which becomes a
-  // real row the first time something is actually sent. This used to call
-  // `openConversation` here, which inserted on the spot.
+  // Open a thread with somebody: navigate to an existing conversation, or open a draft. Creates nothing.
   async function startConversation(creatorId) {
     setStarting(creatorId)
     try {
@@ -622,21 +451,8 @@ export default function Messages() {
     const p = (async () => {
       const id = await openConversation(user.id, other.id)
       if (!id) return null
-      // THE THREAD MUST NOT LEAVE THE SCREEN BETWEEN THE DRAFT AND THE ROW.
-      //
-      // The handover below swaps one representation of an open thread for
-      // another - `draftTo` out, `conversationId` in - and it is only seamless
-      // if the row is in `conversations` on the SAME render that clears the
-      // draft. It was not: `loadConversations` refetches, and a conversation
-      // created a moment ago has no `last_message_at` because the message it
-      // was created for has not been queued yet, so the strain dropped it and
-      // the page fell through to its empty state. See
-      // `isListableConversation`.
-      //
-      // Two halves, and both are needed. The id joins `justCreated` so every
-      // FUTURE refetch keeps the row, and the row is spliced in HERE so the
-      // very next render already has it - waiting on a round trip is the whole
-      // bug, so the fix cannot itself wait on one.
+      // When a draft becomes a row, splice the row into `conversations` on the same render that clears the draft, and add
+      // its id to `justCreated` for later refetches, so the thread never leaves the screen.
       justCreatedRef.current.add(id)
       setConversations((prev) => (prev.some((c) => c.id === id) ? prev : [
         {
@@ -669,29 +485,11 @@ export default function Messages() {
     try { return await p } finally { ensuringRef.current = null }
   }
 
-  // ---------- `/messages?to=<creator>` ----------
-  //
-  // "MESSAGE THIS PERSON" HAD NO LANDING PLACE.
-  //
-  // Connections has linked to `/messages?to=${id}` for weeks and this page has
-  // never read the parameter, so the link opened the inbox and did nothing
-  // else - which looks exactly like a chat that failed to open. The new Get
-  // help section needs the same door (press a name, land in a thread with
-  // them), so rather than a second mechanism this is the one, read here.
-  //
-  // CONSUMED ONCE. A deep-link effect that can run twice reopens itself on
-  // every re-render of the page it navigated to; `deepLinkedRef` is the same
-  // guard the challenge page's `?submit=1` uses.
+  // `/messages?to=<creator>` opens a thread with that person (used by profiles, Connections and Get help).
+  // Consumed once (`deepLinkedRef`).
   const [searchParams] = useSearchParams()
   const toParam = searchParams.get('to')
-  // AND IT NO LONGER CREATES ANYTHING. `startConversation` used to insert a conversation row, so every `?to=` link -
-  // from a profile, from Connections, from Get help - wrote a thread into two inboxes whether or not a word was ever
-  // typed. It opens a draft now; see `ensureConversation`.
-  //
-  // IT WAITS FOR THE INBOX. `startConversation` checks the loaded conversations
-  // for an existing thread before opening a draft, so running it against an
-  // empty list would open a draft beside a thread that already exists - and
-  // then create a second row for the pair on the first send.
+  // It opens a draft, never a row, and waits for the inbox so it can find an existing thread first.
   const deepLinkedRef = useRef(false)
   useEffect(() => {
     if (!toParam || deepLinkedRef.current || conversationId || loadingList) return
@@ -702,23 +500,15 @@ export default function Messages() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [toParam, conversationId, loadingList])
 
-  // Restore any half-written draft when the open conversation changes, so a
-  // message you started isn't lost when you flick away to check something.
-  // THE DRAFT IS KEPT PER PERSON, AND THE SEND BUTTON READS THE SAME ONE. A first message (no conversation yet) was
-  // saved under 'dm-null' - one key shared by every unsent first message - and the composer showed it, but this effect
-  // restored '' for a thread with no id, so the text was on screen and `body` was empty. Both now use the same key, one
-  // per person.
+  // Restore the half-written draft when the conversation changes. Drafts are kept per person, and the send button
+  // reads the same key.
   useEffect(() => {
     setBody(loadDraft(dmDraftKey(conversationId, draftTo?.id)))
   }, [conversationId, draftTo?.id])
 
   // ---------- Active thread ----------
   useEffect(() => {
-    // A DRAFT HAS NO HISTORY. Going from a thread to a draft (`/messages?to=`) leaves `conversationId` empty, and this
-    // used to return early - leaving the PREVIOUS thread's messages in state under the new person's name. Clear it the
-    // moment the thread goes, and when switching straight to another thread too, so the old one never shows for the
-    // length of a round trip. Not when a draft has just BECOME this thread: the first message is already on screen and
-    // belongs to it (see ensureConversation).
+    // Clear the previous thread's messages as soon as the thread changes, except when a draft has just become this thread.
     if (!justCreatedRef.current.has(conversationId)) {
       setThread([])
       setReactions([])
@@ -766,13 +556,7 @@ export default function Messages() {
     return () => { cancelled = true }
   }, [conversationId, user.id])
 
-  // READ RECEIPTS IN A GROUP DM.
-  //
-  // A 1:1 has had them forever - `direct_messages.read` is one boolean because
-  // there is exactly one other reader - but a group has many, so the answer
-  // lives on each member's own `last_read_at` watermark. Loaded when the thread
-  // opens and kept live, because "seen by 4" that only updates on a page
-  // refresh is worse than no receipt at all: it is a wrong one.
+  // Group read receipts come from each member's `last_read_at`, loaded on open and kept live.
   const [groupReads, setGroupReads] = useState(new Map())
   useEffect(() => {
     if (!isGroup || !conversationId) { setGroupReads(new Map()); return undefined }
@@ -829,21 +613,11 @@ export default function Messages() {
       .channel(`dms-${user.id}`)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'direct_messages' }, async (payload) => {
         const msg = payload.new
-        // Only react to messages I can see: mine, addressed to me, or posted in
-        // a conversation I am in. That last clause is what carries GROUP
-        // messages - they have no recipient at all, so the old two-way test
-        // dropped every one of them and a group only updated on a reload.
-        // Realtime already applies RLS, so anything that arrives here is
-        // something this session is allowed to read; this is about which OPEN
-        // thread it belongs to.
+        // Only react to messages I can see: mine, addressed to me, or in a conversation I am in (groups have no recipient).
+        // Realtime already applies RLS; this decides which open thread a row belongs to.
         const mine = msg.sender_id === user.id || msg.recipient_id === user.id
         if (!mine && msg.conversation_id !== conversationId) return
-        // A DM IS A PERSON. Its own two-note arrival, distinct from the single
-        // tick a room makes, because "somebody is talking TO you" and "the
-        // room is busy" should not be the same event to your ear. It plays for
-        // any of your conversations, not just the open one - that is the
-        // difference between a crowd and a person - but never for your own
-        // message and never with the tab in the background.
+        // A DM has its own two-note sound, for any of your conversations, never for your own message or a background tab.
         if (msg.sender_id !== user.id && !document.hidden) playDmArrival()
         if (msg.conversation_id === conversationId) {
           setThread((prev) => (prev.some((m) => m.id === msg.id) ? prev : [...prev, msg]))
@@ -870,19 +644,7 @@ export default function Messages() {
         // it twice, which would double the sound.
         if (myMessageIdsRef.current.has(payload.new.message_id)
           && payload.new.creator_id !== user.id && !document.hidden) playReactionPop()
-        // REACTING TO A DM USED TO TAKE THE PAGE DOWN.
-        //
-        // This read the open thread by calling `setThread` and reaching into
-        // the updater - and then called `setReactions` from inside it. A
-        // setState updater has to be a pure function of the previous state:
-        // React is allowed to call it twice, to call it while another component
-        // is rendering, and to discard the result, so scheduling a second
-        // update from inside one is exactly the thing that throws. The comment
-        // three lines above says as much, about the sound, and then the next
-        // line does it anyway. That is the "mayday mayday" on reacting to a DM.
-        //
-        // The question it was asking - "is this reaction about a message I have
-        // on screen" - is answered by a ref, which is what refs are for.
+        // Is this reaction about a message on screen: answered with a ref. Calling setState inside another updater crashed.
         if (threadIdsRef.current.has(payload.new.message_id)) {
           setReactions((prev) => (prev.some((r) => r.id === payload.new.id) ? prev : [...prev, payload.new]))
         }
@@ -890,20 +652,8 @@ export default function Messages() {
       .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'dm_reactions' }, (payload) => {
         setReactions((prev) => prev.filter((r) => r.id !== payload.old.id))
       })
-      // THE INBOX IS LIVE TOO, NOT JUST THE THREAD.
-      //
-      // This channel has always carried messages and reactions and never the
-      // LIST, so a conversation that ended - deleted, or left - stayed on every
-      // other open window until that window was reloaded. Two devices open at
-      // once is the normal way this product is used (a phone in the hand and a
-      // laptop on the desk), so "the other one is out of date" is not an edge
-      // case, it is most of the time.
-      //
-      // A DELETE payload carries only the primary key, which is exactly enough:
-      // whatever left, drop it here and, if it was the thread on screen, step
-      // back to the inbox rather than sitting in a conversation that no longer
-      // exists. An INSERT or an UPDATE needs the joins `loadConversations` does,
-      // so that one refetches.
+      // The inbox list is live too: a deleted or left conversation is dropped (and the thread closed if it was open);
+      // an insert or update refetches the list with its joins.
       .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'conversations' }, (payload) => {
         const gone = payload.old?.id
         if (!gone) return
@@ -1078,27 +828,9 @@ export default function Messages() {
     savePinnedConversations(next)
   }
   async function deleteConversation(c) {
-    // LEAVING A GROUP IS NOT DELETING IT. A long-press that ended everybody else's conversation because one member
-    // wanted it out of their inbox would be a genuinely destructive accident, and RLS refuses it anyway unless you own
-    // the group - so the gesture means "leave" here, and deleting for everyone lives behind a named button in the
-    // settings panel. A WRITE THAT IS NOT CHECKED IS A ROW THAT COMES BACK.
-    //
-    // Both halves of that were broken and they are different bugs.
-    //
-    //   THE ROW.  Leaving a group deleted the membership and nothing else, and
-    //             the conversation read policy lets a group's CREATOR read it
-    //             whether or not they are a member - it has to, or a group
-    //             cannot be created. So the one person most likely to be
-    //             testing groups was the one person who could never leave one.
-    //             `leave_conversation` (migration 195) is the whole leave.
-    //   THE OTHER DEVICE.  Nothing told it. The inbox subscribes to messages,
-    //             not to the conversation list, so a second window found out on
-    //             its next cold load. See the realtime effect below.
-    //
-    // And the result of both writes is now READ. `supabase-js` resolves on a rejected write, so `await...delete()` with
-    // nothing looking at the result is indistinguishable from success: the row stays on the server, the list has already
-    // dropped it, and it reappears on the next load looking like a sync problem. It was not a sync problem. It was a
-    // silent refusal.
+    // Long-press means "leave" for a group (deleting for everyone is a named button in settings).
+    // `leave_conversation` (migration 195) does the whole leave, and every write result is checked, because supabase-js
+    // resolves on a refused write.
     const restore = () => {
       setConversations((prev) => (prev.some((x) => x.id === c.id)
         ? prev
@@ -1129,31 +861,8 @@ export default function Messages() {
     await loadConversations()
     if (yes) navigate(`/messages/${invite.conversation_id}`, { state: { fromInbox: true } })
   }
-  // ONE TIMER, AND THE FLAG IS CLEARED WHEN THE PRESS STARTS.
-  //
-  // A tap on a touch screen fires touchstart AND a synthetic mousedown, so this
-  // was started twice for one press and only the second handle was ever stored
-  // - the first was orphaned and went off 550ms later, opening the delete
-  // dialog on a conversation somebody had merely tapped. Clearing before
-  // starting makes a second start harmless.
-  //
-  // And `convLongPressed` is reset HERE rather than only inside the click that
-  // it suppresses. It used to be sticky: once a long press had happened, the
-  // flag stayed true until some later click consumed it - so the next tap on
-  // ANY row was swallowed, with nothing on screen to explain it. A press is the
-  // start of a new gesture, so a new gesture is what it means.
-  // HOLDING A ROW OFFERS BOTH THINGS YOU CAN DO TO IT.
-  //
-  // It went straight to the delete confirmation, which made a hold on a
-  // conversation mean exactly one thing - and the most destructive one. It
-  // opens a two-item sheet now, so the hold means "what can I do with this"
-  // and deleting is a choice inside it rather than the gesture itself.
-  //
-  // Pinning had no route at all on a phone: the pin button only appears on
-  // hover, and there is no hover.
-  // THE MENU OPENS BESIDE THE CHAT YOU HELD. The team: holding a creator "highlights the entire page in this weird grey
-  // box... It should highlight just the person's name... in orange". The row's box is kept so the menu can sit right
-  // under it (or above, near the foot of the screen), with no dimmed backdrop - the held row itself turns orange.
+  // Long-press: one timer (touch fires touchstart and a synthetic mousedown), and `convLongPressed` resets at the start
+  // of every press. Holding a row opens a small menu beside it (Pin, Delete) and highlights the row in orange.
   const openConvMenu = (c, el) => {
     const r = el?.getBoundingClientRect?.()
     setConvSheet({ ...c, _anchor: r ? { top: r.top, bottom: r.bottom, left: r.left, width: r.width } : null })
@@ -1187,52 +896,19 @@ export default function Messages() {
 
   useEffect(() => { atBottomRef.current = atBottom }, [atBottom])
 
-  // A THREAD DOES NOT OPEN HALFWAY UP ITSELF AND THEN CORRECT ITSELF.
-  //
-  // Every re-pin above is a CORRECTION, and a correction you can watch is indistinguishable from a bug: the first paint
-  // lands at the top of the conversation, the frame pin drags it to the bottom, and each of the four timers yanks it
-  // again as another avatar or photo arrives. The team reported it in the rooms first - "it'll show up the messages in a
-  // different layer or scrolled up and then suddenly load or fix itself and jump to the bottom" - and the DMs are the
-  // same code doing the same thing.
-  //
-  // The thread is not SHOWN until it is where it belongs. Opacity only: the
-  // messages are laid out and measured the whole time, which is exactly what
-  // the pinning needs, so this costs nothing and moves nothing.
+  // The thread is hidden (opacity only) until it is pinned to the bottom, so it never visibly jumps into place.
   const [settled, setSettled] = useState(false)
 
-  // Opening a conversation, pin to the newest message until the thread stops
-  // growing. Media - avatars, photos, video posters, async link previews - can
-  // finish loading after the first scroll and push content down, stranding the
-  // view in the middle.
-  //
-  // THE CORRECTIONS ARE NO LONGER ON A TIMETABLE. They fired at 60, 200, 500
-  // and 1200ms whatever was happening, which is a guess at when a thread stops
-  // growing, and it was wrong in both directions - still yanking a settled
-  // thread at 1.2s, and giving up on a slow one at 1.3. `pinToBottom` watches
-  // the scroll height and stops two frames after it last changed. The rooms use
-  // exactly the same helper, so the two surfaces cannot drift on this again.
-  //
-  // The upstream half is migration 163: a DM attachment records its own shape,
-  // so a photograph reserves its box before it decodes and most threads have
-  // nothing left to settle.
+  // Pin to the newest message until the thread stops growing: `pinToBottom` watches the scroll height and stops two
+  // frames after it last changed (same helper as the rooms). DM attachments store their size (migration 163).
   useLayoutEffect(() => {
     if (loadingThread) return undefined
-    // A DRAFT THREAD HAS NOTHING TO SETTLE. It is empty by definition - the
-    // conversation does not exist until the first message is sent - so there is
-    // no height to watch and no bottom to pin to. Returning early here without
-    // saying so left `settled` false for ever, and `settled` is what lifts the
-    // skeleton overlay: opening a new DM drew six grey placeholder rows over an
-    // empty thread, permanently.
+    // A draft thread has nothing to settle: mark it settled at once or the skeleton never lifts.
     if (!conversationId) { setSettled(true); return undefined }
     const el = scrollerRef.current
     if (!el) return undefined
     setSettled(false)
-    // A NEW CONVERSATION STARTS AT THE BOTTOM, WHATEVER THE LAST ONE ENDED AT.
-    // `atBottomRef` is what `shouldPin` reads, and it survives the switch: open
-    // a thread, scroll up to read history, then open a different one, and the
-    // ref was still false - so the pin asked permission, was refused, and the
-    // second thread opened wherever it happened to render. The rooms already
-    // reset it on every room change; DMs did not.
+    // A new conversation starts at the bottom: reset `atBottomRef` on every thread change.
     atBottomRef.current = true
     setAtBottom(true)
     el.scrollTop = el.scrollHeight
@@ -1273,22 +949,8 @@ export default function Messages() {
     prevLenRef.current = thread.length
   }, [thread, atBottom, user.id, scrollToBottom])
 
-  // Keep the latest message visible as the keyboard opens or closes.
-  //
-  // `auto`, NOT `smooth`, AND THAT IS THE WHOLE OF THE SECOND HALF OF THE BUG.
-  //
-  // A smooth scroll is an animation with a target fixed at the moment it
-  // starts. The keyboard takes about a quarter of a second to arrive and the
-  // scroller is losing height the entire time, so a smooth scroll begun on the
-  // first frame aims at where the bottom WAS and finishes short of where it now
-  // is - which is a last message sitting behind the keyboard, having visibly
-  // slid most of the way there first. It also ran at the same time as
-  // `stickToBottom`'s own correction, and two mechanisms scrolling one element
-  // is this codebase's most repeated bug.
-  //
-  // So this is now one instant correction, and `stickToBottom` - which watches
-  // the scroller's clientHeight as of 12 Sep - owns every frame after it. Both
-  // write `scrollTop = scrollHeight`, so even when they overlap they agree.
+  // Keep the latest message visible as the keyboard opens or closes: one instant correction, then `stickToBottom`
+  // owns every frame after it. Not smooth: a smooth scroll aims at where the bottom was.
   useEffect(() => {
     if (atBottomRef.current) scrollToBottom('auto')
   }, [kbOpen, overlayH, scrollToBottom])
@@ -1328,13 +990,8 @@ export default function Messages() {
     scrollToBottom('smooth')
   }, [scrollToBottom])
 
-  // Mobile composer gestures (same as #general). The thread is a fixed overlay,
-  // so a drag on the composer chrome used to rubber-band the page body under it,
-  // firing visualViewport scroll events that made the whole screen shake/jitter.
-  // We swallow those drags so the body can't move, and a downward swipe smoothly
-  // dismisses the keyboard. A touch that starts inside the textarea is left alone
-  // ONLY when the textarea is actually scrollable (a multi-line message you've
-  // typed), so you can still scroll through what you've written.
+  // Mobile composer gestures (same as the rooms): swallow drags on the composer chrome so the page cannot rubber-band
+  // under the overlay; a downward swipe closes the keyboard; a scrollable textarea keeps its own scroll.
   useEffect(() => {
     const el = composerRef.current
     if (!el || !isMobile) return
@@ -1374,14 +1031,8 @@ export default function Messages() {
     return () => { cancelled = true }
   }, [thread, signedUrls])
 
-  // Queue a DM row. Everything the send needs travels with it, so the outbox
-  // can post it in twenty minutes from a cold tab with no idea what a
-  // conversation is.
-  // `cid` IS PASSED IN, NOT READ FROM STATE. A draft thread's conversation is
-  // created by `ensureConversation` at the moment of the first send, and React
-  // state does not update inside the async function that just awaited it - so
-  // reading `conversationId` here would enqueue the first message of every new
-  // thread with a null conversation.
+  // Queue a DM row with everything the send needs. `cid` is passed in, because state does not update inside the async
+  // function that just created the conversation.
   function queueDm(fields, cid = conversationId) {
     const row = {
       conversation_id: cid,
@@ -1443,13 +1094,8 @@ export default function Messages() {
         ? await uploadDmVideo(file, cid)
         : await uploadDmImage(file, cid)
       const replyId = replyTo?.id ?? null
-      // Queued only once the file is in storage. The upload is the one part of
-      // a send that genuinely cannot wait for signal: a File does not survive
-      // localStorage, so there is nothing honest to queue until it has a path.
-      //
-      // `media_w`/`media_h` ride along (migration 163) so the thread reserves
-      // the picture's box before it decodes - the fix for a DM that jumps while
-      // it opens.
+      // Queued only once the file is in storage (a File cannot be kept in localStorage). `media_w`/`media_h` let the
+      // thread reserve the picture's box before it decodes.
       queueDm({
         body: body.trim(),
         image_url: path,
@@ -1477,20 +1123,8 @@ export default function Messages() {
         : (c.other?.name ?? '').toLowerCase().includes(q)))
     : conversations
 
-  // PINNED THREADS RIDE ON TOP, IN THE ORDER YOU PINNED THEM.
-  //
-  // Everything else keeps the order the query gave it (most recent first), so a new message in an unpinned thread still
-  // climbs to just under the pins - which is the behaviour
-  //
-  // A stable sort is what makes that true: `Array.prototype.sort` has been
-  // required to be stable since ES2019, so returning 0 for two unpinned threads
-  // genuinely leaves them where they were rather than shuffling them.
-  // UNSENT DRAFTS RIDE ABOVE EVERYTHING (19 Oct 2026). The team: start a DM, leave it, come back - "have it show up at
-  // the very top as a draft, above the very first person, so I can easily go back to it and finish it". Drafts were
-  // already kept per chat (lib/drafts); now the inbox reads them, and hears every one that starts or empties
-  // (`DRAFTS_EVENT`), so deleting the text in the chat takes the row away. The chat that is open is not a draft of
-  // anything yet - it is being written - so it stays where it is until you leave it. One row per chat: a chat shown as a
-  // draft is taken out of the list below. A first message to somebody new (`dm-to-<id>`) is a draft too.
+  // Order: unsent drafts first (from lib/drafts, kept live by `DRAFTS_EVENT`; the open chat stays in place), then pinned
+  // threads in pin order, then the rest by most recent (a stable sort). A chat shown as a draft is not repeated below.
   const [draftList, setDraftList] = useState(() => listDrafts('dm-'))
   useEffect(() => {
     const read = () => setDraftList(listDrafts('dm-'))
@@ -1546,57 +1180,15 @@ export default function Messages() {
   // they haven't connected with anyone, towards creators who are active here.
   const myConnections = people.filter((p) => connectionIds.has(p.id))
 
-  // WHO THE BIG EMPTY PANE OFFERS, AND WHY IT IS NOT THE RAIL'S LIST.
-  //
-  // The pane HAD a grid of people and it was taken out this morning, because it
-  // was drawing the same names the rail beside it was already drawing - see the
-  // note on the pane below. That reasoning was right and it is exactly what
-  // makes this different: the rail shows YOUR CONNECTIONS, and this shows the
-  // people you have not met. Two lists that answer two questions, rather than
-  // one list rendered twice.
-  //
-  // Ordered by `last_seen_at` already (see the query), so the top of it is
-  // whoever has been around most recently.
-  // SIX FACES, STRANGERS FIRST, AND NEVER FEWER THAN THREE.
-  //
-  // The pane was doing exactly what it was told and what it was told was too strict. Measured on their own account: 44
-  // visible creators, 20 connections, and 42 OPEN CONVERSATIONS - so "not connected and never messaged" left precisely
-  // two people. For the person who runs the community, the strictest possible definition of "somebody new" is nearly
-  // always going to be empty, and an almost-empty grid is worse than a slightly looser one.
-  //
-  // So the list is strangers FIRST and then topped up with people they have met, to a target of six and a floor of
-  // three. Every card says which it is, so the mix is legible rather than a fudge: a stranger is badged, somebody he
-  // already knows is not.
-  //
-  // AND IT DOES NOT GUESS BEFORE THE DATA LANDS.
-  //
-  // That flash was this memo answering with `people` still `[]`: no strangers
-  // in an empty list, so it fell to the "you have met everybody" branch and
-  // printed that heading for one frame before the query landed and it changed
-  // its mind. It is the rule already written down about the milestone engine -
-  // AN EMPTY COMPUTATION MEANS "I COULD NOT WORK THIS OUT", NEVER "THERE IS
-  // NOTHING". `peopleLoaded` is the difference between the two, and until it is
-  // true the pane draws its heading and nothing else.
+  // The empty pane suggests people you have not met (the rail shows your connections), by most recently seen.
+  // Six faces, strangers first, topped up with people you know to a floor of three; every card says which.
+  // Until `peopleLoaded` it shows only its heading, never a guess.
   const NEW_HERE_DAYS = 21
   const DISCOVER_TARGET = 6
   const newHereCutoff = nowTick - NEW_HERE_DAYS * 86400000
   const discover = useMemo(() => {
-    // BOTH HALVES OF "STRANGER" HAVE TO HAVE LANDED, NOT ONE.
-    //
-    // `peopleLoaded` fixed HALF of this in September and left the other half in
-    // place, because a stranger is defined by two facts from two different
-    // queries: NOT A CONNECTION (arrives with `people`, same Promise.all) and
-    // NOT SOMEBODY I HAVE MESSAGED (`talkingTo`, derived from the INBOX query, which is a separate and slower round
-    // trip). The moment `people` landed this memo answered with `conversations` still empty - so every creator they have
-    // an open thread with passed the stranger test, got the "Not met" badge, and sorted to the FRONT of the list. Then
-    // the inbox landed, half of them stopped being strangers, and the grid re-ordered and re-badged itself under their
-    // eyes. Exactly the same class of bug as the first one, one query further down.
-    //
-    // An empty computation means "I could not work this out", never "there is
-    // nothing" - and here that rule has to hold for BOTH inputs.
-    // A cached inbox stands in for the live one only when the people list came from the same session's cache too:
-    // both answers then describe the same moment, so the badges cannot re-sort under the reader the way the half-
-    // loaded pair did. The live reads still land and correct anything that changed.
+    // A stranger needs both facts: not a connection (`people`) and not somebody you have messaged (`talkingTo`, from the
+    // inbox query). Wait for both. A cached inbox is used only when the people list is cached from the same session.
     if (!peopleLoaded || !(inboxLoaded || (cachedPeople && cachedInbox))) return { loading: true, mode: 'new', people: [] }
     const eligible = people.filter((p) => !p.is_admin)
     const isStranger = (p) => !connectionIds.has(p.id) && !talkingTo.has(p.id)
@@ -1658,13 +1250,7 @@ export default function Messages() {
         'lg:static lg:inset-auto lg:bottom-auto lg:z-auto lg:h-[calc(100vh-4rem)] lg:translate-y-0 lg:py-6'
       )}
     >
-      {/* THE PANEL ARRIVES RATHER THAN SNAPPING IN.
-          `animate-page-in` is opacity-only, deliberately: this is a fixed
-          overlay, and a persisted transform on it (or on any ancestor) becomes
-          the containing block for the position:fixed children inside, which is
-          what breaks the mobile keyboard geometry. The inbox rows carry their
-          own stagger, so the effect is a panel fading up with its list filling
-          in behind it. */}
+      {/* The panel fades in (opacity only: a transform here would break the fixed keyboard geometry inside it). */}
       <div className="flex min-h-0 flex-1 animate-page-in overflow-hidden bg-white sm:rounded-card sm:border sm:border-gray-100 sm:shadow-card">
         {/* ---------- Conversation list ---------- */}
         <MessagesInbox
@@ -1701,38 +1287,8 @@ export default function Messages() {
         {/* ---------- Thread ---------- */}
         <section className={cx('min-w-0 flex-1 flex-col sm:flex', threadOpen ? 'flex' : 'hidden')}>
           {!threadOpen ? (
-            // THE EMPTY PANE DOES SOMETHING NOW.
-            //
-            // It was an instruction to go somewhere else, on the largest empty
-            // rectangle in the product, sent to somebody who is already exactly
-            // where they need to be. So it does the thing instead: the people
-            // you could message, as faces you can press, sorted with whoever is
-            // online first - because "who is around right now" is the question
-            // that actually starts a conversation.
-            //
-            // It reuses `discover`, which the inbox's own empty state also
-            // reads, so there is one definition of "who should I talk to" and
-            // no second query.
-            // AND IT IS A PANEL NOW, NOT A DRIFT OF CENTRED THINGS.
-            //
-            // Every word of that was accurate. The people were `rounded-full`
-            // chips in a `flex-wrap justify-center` row, so eight of them wrap
-            // into three CENTRED rows of four, three and one - three ragged
-            // edges down the middle of the largest empty rectangle in the
-            // product, and a last row holding a single lonely pill. That is the
-            // "weird lines". The section label was left-aligned over the top of
-            // them, so the label and its own contents did not share an edge:
-            // that is the "weirdly centred".
-            //
-            // A wrapped row of pills cannot be made tidy, because its shape is
-            // decided by how long the names happen to be. A GRID can: two even
-            // columns of full-width rows inside one bordered card, so every
-            // person occupies the same rectangle, every edge lines up with
-            // every other edge, and the label sits on the card's own left edge.
-            //
-            // The heading block above it stays centred - a title and one line
-            // of explanation over a centred card is the one thing on this pane
-            // that was never the problem.
+            // The empty pane: people you could message, online first, in a two-column grid inside one card.
+            // Reuses `discover`, so there is one definition of who to suggest.
             /*
              * THE SUGGESTIONS ARE ALREADY ON THE LEFT.
              *
@@ -1762,11 +1318,7 @@ export default function Messages() {
             />
           ) : (
             <>
-              {/* Thread header. A press anywhere along it is "give me the app
-                  header back" - the same gesture the rooms' tab strip carries,
-                  and the one a thumb makes without being told, since the top of
-                  the screen is where the header used to be. It does not fight
-                  the buttons inside it: both happen. */}
+              {/* Thread header: a press anywhere on it brings the app header back. Buttons inside still work. */}
               <div
                 onPointerDown={showChrome}
                 // Above the mover (relative z-10, opaque): the thread slides under it as the keyboard comes and goes.
@@ -1843,15 +1395,7 @@ export default function Messages() {
                 </div>
               )}
 
-              {/* Messages.
-
-                  THE THREAD NEVER SHOWS A BLANK CONVERSATION. `settled` hides
-                  the scroller while lib/chatScroll pins it - the rows have to
-                  be laid out for there to be a scroll height to pin to, so they
-                  cannot be unmounted - and that left a white rectangle which
-                  then filled all at once. A placeholder over the top covers the
-                  gap, bottom-aligned because a thread fills upwards. Same fix
-                  as the rooms. */}
+              {/* Messages. A placeholder covers the thread while lib/chatScroll pins it (rows stay mounted so they can be measured). */}
               <MessagesThread
                 actionsFor={actionsFor}
                 active={active}
@@ -1966,12 +1510,8 @@ export default function Messages() {
           : null}
         sentAt={reporting?.created_at}
         preview={reporting?.body || ''}
-        // DM media lives in the PRIVATE dm-media bucket, so the stored value is
-        // a path and only a short-lived signed URL will render. Hand the
-        // snapshot whatever we have already signed for the thread; if it has
-        // expired or was never signed, the card falls back to "this was a
-        // photo" rather than a broken image. Both photos and videos are stored
-        // in `image_url` here; `mediaType` is what tells them apart.
+        // DM media is in the private dm-media bucket: the stored value is a path and needs a signed URL. If the URL has
+        // expired the card says it was a photo. Photos and videos both use `image_url`; `mediaType` tells them apart.
         imageUrl={reporting?.image_url && mediaType(reporting.image_url) !== 'video'
           ? (isSignedDmPath(reporting.image_url) ? signedUrls.get(reporting.image_url) : reporting.image_url)
           : null}

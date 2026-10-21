@@ -91,11 +91,3 @@ export function challengeEndIso(date, tz) {
   return next ? new Date(Date.parse(next) - 60_000).toISOString() : null
 }
 
-/** The moment entries stop: `closes_at` from the server, else the end of the end date in the challenge's zone. */
-export function challengeCloses(c) {
-  if (!c) return null
-  if (c.closes_at) return new Date(c.closes_at)
-  if (!c.end_date) return null
-  const tz = c.timezone || 'Europe/London'
-  return new Date(zonedMidnight(addDays(ymdInZone(c.end_date, tz), 1), tz))
-}

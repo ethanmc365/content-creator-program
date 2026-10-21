@@ -100,7 +100,6 @@ export function challengeEconomics(row, { currency = 'GBP', rates = FALLBACK_RAT
   const cpm = hasViews && spend != null ? spend / (views / 1000) : null
   const target = Number(row.cpm_target) || 0.5
 
-
   // TWO CPMs, AND THEY ANSWER DIFFERENT QUESTIONS.
   //
   //   cashCpm      what the programme costs in money that leaves the business
@@ -224,19 +223,6 @@ export function blendEconomics(rows, { currency = 'GBP' } = {}) {
   }
 }
 
-// Group rows by any key, returning [{ key, rows, blended }] sorted by spend.
-export function groupBy(rows, keyOf, { currency = 'GBP' } = {}) {
-  const map = new Map()
-  for (const r of rows) {
-    const k = keyOf(r) ?? 'Unspecified'
-    if (!map.has(k)) map.set(k, [])
-    map.get(k).push(r)
-  }
-  return [...map.entries()]
-    .map(([key, group]) => ({ key, rows: group, blended: blendEconomics(group, { currency }) }))
-    .sort((a, b) => b.blended.spend - a.blended.spend)
-}
-
 // Readable labels for the enum columns, so the UI never shows a raw db value.
 export const LABELS = {
   format: { monthly: 'Monthly', express: 'Express', always_on: 'Always on' },
@@ -310,7 +296,6 @@ export function rewardsTotal(rows, to = 'EUR', rates = FALLBACK_RATES) {
   // total still show exactly what was paid, in the currency it was paid in.
   return { amount: Math.round(total), currency: to, converted }
 }
-
 
 // FINDING ONE CHALLENGE IN FIFTY.
 //

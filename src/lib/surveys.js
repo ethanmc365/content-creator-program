@@ -263,19 +263,6 @@ export function summarise(survey, responses) {
   return { answered: answeredRows.length, declined, questions }
 }
 
-/** Answers per day, for the "answers coming in" chart. */
-export function responsesByDay(responses) {
-  const m = new Map()
-  for (const r of responses || []) {
-    const d = String(r.created_at || '').slice(0, 10)
-    if (!d) continue
-    const x = m.get(d) || { day: d, answered: 0, declined: 0 }
-    x[r.declined ? 'declined' : 'answered'] += 1
-    m.set(d, x)
-  }
-  return [...m.values()].sort((a, b) => a.day.localeCompare(b.day))
-}
-
 // Which surveys to ask about now. `surveys` are the live ones RLS lets this person read; `mine` their
 // responses; `snoozed` the ids put off in this session (sessionStorage). A 'random' survey turns up
 // on roughly one app open in three (`roll` is injectable for tests).

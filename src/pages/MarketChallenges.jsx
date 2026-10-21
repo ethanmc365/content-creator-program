@@ -11,7 +11,7 @@ import ChallengeDetail from './ChallengeDetail'
 import Icon from '../components/Icon'
 import { Avatar, Badge, EmptyState } from '../components/ui'
 import { scoringMode } from '../lib/scoring'
-import WinnersPodium from '../components/WinnersPodium'
+import PastWinners from '../components/challenge/PastWinners'
 import { loadWinnerGalleries } from '../lib/winners'
 import { stripMarkup } from '../lib/richText'
 import { cx, formatDate, challengeDeadline } from '../lib/utils'
@@ -36,7 +36,6 @@ import { marketsApi } from '../api/markets'
 // challenge" from an unfiltered list and got Spain's, then drew the UK's
 // participation bar underneath it.
 
-const MotionLink = motion.create(Link)
 
 export default function MarketChallenges() {
   const tr = useT()
@@ -180,8 +179,12 @@ export default function MarketChallenges() {
                   const mode = scoringMode(c.scoring)
                   const podium = (d.winners[c.id] || []).slice(0, 3)
                   return (
-                    <MotionLink key={c.id} to={`/challenges/${c.id}?tab=leaderboard`} variants={listItem} {...cardHover}
-                      className="card block hover:shadow-lift">
+                    // The link is a stretched overlay UNDER the content (as on the main challenges page), so the winners'
+                    // faces inside the podium can be links of their own: a link inside a link is invalid HTML.
+                    <motion.div key={c.id} variants={listItem} {...cardHover} className="card relative block hover:shadow-lift">
+                      <Link to={`/challenges/${c.id}?tab=leaderboard`} className="absolute inset-0 z-0 rounded-card"
+                        aria-label={c.title} />
+                      <div className="pointer-events-none relative z-10">
                       <div className="flex flex-wrap items-center justify-between gap-2">
                         {/* No "archived" badge: the section is Past challenges. Still-active past its deadline says so. */}
                         {c.status === 'active' ? <Badge tone="amber">ended</Badge> : <span />}
@@ -204,38 +207,7 @@ export default function MarketChallenges() {
                           lib/winners now so the two boards cannot drift. `pointer-events-auto` because the whole card is
                           a link and the podium has its own targets inside it. */}
                       {galleries[c.id] ? (
-                        /* ONE PODIUM, OR ONE PER BOARD. A challenge run as two
-                           leaderboards has two sets of winners, and ranks are
-                           stored per board - so a single podium off the flat
-                           list would show two firsts and a second. See
-                           lib/winners. */
-                        galleries[c.id].boards?.length > 0 ? (
-                          <div className="pointer-events-auto mt-5 space-y-4">
-                            {galleries[c.id].boards.map((b) => (
-                              <div key={b.id ?? 'all'}>
-                                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-brand">{b.name}</p>
-                                <WinnersPodium
-                                  winners={b.winners}
-                                  entries={b.entries}
-                                  totalScore={b.totalScore}
-                                  scoring={c.scoring}
-                                  voucherWinners={[]}
-                                  voucherPrize={c.participation_prize}
-                                />
-                              </div>
-                            ))}
-                          </div>
-                        ) : (
-                        <WinnersPodium
-                          className="pointer-events-auto mt-5"
-                          winners={galleries[c.id].winners}
-                          entries={c.submissions?.[0]?.count ?? 0}
-                          totalScore={galleries[c.id].totalScore}
-                          scoring={c.scoring}
-                          voucherWinners={galleries[c.id].voucherWinners}
-                          voucherPrize={c.participation_prize}
-                        />
-                        )
+                        <PastWinners challenge={c} gallery={galleries[c.id]} />
                       ) : podium.length > 0 ? (
                         <div className="mt-4 flex items-center gap-3 rounded-xl bg-cloud/60 px-3 py-2.5">
                           <span className="text-[10px] font-semibold uppercase tracking-widest text-smoke">{tr("Won by")}</span>
@@ -254,7 +226,8 @@ export default function MarketChallenges() {
                           </div>
                         </div>
                       ) : null}
-                    </MotionLink>
+                      </div>
+                    </motion.div>
                   )
                 })}
               </motion.div>

@@ -56,42 +56,13 @@ import { flightsApi } from '../api/flights'
 // more than any other, and it was rebuilding itself from nothing every time.
 const HUB_CACHE_KEY = 'global-hub'
 
-// The Worldwide hub. Reads as a HOME PAGE, not a directory of markets: a
-// greeting, then what is happening, then where everyone is.
-//
-// THE DIVISION OF LABOUR, which the whole shell depends on
-//
-// Worldwide owns the PEOPLE. Connections, DMs, the map, the collab board, the
-// creator directory, the daily game and the combined standings all live here and
-// are never split by country, because splitting them is what would make a
-// four-market network feel like four small lonely apps.
-//
-// A market owns the WORK. Challenges, briefs, rooms, its own standings and its
-// own team. Those belong to the place they were set for.
-//
-// The rail on the right is the people layer made reachable from anywhere,
-// because those pages have no natural home in a feed.
+// The Worldwide hub: a greeting, then what is happening, then where everyone is.
+// Worldwide owns the PEOPLE (connections, DMs, map, collab board, directory, daily game, combined standings), never
+// split by country. A market owns the WORK (challenges, briefs, rooms, its standings, its team).
 
 const MotionLink = motion.create(Link)
 
-// THE LINK SITS ON THE TITLE'S LINE, NOT BELOW IT.
-//
-// IT WAS NOT A MATTER OF TASTE, IT WAS A BASELINE BUG. The row was
-// `items-baseline`, which is usually exactly right for a big heading beside a
-// small link. But the left-hand child was a `<div>` whose first line box is an
-// h2 that is ITSELF `display: flex` - and a flex container's baseline is the
-// baseline of its FIRST flex item, which here is the 20px `<Icon>`. An inline
-// SVG has no text baseline, so the browser uses its bottom margin edge: the
-// h2's reported baseline was therefore the BOTTOM OF THE ICON, several pixels
-// below where the words actually sit. The link dutifully aligned to that and
-// ended up hanging under the title. Adding the icon is what broke it, and
-// nothing about the CSS said so.
-//
-// So the title row and the link are now one `items-center` row of their own, and the hint drops underneath the pair at
-// full width. Centring is what they asked for and it is also the honest instruction here: optical centring against a
-// heading does not depend on either side's font size, which is what makes it hold when a market name is long enough to
-// wrap.
-// THE "ALL X →" LINK IS GONE: the title itself is the link now, see components/network/SectionTitle.
+// The section title is the link (components/network/SectionTitle).
 function SectionHead({ icon, title, hint, to, toLabel }) {
   return (
     <div className="mb-4">
@@ -157,21 +128,8 @@ function NetworkLinkRow({ link, count, isNew, handleProps, dragging }) {
   )
 }
 
-// ONE OF YOUR OWN NUMBERS, ON THE WELCOME CARD, AS A DOOR.
-//
-// Module scope, not nested inside the page: a component declared during render
-// is a new type every render, which unmounts and remounts every chip on any
-// state change (the trap that made the collab board's maps reload - see
-// Collab.jsx).
-//
-// ONE SHAPE ONLY: a figure and what it counts. There used to be a second shape
-// - `text` alone, for a prompt like "Play today's puzzles" - and it is gone
-// with the chip that used it. A row that mixes facts about you with things you
-// have not done yet reads as a to-do list, and the numbers stop being the point.
-//
-// A null value renders a dash rather than a zero. Nothing has loaded yet is not
-// the same claim as you have done none of these, and the second one is a
-// discouraging thing to say to somebody by accident.
+// One of your own numbers on the welcome card, as a link. Module scope (a component declared during render remounts
+// every time). A null value shows a dash, not a zero.
 function MineChip({ to, icon, value, label }) {
   return (
     <Link
@@ -304,22 +262,8 @@ export default function GlobalHome() {
         profilesApi.profiles().select('id', { count: 'exact', head: true })
           .eq('status', 'active').eq('is_admin', false).in('is_test', testFlags()).is('deletion_requested_at', null),
         challengesApi.challenges().select('id, title, community_id, status, end_date, closes_at, timezone, scoring, prize_structure, prize_currency, weekly_prize').eq('status', 'active'),
-        // ANNOUNCEMENTS FROM EVERY ROOM THIS CREATOR CAN READ, not just the
-        // worldwide one. Somebody in the UK and Spain had no way to see either
-        // market's announcements from the hub, which is what a hub is for.
-        // No market filter is needed or wanted: migration 149's RLS already
-        // decides which announcement rooms are readable, so asking for all of
-        // them returns exactly the right set. Fetch a window wider than the
-        // cutoff and let recentAnnouncements() do the trimming, so the rule
-        // lives in one tested place.
-        // A MARKET'S ANNOUNCEMENT ROOM IS NAMESPACED, AND THAT IS WHY THIS
-        // ONLY EVER SHOWED WORLDWIDE.
-        //
-        // THE BUG THIS FIXES. The filter was `.eq('channel', 'announcements')`, an exact match - but a market room's key
-        // carries its market: `germany:announcements`, `nordics:announcements`. Only the worldwide room uses the bare
-        // word. So the query that was written to gather "every room this creator can read" could structurally never
-        // return a market's announcement, and the hub showed the same worldwide post to everybody. Both of those test
-        // posts are in the table; nothing ever asked for them.
+        // Announcements from every announcement room this creator can read (RLS decides which, migration 149). Market rooms are
+        // namespaced (`germany:announcements`), so the filter matches the suffix, not an exact key. recentAnnouncements() trims.
         chatApi.messages()
           .select('*, profiles:sender_id(name, photo_url)')
           .or('channel.eq.announcements,channel.like.*:announcements')
@@ -340,14 +284,8 @@ export default function GlobalHome() {
         profilesApi.connections().select('id', { count: 'exact', head: true })
           .eq('connected_creator_id', session?.user?.id ?? '00000000-0000-0000-0000-000000000000')
           .eq('status', 'pending'),
-        // The map's own data. CreatorMap takes creators and trips as props
-        // rather than fetching for itself, because the directory page needs the
-        // same rows for its card grid and filters and two components loading
-        // the roster twice on one page is how a fast page becomes a slow one.
-        // Here there is no grid, so this is the only reader.
-        // countries_visited is what lets a tap on a country answer "who here has been"; last_seen_at and bio let a
-        // city's pin show the creator most worth seeing (`byPinPriority` in CreatorMap). The shared roster carries all
-        // three, and the cards below the map read the same copy (lib/roster).
+        // The map's data, passed into CreatorMap as props: the shared roster (lib/roster) carries countries_visited,
+        // last_seen_at and bio for the pins, and the cards below read the same copy.
         loadRoster(),
         flightsApi.collabPosts().select('creator_id, city, country, city_lat, city_lng, start_date, end_date')
           .gte('end_date', today).order('start_date'),
@@ -389,24 +327,8 @@ export default function GlobalHome() {
   // Remember it for the next visit. See lib/pageCache.
   useEffect(() => { if (d) writePageCache(HUB_CACHE_KEY, d) }, [d])
 
-  // ---- The numbers on the welcome card ------------------------------------
-  //
-  // The card used to carry a paragraph explaining that the network is one community, which is a thing you need told once
-  // and then scroll past every day for six months. The team asked for it gone and for the space to hold something a
-  // creator can actually use instead. So the card now answers two questions: what has this community done, and where am
-  // I in it.
-  //
-  // ITS OWN EFFECT, NOT THE PAGE'S LOAD. Everything below the greeting is gated
-  // on `d`, so folding four more counts into that Promise.all would hold the
-  // whole article back for numbers that are decoration on one card. This runs
-  // beside it and the card renders its em-dashes until it lands - which is safe
-  // here, unlike the "Live now" empty state, because a dash becoming a number
-  // changes nothing about the layout and makes no claim in the meantime.
-  // THE COMMUNITY'S DISTANCE FLOWN. Its own tiny query for the same reason as
-  // `me` below: it is one figure on one card and holding the whole article back
-  // for it would be the wrong trade. The card draws an em-dash until it lands.
-  // Seeded from the last visit (module scope), so a return to the hub has its
-  // figures on the first frame and the counters start at once.
+  // The numbers on the welcome card load in their own effects (the page does not wait for them); the card shows dashes
+  // until they land. Distance flown is seeded from the last visit so a return shows figures on the first frame.
   const [flights, setFlights] = useState(() => lastFlights)
   useEffect(() => {
     let cancelled = false
@@ -485,37 +407,9 @@ export default function GlobalHome() {
     ...myMarkets.map((m) => (d?.live?.[m.id] ? { market: m, challenge: d.live[m.id] } : null)).filter(Boolean),
   ]
 
-  // THE ARRIVAL LADDER, COUNTED WHERE IT IS SPENT.
-  //
-  // TWO GENERATIONS OF THIS WERE WRONG, IN THE SAME WAY TWICE.
-  //
-  // First it was hard-coded numbers in source order, which broke because two
-  // sections are `lg:hidden` and a desktop therefore ran 0, gap, gap, 0.15 -
-  // real time with nothing happening in it.
-  //
-  // Then it was a NAMED ladder, and the names drifted from the sections within days: the "markets" step was on the
-  // welcome card, the "announcement" step was on the global challenge, and the actual Latest-announcement section had no
-  // delay at all - which is precisely why it arrived before the two cards above it, the team's third report. Both bugs
-  // are the same bug: a hand-maintained mapping between a list of names and a tree of JSX, with nothing checking that
-  // the two agree.
-  //
-  // So the ladder does not have names. `stepDelay()` is a counter read in JSX
-  // order, and JSX evaluates its children top to bottom - so the nth section
-  // that ACTUALLY RENDERS gets the nth step, on any device, whatever is
-  // conditional. `cond && <Reveal delay={stepDelay()}>` short-circuits, so a
-  // section that is not there does not consume a step. Reset every render, so
-  // it is a pure function of this pass.
-  //
-  // AND IT STOPS, RATHER THAN FLATTENING OUT.
-  //
-  // It was `Math.min(step++, 5) * 0.05`, which does not cap the ladder so much as make every section past the fifth
-  // carry a permanent 250ms delay. That is exactly backwards from what the comment above it promised ("sections further
-  // down pass 0"): the sections a reader SCROLLS to are the ones that must start the instant they are asked to, because
-  // scrolling has already separated them in time and a quarter of a second of nothing on top of a 720ms transition is
-  // the pause the team saw before Daily puzzles and the map.
-  //
-  // So the head start applies to the handful of sections that share the first
-  // frame, and everything after it is zero.
+  // The arrival ladder: `stepDelay()` is a counter read in JSX order, so the nth section that actually renders gets the
+  // nth step on any device (`cond && <Reveal delay={stepDelay()}>` short-circuits). Reset every render. Only the first
+  // few sections get a head start; everything after is zero, so scrolled-to sections start at once.
   const LADDER_STEPS = 4
   let step = 0
   // A PHONE GETS A LONGER, SLOWER LADDER. One column means the first screen is four or five sections stacked, and 50ms
@@ -529,14 +423,7 @@ export default function GlobalHome() {
   const rail = (
     <>
       {/* ---------- Live now ---------- */}
-      {/* DESKTOP ONLY, all four of these.
-          On a phone the rail renders BELOW the article, and every card in it
-          repeats something the page has already said: the live challenge now
-          leads the page, the quick-action grid near the top IS "Across the
-          network", "Your markets" is the rail's own market list, and the rooms are
-          a tab in the nav. Rendering them anyway added roughly 1,200px of
-          duplicate navigation to the bottom of an already long page - which is
-          most of what "there is too much scrolling" was. */}
+      {/* Desktop only: on a phone these rail cards repeat what the page already shows. */}
       {/* A VIP HAS NO CHALLENGES, SO NOT "NOTHING RUNNING". Their month: the VIP challenge, how they are tracking and a
           way to add a video. */}
       {vipBand ? (
@@ -628,22 +515,7 @@ export default function GlobalHome() {
           query landed - the reported "the bigger cards on the left are
           delayed". */}
       <NetworkLayout rail={rail} ready={!!d}>
-        {/* EVERY SECTION WATCHES ITSELF INTO VIEW. This was ONE <Reveal> wrapped round the whole article, and that is
-            why the page "just appeared": a single IntersectionObserver on a container that starts at the top of the
-            viewport fires on the first frame, so all eleven sections ran their stagger immediately and the entire hub -
-            including the six screens of it nobody had scrolled to yet - had finished animating before the reader looked
-            at it. Now each section carries its own observer and arrives as YOU reach it, dropping down into place, while
-            the rail slides in from the right (NetworkLayout). The grids inside stagger their cards the same way the
-            creator directory does, because that is the motion the team picked and there should only be one.
-
-            THE LADDER OF `delay` VALUES IS DELIBERATELY SHALLOW NOW. It used to
-            run 0.10, 0.16, 0.22, 0.28, 0.36, 0.44 - so the sixth card on the
-            left did not begin to move until nearly half a second after the
-            page arrived, by which time the whole right-hand rail had finished.
-            That is the reported "the cards on the right appear nicely but the
-            bigger ones on the left are delayed". A head start exists to stop
-            everything above the fold firing on one frame; 50ms per section does
-            that, and 440ms is not a head start, it is a wait. */}
+        {/* Every section has its own Reveal, so it animates as you reach it. Delays are 50 ms per section at most. */}
         <div className="space-y-9">
 
           {/* ---------- Greeting ----------
@@ -655,14 +527,7 @@ export default function GlobalHome() {
               happening across the network right now" already wraps to two lines
               under a 3xl name, and the pair was eating 140px of an 812px screen
               before a single piece of content. */}
-          {/* IT WAITS FOR THE DATA TOO, and that is what finally fixed the timing. The greeting depends on nothing, so
-              it used to render on the first paint and reveal itself about 80ms later - while every section under it was
-              still behind `!d`, waiting on the network, and only started animating once the query landed. So the
-              greeting was not arriving early by a frame or two; it was arriving a whole round trip before anything else,
-              which is the "hey the team appears in immediately, whereas the other things smoothly animate in" report.
-              Adding delay to the greeting alone could never close a gap whose size is the latency of a query. It joins
-              the same gate as the rest, and the ladder then does what it was written to do: greeting, then the first
-              sections, 50ms apart, all off one moment. */}
+          {/* The greeting waits for the data too, so it arrives with the first sections rather than a round trip earlier. */}
           {/* RISES, NEVER DROPS: it sits right under the market switcher, and a drop-in started it on top of the
               switcher. */}
           {d && (
@@ -687,23 +552,8 @@ export default function GlobalHome() {
           </Reveal>
           )}
 
-          {/* NOTHING BELOW THE GREETING RENDERS UNTIL THE DATA IS IN.
-              THE BUG THIS FIXES: five of the sections here are conditional on
-              the load (`myLive`, `globalLive`, standings, the announcement, the
-              trips), so the page first drew the ones that need nothing, and then
-              the query landed and INSERTED four more into the middle of it.
-              Everything below jumped down a screen and re-animated - the
-              reported "the order isn't right, and then it corrects itself after
-              a split second". You cannot stagger your way out of that; the only
-              fix is to not draw a list you are about to reorder. The greeting
-              is inside the gate too now - see the note above it.
-
-              `!network` JOINS THE GATE TOO. `globalLive`/`myLive` read `network`, which is `useCommunity()` - a SEPARATE
-              fetch from `d`, not part of it. On a cache-warm visit `d` can resolve on the very first frame while
-              `network` is still loading, so Live Now (which carries the mobile Global Challenge card) computed an empty
-              list, rendered nothing, and only mounted - out of ladder order, after Announcements had already stepped
-              through it - once `network` caught up a moment later. Exactly the round-trip gap the greeting fix above
-              already diagnosed, on the one section that also reads a second source. */}
+          {/* Nothing below the greeting renders until the data is in (and `network` from useCommunity, a separate fetch), so
+             conditional sections are never inserted into a page already on screen. */}
           {!d || !network ? (
             /* THE BUSIEST FIRST SCREEN IN THE PRODUCT, and it was drawing four
                grey bars. The hub has a market switcher, a greeting, the live
@@ -777,15 +627,7 @@ export default function GlobalHome() {
               that is always above the fold was also the one card that animated
               on a different clock. The Reveal owns it now, like every other
               section. */}
-          {/* DESKTOP ONLY. On a phone this card is the whole first screen - four counters, two chips and a hero plane -
-              and every one of those figures is about the community rather than about today. A creator opening the hub on
-              a phone wants the brief that is running, not the roster size, so the live challenge above leads and this
-              drops out entirely. It keeps its place from `lg` up, where it sits beside a rail and costs nothing.
-
-              `!isMobile`, not `hidden lg:block`, for the reason the live-now
-              block gives above: a CSS-hidden section still renders and still
-              takes its step off the `stepDelay()` ladder, which would leave a
-              720ms hole in the phone's reveal sequence where this used to be. */}
+          {/* Desktop only (`!isMobile`, not CSS hidden, which would still render and take a step off the ladder). */}
           {!isMobile && (
           <Reveal from="down" delay={stepDelay()}>
           <section
@@ -816,17 +658,7 @@ export default function GlobalHome() {
             <div className="relative">
               {/* NO "WORLDWIDE" PILL. The tab you are on says it, the place switcher directly above says it, and the
                   heading under this said it a third time. */}
-              {/* ONE LINE, AND THEN STRAIGHT TO THE NUMBERS.
-                  NOT "Welcome to…". This card is on the hub you land on every
-                  day, and being welcomed to a place you have been a member of
-                  for six months reads as the app not knowing who you are.
-                  A title states what the place is.
-
-                  The paragraph that used to sit under it - "One community across every market. Your connections,
-                  messages, the map and the daily game live here and are never split by country" - was an explanation for
-                  somebody's first week, occupying prime space on a page a returning creator opens daily. The team cut
-                  it, and the type stepped down a size so the title itself holds one line instead of two. What it bought
-                  is the row below. */}
+              {/* A title, not "Welcome to...", and no explanatory paragraph: this is the page a creator opens every day. */}
               {/* `sm:whitespace-nowrap`, not `whitespace-nowrap`. Thirty-four
                   characters cannot hold one line inside a 375px card at any
                   size a heading is allowed to be, and forcing it there would
@@ -836,68 +668,17 @@ export default function GlobalHome() {
                 {tr("Tryp.com Content Creator Community")}
               </h2>
 
-              {/* WHAT THE COMMUNITY HAS DONE.
-                  Counting up, once, when the card is first seen. A number that
-                  moves reads as a quantity that grows, which is the one thing
-                  this row is trying to say.
-
-                  "Nations" used to be here and was removed: it counted distinct
-                  `country_code` values on active profiles, a column only
-                  onboarding ever fills, so for most of the roster it was null
-                  and the card said "0 Nations" beside two real numbers. The
-                  countries figure here is a different thing and an honest one -
-                  every country anybody in the community has actually BEEN to,
-                  off `countries_visited`, which is the same set the creator map
-                  colours in. */}
-              {/* THE FOUR COUNTERS START ON ONE FRAME AND FINISH ON ONE FRAME.
-                  Two halves to that, and the row needs both.
-
-                  CountUp now runs on a fixed clock rather than one derived from
-                  the magnitude (see Motion.jsx), so the rate varies and the
-                  duration does not: kilometres blur, creators tick, markets
-                  climb one at a time, and all four land together.
-
-                  But a shared duration only lands together if the counters also
-                  BEGIN together, and these four numbers arrive from four
-                  different places - `creators` with the page's own load,
-                  `videos` with the "me" query, kilometres with
-                  `community_flight_totals()`, and the market count from props
-                  that are there immediately. Whichever landed first started
-                  counting first and finished first, which is the same staggered
-                  row by another route. So the row waits for all four and then
-                  mounts every counter on the same frame. Until then it draws
-                  em-dashes, which is what it drew before for each figure
-                  individually and makes no claim in the meantime. */}
+              {/* What the community has done, counting up once when first seen. Countries = every country anybody has been to
+                 (countries_visited, the same set the creator map colours). */}
+              {/* The four counters start and finish together: CountUp runs on a fixed duration (Motion.jsx), and the row waits for
+                 all four values before mounting any counter. Dashes until then. */}
               <div className="mt-5 grid grid-cols-2 gap-x-6 gap-y-4 sm:mt-7 sm:flex sm:flex-wrap sm:items-start sm:gap-x-10">
                 {[
-                  // ONE OR MANY IS TWO LABELS, NOT ONE WITH AN S ON IT.
-                  //
-                  // All four of these read "1 Markets open", "1 Videos posted"
-                  // straight off a fresh market or a creator's first entry -
-                  // and the first of those is what a brand new market's admin
-                  // sees on the day they open it, which is the worst possible
-                  // moment for the page to look unfinished. Spanish agrees the
-                  // noun as well as the number, so a `{n}`-suffixed string is
-                  // wrong in both languages; `plural` is the same helper the
-                  // puzzle strip already uses for "1 played today".
+                  // One or many are two labels (`plural`), not one with an s; Spanish agrees the noun too.
                   { key: 'creators', n: d?.creators, label: pl(d?.creators, 'Creator worldwide', 'Creators worldwide'), hint: tr('across every market') },
                   { key: 'markets', n: openMarkets.length, label: pl(openMarkets.length, 'Market open', 'Markets open'), hint: tr('and more on the way') },
                   { key: 'videos', n: me?.videos, label: pl(me?.videos, 'Video posted', 'Videos posted'), hint: tr('to challenges so far') },
-                  // KILOMETRES FLOWN, NOT COUNTRIES REACHED.
-                  //
-                  // "Countries reached" counted distinct entries in
-                  // `countries_visited` across every profile, which made it a
-                  // number that barely moves: it is capped at about 195, most of
-                  // the interesting ones were reached years ago, and a creator
-                  // coming back from Peru changed it by nothing. A statistic
-                  // nobody's own effort can move is decoration.
-                  //
-                  // Distance flown is the opposite. It only goes up, everybody
-                  // adds to it every time they log a trip, and it is the single
-                  // most on-brand figure a travel creator community has. It
-                  // comes from `community_flight_totals()` - see migration 100
-                  // for why an aggregate over private rows is safe and how anon
-                  // is kept off it.
+                  // Kilometres flown (community_flight_totals(), migration 100): a number everybody's trips move.
                   { key: 'km', n: flights?.km ?? null, label: pl(flights?.km, 'Kilometre flown', 'Kilometres flown'), hint: tr('logged by all of us') },
                 ].map((s, i, all) => (
                   // KEYED ON THE STAT, NOT ON ITS LABEL. The label now changes
@@ -924,16 +705,8 @@ export default function GlobalHome() {
                 ))}
               </div>
 
-              {/* AND THEN THE SAME QUESTION ABOUT YOU.
-                  A number about the community is social proof; a number about
-                  your own week is the one that decides whether you open the app
-                  tomorrow. Each is a LINK to the place you would go to change
-                  it, because a statistic you cannot act on is a decoration.
-
-                  Points only appear once you are on the board. "0 points, rank
-                  —" tells a new creator they are losing a game they have not
-                  been told the rules of; "Earn your first points" is the same
-                  fact as an invitation. */}
+              {/* The same question about you; each figure links to where you would change it. Points appear only once you are on
+                 the board. */}
               {/* THE CHIPS RESERVE THE PLANE'S CORNER.
                   `TrypPlane variant="hero"` is absolutely positioned in the
                   bottom-right of this card, so a wrapping row of chips runs
@@ -941,18 +714,7 @@ export default function GlobalHome() {
                   fix was to reserve the space on the ONE element that needs it
                   rather than padding the whole column. The divider still spans
                   the full width; only the chips stop short. */}
-              {/* TWO CHIPS, AND NO HEADING OVER THEM.
-                  There were five, under "Your year so far", then three, and now
-                  two: your connections and your videos. Every cut has removed
-                  the same kind of thing. "Earn your first points", "Post where
-                  you are headed" and now "Play today's puzzles" were PROMPTS,
-                  not facts about you, and a prompt sitting in a row of your own
-                  numbers turns a summary into a to-do list. The puzzles have
-                  their own section further down this very page, with all three
-                  of them and today's counts on it, so the chip was also a
-                  second door to something already on screen.
-                  What is left is two figures about you, both of which are also
-                  doors to the place you would go to change them. */}
+              {/* Two chips, no heading: your connections and your videos. Facts about you, not prompts. */}
               {/* NO RULE ACROSS THIS CARD. There was a `border-t` here, spanning the full width of the card - and the
                   plane is parked in the bottom-right corner, so the line ran straight through the aircraft and out the
                   other side. Shortening the rule to the width of the chips would only have made it a line that stops for
@@ -1012,18 +774,7 @@ export default function GlobalHome() {
               network, so this is the one leaderboard that belongs at network
               level. A creator who moves from Spain to the UK keeps their
               standing here. */}
-          {/* THE POINTS BOARD IS GONE FROM HERE.
-              It said "Points earned in any market, added up" and ranked the
-              whole network on them - but points are a per-CHALLENGE scoring
-              mode. A brief can be scored by total views, by best video, or by
-              points, and only the last writes any. So this was the running
-              score of whichever challenges happened to use that mode,
-              presented as a standing in the community: a creator who had never
-              entered one was simply absent, through no fault of their own, and
-              nothing on the page explained the number.
-              Views is the thing every creator has under every scoring mode, so
-              the board that survives is /leaderboard - worldwide, filterable by
-              market, with everybody on it. */}
+          {/* No points board here: points are one scoring mode among three. /leaderboard (views, everyone) is the standing. */}
 
           <div className="hidden lg:block"><NewInRooms /></div>
 
@@ -1052,14 +803,8 @@ export default function GlobalHome() {
                   stagger={0.07}
                 >
                   {d.anns.map((a) => {
-                    // The worldwide room carries a real community_id (every
-                    // announcement on the live site today is in it), so it has
-                    // to be recognised by id rather than by a null - otherwise
-                    // it gets hunted for in the market list, is not found, and
-                    // falls through to the same label by luck rather than
-                    // design. `chapters`, not `openMarkets`, for the rest: an
-                    // announcement can come from a market that is paused, and
-                    // calling that one "Worldwide" would be a lie.
+                    // The worldwide room has a real community_id, so it is recognised by id. `chapters`, not `openMarkets`, so a paused
+                    // market's announcement is not labelled Worldwide.
                     const from = a.community_id && a.community_id !== network?.id
                       ? (chapters.find((m) => m.id === a.community_id) || null)
                       : null
@@ -1107,18 +852,8 @@ export default function GlobalHome() {
             <DailyPuzzleCallout />
           </Reveal>
 
-          {/* ---------- The map ----------
-              THE PEOPLE MAP, NOT THE COUNTRY MAP.
-              This slot used to hold "Where we have been, together": every
-              country anybody in the network had ever visited, shaded in. It is a
-              nice picture and it is the wrong one for a hub, because it answers
-              a question about the past and shows you nobody. The network hub is
-              where you find PEOPLE, so it now carries the creator map - every
-              creator in every market, in the town they are actually in, with the
-              planes joining them up.
-              The countries-visited map moved to the creator directory, where a
-              page already about the community is the right place for a picture
-              of where that community has been. */}
+          {/* The map: the creator map (people, in their towns, with planes between them). The countries-visited map lives on
+             the creator directory. */}
           <Reveal from="down" delay={stepDelay()}>
             <section>
               {/* The hint is desktop-only. On a phone it is two lines of
@@ -1147,21 +882,8 @@ export default function GlobalHome() {
                       creators={d.mapPeople}
                       trips={d.mapTrips}
                       myId={session?.user?.id}
-                      // THE HUB MAP IS A MAP, NOT A PICTURE OF ONE.
-                      //
-                      // It was never given `navigable`, so it refused a drag, a
-                      // double click AND the wheel, and the only door was the
-                      // full-screen button - on the one page whose whole point
-                      // is finding a person on it. The market maps have been
-                      // navigable since 12 Sep and nothing about this map is
-                      // different from those except that it covers the world.
-                      //
-                      // The landing page's copy stays as it is: that is the
-                      // public page the scroll-trap report came from, and a
-                      // reader skimming a marketing page is exactly who must
-                      // not have a control claim their wheel. See
-                      // `filterZoomEvent` in CreatorMap for the gate that lets
-                      // this one take it safely.
+                      // The hub map is navigable (drag, double-click, wheel through the gate in CreatorMap's `filterZoomEvent`). The
+                      // landing page's map stays non-navigable so it never captures a reader's scroll.
                       navigable
                     />
                   )
@@ -1217,34 +939,9 @@ export default function GlobalHome() {
             <Reveal from="down" delay={stepDelay()}>
               <section>
                 <SectionHead icon="users" title={tr("New in the community")} to="/creators" toLabel={tr('All creators')} />
-                {/* `grid-cols-1` IS LOAD-BEARING, AND THE BUG IT FIXES IS NOT
-                    OBVIOUS FROM READING IT.
-
-                    Measured at 375px: this grid's computed
-                    `grid-template-columns` was 756.547px and each card was
-                    757px wide in a 375px viewport. `grid` with only a `sm:`
-                    column count leaves the phone with NO explicit track, so the
-                    cards land in an IMPLICIT one, and an implicit track is
-                    `auto` - which is `minmax(min-content, max-content)` and is
-                    therefore not allowed to shrink below its content's
-                    max-content width. The content here is a creator's bio under
-                    `truncate`, and `truncate` sets `white-space: nowrap`, so
-                    its max-content is the WHOLE bio on one line: 675px of
-                    German. The `min-w-0` on the inner div is the right fix for
-                    the flex layer and does nothing at all for the track above
-                    it.
-
-                    `grid-cols-1` is `repeat(1, minmax(0, 1fr))`, and the
-                    explicit `minmax(0, …)` is what lets the track be narrower
-                    than its content. The `html { overflow-x: clip }` safety net
-                    is why this was a card running off the edge rather than a
-                    horizontally scrolling page.
-
-                    THE RULE, because this is a trap and not a typo: a grid
-                    holding anything with `truncate` in it needs an explicit
-                    base column count. A grid of wrapping text gets away
-                    without one, which is why the other twenty in this codebase
-                    have not bitten. */}
+                {/* `grid-cols-1` is required: without an explicit base column count the cards land in an implicit `auto` track, which
+                   cannot shrink below a `truncate`d bio's full width (cards ran off a 375px screen). Any grid holding `truncate` text
+                   needs an explicit base column count. */}
                 <Reveal className="trim-4 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3" stagger={0.07}>
                   {d.fresh.map((c) => (
                     <MotionLink key={c.id} to={`/profile/${c.id}`} {...cardHover}

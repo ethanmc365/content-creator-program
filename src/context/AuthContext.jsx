@@ -15,36 +15,14 @@ import { profilesApi } from '../api/profiles'
 // is_admin), and helpers for sign-up / sign-in / sign-out / password reset.
 const AuthContext = createContext(null)
 
-// HOW LONG A SLOW CONNECTION IS GIVEN BEFORE WE CALL IT A FAILURE.
-//
-// This was three tries at 800/1600/2400ms, which gives up 4.8 seconds after the
-// first stumble. That is a reasonable budget for a laptop on wifi and far too
-// small for the case that actually produces the complaint: a phone on a weak
-// signal, loading the worldwide page, where this one request is competing with
-// the thirty-odd the page fires on arrival. Giving up there costs the user the
-// whole app - they get the "taking longer than usual" screen - to save them
-// about four seconds of waiting, which is a bad trade every time.
-//
-// Five tries at 600/1200/2400/4800/8000 is ~17 seconds of patience. Nobody who
-// is going to succeed needs more than that, and nobody who is going to fail is
-// helped by failing sooner.
+// Profile fetch retries: five tries at 600/1200/2400/4800/8000 ms (~17 s), so a phone on weak signal is not
+// sent to the "taking longer than usual" screen after a few seconds.
 const RETRIES = 5
 const backoff = (attempt) => Math.min(600 * 2 ** attempt, 8000)
 
-// IS THERE A SAVED LOGIN IN THIS BROWSER? READ SYNCHRONOUSLY, BEFORE ANY AWAIT.
-//
-// This is the difference between "we do not know who you are yet" and "nobody
-// is logged in here", and the route guard needs it on the very first render.
-// `supabase.auth.getSession()` answers the same question but it is a PROMISE:
-// it takes the auth lock, may refresh the token over the network, and resolves
-// in a microtask behind whatever else the main thread is doing. Everything that
-// happens before it resolves has to be decided without it.
-//
-// supabase-js persists the session under `sb-<project-ref>-auth-token`. We only
-// ever ask whether such a key EXISTS and parses - never whether it is valid,
-// which is the server's business. A present-but-dead session still answers
-// "this person was logged in", which is exactly what the guard must know in
-// order not to throw them at the login form while the real answer is in flight.
+// Is there a saved login in this browser? Read synchronously before any await, so the route guard can tell
+// "not known yet" from "nobody is logged in" on the first render. Only checks that a session key exists and parses;
+// validity is the server's business.
 const STORAGE_KEY_RE = /^sb-.*-auth-token$/
 export function hasStoredSession() {
   try {
@@ -162,22 +140,10 @@ export function AuthProvider({ children }) {
   // fire on a cold boot make one request between them. See loadProfile.
   const inFlight = useRef(null)
 
-  // "View as creator": an admin can step into a hidden sandbox creator account
-  // (is_test=true, invisible to the community) and experience the app EXACTLY as
-  // a normal creator does — their profile, chat identity with no admin badge,
-  // their DMs / notifications / access.
-  //
-  // On enter we swap to the preview creator's session (minted server-side by the
-  // `impersonate` function) and keep a short-lived, signed "exit ticket". On exit
-  // the server mints a BRAND-NEW admin session from that ticket — we do NOT try to
-  // restore stashed admin tokens. That old approach broke whenever the admin's
-  // original session row had been revoked elsewhere (a sign-out on another device
-  // deletes the row while the token still looks valid), which stranded/logged out
-  // the admin. Minting a fresh session always works.
-  //
-  // `impersonating` is derived from the ACTUAL session: true only while a stash
-  // exists AND the logged-in user is the preview creator. So a leftover stash can
-  // never resurrect the "viewing as creator" pill for a real admin login.
+  // "View as creator": an admin steps into a hidden sandbox creator account (is_test) to see the app exactly as a
+  // creator does. Enter swaps to a session minted by the `impersonate` edge function and keeps a short-lived signed
+  // exit ticket; exit mints a fresh admin session from that ticket (stashed admin tokens could have been revoked).
+  // `impersonating` is true only while a stash exists AND the logged-in user is the preview creator.
   const IMPERSONATE_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/impersonate`
   const ADMIN_STASH_KEY = 'tryp_admin_session'
   const readStash = () => {
@@ -357,36 +323,9 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     let cancelled = false
 
-    // THE WATCHDOG THAT LOGGED PEOPLE OUT.
-    //
-    // The team, handing the platform to the Tryp.com team: "the worldwide page sometimes loads fine, but sometimes it
-    // takes ages to load and doesn't load at all, it will then just go back to the login page."
-    //
-    // This timer is why. It exists so the app can never hang for ever on the
-    // full-screen session spinner, and it did that by flipping `loading` to
-    // false after five seconds. But the guard reads exactly two things:
-    //
-    //     if (loading) return <FullPageSpinner />
-    //     if (!user)   return <Navigate to="/login" replace />
-    //
-    // and `user` comes from a session that has NOT ARRIVED YET. So the watchdog
-    // did not un-stick a stalled boot - it converted one into a logout. Five
-    // seconds is not a long time on a phone: `getSession()` takes the auth lock,
-    // refreshes the token over the network if it is due, and resolves in a
-    // microtask queued behind the thirty-odd requests and the map render that
-    // the worldwide page kicks off on the same main thread. "Sometimes" is the
-    // signature of a race, and this is the race.
-    //
-    // The landing was a login form with empty fields, which reads as "you have
-    // been signed out" and is why the report says people re-enter their details.
-    // In fact the session was fine and arrived a moment later.
-    //
-    // So the watchdog no longer speaks for the session. It ends the SPINNER, and
-    // `sessionChecked` - set only by a real answer from `getSession` or from an
-    // auth event - is what the guard uses to decide that nobody is logged in.
-    // A browser with a saved login that has not resolved yet gets the "taking
-    // longer than usual" screen with a retry on it; a browser with no saved
-    // login still goes straight to /login, and now does so without waiting.
+    // The watchdog ends the SPINNER after 5 s; it never decides that nobody is logged in. `sessionChecked`, set only by
+    // a real answer from getSession or an auth event, does that. A browser with a saved login that has not resolved yet
+    // gets the retry screen instead of the login form (the old watchdog turned a slow boot into an apparent logout).
     const safety = setTimeout(() => {
       if (cancelled) return
       setLoading(false)
@@ -399,12 +338,8 @@ export function AuthProvider({ children }) {
     //  * A network failure sets profileError so the guard shows a retry screen
     //    instead of treating the user as logged-out.
     const loadProfile = async (userId, attempt = 0) => {
-      // ONE PROFILE FETCH, NOT TWO. `getSession()` resolving and the
-      // INITIAL_SESSION auth event both land on a cold boot, a few milliseconds
-      // apart, and both used to start their own request - so the single most
-      // important call on the page was issued twice and the two copies queued
-      // behind each other. Measured on production: 621ms and 535ms for the same
-      // row. Retries are exempt, or a retry would refuse to run.
+      // One profile fetch, not two: getSession and the INITIAL_SESSION event both arrive on a cold boot.
+      // Retries are exempt.
       if (attempt === 0) {
         if (inFlight.current === userId) return
         inFlight.current = userId
@@ -420,42 +355,11 @@ export function AuthProvider({ children }) {
           setProfileLoaded(true)
           return
         }
-        // A GHOST LOGIN IS ONLY A GHOST IF IT IS STILL MISSING AFTER RETRIES,
-        // AND SIGNING IT OUT IS A LOCAL ACT.
-        //
-        // PGRST116 is "the result contains 0 rows", which is what a genuinely
-        // profile-less auth user looks like - and ALSO what a row temporarily
-        // withheld by RLS looks like, and what a request that lands mid-deploy
-        // can look like. This branch used to fire on the FIRST such read and
-        // call a bare `supabase.auth.signOut()`.
-        //
-        // TWO THINGS WERE WRONG WITH THAT, and together they cost the Tryp.com team demo account a whole afternoon.
-        //
-        //   1. `signOut()` in supabase-js DEFAULTS TO `scope: 'global'`. It does
-        //      not sign this browser out - it revokes EVERY refresh token on the
-        //      account, on every device. On a SHARED account that is three
-        //      people signed out by one person's blip; on any account it is a
-        //      transient read logging you off your phone. `auth.sessions` for
-        //      that account was empty afterwards, including sessions created
-        //      forty minutes before the login that triggered it.
-        //   2. It fired on ONE read, while the branch directly below already
-        //      knew that a failed profile fetch deserves three retries. A real
-        //      ghost login is still a ghost 2.4 seconds later; a blip is not.
-        //
-        // So: retry it like any other failure, and if it is STILL missing, sign
-        // out locally. The route guard sends them to /login either way, which is
-        // the correct outcome for an account with no profile - it just no longer
-        // takes the user's other devices with it.
+        // A missing profile (PGRST116) is retried like any other failure (it can be a transient RLS or deploy blip), and
+        // only then signed out, LOCALLY. signOut() defaults to scope 'global', which revokes every session on the account.
         if (error?.code === 'PGRST116' && attempt >= RETRIES) {
           inFlight.current = null
-          // NEVER SIGN OUT A SESSION THIS LOAD DOES NOT OWN.
-          //
-          // The retry ladder is ~17 seconds long, and somebody can log in again
-          // inside it - which is precisely what a person does when a page looks
-          // stuck. If they have, the session in the browser is no longer the one
-          // this ladder was reading for, and signing it out would throw away a
-          // login that just succeeded. So re-read who is actually signed in and
-          // stand down unless it is still the same user.
+          // Never sign out a session this load does not own: the person may have logged in again during the retries.
           const { data: { session: now } } = await supabase.auth.getSession().catch(() => ({ data: { session: null } }))
           if (now?.user?.id && now.user.id !== userId) return
           setProfile(null)
@@ -552,16 +456,8 @@ export function AuthProvider({ children }) {
     // admin UI hides naturally. `impersonating` (a stashed admin session exists)
     // is what surfaces the "exit creator view" pill so the admin can get back.
     isAdmin: realIsAdmin,
-    // AN ADMIN IS NEVER "VIEWING AS A CREATOR", BY DEFINITION.
-    //
-    // `impersonating` was derived from a localStorage stash matching the logged
-    // in user id, and a stash left behind by an exit that did not finish can
-    // outlive the preview it described. Rather than chase every way that stash
-    // can go stale, this asserts the invariant the feature actually rests on:
-    // the preview account is the sandbox CREATOR (`is_admin = false`, enforced
-    // in the impersonate function, which will only ever mint a session for one
-    // fixed non-admin id). So if the profile in hand is an admin, this is not a
-    // preview - whatever the stash says - and the pill must not appear.
+    // An admin is never "viewing as a creator": the preview account is always the non-admin sandbox creator, so an
+    // admin profile means no preview, whatever a stale stash says.
     impersonating: impersonating && !realIsAdmin,
     enterCreatorPreview,
     exitCreatorPreview,
@@ -584,25 +480,8 @@ export function AuthProvider({ children }) {
     signUp: async (email, password, name, ref, captchaToken) => {
       const out = await callAuthGate({ action: 'signup', email, password, name, ref, captchaToken })
 
-      // SIGNING UP GETS THE SAME FALLBACK LOGIN HAS. THIS IS THE BUG.
-      //
-      // That message has exactly one source in this file: the `catch` in
-      // `callAuthGate`, which fires when the fetch to the `auth-gate` edge
-      // function THROWS - the request never arrived, so nothing on the server
-      // could have answered it. It is the same failure that hit LOGIN on
-      // 2 Sep, on two different browsers, while the function's own logs showed
-      // it answering every request it received cleanly.
-      //
-      // Login was given a fallback that day and signup was not, which made this
-      // inevitable: the gate is a rate limiter, and a rate limiter that can
-      // stop people creating accounts is worse than no rate limiter at all.
-      // GoTrue applies its own limits server-side, so going straight to it is
-      // not a hole - it is the same signup with one fewer thing in the way.
-      //
-      // `unreachable` is set ONLY by that catch, so a refused signup (email
-      // already registered, weak password, captcha rejected, 429) still comes
-      // straight back to the person unchanged. This never turns one refusal
-      // into two attempts.
+      // Signup falls back to GoTrue directly when the auth-gate function cannot be reached (same as login).
+      // `unreachable` is set only by the catch in callAuthGate, so a real refusal still comes straight back.
       if (out.unreachable) {
         const { data, error } = await supabase.auth.signUp({
           email,
@@ -628,25 +507,8 @@ export function AuthProvider({ children }) {
     signIn: async (email, password, captchaToken) => {
       const out = await callAuthGate({ action: 'login', email, password, captchaToken })
 
-      // THE RATE LIMITER IS NOT ALLOWED TO BE A SINGLE POINT OF FAILURE.
-      //
-      // `auth-gate` is a proxy in front of GoTrue that exists to count failed
-      // attempts. It is a good thing to have and it is NOT worth the whole
-      // platform: if that one function is unreachable from somebody's browser,
-      // for any reason at all, they simply cannot sign in, and the message they
-      // get is "Network error. Please check your connection", which sends them
-      // to look at their wifi.
-      //
-      // That happened,, to the team on two different browsers while the function's own logs showed it answering every
-      // request it received cleanly - 200s and 400s, no timeouts, no errors. Whatever stopped the request, it stopped it
-      // before it arrived, and nothing on the server could have fixed it.
-      //
-      // So when the gate cannot be REACHED, sign in against GoTrue directly.
-      // The endpoint is Supabase's own, on a different path with its own CORS
-      // handling, and GoTrue applies its own rate limiting server-side, so the
-      // fallback is not a hole - it is the same login with one fewer thing in
-      // the way. `unreachable` is set only by the catch in callAuthGate, so a
-      // refused password or a 429 still comes straight back to the user.
+      // The rate limiter (auth-gate) must not be a single point of failure: when it cannot be reached, sign in against
+      // GoTrue directly (which has its own rate limits). A refused password or a 429 still comes straight back.
       if (out.unreachable) {
         const { data, error } = await supabase.auth.signInWithPassword({
           email,
@@ -662,34 +524,8 @@ export function AuthProvider({ children }) {
       return { data: { session: out, user: out.user ?? null }, error: null }
     },
 
-    // LOGGING OUT OF THIS BROWSER LOGS YOU OUT OF THIS BROWSER.
-    //
-    // This was a bare `supabase.auth.signOut()`, and supabase-js DEFAULTS THAT
-    // TO `scope: 'global'` - which does not sign this browser out, it REVOKES
-    // EVERY SESSION ON THE ACCOUNT, everywhere, including sessions that are
-    // being used right now on other devices and in other windows.
-    //
-    // THIS IS THE "IT LOADS, THEN CRASHES BACK TO THE LOGIN PAGE" BUG, and the auth logs name it exactly.
-    //
-    //     06:53:23  POST /token   200  login   qa-admin   referer trypcreators.vercel.app
-    //     06:53:24  POST /logout?scope=global  204        referer content-creator-program.vercel.app
-    //
-    // A successful login, and ONE SECOND LATER a global logout FROM A DIFFERENT
-    // WINDOW - the app is served on two Vercel domains, so a second tab is a
-    // second origin with its own storage but the SAME account. That logout
-    // revoked the session the first window had just created; every request after
-    // it 401s, and the route guard correctly concludes there is no session and
-    // shows /login. Nothing was wrong with the password, the captcha or the rate
-    // limiter. Five login/logout pairs in nine minutes have this shape.
-    //
-    // ON A SHARED TEAM ACCOUNT THIS IS FATAL AND CONSTANT: the demo login is
-    // meant to be used by several people at once, and any one of them pressing
-    // "Log out" would throw everybody else out mid-session.
-    //
-    // `local` revokes this session and leaves the others alone. The deliberate
-    // "sign out everywhere" is a separate, clearly-named action below - which is
-    // exactly the point: revoking other people's sessions should take a decision,
-    // not a default.
+    // Log out of THIS browser only (`scope: 'local'`). The default 'global' revokes every session on the account,
+    // including other devices and other people on a shared team login. "Sign out everywhere" is a separate action below.
     signOut: () => {
       try { localStorage.removeItem(ADMIN_STASH_KEY) } catch { /* ignore */ }
       setImpersonating(false)

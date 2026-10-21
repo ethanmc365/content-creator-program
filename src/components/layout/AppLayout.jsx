@@ -42,23 +42,8 @@ import { profilesApi } from '../../api/profiles'
 import { contentApi } from '../../api/content'
 import { chatApi } from '../../api/chat'
 
-// The signed-in app shell. One shared set of icon tabs powers BOTH the
-// desktop top bar and the mobile bottom bar, so they look identical.
-//
-// FIVE TABS, AND WHY THESE FIVE.
-//
-// The UK-only build had Home / Challenges / Chat / DMs / Calendar, where Home
-// was a personal dashboard and Chat was one hard-coded conversation. Neither
-// survives contact with six markets: the dashboard could not answer "what is
-// happening across the network", and a single chat cannot answer "where is
-// everyone talking".
-//
-// So Home IS the worldwide hub now. It keeps the name, because that is what a
-// creator calls the page they land on, and takes the globe, because that is
-// what the page actually is. There is no separate "Worldwide" tab any more -
-// having both was two doors into one room. Chat becomes Rooms, which is a
-// grouped index rather than whichever room the router picked, and Calendar
-// comes back into the slot Worldwide vacated.
+// The signed-in app shell. One set of icon tabs powers both the desktop top bar and the mobile bottom bar.
+// Five tabs: Home (the worldwide hub), Challenges, Rooms (a grouped index of rooms), Messages and Calendar.
 const TABS = [
   // WORLDWIDE, NOT HOME. It was renamed to Home on the cutover, on the argument that "Home is what a creator calls the
   // page they land on". The team tried it and disagreed: the page IS the worldwide network, the icon is a globe, and
@@ -77,14 +62,8 @@ const TABS = [
 // put the animation runtime into the eagerly-loaded shell bundle.
 const CommandPalette = lazyRoute(() => import('../network/CommandPalette'))
 
-// WHERE THE WALKTHROUGH POINTS.
-//
-// One name per destination, put on BOTH the desktop nav item and the mobile
-// tab. Only one of the two is ever visible, and the tour resolver picks
-// whichever that is - which is what lets a single set of steps cover a phone, a
-// tablet and a desktop without three sets of copy drifting apart. `/rooms` and
-// `/chat` are the same idea wearing different names depending on whether the
-// network shell is on, so they share an anchor. See lib/tour.js.
+// Walkthrough anchors: one name per destination on both the desktop nav item and the mobile tab; the tour picks
+// whichever is visible (lib/tour.js).
 const TOUR_ANCHORS = {
   '/global': 'nav-home',
   '/home': 'nav-home',
@@ -99,14 +78,8 @@ const tourAnchor = (to) => TOUR_ANCHORS[to] || undefined
 // What a VIP is not shown: points, ranks and referrals belong to the challenges.
 const VIP_HIDDEN = new Set(['/leaderboard', '/refer'])
 
-// WHICH TAB OWNS THE PAGE YOU ARE ON.
-//
-// NavLink's own `isActive` is a path-prefix test, and the rooms do not live under /rooms: on a desktop that tab forwards
-// straight into the worldwide General, so the address becomes /global/chat/general - which /global matches and /rooms
-// does not. Press Rooms, land in a room, and the globe lights up while the rooms icon stays grey.
-//
-// A chat path belongs to Rooms wherever it is mounted, and Worldwide keeps
-// everything else under /global and /c. Exported for the test.
+// Which tab owns the current page. Chat paths belong to Rooms wherever they are mounted (/global/chat/... included);
+// Worldwide keeps everything else under /global and /c. Exported for the test.
 export function activeTab(pathname) {
   if (/^\/(rooms|chat)(\/|$)/.test(pathname)) return '/rooms'
   // /global/chat/general, /c/uk/chat/announcements - a room, not the hub.
@@ -131,15 +104,8 @@ function ChatSearchField({ target }) {
 
   useEffect(() => { if (open) inputRef.current?.focus() }, [open])
 
-  // LEAVING THE ROOM CLEARS WHATEVER WAS TYPED, so a filter can never outlive
-  // the screen that explains it - but ONLY on the way out.
-  //
-  // THE BUG THIS FIXES: this was `useEffect(() => () => target.onChange(''),
-  // [target])`, and `target` is rebuilt every time the search value changes.
-  // So every keystroke changed the identity, React ran the cleanup, and the
-  // cleanup wiped the search that had just been typed. The field worked and
-  // filtered nothing. The callback goes through a ref so the unmount effect can
-  // have an empty dependency list and still call the current one.
+  // Leaving the page clears the search, but only on the way out: the callback goes through a ref so the unmount effect
+  // has no dependencies (otherwise every keystroke ran the cleanup and wiped the search).
   const onChangeRef = useRef(target.onChange)
   useEffect(() => { onChangeRef.current = target.onChange })
   useEffect(() => () => onChangeRef.current(''), [])
@@ -284,54 +250,11 @@ export default function AppLayout() {
   const [paletteOpen, setPaletteOpen] = useState(false)
   const menuRef = useRef(null)
 
-  // EVERY PAGE OPENS AT ITS TOP.
-  //
-  // THE BUG THIS FIXES. React Router keeps the window's scroll offset across a navigation, and this shell had no scroll
-  // restoration of its own - only NetworkRoute reset it, and only for the routes underneath it. So every legacy route
-  // inherited wherever the previous page happened to be scrolled to. Two of the team's reports are the same fault seen
-  // from different pages: tapping a daily puzzle in the hub's Daily puzzles section (which sits well down the page)
-  // opened /game at that same offset, which lands squarely on the leaderboard with the puzzle off the top; and /creators
-  // opened part-way down its own grid instead of at the map.
-  //
-  // It is the shell's job rather than each page's, because it is true of every
-  // page: arriving somewhere new means arriving at the top of it.
-  //
-  // `pathname` ONLY, not the whole location. A search-param change is a filter,
-  // a tab or a deep link applied to the page you are already reading, and
-  // yanking that page back to the top mid-read is its own bug.
-  //
-  // `behavior: 'instant'`, AND THAT ONE WORD IS THE WHOLE OF THE "IT FLASHES
-  // THE LOADING SCREEN ON MOBILE" REPORT.
-  //
-  // This said `behavior: 'auto'`, with a comment above it claiming it was
-  // instant. It was not. In the CSSOM spec `auto` does not mean "jump" - it
-  // means **use the element's computed `scroll-behavior`**, and this app sets
-  // `html { scroll-behavior: smooth }` platform-wide (index.css). So every
-  // route change ANIMATED the page back to the top over several hundred
-  // milliseconds.
-  //
-  // What that looks like on a phone, tapping Worldwide -> Challenges while
-  // scrolled down the hub: the new page commits (measured on production: main
-  // goes from 3881px to 1134px), the browser CLAMPS the scroll into the shorter
-  // page, and then a long smooth animation drags it back to the top - while the
-  // skeleton underneath is being replaced by real content. Three separate
-  // movements for one tap. It is not a loading screen at all, which is why two
-  // rounds of work on the loading screen did not touch it.
-  //
-  // AND `/global` FIRED TWO OF THEM AT ONCE: NetworkRoute had its own
-  // `window.scrollTo(0, 0)` on the same pathname change, and the two-argument
-  // form honours `scroll-behavior` too. Two animations racing over one
-  // scroller, which is the same rule `useKeepAboveKeyboard` was deleted for.
-  // NetworkRoute's copy is gone; this is the one.
-  //
-  // A LAYOUT EFFECT, NOT A PASSIVE ONE. Passive effects run AFTER paint, so
-  // even an instant scroll leaves one painted frame of the new page at the old
-  // offset. `useLayoutEffect` runs inside the commit, before the browser paints,
-  // so the new page's first frame is its top - there is nothing to see move.
-  // BACK RETURNS YOU TO WHERE YOU WERE. iOS draws the page you are returning to, at the place you left it, under your
-  // finger; then this reset jumped it to the top. A forward visit still starts at the top; a back or forward (POP)
-  // restores the position recorded for that history entry, and re-asserts it briefly while late content lands, unless
-  // the reader has started scrolling.
+  // EVERY PAGE OPENS AT ITS TOP. The shell resets the scroll on a pathname change (not a search-param change, which is
+  // a filter or tab on the same page). `behavior: 'instant'`, because `auto` means "use scroll-behavior", which is smooth
+  // app-wide. A layout effect, so the first painted frame is already the top.
+  // Back and forward (POP) restore the position recorded for that history entry instead, re-asserting it briefly while
+  // late content lands, unless the reader has started scrolling.
   const navType = useNavigationType()
   const { key: locationKey } = useLocation()
   const scrollMemo = useRef(new Map())
@@ -395,29 +318,14 @@ export default function AppLayout() {
   // viewport resize until a scroll).
   const keyboardOpen = useKeyboardOpen()
 
-  // THE BAR IS MEASURED AGAINST THE BOTTOM OF THE SCREEN AND PUT BACK IF IT HAS
-  // LEFT IT. Third report, and the first fix that does not depend on having
-  // guessed the mechanism right - see lib/pinnedBar for the whole story and for
-  // why the app-switch clue is what made it solvable. `shifted` is the
-  // deliberate slide-away below: while the keyboard is open the bar is supposed
-  // to be exactly one bar-height below the fold, and correcting THAT would
-  // shove it back over the composer.
+  // The tab bar is measured against the bottom of the screen and put back if it has drifted (see lib/pinnedBar).
+  // `shifted` is the deliberate slide-away while the keyboard is open.
   const tabBarRef = useRef(null)
   usePinnedToBottom(tabBarRef, keyboardOpen)
 
-  // A LEAKED SCROLL LOCK LEAVES THE PAGE FROZEN, SO IT IS AUDITED ON EVERY MOVE.
-  //
-  // See lib/scrollLock: the lock takes the body out of flow (`position: fixed`)
-  // because that is the only technique iOS honours, which means a release that
-  // never runs does not degrade - it strands the reader on a slice of a page
-  // that will not scroll, with everything below it unreachable. This checks
-  // that nobody is holding a lock and, if so, that the body is not still
-  // wearing one. It is a no-op in every normal case, including with a dialog
-  // genuinely open across a route change.
-  // Re-register this device for push on every open and whenever the app comes
-  // back to the foreground - see syncPushSubscription for why a one-off
-  // registration silently stops working. Never while viewing as a creator:
-  // that session is the sandbox account, not the admin holding the phone.
+  // A leaked scroll lock leaves the page frozen (lib/scrollLock fixes the body), so every route change audits it.
+  // Re-register this device for push on every open and on return to the foreground (see syncPushSubscription), never
+  // while viewing as a creator.
   useEffect(() => {
     if (!user?.id || impersonating) return undefined
     syncPushSubscription(user.id)
@@ -428,34 +336,18 @@ export default function AppLayout() {
 
   useEffect(() => { repairScrollLock() }, [pathname])
 
-  // A ROUTE CHANGE IS A NEW PAGE OF CONTENT ARRIVING, AND IT ARRIVES THE SAME
-  // WAY. See lib/pageSettled: sections whose queries land late move everything
-  // below them, and a `Reveal` asked where it is while that is happening gets a
-  // true answer about a layout that no longer exists a second later. The hub
-  // reached from the rooms tab has exactly the same problem as the hub reached
-  // by typing the address, so the watch starts again with the page.
+  // A route change restarts the page-settled watch (lib/pageSettled) so Reveal animations measure the final layout.
   useEffect(() => { resetPageSettled() }, [pathname])
 
-  // Presence heartbeat: while the app is open, stamp our own row so admins can
-  // see who is online and when a creator was last active.
-  // The beat itself lives in lib/presence now (`startHeartbeat`), because it
-  // grew three things this effect had no business owning: a throttle, an
-  // interaction fallback for when the browser stops honouring the timer, and a
-  // `keepalive` beat on the way out so "last active" is accurate to the moment
-  // somebody closed the tab rather than up to a minute before it. The notes on
-  // each are in that file.
+  // Presence heartbeat (lib/presence `startHeartbeat`): stamps our own row so admins see who is online and when a
+  // creator was last active.
   useEffect(() => {
     if (!user) return undefined
     return startHeartbeat(supabase)
   }, [user])
 
-  // Community dark mode. Applied only while this shell (a logged-in page) is
-  // mounted, so the public landing / auth pages always stay on the bright brand
-  // palette. The saved profile preference wins; until it loads we fall back to
-  // the localStorage cache so there's no bright flash for dark-mode users.
-  // Dark mode is scoped to this shell so the public landing / auth pages keep
-  // the bright brand palette. lib/theme owns resolution + the OS listeners, so a
-  // live system light/dark flip reaches the page without a reload.
+  // Dark mode applies only inside this shell, so public pages stay on the bright palette. The saved profile preference
+  // wins; the localStorage cache avoids a flash; lib/theme follows live OS changes.
   useEffect(() => {
     setShellActive(true)
     applyMotion(getStoredMotion())
@@ -484,18 +376,7 @@ export default function AppLayout() {
     return () => { alive = false; window.removeEventListener('tryp:updates-seen', check) }
   }, [user])
 
-  // READING THE THING CLEARS ITS NOTIFICATION.
-  //
-  // THE BUG THIS FIXES. A notification was only ever marked read by clicking it
-  // in the bell. So you could open a DM, read it, reply to it, and the badge
-  // would still be sitting there insisting you had not - because the app was
-  // tracking "have you read this message" and "have you read this notification"
-  // in two places and only one of them was being updated by reading. 370 unread
-  // chat notifications and 34 unread DM notifications had piled up that way.
-  //
-  // Every notification already stores the route it points at, so arriving on
-  // that route IS reading it. Matched exactly, server side: being on /messages
-  // must not clear a thread you never opened.
+  // Opening the page a notification points at marks it read (matched exactly on the server).
   useEffect(() => {
     if (!user) return undefined
     // A beat after arrival, so a bounce through a route does not clear it and
@@ -532,23 +413,8 @@ export default function AppLayout() {
     return () => { off(); supabase.removeChannel(channel) }
   }, [user])
 
-  // THE LOCAL #general PUSH IS GONE.
-  //
-  // It subscribed to `channel=eq.general` and popped an OS notification from
-  // the tab, and it was a workaround for a server that only notified two
-  // channels. Three things were wrong with keeping it:
-  //
-  //   - it covered ONE room out of about thirty. Every market room was silent,
-  //     which is the bug this whole pass is about (migration 217).
-  //   - it only worked while the tab was open-but-hidden. A closed PWA - which
-  //     is the state a notification is FOR - got nothing from it.
-  //   - it linked to `/chat/general`, a route that now redirects, and it took
-  //     no notice of the per-room mutes, so a creator who had switched a room
-  //     off would have been buzzed by it anyway.
-  //
-  // `on_chat_message` covers every room now, scoped to the room's own members,
-  // throttled per room, and delivered by notify-dispatch to a device that does
-  // not have the app open at all. One path, not two.
+  // Room push notifications come from the server (`on_chat_message`, scoped to room members, throttled, respecting
+  // per-room mutes) and reach a device with the app closed. There is no local push here.
 
   // Pending incoming connection requests, kept live via realtime.
   useEffect(() => {
@@ -615,18 +481,8 @@ export default function AppLayout() {
           floats above everything so they can always exit back to their admin
           account (while previewing, the logged-in identity IS the creator). */}
       {impersonating && (
-        // IT GETS OUT OF THE WAY BY ITSELF.
-        //
-        // This pill was pinned to the centre of the viewport bottom - which is
-        // exactly where a chat composer sits, and where the send button is on a
-        // phone. The network-preview pill below already docked aside on pages
-        // that have one; this one never learned. On any page with something at
-        // the bottom it now docks right, and on a phone it drops to the icon and
-        // the way out, because 260px of floating chrome over a 375px screen is
-        // most of what you were trying to read.
-        //
-        // It never hides, whatever the page: while previewing, the logged-in
-        // identity IS the creator, so this is the only route back.
+        // The "viewing as creator" pill docks right on pages with something at the bottom, shrinks to an icon on phones, and
+        // never hides: it is the only way back.
         <div className={cx(
           'fixed z-50 flex px-4',
           hasBottomBar
@@ -672,20 +528,10 @@ export default function AppLayout() {
         ref={headerRef}
         data-ptr-handle
         className={cx(
-          // NO BLUR ON THE STICKY HEADER. A backdrop blur on an element that stays put while the page scrolls under it
-          // is re-computed on every frame of every scroll, on every page, on a phone's GPU - a large part of "the whole
-          // platform is a bit laggy". At 95% white the blur was invisible anyway.
-          // GLASS, THE APPLE WAY. 95% white with no blur let sharp text show through the bar - see-through, not glass.
-          // `.glass-bar` (index.css) is the iOS material: a strong blur with boosted saturation over ~78% white, so what
-          // passes underneath reads as soft colour. The 9 Oct cost note stands; the blur is confined to this one 56px
-          // strip and dropped under reduced motion.
+          // The header uses `.glass-bar` (index.css): a blur confined to this 56px strip, dropped under reduced motion.
           'glass-bar sticky top-0 z-40 border-b border-black/[0.06]',
-          // SAME DURATION AND SAME CURVE AS THE CHAT OVERLAY'S TOP EDGE.
-          // They are one movement - the header goes up and the conversation
-          // grows into the space it leaves - so a different easing on each half
-          // reads as two things happening near each other. `will-change` keeps
-          // the header on its own layer so the slide never waits on a paint of
-          // the page behind it.
+          // Same duration and curve as the chat overlay's top edge, so the two read as one movement. `will-change` keeps the
+          // header on its own layer.
           'duration-[280ms] ease-[cubic-bezier(0.32,0.72,0,1)] [will-change:transform]',
           // A DM thread opens with the header already away: no slide for a header the reader never saw go.
           chatChromeFlipInstant() ? 'transition-none' : 'transition-transform',
@@ -754,14 +600,7 @@ export default function AppLayout() {
           </nav>
 
           <div className="flex min-w-0 items-center gap-2">
-            {/* SEARCH. THE SAME BUTTON, POINTED AT WHATEVER IS OPEN.
-                Everywhere else it opens the command palette, which is what a
-                keyboard shortcut nobody is told about needs. Inside a chat room
-                it searches THAT ROOM instead - because the room's own search bar
-                is gone from the phone layout, where a permanent 40px band of
-                chrome above a conversation was costing more than it earned. See
-                lib/chatSearch: the room registers itself while it is open, so
-                this is a chat search only while there is a chat to search. */}
+            {/* Search opens the command palette, or searches the open chat room when there is one (lib/chatSearch). */}
             {/* ONLY BELOW lg. A desktop room already has its own search bar above the thread, so the header keeps the
                 platform-wide palette and its ⌘K there - swapping it for a second room search made the header jump
                 narrower every time Rooms opened. */}
@@ -856,22 +695,8 @@ export default function AppLayout() {
                     </button>
                   )}
 
-                  {/* EVERYWHERE ELSE, ON A PHONE.
-                      These ten used to be a grid near the top of the Worldwide
-                      hub. That grid was a good answer to a real problem - the
-                      rail is at the BOTTOM of a long page on mobile, so the ten
-                      most useful destinations in the product were a full scroll
-                      away - but it solved it by putting a navigation block in
-                      the middle of a content page. The menu behind your own
-                      avatar is where navigation belongs, it is one thumb-reach
-                      from anywhere, and it works on every page rather than only
-                      on the hub.
-                      AND ON A DESKTOP TOO, NOW. This used to be `lg:hidden`, on the reasoning that a desktop has the
-                      rail on the Worldwide hub and two lists of the same ten links on one screen is duplication. That is
-                      true on the hub and false everywhere else, which is most of the app: from a challenge, a chat, the
-                      flight log or the admin panel there was no way to reach the collab board or the community board at
-                      all without going back to Worldwide first. The rail and the menu read the same list from
-                      lib/networkLinks, in the reader's own saved order, so the two can never drift apart. */}
+                  {/* The network links (lib/networkLinks) in the avatar menu on every device, in the reader's saved order; the hub rail
+                     reads the same list. */}
                   <div>
                       <p className="px-3 pb-1 pt-3 text-[11px] font-semibold uppercase tracking-wide text-gray-400">{tr("Explore the community")}</p>
                       {menuLinks.map((l) => (
@@ -921,13 +746,8 @@ export default function AppLayout() {
         </div>
       </header>
 
-      {/* ------- Page content (extra bottom room for the tab bar + safe area) -------
-          THE SUSPENSE BOUNDARY IS HERE, NOT IN App.jsx, and that is the whole
-          of the "tapping a tab flashes the loading screen" report. A boundary
-          above the layout takes the header and the tab bar down with the page
-          while a route chunk arrives; one inside `<main>` leaves the chrome
-          standing and swaps only the content for the shape of what is coming.
-          See components/RouteSkeleton. */}
+      {/* Page content. The Suspense boundary is inside <main>, so the header and tab bar stay while a route chunk loads
+         (see components/RouteSkeleton). */}
       <main className="flex-1 pb-[calc(6rem+env(safe-area-inset-bottom))] lg:pb-0">
         <PushBanner />
         <Suspense fallback={<RouteSkeleton />}>
@@ -954,41 +774,10 @@ export default function AppLayout() {
           the overlay it can open is lazy - see TourGate. */}
       <TourGate />
 
-      {/* ------- Mobile bottom tab bar -------
-          Bottom padding includes the iPhone home-indicator safe area so the
-          tabs sit higher and stay easily tappable.
-
-          IT CAME OFF THE BOTTOM OF THE SCREEN AND WALKED UP THE PAGE (second report).
-
-          Fair. Last time I looked for the cause and could not find one, and
-          shipped nothing. Everything that can detach a `position: fixed`
-          element is removed this time, whichever of them it actually was:
-
-          1. A TRANSFORMED ANCESTOR. `position: fixed` resolves against the
-          nearest ancestor carrying a transform, filter, perspective or
-          `will-change` - and against one of those it is not fixed to the
-          screen at all, it is fixed to that box, which scrolls. Nothing in
-          this tree has one TODAY (`page-in` is deliberately opacity-only,
-          see tailwind.config.js), and nothing can be allowed to acquire one
-          tomorrow either: the bar is PORTALLED to the body, so the entire
-          app tree stops being its ancestry. React context crosses a portal,
-          so `NavLink` and the router are unaffected.
-
-          2. `backdrop-filter` ON A FIXED ELEMENT. This is a known WebKit
-          compositing failure and it produces exactly the photograph: the
-          blurred layer is promoted, and Safari then fails to re-pin it
-          during a scroll that also moves the address bar, so it rides up
-          with the content. It is also the change that costs nothing to
-          make - the ground was already `bg-white/95`, and a 5% window onto
-          a blur is not a design, it is a rounding error. Opaque white.
-
-          3. NO LAYER OF ITS OWN. `translateZ(0)` is the oldest fix in iOS web
-          development for a fixed element that lags or jumps while
-          scrolling, and it is the right one once (2) is gone: the bar gets
-          a compositing layer that is pinned by the compositor rather than
-          re-rasterised per frame by the main thread. The keyboard slide
-          composes into the SAME property so there are never two mechanisms
-          writing one transform. */}
+      {/* Mobile bottom tab bar. Bottom padding includes the home-indicator safe area.
+         Kept pinned to the screen three ways: portalled to the body (a transformed ancestor would make `fixed` scroll with
+         it), opaque white with no backdrop-filter (WebKit fails to re-pin a blurred fixed element), and its own compositing
+         layer (`translateZ(0)`, composed with the keyboard slide into one transform). */}
       {createPortal(
         <nav
         ref={tabBarRef}
@@ -1017,12 +806,7 @@ export default function AppLayout() {
             >
               <span className="relative">
                 <Icon name={tab.icon} className="h-6 w-6" />
-                {/* THE SAME MARK ON BOTH TABS THAT CAN CARRY ONE. Messages had
-                    it; Rooms did not, so a creator on any other screen had no
-                    way at all of knowing a room had been spoken in - which is
-                    the reported bug. Both pulse now (see components/UnreadDot),
-                    and both sit in the icon's own corner with a white ring so
-                    they read against the glyph. */}
+                {/* The unread mark on both Messages and Rooms (components/UnreadDot). */}
                 {((tab.to === '/messages' && dmUnread > 0) || (tab.to === '/rooms' && roomsUnread > 0)) && (
                   <span
                     className="absolute -right-1.5 -top-1 flex h-2.5 w-2.5 items-center justify-center"

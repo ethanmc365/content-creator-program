@@ -16,28 +16,14 @@ import { moneyApi } from '../../api/money'
 
 // THE WALKTHROUGH, DRAWN AND DRIVEN.
 //
-// Three layers:
-//   THE GLOW      a heavy brand frame round the whole viewport for the entire
-//                 walk, so there is never any doubt what mode the app is in.
-//   THE SPOTLIGHT a hole cut in a dark scrim over the thing being talked about.
-//                 ONE element: a rounded rect with an enormous box-shadow
-//                 spread, which darkens everything outside it.
-//   THE CARD      the words, the one progress bar, and the instruction.
+// Three layers: a brand glow round the viewport for the whole walk; a spotlight (one rounded rect with a huge
+// box-shadow spread that darkens everything else); and the card (words, progress, instruction).
 //
-// TWO ARCHITECTURAL DECISIONS THAT MATTER
-//
-// 1. REACT OWNS THE CONTENT, A rAF LOOP OWNS THE GEOMETRY.
-//    Tracking a scrolling anchor through React state means a setState per
-//    frame, and a re-render of the whole overlay per frame with it. That is
-//    what "the highlighted box is not smooth" was. Position is written STRAIGHT
-//    to the elements' styles inside one rAF loop now; React re-renders only
-//    when the step changes. Nothing to batch, nothing to reconcile, no jank.
-//
-// 2. NOTHING IS TRAPPED, AND THERE IS NO NEXT BUTTON.
-//    The scrim is pointer-events:none throughout, so every control underneath
-//    stays live - and the walk advances when the creator actually does the
-//    thing: taps the nav, scrolls the brief, presses Connect, turns
-//    notifications on. Pressing Next teaches you how to press Next.
+// Two decisions:
+// 1. React owns the content; one rAF loop writes the geometry straight to the elements' styles, so the overlay
+//    does not re-render every frame. React re-renders only when the step changes.
+// 2. Nothing is trapped and there is no Next button: the scrim is pointer-events:none, and a step advances when the
+//    creator actually does the thing (taps the nav, scrolls, presses Connect, turns notifications on).
 
 const PAD = 8
 
@@ -50,30 +36,12 @@ function findAnchor(name) {
   }) || null
 }
 
-// `required` IS THE FIRST RUN, AND THE FIRST RUN IS NOT OPTIONAL.
-//
-// So there are two kinds of walk. The one that STARTS ITSELF for a newly
-// approved creator has no X and no "Skip this": every step is a single press on
-// something the card is pointing at, and the point of it is that by the end
-// they have actually been to the challenges board, the rooms, and turned
-// notifications on. The one somebody ASKS FOR from Settings is a refresher and
-// closes like any other overlay.
-//
-// TWO STEPS STAY ESCAPABLE EVEN ON A FIRST RUN, and both are deliberate:
-//   payment       - "I'll do this later". A hard gate on bank details produces
-//                   somebody who closes the app, and somebody genuinely may not
-//                   have their IBAN on them. BankDetailsPrompt asks again.
-//   notifications - already its own gate, which RELEASES on `denied`, because
-//                   a browser that has been told Block will never ask again and
-//                   holding it there strands somebody at 83% with no way out.
-// HOW LONG THE CARD AND THE SPOTLIGHT TAKE TO TRAVEL BETWEEN STEPS.
-//
-// It has to be a little LONGER than the CSS transition (index.css, 820ms), not
-// equal to it: the attribute that enables the transition is turned off when
-// this window closes, and turning it off on the exact frame the transition ends
-// is a race that sometimes clips the last few pixels into a jump. 950 gives it
-// room and is still short enough that a scroll immediately after a step does
-// not drag the box behind the page.
+// `required` = the first run, which starts itself and cannot be closed: every step is one press on something the
+// card points at. A walk started from Settings is a refresher and closes like any overlay.
+// Two steps stay skippable even on a first run: payment ("I'll do this later"; BankDetailsPrompt asks again) and
+// notifications once the browser has blocked them (it will never ask again).
+// TRAVEL_MS is a little longer than the CSS transition (820 ms in index.css) so turning the transition off never
+// clips its last frames.
 const TRAVEL_MS = 950
 
 export default function TourHost({ onFinish, network = false, layout = 'desktop', required = false, variant = null }) {
@@ -99,22 +67,9 @@ export default function TourHost({ onFinish, network = false, layout = 'desktop'
   // real step so a shortened walk can never resume off the end.
   const [i, setI] = useState(() => Math.min(savedStep(layout), stepsFor({ network, vip }).length - 1))
   const [ready, setReady] = useState(false)
-  // THE SPOTLIGHT FADES IN ONCE, AT THE START OF THE WALK, AND THEN TRAVELS.
-  // See the note where it is rendered: dropping it to invisible on every step
-  // is half of "it just disappears and appears". State rather than a ref
-  // because it is read during render.
-  // A TRANSITION RETARGETED EVERY FRAME DOES NOT ANIMATE, IT STUTTERS.
-  //
-  // The loop runs at display rate and wrote `top`/`left` on every tick. While
-  // `data-travel` is on that is a transition being handed a new destination
-  // sixty times a second - and the resting position is computed from the card's
-  // own height, which drifts by a pixel or two as content and webfonts settle.
-  // So the card was continually re-aiming at a target a pixel away and never
-  // completing a single movement.
-  //
-  // The fix is not to slow the loop down - it still has to track a scroll - but
-  // to STOP WRITING A VALUE THAT IS ALREADY WHAT WE WANT. A one-pixel deadband
-  // is below what anybody can see and is far more than the jitter needs.
+  // The spotlight fades in once at the start of the walk and then travels (state, because it is read during render).
+  // A one-pixel deadband: the loop runs every frame, but only writes a position that actually changed, or the CSS
+  // transition is retargeted every frame and stutters.
   const [litOnce, setLitOnce] = useState(false)
   // THE WALK LEAVES THE WAY IT ARRIVED. Everything else about this component is about movement; ending it with a hard
   // cut is the one moment that undoes that impression. `data-closing` fades the card, the spotlight and the glow
@@ -132,46 +87,12 @@ export default function TourHost({ onFinish, network = false, layout = 'desktop'
   const travelUntil = useRef(0)
   const advanced = useRef(false)
 
-  // IS THIS STEP LIVE? A REF, BECAUSE `ready` IS A FRAME BEHIND WHERE IT MATTERS.
-  //
-  // Exactly one frame of the rAF loop caused that, and it is a React ordering
-  // problem rather than a geometry one. Advancing a step re-renders with the
-  // new step, and effects then run in declaration order:
-  //
-  //   1  the height effect measures the NEW card and writes `targetH`
-  //   2  the step-entry effect calls `setReady(false)`
-  //   3  the LOOP effect re-runs - because `step.anchor` is in its deps - and
-  //      `ready` is still `true` in this render's closure, because a state
-  //      update queued one line earlier has not re-rendered anything yet.
-  //
-  // So the loop starts, with the new step's anchor, on a page that has not
-  // scrolled to it yet. The anchor is off screen, which the loop correctly
-  // treats as "no anchor", so it puts the card in its RESTING place - computed
-  // from the new, shorter height, and `restingPlace` is bottom-anchored
-  // (`top = vh - h - 32`), so a shorter card gets a LARGER top. The card glides
-  // DOWN. A beat later the scroll settles, `ready` really is true, the anchor is
-  // visible, and it glides back up to the tab bar. Down, then up: precisely
-  // what he saw, on precisely the step where the walk first has to scroll.
-  //
-  // `ready` cannot be trusted here because it is state; this ref is written
-  // synchronously by the step-entry effect, which runs BEFORE the loop effect,
-  // so the loop sees the truth on the frame it needs it.
+  // Is this step live: a ref, written by the step-entry effect before the loop effect runs. `ready` is state and is
+  // one render behind, which made the card glide down and back up on the first step that scrolls.
   const live = useRef(false)
 
-  // THE WORDS CHANGE WHEN THE CARD STARTS MOVING, NOT BEFORE.
-  //
-  // Exactly what it did. Pressing a step advances `i`, React re-renders the
-  // card with the next step's title, body and instruction on that very frame,
-  // and the card then sits at the OLD position wearing the NEW words for as
-  // long as the settle poll takes - which on a step that scrolls is most of a
-  // second. The reader gets the answer before the movement that was supposed to
-  // deliver it, and the movement then looks like an afterthought.
-  //
-  // So the CONTENT runs one beat behind the GEOMETRY. `i` still changes
-  // immediately - the anchor, the scroll and the destination all have to be the
-  // new step's, because that is what is being travelled towards - and `shown`
-  // only catches up inside `settle()`, which is the moment the travel window
-  // opens. One index for where the card is going, one for what it says.
+  // The words change when the card starts moving: `i` (where the card is going) changes at once, `shown` (what it
+  // says) catches up in `settle()` when the travel window opens.
   const [shown, setShown] = useState(i)
 
   const lastWrite = useRef({})
@@ -192,29 +113,8 @@ export default function TourHost({ onFinish, network = false, layout = 'desktop'
 
 
 
-  // THE CARD IS PLACED BEFORE ITS FIRST PAINT, NOT AFTER IT.
-  //
-  // `.tour-card` is `position: fixed` and, since 7 Sep, CSS gives it NO `top`
-  // and NO `left` - deliberately, because two mechanisms moving one element is
-  // the fault that whole rewrite existed to remove, and the rAF loop owns every
-  // position the card ever takes. But that loop does not run until `ready`,
-  // and `ready` waits for the page to stop scrolling. The card is rendered
-  // immediately. So for those first frames it was a fixed element with
-  // `top: auto; left: auto`, which resolves to its STATIC position - the
-  // top-left corner of the viewport. It was not animating from there; it was
-  // being painted there, and then correctly placed a beat later.
-  //
-  // This does not reopen the two-mechanisms door: it is the same function
-  // (`restingPlace`) writing the same kind of value (pixels) to the same
-  // element the loop writes to. It is the loop's first frame, brought forward
-  // to before the browser paints.
-  //
-  // `useLayoutEffect` is the whole point - it runs after the DOM exists and
-  // BEFORE the paint, so the measured height is real and the wrong position is
-  // never on screen for even one frame. In a `useEffect` this would simply be a
-  // faster version of the same flash.
-  //
-  // Mount only. Every position after this one belongs to the loop.
+  // Place the card before its first paint (useLayoutEffect, mount only), using the same `restingPlace` the loop uses.
+  // Otherwise a fixed element with no top/left paints at the top-left corner for a few frames.
   useLayoutEffect(() => {
     const card = cardRef.current
     // On a phone the card is a sheet pinned by CSS (`.tour-card--sheet`), so it
@@ -240,44 +140,14 @@ export default function TourHost({ onFinish, network = false, layout = 'desktop'
   // until it sets off. They are the same object except during a step change.
   const said = steps[Math.min(shown, steps.length - 1)]
 
-  // THE CARD'S HEIGHT IS WRITTEN IN PIXELS SO THE CSS TRANSITION HAS SOMETHING
-  // TO MOVE BETWEEN. `height: auto` cannot be transitioned.
-  //
-  // Steps carry different amounts of text, so the box is 210px on one and 330px on the next, and the height was snapping
-  // on the frame the words changed while the card was still gliding across the screen.
-  //
-  // MEASURED BY UNSETTING IT FIRST. The card IS the thing being sized, so its
-  // own `scrollHeight` while a fixed height is applied would just read that
-  // height back. `auto` then read then set is one synchronous layout on one
-  // fixed-position element, on a step change only - not per frame.
-  //
-  // RE-MEASURED THREE TIMES rather than watched with a ResizeObserver: an
-  // observer on the card would see the height WE set and loop, and one on the
-  // inner column does not fire for the pinned rows above and below it. Content,
-  // webfonts and the "Nice one" tick all settle inside 200ms.
-  //
-  // `targetH` is what the RESTING PLACE is computed from, deliberately. Using
-  // the live `offsetHeight` would move the card's target every frame while the
-  // height was still easing - which is precisely the retargeting stutter the
-  // deadband below exists to prevent, reintroduced by the back door.
+  // The card's height is written in pixels so the CSS transition can animate it (`height: auto` cannot be).
+  // Measured by unsetting it first, three times over 200 ms (content, webfonts and the tick settle); not a
+  // ResizeObserver, which would see our own writes. The resting place uses `targetH`, never the live height.
   const targetH = useRef(0)
   useEffect(() => {
     const card = cardRef.current
     if (!card || isPhone) return undefined
-    // A RE-MEASURE THAT MOVES THE CARD BY THREE PIXELS IS NOT WORTH HAVING.
-    //
-    // The resting place is bottom-anchored (`top = vh - h - 32` in
-    // lib/tourPlacement), so the card's TOP is a function of its HEIGHT. The
-    // two re-measures below exist for real reasons - webfonts and the "Nice
-    // one" tick settle after the first paint - but a webfont settling changes
-    // the height by a couple of pixels, and on a resting card that is a couple
-    // of pixels of downward movement, applied mid-glide, on top of a 500ms
-    // height transition. Two animations of the same edge, in the same moment,
-    // which is exactly what reads as a jump.
-    //
-    // So a re-measure has to be worth something: 5px is well under the smallest
-    // real content change (a line of text is ~20px) and well over anything font
-    // settling produces. Below that the first measurement stands.
+    // Ignore re-measures under 5 px (font settling), so a resting card does not shift mid-glide.
     const MIN_DELTA = 5
     const apply = (force = false) => {
       card.style.height = 'auto'
@@ -363,29 +233,12 @@ export default function TourHost({ onFinish, network = false, layout = 'desktop'
       if (!sameRoute) navigate(to)
     }
 
-    // OPEN THE DRAWER THE THING IS IN.
-    //
-    // , and later, on the settings step: "the card's actually covering the settings drop down, so I'm kinda unable to
-    // click on it."
-    //
-    // Half the destinations in this walk - the collab board, the flight log,
-    // the games, the milestones, settings - are not tabs. They live behind the
-    // avatar menu, and a step that highlights a closed menu and then names
-    // something inside it is asking somebody to find a door they cannot see.
-    // A step marked `openMenu` presses the avatar itself, so the item the card
-    // is talking about is on screen when the card appears.
-    //
-    // It only OPENS it. Closing is the app's business - and if it is already
-    // open, pressing again would close it, which is why the state is checked.
+    // Steps marked `openMenu` press the avatar first, so the item the card names is on screen. Only opens; if the menu
+    // is already open, leave it.
     if (step.openMenu) {
       const menu = document.querySelector('[data-tour="avatar-menu"]')
       if (menu && menu.getAttribute('aria-expanded') !== 'true') menu.click()
-      // AND SCROLL TO THE THING IT IS TALKING ABOUT. The menu is eighteen items
-      // long and both of the steps that open it point at something past the
-      // halfway mark - "Creator Network" is sixth, "Travel games" twelfth - so
-      // opening it and saying the name still left somebody scrolling a list
-      // looking for a word. The panel is scrolled so the item is in view before
-      // the card appears.
+      // And scroll the menu so the item is in view before the card appears.
       const dest = (g?.kind === 'route') ? g.to : null
       if (dest) {
         setTimeout(() => {
@@ -396,65 +249,11 @@ export default function TourHost({ onFinish, network = false, layout = 'desktop'
       }
     }
 
-    // IT WAITS FOR THE PAGE TO STOP MOVING, NOT FOR A NUMBER.
-    //
-    // This was `setTimeout(..., 300)`, and 300 was a guess at how long a smooth
-    // scroll takes. It is wrong in both directions and both are visible:
-    //
-    //   TOO LONG.  Most steps do not scroll at all - the tab bar is already on
-    //              screen. The card's words changed instantly (React) and then
-    //              NOTHING happened for three hundred milliseconds, because the
-    //              rAF loop is the only thing that writes a position and it does
-    //              not run until `ready`. That dead beat is the freeze, and it
-    //              is on the majority of steps.
-    //   TOO SHORT. A real smooth scroll on a long page takes longer than 300ms,
-    //              so the loop started measuring a page that was still moving,
-    //              and the 560ms travel window was mostly spent tracking a
-    //              scroll rather than gliding to a target. That is the jump.
-    //
-    // So it waits for the actual event: two consecutive samples with the page
-    // at the same offset. No scroll at all settles in ~80ms, which reads as
-    // immediate; a long smooth scroll takes as long as it takes. The 900ms cap
-    // is the backstop for a scroll inside a container `window.scrollY` cannot
-    // see (the account menu, the chat scroller) and for a page that never
-    // settles at all.
-    //
-    // AND THE ANCHOR IS SCROLLED INTO VIEW *HERE*, BEFORE THE POLL - WHICH IS
-    // THE WHOLE OF "IT'S REALLY, REALLY SHAKY".
-    //
-    // One step juddered and the rest did not, and that is the clue. This
-    // `scrollIntoView` used to live in the rAF loop effect below, which runs
-    // only AFTER `ready` - so the order was:
-    //
-    //   1. wait for the page to stop moving          -> ready
-    //   2. open the 950ms travel window
-    //   3. START A SMOOTH SCROLL                     <- here
-    //   4. glide the card... at a target that moves every frame
-    //
-    // The settle poll's entire purpose is step 1, and step 3 undid it. For the
-    // whole of the card's 820ms CSS transition the page was smooth-scrolling
-    // underneath, the anchor's rectangle was different on every frame, and the
-    // loop handed the in-flight transition a NEW destination sixty times a
-    // second. A transition that is retargeted every frame never completes one;
-    // it restarts, which is exactly what shaking looks like.
-    //
-    // It juddered on the FIRST anchored step because that is the one that
-    // actually scrolls: the walk starts at the foot of the hub and the first
-    // anchor is the tab bar at the top. By the time it reaches Challenges,
-    // Rooms and the account menu, the chrome is already on screen, no scroll
-    // happens, and the same code looks perfect - "it moves nicely over to where
-    // everyone talks".
-    //
-    // Scrolling first and letting the existing poll wait for it costs nothing
-    // and needs no new machinery: the poll was already written to wait for
-    // exactly this event and was simply being started too early.
-    //
-    // THE ANCHOR MAY NOT EXIST YET. A step that navigates has just called
-    // `navigate(to)` a few lines up and the new page has not rendered, so the
-    // element is not findable on this tick. `hunt` retries for 400ms, and the
-    // poll does not start until the scroll has been kicked off or given up on -
-    // otherwise the page could be declared "settled" (80ms) before the scroll
-    // had even begun, which is the original bug wearing a different hat.
+    // Wait for the page to stop moving (two samples at the same offset; ~80 ms when nothing scrolls, 900 ms cap), not a
+    // fixed delay.
+    // The anchor is scrolled into view HERE, before the poll, so the card never glides towards a target that is still
+    // scrolling (that caused the shaking). The anchor may not exist yet after a navigation: `hunt` retries for 400 ms,
+    // and the poll only starts once the scroll has begun or been given up on.
     let settled = false
     let poll = 0
     let cap = 0
@@ -482,14 +281,7 @@ export default function TourHost({ onFinish, network = false, layout = 'desktop'
     const scrollToAnchor = () => {
       const el = findAnchor(step.anchor)
       if (!el) return false
-      // A TALL ANCHOR IS SCROLLED TO THE TOP, NOT THE MIDDLE.
-      //
-      // Centring is right for a nav item and wrong for the live challenge card,
-      // which is 578px of a 900px window: centred, it leaves ~160px above and
-      // ~160px below, and the walkthrough card is 305px - so nothing fits
-      // above, below or beside it and the card has to overlap the very thing it
-      // is pointing at. Scrolled to the top, the same anchor leaves the whole
-      // lower half of the window free.
+      // A tall anchor (the live challenge card) is scrolled to the top, leaving the lower half free for the card.
       const tall = el.getBoundingClientRect().height > window.innerHeight * 0.4
       el.scrollIntoView({ block: tall ? 'start' : 'center', behavior: 'smooth' })
       return true
@@ -520,22 +312,8 @@ export default function TourHost({ onFinish, network = false, layout = 'desktop'
     if (location.pathname.startsWith(goal.to)) finishStep()
   }, [ready, goal, location.pathname, finishStep])
 
-  // ---------------------------------------------------- goal: they scroll ---
-  //
-  // IT LISTENED TO THE WINDOW AND ONLY THE WINDOW.
-  //
-  // They were scrolling, and the step could not tell.
-  //
-  // `window.scrollY` is right for a page that scrolls the document, and this
-  // app has several surfaces that do not: a chat thread, the market rail, any
-  // dialog with a scroller in it. A scroll inside one of those fires a `scroll`
-  // event on THAT element, and a scroll event does not bubble - so a listener
-  // on `window` never hears it and the step waits for ever with no way past.
-  //
-  // The capture phase hears every scroll in the document, whatever scrolled.
-  // Progress is the largest distance anything has moved since the step began,
-  // which is the honest reading of "they scrolled": the creator does not know
-  // or care which element owns the wheel.
+  // Goal: they scroll. Listens in the capture phase, because scrolls inside inner scrollers do not bubble to window.
+  // Progress is the largest distance anything has moved since the step began.
   useEffect(() => {
     if (!ready || goal?.kind !== 'scroll') return undefined
     const seen = new Map()   // element -> where it was when the step started
@@ -579,12 +357,7 @@ export default function TourHost({ onFinish, network = false, layout = 'desktop'
   // doing it - `connect` sent a real connection request to a real stranger as a side effect of a tutorial. Neither is
   // coming back.
 
-  // -------------------------------------- goal: they add payment details ---
-  //
-  // Polled rather than pushed, for the same reason the push goal is: the field
-  // lives on a page this component does not own and does not want to reach
-  // into. `payeeComplete` is the SAME test the invoice uses, so "the tour says
-  // I have done it" and "an invoice can actually be paid" cannot disagree.
+  // Goal: payment details. Polled; `payeeComplete` is the same test the invoice uses.
   useEffect(() => {
     if (!ready || goal?.kind !== 'payee' || !user?.id) return undefined
     let alive = true
@@ -599,19 +372,8 @@ export default function TourHost({ onFinish, network = false, layout = 'desktop'
     return () => { alive = false; clearInterval(id) }
   }, [ready, goal, user?.id, finishStep])
 
-  // ---------------------------------------------------- goal: they allow ---
-  // GRANTED IS SHOWN, NOT SKIPPED PAST.
-  //
-  // The poll ran every 500ms and called `finishStep` the instant it saw
-  // `granted`, so somebody who already had notifications on saw the card appear
-  // and vanish. That is not a step, it is a flicker - and it silently skips the
-  // one confirmation in the walk that is worth having: this is the thing that
-  // tells them a brief has gone live, and being SHOWN that it is on is the
-  // point of the step whether they had to press anything or not.
-  //
-  // `finishStep` already draws a "Nice one" tick and waits 620ms before moving.
-  // What this adds is a deliberate beat BEFORE that, only on the already-on
-  // path, so the card is readable rather than a frame of orange.
+  // Goal: notifications allowed. When they were already on, show the card for a beat before the "Nice one" tick,
+  // instead of skipping past it.
   const ALREADY_ON_BEAT_MS = 1500
   useEffect(() => {
     if (goal?.kind !== 'push') return undefined
@@ -646,20 +408,7 @@ export default function TourHost({ onFinish, network = false, layout = 'desktop'
   // this runs at display rate without re-rendering anything.
   useEffect(() => {
     if (!ready) return undefined
-    // THE TRAVEL WINDOW STARTS WHEN THE LOOP DOES, NOT WHEN THE STEP DOES.
-    //
-    // That is exactly what it did, and the sequence is worth writing down.
-    // Entering a step sets `ready = false` and arms a 300ms timer; React
-    // meanwhile re-renders the card with the NEW step's words immediately. The
-    // rAF loop is the only thing that writes `top`/`left`, and it does not run
-    // while `ready` is false - so for 300ms the new text sat at the OLD
-    // position, doing nothing. That is the freeze. `travelUntil` was stamped at
-    // the START of that 300ms, so by the time the loop finally ran the transition
-    // window had most of a frame left in it: the card arrived by teleport. That
-    // is the jump.
-    //
-    // Stamping it here means the window covers the movement itself, so the
-    // freeze becomes a beat and the jump becomes a glide.
+    // The travel window starts when the loop starts, not when the step changes, so it covers the movement itself.
     travelUntil.current = Date.now() + TRAVEL_MS
     const anchorName = step?.anchor
     // (The `scrollIntoView` that used to be here has moved into the step-entry
@@ -667,52 +416,12 @@ export default function TourHost({ onFinish, network = false, layout = 'desktop'
     // See the long note there: starting a smooth scroll at the same moment as
     // the card's travel window was the whole of the shaking.)
 
-    // ARMED TWO WAYS, FOR THE REASON lib/chatScroll ALREADY LEARNED.
+    // ARMED TWO WAYS: an rAF and a timer, whichever comes first (rAF does not run in a background tab or hidden pane,
+    // and this loop is the only thing that positions the card and spotlight).
     //
-    // `requestAnimationFrame` does not run in a background tab, in a hidden
-    // pane, or under some automation - and this loop is the ONLY thing that
-    // positions the spotlight and the card. When it does not run, the spotlight
-    // stays at its initial zero size and the card stays at its CSS default,
-    // which is bottom-centre - directly over the thing the step is pointing at.
-    // The walkthrough has always had this hole; the chat scroller was fixed for
-    // it months ago and this was never given the same treatment.
-    //
-    // Each step arms an rAF AND a timer, and whichever arrives first runs,
-    // cancelling the other. Foreground gets frame-accurate tracking; anywhere
-    // rAF is throttled still gets a correctly placed card, just on a timer.
-    // ---------------------------------------------------------------
-    // AND IT IDLES WHEN NOTHING IS MOVING.
-    //
-    // The animations themselves are CSS transitions on the spotlight and the
-    // card, and they are the right duration and the right curve. What was
-    // making them stutter is what this loop does WHILE they run.
-    //
-    // `measure()` is not cheap. Every pass calls `findAnchor`, takes a
-    // `getBoundingClientRect()`, runs `document.querySelectorAll` for the
-    // keep-out rectangles and takes a rect for each of those, and reads
-    // `card.offsetWidth`. Every one of those forces the browser to flush
-    // layout. It was doing that at display rate for the ENTIRE walkthrough -
-    // sixty forced layouts a second for two minutes - and the frames it was
-    // competing with are the frames the spotlight's transition needs, which is
-    // a 9,999px box-shadow being repainted as it moves. The tracking loop and
-    // the animation were fighting over the same main thread, and the animation
-    // is the one that loses visibly.
-    //
-    // It has to run at display rate for exactly two reasons: while the card and
-    // spotlight are TRAVELLING between steps, and while the page is moving
-    // under them. Both are known. The rest of the time - which is most of a
-    // walkthrough, because a step sits there until somebody presses something -
-    // nothing it measures can have changed, and the correct number of layout
-    // flushes is none.
-    //
-    // So: full rate while travelling or while anything has just moved, and a
-    // slow heartbeat once the geometry has been identical for a few frames.
-    // Anything that could move the page wakes it instantly, and the heartbeat
-    // is the backstop for whatever those listeners miss.
-    //
-    // The initial step benefits most, which is what the team noticed: it is the one running while route chunks are still
-    // importing and webfonts are still settling, so it has the least main thread to spare.
-    // ---------------------------------------------------------------
+    // AND IT IDLES WHEN NOTHING IS MOVING. `measure()` forces layout (rects, querySelectorAll, offsetWidth), and at
+    // display rate for the whole walk it competed with the spotlight's repaint. It runs at full rate while travelling or
+    // after something moved, and a slow heartbeat otherwise; scroll, resize and transition events wake it at once.
     const IDLE_AFTER = 8      // identical frames before it stands down
     const IDLE_MS = 250       // the heartbeat once it has
 
@@ -736,17 +445,8 @@ export default function TourHost({ onFinish, network = false, layout = 'desktop'
       tickRef.current = setTimeout(once, 32)
     }
 
-    // EVERY FRAME IS GUARDED, AND THAT IS NOT BELT AND BRACES.
-    //
-    // The last time this loop threw - an unguarded `r.top` three lines after a
-    // test that already knew `r` might be undefined - it threw sixty times a
-    // second for ever, because `schedule()` runs FIRST and re-arms before
-    // anything else can fail. Nothing after the throw ran: the spotlight froze
-    // on the previous step's anchor, the card stopped being placed, and the
-    // walkthrough looked dead. That specific bug is fixed, but the SHAPE of it
-    // is the thing to remove: a geometry loop must not be able to take the
-    // feature down, whatever a future edit does to it. A frame that throws is a
-    // frame that is skipped now, and the next one still runs.
+    // Every frame is guarded: a frame that throws is skipped and the next one still runs (an unguarded throw used to
+    // freeze the walk, because `schedule()` re-arms first).
     const tick = () => {
       try {
         const sig = measure()
@@ -795,38 +495,9 @@ export default function TourHost({ onFinish, network = false, layout = 'desktop'
       // is welded to its target, so a scroll cannot leave it swimming behind.
       const travelling = Date.now() < travelUntil.current
       spot.dataset.travel = travelling ? 'yes' : 'no'
-      // THE SIGNATURE THE IDLE CHECK COMPARES. It is every input the writes
-      // below depend on, rounded to the pixel they are written at - so two
-      // frames with the same signature cannot produce different output, which
-      // is the property that makes skipping the second one safe.
-      //
-      // AND IT NOW IDLES *DURING* THE GLIDE TOO, WHICH IS THE OPPOSITE OF WHAT
-      // THIS USED TO DO.
-      //
-      // This returned `null` while travelling, explicitly so the loop could
-      // never stand down mid-glide - the reasoning being that a glide is when
-      // accuracy matters most. That reasoning is backwards, and it was costing
-      // the animation the frames it needed.
-      //
-      // Nothing this function measures CHANGES during a glide. The page has
-      // already stopped moving (that is what the settle poll upstream waits
-      // for), the anchor is where it is, and the destination is computed from
-      // `targetH`, which is a constant for the step. The movement itself is a
-      // CSS transition: the loop's only job is to have written the destination
-      // once. So for the whole 820ms it was re-running `findAnchor`, a
-      // `getBoundingClientRect`, a `querySelectorAll('[data-tour-keepout]')`, a
-      // rect for each of those and an `offsetWidth` - fifty-odd forced layout
-      // flushes, on the main thread, competing for exactly the frames the
-      // spotlight's full-viewport scrim repaint needs. Measured on a static
-      // step this loop already drops from 60 rect calls a second to 4; the
-      // glide was the one place still paying the old price, and the glide is
-      // the only part anybody watches.
-      //
-      // `travelling` is IN the signature rather than excluded from it, so the
-      // frame where the window closes has a different signature and wakes the
-      // loop up to flip `data-travel` off. Anything that could genuinely move
-      // the page mid-glide - a scroll, a resize, a transition ending - wakes it
-      // instantly through the listeners below.
+      // The signature the idle check compares: every input the writes depend on, rounded to the pixel. Same signature,
+      // same output, so skipping is safe. It idles during the glide too: nothing it measures changes while the CSS
+      // transition runs. `travelling` is in the signature so the frame where the window closes wakes the loop.
       const sig = [
         travelling ? 'T' : 'S',
         visible ? `${Math.round(r.top)},${Math.round(r.left)},${Math.round(r.width)},${Math.round(r.height)}` : 'none',
@@ -839,30 +510,8 @@ export default function TourHost({ onFinish, network = false, layout = 'desktop'
       // is OFF the rest of the time, or following a scroll would leave it swimming behind.
       if (cardRef.current) cardRef.current.dataset.travel = travelling ? 'yes' : 'no'
 
-      // THE LIT AREA IS THE ANCHOR PLUS WHATEVER IT OPENED.
-      //
-      // The spotlight cuts a hole in a scrim, and the hole used to be the anchor alone. On the two steps that open the
-      // account menu that meant the avatar was lit and the MENU - the thing the card had just told you to use - sat
-      // under the dim, greyed out like the rest of the page. The same `data-tour-keepout` rectangles that keep the card
-      // off it belong inside the hole for the same reason: they are part of what the step is about. `visible` IS CHECKED
-      // BEFORE `r` IS READ, AND THAT IS THE WHOLE OF "IF I CLICK A BUTTON IT ALL JUST GOES AWAY".
-      //
-      // This was an unconditional `union([{ top: r.top,... }])`, three lines after a `visible` test that already knew
-      // `r` could be undefined. So the moment a step's anchor was not in the DOM - which is EVERY step for the frames
-      // between navigating and the new page rendering, and permanently for the notifications step on a device that has
-      // blocked push - this threw:
-      //
-      //     TypeError: Cannot read properties of undefined (reading 'top')
-      //
-      // inside the rAF loop. `schedule()` runs first, so the loop re-armed and
-      // threw again on the next frame, for ever. Nothing after the throw ever
-      // ran: the spotlight froze on the PREVIOUS step's anchor and the card
-      // stopped being positioned entirely. On a phone, where a navigation takes
-      // long enough that the anchor is reliably missing on the first tick, that
-      // is most taps.
-      //
-      // Found by reading the console rather than the code: it was filling with
-      // one of these per frame.
+      // The lit area is the anchor plus anything it opened (the `data-tour-keepout` rectangles, e.g. the account menu).
+      // `visible` is checked before `r` is read: the anchor is missing for a few frames after every navigation.
       const lit = visible
         ? union([
           { top: r.top, left: r.left, width: r.width, height: r.height },
@@ -890,22 +539,9 @@ export default function TourHost({ onFinish, network = false, layout = 'desktop'
       // The card. On a phone it is a sheet pinned by CSS, so nothing to do.
       const card = cardRef.current
       if (!card || isPhone) return sig
-      // A STEP WITH NO ANCHOR NO LONGER PUTS THE CARD OVER THE PAGE. It was: with no anchor the card went dead centre,
-      // which is exactly where the content they were being asked to look at lives. A card asking you to read something
-      // must not be on top of it, so these steps pin it low and out of the way instead. `data-centre` still drives the
-      // entrance animation.
-      // ONE MECHANISM WRITES EVERY POSITION THIS CARD EVER TAKES.
-      //
-      // Both jumps were the same fault, and it is one this codebase already has
-      // a rule about: TWO MECHANISMS MOVING ONE ELEMENT. An anchored card was
-      // positioned in pixels by this loop; an anchorless one was positioned by a
-      // CSS rule (`top: auto; bottom: 2rem; left: 50%`), and this line used to
-      // CLEAR the inline values to let CSS win. A transition has nothing to
-      // interpolate from `auto`, so every move into or out of the resting place
-      // was applied on the spot.
-      //
-      // `restingPlace` computes those pixels now, so `data-centre` carries only
-      // the entrance animation and positions nothing. See lib/tourPlacement.
+      // A step with no anchor pins the card low and out of the way, not over the content. `restingPlace` computes those
+      // pixels, so one mechanism (this loop) writes every position; `data-centre` only drives the entrance animation.
+      // See lib/tourPlacement.
       const cardBox = { w: card.offsetWidth || CARD_W, h: targetH.current || card.offsetHeight || 260 }
       if (!visible) {
         card.dataset.centre = 'yes'
@@ -921,42 +557,11 @@ export default function TourHost({ onFinish, network = false, layout = 'desktop'
       // hand off between and the transition simply runs.)
       card.dataset.centre = 'no'
 
-      // WHAT THE CARD MUST NOT COVER IS BIGGER THAN THE ANCHOR.
-      //
-      // The arithmetic lives in lib/tourPlacement, where it can be tested: this
-      // used to be inline here, inside a rAF loop, and rAF does not run in a
-      // hidden pane - so the one rule that matters could only be checked by
-      // looking at it, and it was wrong for months.
-      //
-      // `data-tour-keepout` is how a dropdown tells the walkthrough it exists.
-      // Without it the card was placed under the avatar, which is exactly where
-      // the account menu opens, so the instruction covered the only control
-      // that could satisfy it.
-      // The same rectangle the spotlight just lit: what must stay visible is
-      // exactly what the card must not cover.
+      // What the card must not cover: the anchor plus `data-tour-keepout` rectangles (e.g. the account menu).
+      // The arithmetic is in lib/tourPlacement, where it is tested.
       if (!lit) return sig
-      // `targetH`, NOT `offsetHeight` - AND THE RULE FOR THAT IS ALREADY
-      // WRITTEN TWENTY LINES ABOVE THIS FILE'S OWN CODE.
-      //
-      // The resting branch was changed to use the SETTLED height for a reason
-      // that is spelled out where `targetH` is declared: "using the live
-      // offsetHeight would move the card's target every frame while the height
-      // was still easing - which is precisely the retargeting stutter the
-      // deadband exists to prevent, reintroduced by the back door." The
-      // anchored branch was left reading `offsetHeight`, so the back door was
-      // still open on it.
-      //
-      // The card's height TRANSITIONS over 500ms whenever the step's wording
-      // changes length, and `placeCard` uses the height in two of its three
-      // branches - the `above` placement subtracts it outright, and `clampTop`
-      // subtracts it from the viewport. So on every step whose card is placed
-      // above its anchor, the destination was being recomputed from a number
-      // that was still moving, and the 820ms position transition was handed a
-      // new target on each of those frames. That is a second, independent
-      // source of the same shake, and it survives even a perfectly still page.
-      //
-      // `targetH` is the height the card is easing TO, known the moment the
-      // step changes, so the destination is a constant for the whole journey.
+      // Place from `targetH` (the height the card is easing to), not `offsetHeight`, so the destination is constant while
+      // the height animates.
       const { top, left } = placeCard(lit, { w: vw, h: vh }, cardBox.h)
 
       put(card, 'top', top)
@@ -968,16 +573,7 @@ export default function TourHost({ onFinish, network = false, layout = 'desktop'
       return `${sig}|${Math.round(cardBox.h)}`
     }
 
-    // ANYTHING THAT COULD MOVE THE PAGE WAKES IT, INSTANTLY.
-    //
-    // The heartbeat is a backstop, not the mechanism: a 250ms lag between a
-    // scroll and the spotlight following it would be exactly the swimming this
-    // loop exists to prevent. These are the events that actually precede a
-    // change in what `measure` reads, and every one of them is passive.
-    //
-    // `scroll` is captured, because the thing that scrolls is very often an
-    // inner scroller (the account menu, the settings pane) and a scroll event
-    // does not bubble.
+    // Anything that could move the page wakes the loop at once (all passive; scroll is captured for inner scrollers).
     const opts = { passive: true, capture: true }
     window.addEventListener('scroll', wake, opts)
     window.addEventListener('resize', wake)
@@ -1005,17 +601,8 @@ export default function TourHost({ onFinish, network = false, layout = 'desktop'
     }
   }, [ready, step?.anchor, step?.keepClear, isPhone, put])
 
-  // THE DOCUMENT KNOWS THE WALK IS RUNNING.
-  //
-  // On a phone the account menu is 668px of an 812px screen - eighteen items - and the card is a sheet at the bottom.
-  // There is nowhere to put a 272px card that does not land on it, which is why the team still saw "cards blocking the
-  // instructions" on the two steps that open it, on mobile, after the desktop placement was fixed. Desktop can move the
-  // card beside the menu; a phone has no beside.
-  //
-  // So the menu gives way instead: `html.tour-running` caps it above the sheet
-  // (index.css). It already scrolls, and `scrollMenuToGoal` below puts the item
-  // the step is about at the top of what is left, so the shorter menu costs
-  // nothing.
+  // `html.tour-running` lets index.css cap the account menu above the card sheet on phones, where there is no room
+  // beside it. `scrollMenuToGoal` puts the step's item at the top.
   useEffect(() => {
     document.documentElement.classList.add('tour-running')
     // And so does the rest of the app: see lib/appNag. The notifications modal
@@ -1037,33 +624,9 @@ export default function TourHost({ onFinish, network = false, layout = 'desktop'
 
   if (!step) return null
 
-  // THE GATE, AND IT NO LONGER OPENS ON A REFUSAL.
-  //
-  // It used to hold only while the permission was still `default` - so pressing
-  // "Turn on notifications" and then Block in the browser's own dialog put a
-  // "Skip this" button on screen, and the one step that decides whether
-  // somebody ever hears about a brief was cleared by refusing it. That is the
-  // opposite of a gate.
-  //
-  // A DENIAL CANNOT BE UNDONE FROM A WEB PAGE - the browser will not ask twice -
-  // so the gate cannot simply insist. What it can do is stay shut and hand over
-  // the instructions for the browser they are actually in, with a button that
-  // re-reads the permission once they have. See PushAction.
-  //
-  // The one case that still opens is a browser that has no push at all, where
-  // no instruction exists to give. That is not a refusal, it is an absence.
-  // THE GATE HOLDS ONLY WHILE THERE IS STILL SOMETHING THEY CAN DO.
-  //
-  // `required` hides the skip so notifications cannot be waved past - the team asked for that and it is right. But
-  // `denied` is not a refusal to press the button, it is the BROWSER refusing to ask again: once a device has said no,
-  // no amount of pressing produces a prompt, and the only fix is several taps deep in the operating system's own
-  // settings. Holding the gate there does not get notifications turned on; it strands somebody at 83% with an X as the
-  // only way out, which is how a walkthrough becomes the thing people remember about the product.
-  //
-  // So: gate `default` (never asked - the prompt still works), release
-  // `denied`. The card still says how to turn them back on, the "check again"
-  // button still re-reads the permission the moment they do, and
-  // BankDetailsPrompt-style nagging is not this component's job.
+  // The notifications gate holds while the permission is `default` (the prompt still works) and releases on `denied`
+  // (the browser will never ask again; the card explains how to unblock and re-checks). A browser with no push at all
+  // also releases. See PushAction.
   const pushBlocked = step.required && goal?.kind === 'push'
     && pushSupported() && pushState !== 'granted' && pushState !== 'denied'
 
@@ -1090,12 +653,8 @@ export default function TourHost({ onFinish, network = false, layout = 'desktop'
         ref={cardRef}
         data-tour-el="card"
         data-centre="yes"
-        // See `keepClear` in lib/tour. `data-clear` moves an anchorless card to
-        // the bottom RIGHT on a desktop instead of the bottom centre, and
-        // `data-typing` slides the phone sheet out of the way while a field is
-        // focused. Both are attributes rather than classes because the rAF loop
-        // writes `data-centre` on the same element and two mechanisms fighting
-        // over one className is how the last placement bug happened.
+        // See `keepClear` in lib/tour: `data-clear` moves an anchorless card bottom-right on desktop, `data-typing` slides
+        // the phone sheet away while a field is focused. Attributes, not classes, because the loop writes `data-centre`.
         data-clear={step.keepClear ? 'yes' : 'no'}
         data-typing={typing && step.keepClear ? 'yes' : 'no'}
         className={cx('tour-card', isPhone ? 'tour-card--sheet' : 'tour-card--float')}
@@ -1131,14 +690,7 @@ export default function TourHost({ onFinish, network = false, layout = 'desktop'
           </div>
         </div>
 
-        {/* THE BODY SCROLLS, THE ACTIONS DO NOT. The whole sheet was one `overflow-y: auto` box capped at 17rem, so on
-            any step with a long explanation - the notifications one, when a device has blocked push and the card has to
-            explain how to undo that
-            - the buttons were simply below the fold, inside a small scroller
-            nobody could tell was scrollable. Somebody looking at a card with no
-            visible way forward concludes it is broken, and they are not wrong.
-            Progress on top, actions on the bottom, and only the words in
-            between move. */}
+        {/* The body scrolls, the actions do not: progress on top, buttons always visible at the bottom. */}
         {/* KEYED ON THE STEP, so the words CHANGE WITH THE MOVE rather than
             snapping to the next step's text while the box is still sitting at
             the last step's position. A short fade, and only on the content -
@@ -1148,12 +700,7 @@ export default function TourHost({ onFinish, network = false, layout = 'desktop'
         <p className="tour-title tour-fade text-[17px] font-bold leading-snug tracking-tight">{said.title}</p>
         <p className="tour-body tour-fade mt-1.5 text-sm leading-relaxed text-smoke">{said.body}</p>
 
-        {/* THE INSTRUCTION. The one line that matters if they read nothing
-            else, so it gets the brand colour and its own row.
-
-            NO ARROW. they are right and it is a real ambiguity, not a taste: a pulsing chevron inside the pill reads as
-            "the thing is over there", and the thing is a tab at the bottom of the screen in the other direction. The
-            spotlight is what points; this line is what says. */}
+        {/* The instruction: the one line that matters, in brand colour on its own row. No arrow; the spotlight points. */}
         {said.do && !hit && (
           <p className="tour-do mt-3 rounded-xl bg-cloud/70 px-3 py-2.5 text-center text-[13px] font-semibold text-brand">
             {said.do}
@@ -1199,30 +746,10 @@ export default function TourHost({ onFinish, network = false, layout = 'desktop'
               <p className="min-w-0 flex-1 truncate text-[11px] text-smoke">
                 Step {i + 1} of {steps.length}
               </p>
-              {/* THE PAYMENT STEP IS ASKED, NOT ENFORCED, and its skip says so
-                  in words rather than reading "Skip this" like the others.
-                  A hard gate on bank details produces somebody who closes the
-                  app - and somebody genuinely may not have their IBAN to hand
-                  standing on a train. BankDetailsPrompt asks again on later
-                  opens, so skipping here does not mean never. */}
-              {/* WHAT A FIRST RUN MAY WALK PAST, AND IT IS EXACTLY TWO THINGS.
-                  Everything else is one press on something already on screen.
-
-                    payee  - bank details. A hard gate here produces somebody
-                             who closes the app, and somebody genuinely may not
-                             have their IBAN on them. BankDetailsPrompt asks
-                             again on every open until it is done.
-                    push   - ONLY once the gate has already released, which is
-                             `!pushBlocked`: the browser has said Block and will
-                             never prompt again, or it has no push at all.
-                             WITHOUT THIS THE FIRST RUN IS A TRAP. A required
-                             walk with no X, no Escape and no skip, standing on
-                             a step whose button the browser refuses to honour,
-                             is a creator locked out of the product on their
-                             first minute in it. The card still explains how to
-                             unblock and still re-checks; this is the door for
-                             somebody who cannot or will not.
-                  A run somebody ASKED for skips anything. */}
+              {/* The payment step is asked, not enforced, and its skip says so in words. BankDetailsPrompt asks again later. */}
+              {/* What a first run may skip: bank details, and notifications only once the browser has blocked them or has no push.
+                 Without that, a required walk would lock a creator out on their first minute. A walk someone asked for can skip
+                 anything. */}
               {!pushBlocked && (!required || goal?.kind === 'payee' || goal?.kind === 'push') && (
                 <button onClick={skip} className="btn-ghost shrink-0 !px-3 !py-1.5 text-xs text-smoke">
                   {goal?.kind === 'payee'
@@ -1257,13 +784,7 @@ function PushAction({ state, busy, onEnable, onRecheck }) {
       </Callout>
     )
   }
-  // BLOCKED, AND THE WALK DOES NOT GO ON UNTIL IT IS NOT.
-  //
-  // A browser that has been told "Block" will never show its permission prompt
-  // again, so `onEnable` is useless here and offering it would be a button that
-  // does nothing. What works is the site settings, which is two taps and
-  // completely different in each browser - so the instruction names the one
-  // they are in rather than describing "your browser settings" in the abstract.
+  // Blocked: the browser will not prompt again, so the card names the settings steps for the browser they are in.
   if (state === 'denied') {
     return (
       <>

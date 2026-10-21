@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { cleanSurvey, fromStarter, pendingSurveys, responsesByDay, SURVEY_STARTERS, summarise, surveyProblem } from './surveys'
+import { cleanSurvey, fromStarter, pendingSurveys, SURVEY_STARTERS, summarise, surveyProblem } from './surveys'
 
 const platform = SURVEY_STARTERS.find((x) => x.key === 'platform')
 
@@ -75,10 +75,5 @@ describe('surveys (migration 291)', () => {
     expect(out.questions[0].score).toBe(25) // 2 promoters, 1 detractor, of 4
     expect(out.questions[0].spread[10]).toBe(1)
     expect(out.questions[1].counts.map(({ option, count }) => ({ option, count }))).toEqual([{ option: 'yes', count: 2 }, { option: 'no', count: 1 }])
-  })
-
-  it('counts answers by day', () => {
-    const d = responsesByDay([{ created_at: '2026-10-02T10:00' }, { created_at: '2026-10-01T09:00', declined: true }, { created_at: '2026-10-02T12:00' }])
-    expect(d).toEqual([{ day: '2026-10-01', answered: 0, declined: 1 }, { day: '2026-10-02', answered: 2, declined: 0 }])
   })
 })

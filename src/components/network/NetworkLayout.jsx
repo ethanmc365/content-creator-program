@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState } from 'react'
+import { useRef } from 'react'
 import PlaceSwitcher, { flagFromIso } from './PlaceSwitcher'
 import { cx } from '../../lib/utils'
+import { useEdgeFade } from '../../lib/edgeFade'
 import Reveal from './Reveal'
 
 // Frame for the network pages that are ABOUT choosing and comparing places: the
@@ -53,33 +54,9 @@ import Reveal from './Reveal'
 // the real cards would simply appear.
 export default function NetworkLayout({ children, switcher = true, rail = null, width = 'default', ready = true }) {
   const max = width === 'narrow' ? 'max-w-4xl' : width === 'full' ? 'max-w-[1600px]' : 'max-w-7xl'
-  // THE RAIL RUNS TO THE BOTTOM OF THE SCREEN AND FADES WHERE THERE IS MORE (16 Oct 2026). Ethan: on a laptop the
-  // right column's cards "just end, and you can see it at the bottom". It stopped 16px above the screen's edge with a
-  // hard cut through whatever card was there. It now reaches the edge, and a soft fade (the Video Ideas row's) shows at
-  // whichever end still has cards to scroll to, and goes away once you reach it. Read on scroll and resize, never on a
-  // frame (a hidden tab runs none).
+  // The rail reaches the bottom of the screen and fades at whichever end still has cards to scroll to (lib/edgeFade).
   const railRef = useRef(null)
-  const [edge, setEdge] = useState({ up: false, down: false })
-  useEffect(() => {
-    const el = railRef.current
-    if (!el || !rail) return undefined
-    const read = () => {
-      const up = el.scrollTop > 4
-      const down = el.scrollHeight - el.clientHeight - el.scrollTop > 4
-      setEdge((e) => (e.up === up && e.down === down ? e : { up, down }))
-    }
-    read()
-    const late = setTimeout(read, 900)
-    el.addEventListener('scroll', read, { passive: true })
-    window.addEventListener('resize', read)
-    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(read) : null
-    ro?.observe(el)
-    if (el.firstElementChild) ro?.observe(el.firstElementChild)
-    return () => { clearTimeout(late); el.removeEventListener('scroll', read); window.removeEventListener('resize', read); ro?.disconnect() }
-  }, [rail, ready])
-  const fade = edge.up || edge.down
-    ? `linear-gradient(to bottom, transparent 0, #000 ${edge.up ? 32 : 0}px, #000 calc(100% - ${edge.down ? 64 : 0}px), transparent 100%)`
-    : undefined
+  const fade = useEdgeFade(railRef, !!rail, [rail, ready])
   return (
     <div className={cx('mx-auto w-full px-4 py-6 sm:px-6 lg:px-8 lg:py-8', max)}>
       {/* `ready` reaches the switcher too. It is ABOVE everything the page

@@ -158,42 +158,14 @@ export default function NetworkChat() {
   useOverlayTouchLock(overlayRef, isMobile)
   useNoScrollChain(scrollerRef, `${slug}-${channelKey}`)
 
-  // Same geometry as Chat.jsx, for the same reasons. Closed keyboard: leave the
-  // header (4rem) and the tab bar (4.5rem + safe area) alone. Open: take the
-  // whole visible viewport, because the header has scrolled away and the tab bar
-  // has hidden itself. offsetTop is clamped to >= 0 because iOS reports a
-  // negative one during a rubber-band pull, which would ride the overlay up over
-  // the header.
-  // HIDING THE APP HEADER WHILE YOU READ.
-  //
-  // The rules, and they are deliberately blunt because a header that argues
-  // with you is worse than one that never moves:
-  //   * scrolling the conversation at all hides it
-  //   * so does putting the caret in the composer
-  //   * a press anywhere in the top strip - the tabs, or the sliver beside
-  //     them - brings it back
-  //   * so does reaching the very top of the conversation, because that is
-  //     where you have run out of messages and are looking for something else
-  //   * and it is always released on the way out of the room
+  // Same overlay geometry as the DMs: keyboard closed leaves room for the header and tab bar; open takes the whole
+  // visible viewport. offsetTop is clamped to >= 0 (iOS reports negative values during a rubber-band pull).
+  // The app header hides when you scroll the room or focus the composer, and comes back on a press in the top strip,
+  // at the very top of the conversation, and on leaving the room.
   const [chromeHidden, setChromeHidden] = useState(false)
 
-  // THE HEADER AND THE OVERLAY MOVE ON THE SAME FRAME.
-  //
-  // THE BUG: "I really like how the header disappears when you click into a
-  // room, although it's slightly delayed and there isn't a clean animation - I
-  // want a much cleaner animation of the whole thing actually moving up."
-  //
-  // The delay was a whole React commit. `setChatChromeHidden` was called from
-  // an EFFECT keyed on `chromeHidden`, so the sequence was: state changes, the
-  // overlay re-renders and starts growing, the effect runs after that paint,
-  // the shell re-renders, and only THEN does the header start sliding. Two
-  // animations one commit apart do not read as one movement; they read as a lag.
-  // The channel is a plain module-level setter with no React in it, so there is
-  // nothing stopping it being called in the same handler as the setState -
-  // React 18 batches the two into one commit and both start together.
-  //
-  // The effect is still here for the two cases a handler cannot cover: the
-  // width changing under a hidden header, and leaving the room.
+  // The header and the overlay move on the same frame: `setChatChromeHidden` is called in the same handler as the
+  // setState (React batches them). The effect covers width changes and leaving the room.
   const setChrome = useCallback((hidden) => {
     setChromeHidden(hidden)
     setChatChromeHidden(isMobile && hidden)
@@ -202,19 +174,7 @@ export default function NetworkChat() {
   useEffect(() => () => setChatChromeHidden(false), [])
   const showChrome = useCallback(() => setChrome(false), [setChrome])
 
-  // THE OPEN ROOM'S TAB IS BROUGHT INTO VIEW.
-  //
-  // THE BUG: "let's say I'm on the worldwide room and I click into Content
-  // tips - at the top it still shows General, Introductions and Announcements.
-  // It should automatically be scrolled over so Content tips is highlighted."
-  // The strip is a horizontal scroller and the highlighted tab can easily be
-  // off the right-hand end of it, so the one thing the strip is for - saying
-  // which room you are in - was invisible in exactly the case where you had
-  // just changed rooms.
-  //
-  // It scrolls the STRIP by hand rather than calling `scrollIntoView`, which
-  // would also scroll every ancestor - including the fixed overlay and the
-  // document behind it - to satisfy the block axis it was never asked about.
+  // Scroll the tab strip so the open room's tab is visible (by hand: scrollIntoView would also scroll the ancestors).
   const [stripSearch, setStripSearch] = useState(false)
   // The header's X only ever closes the search; see closeThreadSearch in Messages for the blur race this avoids.
   const stripClosedAt = useRef(0)
@@ -228,16 +188,7 @@ export default function NetworkChat() {
   useEffect(() => { setStripSearch(false) }, [channelKey])
   const hideChrome = useCallback(() => { if (isMobile) setChrome(true) }, [isMobile, setChrome])
 
-  // A ROOM OPENS WITH THE HEADER ALREADY AWAY.
-  //
-  // THE BUG: "clicking on introductions, it seems to still keep the header,
-  // which it shouldn't - it should be away from everything."
-  // Introductions is the emptiest room, and that is the whole explanation: the
-  // header hid on SCROLL, and a room whose messages do not fill the screen
-  // cannot be scrolled, so it never hid there and hid everywhere else. Opening
-  // a room is the moment you have decided to read it, so that is when the
-  // chrome goes - and the rules that bring it back (a press on the strip, or
-  // reaching the top of a thread that does scroll) are unchanged.
+  // A room opens with the header already hidden (a short room never scrolls).
   useEffect(() => {
     if (isMobile) setChrome(true)
     // Re-runs when you move between rooms, which is correct: each one opens the
@@ -255,28 +206,9 @@ export default function NetworkChat() {
         top: topGone ? 0 : 'calc(4rem + env(safe-area-inset-top))',
         // One px height for both states, glided on keyboard changes (useChatOverlayHeight).
         height: `${overlayH}px`,
-        // `transform` is written frame by frame by useViewportPin, not here.
-        // THE OVERLAY SNAPS. ONLY THE HEADER ANIMATES.
-        //
-        // This box used to animate `top` and `height` over the same 280ms as
-        // the header's slide, so that the two read as one movement. They are
-        // LAYOUT properties: every frame of that animation relaid out the
-        // overlay, its flex column, the scroller and every message row in it -
-        // sixty times a second, on a phone, on the frame the user is already
-        // scrolling. That is the judder, and no amount of easing fixes an
-        // animation whose cost is a full reflow.
-        //
-        // So the box changes INSTANTLY and the only thing that moves is the
-        // header's own `transform`, which is compositor-only and cannot jank.
-        // It still reads as one movement, because the header is z-40 and this
-        // overlay is z-20: the tab strip snaps to its new position UNDER the
-        // header, and the header then slides up to reveal it. What you see is a
-        // wipe, not a jump - and coming back, the header slides down over a
-        // strip that is already empty.
-        //
-        // THE SAFE-AREA INSET IS A CHILD, NOT PADDING ON THIS BOX, so it can
-        // carry its own background rather than leaving a transparent gap while
-        // the header is away.
+        // `transform` is written frame by frame by useViewportPin. The overlay snaps; only the header animates on
+        // transform (animating top/height relaid out every message row). The safe-area inset is a child with its own
+        // background, not padding.
       }
     : undefined
 
@@ -351,19 +283,8 @@ export default function NetworkChat() {
     [active?.label, search],
   )
 
-  // WHO CAN POST HERE. Two rules and no third.
-  //
-  // THE THIRD RULE WAS THE BUG. There used to be an `isLiveWorldwide` guard that made Worldwide's General, Announcements
-  // and Content tips READ ONLY, with a panel explaining that "this is a room every creator is already in today, so it is
-  // read only here in case a test message reaches all of them". That was correct while the network was an admin-only
-  // preview sitting underneath a live UK chat. The network IS the app now, those three rooms are the main conversation,
-  // and the guard was locking everybody out of the busiest rooms on the platform.
-  //
-  // What is left is the room's own `post_policy`: 'all' means everybody,
-  // 'staff' means the people who manage this community. Announcements is
-  // 'staff' everywhere, which is exactly the "only admins post announcements,
-  // everyone can read them" rule. Reading is enforced separately and for real
-  // by RLS - see migration 149.
+  // Who can post: the room's own `post_policy` ('all' or 'staff'; Announcements is staff everywhere).
+  // Reading is enforced by RLS (migration 149).
   const canPost = !!active && (active.post_policy === 'all' || manages(community.id))
 
   useEffect(() => {
@@ -380,29 +301,8 @@ export default function NetworkChat() {
     return () => { cancelled = true }
   }, [community])
 
-  // Every room in EVERY place the viewer belongs to, including the one they are
-  // standing in.
-  //
-  // IT INCLUDES THE CURRENT PLACE ON PURPOSE, AND THAT IS THE WHOLE FIX.
-  //
-  // THE BUG THIS FIXES. The sidebar used to be two things: a card for where you ARE, pinned at the top, and a
-  // reorderable list of everywhere else under it. So opening Portugal's General re-sorted the entire column - Portugal
-  // leapt to the top and whatever you had been reading dropped into the list below.
-  //
-  // A navigation whose order depends on where the navigation has taken you is
-  // not a navigation, it is a moving target: the muscle memory you build on
-  // Monday is wrong the moment you use it. So there is ONE list, in the
-  // reader's own saved order, and opening a room only ever changes which row is
-  // highlighted.
-  //
-  // One query for all of them rather than one per market: the sidebar needs the
-  // whole set before it can draw anything, and five sequential round trips to
-  // build a nav that is 200px wide is the kind of thing that makes a page feel
-  // slow for no reason a user could name.
-  //
-  // RLS already scopes `channels` to communities you can see, so this cannot
-  // leak a market's room list to somebody outside it; the `in` filter is about
-  // asking for less, not about permission.
+  // Every room in every place the viewer belongs to, in ONE list in the reader's saved order, so opening a room only
+  // moves the highlight. One query for all of them; RLS already scopes `channels`, the `in` filter just asks for less.
   const sidebarIds = useMemo(
     () => {
       const ids = myCommunities.map((c) => c.id)
@@ -480,13 +380,7 @@ export default function NetworkChat() {
     const key = scopedKey(community, active.key)
     const ch = supabase
       .channel(`net-chat-${key}`)
-      // EDITS AND DELETES PROPAGATE TOO.
-      //
-      // This listened for INSERT only, so a message somebody edited kept its
-      // old text on every other screen until a reload, and one they deleted
-      // stayed readable in the room it had been removed from. A soft delete IS
-      // an update, so without this the delete button appeared to work for the
-      // person pressing it and for nobody else.
+      // Edits and soft deletes (updates) propagate live too, not just inserts.
       .on('postgres_changes',
         { event: 'UPDATE', schema: 'public', table: 'messages', filter: `channel=eq.${key}` },
         (payload) => {
@@ -515,38 +409,15 @@ export default function NetworkChat() {
     return () => supabase.removeChannel(ch)
   }, [community, active, user?.id])
 
-  // Landing on the newest message, reliably.
-  //
-  // Setting scrollTop directly beats scrollIntoView on a sentinel inside a flex
-  // column, and the re-pins across rAF and timers exist because a room's images
-  // and link previews land after the first paint and each one changes the
-  // scroll height. The capture-phase listener catches every descendant image,
-  // including ones inserted seconds later.
+  // Landing on the newest message: set scrollTop directly; a capture-phase listener catches late images.
   const pin = useCallback(() => {
     const el = scrollerRef.current
     // Not while the keyboard glide is scrolling the thread (lib/useKeyboardInset); it lands at the bottom itself.
     if (el && atBottomRef.current && el.dataset.glide !== '1') el.scrollTop = el.scrollHeight
   }, [])
 
-  // A ROOM DOES NOT OPEN HALFWAY UP ITSELF AND THEN CORRECT ITSELF.
-  //
-  // , and later "it flashes, glitches and then shows the current chats, sometimes it's scrolled up a bit, its
-  // inconsistent, sometimes it jutters more."
-  //
-  // The corrections were on a FIXED SCHEDULE - 60, 200, 500 and 1200ms - which
-  // is a guess at when a thread stops growing, and a guess is wrong in both
-  // directions: it was still yanking a settled thread at 1.2 seconds and had
-  // given up on a slow one at 1.3. `pinToBottom` watches the scroll height
-  // instead and stops as soon as it has been stable for two frames, so the
-  // number of corrections is however many the thread actually needs and the
-  // reveal happens the moment there are no more.
-  //
-  // The upstream half of this fix is migration 163: an attachment records its
-  // own shape now, so a photograph reserves its box before it decodes and most
-  // threads have nothing left to settle at all.
-  //
-  // `settled` gates OPACITY only - the messages are laid out and measured the
-  // whole time, which is what the pinning needs - so this costs no geometry.
+  // The room is hidden (opacity only) until `pinToBottom` has pinned it: it watches the scroll height and stops two
+  // frames after it last changed. Attachments store their size (migration 163) so most rooms have nothing to settle.
 
   // NO FLASH WHEN THE MESSAGES ARE ALREADY HERE. Every open hid the thread for a few frames behind a skeleton and faded
   // it in, even when the room's messages were in hand from the cache and could be pinned to the bottom before the first
@@ -560,12 +431,7 @@ export default function NetworkChat() {
   useLayoutEffect(() => {
     atBottomRef.current = true
     setSettled(ready)
-    // NOTHING TO PIN WHILE THE ROOM IS STILL LOADING. This effect used to run
-    // against the SKELETON: a skeleton has no images and a stable height, so
-    // the loop declared it settled within two frames, revealed it, and then
-    // re-ran on the real messages and hid the thread again. Skeleton, flash,
-    // skeleton, thread. The skeleton is drawn by the `loading` branch below and
-    // needs no pinning of its own.
+    // Nothing to pin while the room is loading (the skeleton is drawn by the `loading` branch).
     if (loading) return undefined
     pin()
     if (ready) setSettled(true)
@@ -590,15 +456,7 @@ export default function NetworkChat() {
   // message the user was reading has to stay at the bottom.
   useEffect(() => { pin() }, [kbOpen, overlayH, pin])
 
-  // The titles behind any poll / game / resource cards in this room. One query
-  // per kind, only for the kinds actually present, and only when the set of ids
-  // changes - a room with no cards in it issues nothing.
-  // THE TITLE PREFETCH IS GONE WITH THE LINK STRIPS.
-  //
-  // It ran one query per card kind present in the room, purely to write a title
-  // into a strip that said "Poll: which destination next?" and linked away.
-  // `PollCard`, `GameEventCard` and `ResourceCard` each load the thing they are
-  // drawing, so this was a second, earlier, partial fetch of the same rows.
+  // Poll, game and resource cards load their own rows; there is no title prefetch.
 
   const messageIds = useMemo(() => messages.map((m) => m.id), [messages])
   const { byMessage: reactionsByMessage, toggle: toggleReaction } = useReactions(messageIds, user?.id)
@@ -651,13 +509,7 @@ export default function NetworkChat() {
   // when you come back from the UK's.
   const draftKey = `net-chat-${roomKey || 'none'}`
 
-  // ---- The unread dots --------------------------------------------------
-  //
-  // Which OTHER rooms have something new in them, for the sidebar and the tab
-  // strip. `markRead` is the optimistic half of the watermark below: opening a
-  // room puts its dot out on the same frame rather than after the throttled
-  // upsert has been acknowledged, which is the difference between a signal you
-  // trust and one that lingers on the thing you are reading.
+  // Unread dots for the other rooms. `markRead` puts a room's dot out on the same frame it opens.
   const { unread, markRead, readAt } = useUnread()
   // WHERE THE NEW MESSAGES START. The room's read watermark as it was the moment it was opened - taken DURING RENDER,
   // before the effect below moves it to now - so the thread can draw a "New messages" line and the bar can jump to it.
@@ -668,15 +520,8 @@ export default function NetworkChat() {
     if (roomKey) markRead(roomKey)
   }, [roomKey, markRead])
 
-  // ---- The outbox -------------------------------------------------------
-  //
-  // THE MARKET ROOMS HAD NO OPTIMISTIC SEND AT ALL. `postMessage` awaited the
-  // insert and only then put the row on screen, so a message sent on a bad
-  // connection sat behind a spinner and a message sent on no connection played
-  // a fail sound and evaporated - the words were gone from the composer, which
-  // had already been cleared. Both are fixed by the same thing: the queue is
-  // where the message lives from the instant you press send, and this is a view
-  // of it. See `src/lib/outbox.js`.
+  // Sends go through the queue in lib/outbox: the message is on screen from the moment you press send and survives
+  // a bad or missing connection.
   const outboxScope = `net:${roomKey || 'none'}`
   const [queued, setQueued] = useState(() => queuedFor(outboxScope))
   useEffect(() => {
@@ -739,20 +584,8 @@ export default function NetworkChat() {
   // Only once `reads` are this room's (the switch above swaps them in the same render as the messages).
   useEffect(() => { if (roomKey && messagesKey === roomKey) ROOM_CACHE.reads.set(roomKey, reads) }, [roomKey, messagesKey, reads])
 
-  // WRITING "I HAVE READ THIS ROOM" (migration 250).
-  //
-  // The team: rooms showed a dot for messages he had already read, after a refresh, another tab or the phone. This write
-  // was the cause three ways:
-  //   - a LEADING-EDGE throttle with no trailing call: a message that arrived
-  //     inside 2.5s of the last write was never recorded at all, so it was
-  //     "unread" again on the next load;
-  //   - the throttle was shared by EVERY room, so opening one room and then
-  //     another within 2.5s never marked the second;
-  //   - the browser's own clock, `upsert`ed over whatever was there, so a slow
-  //     phone or an old tab could move the watermark BACKWARDS.
-  // Now: `mark_channel_read` stamps the server's time and only moves forward;
-  // the write is per room, trailing (the last message always lands), and
-  // flushed when the room is left or the app goes to the background.
+  // "I have read this room" (migration 250): `mark_channel_read` stamps the server's time and only moves forward;
+  // the write is per room, trailing (the last message always lands), and flushed when leaving the room or the app.
   const readTimer = useRef(null)
   const readPending = useRef(null)
   const flushRead = useCallback(() => {
@@ -796,15 +629,8 @@ export default function NetworkChat() {
     })
   }, [roomKey, markRead, flushRead])
 
-  // Everyone whose watermark is at or past this message, minus me and the
-  // sender. `members` is the room's own roster, so a reader who left the market
-  // does not linger in the count.
-  //
-  // WORKED OUT ONCE PER CHANGE, NOT ONCE PER ROW PER COMMIT (19 Oct 2026). This filtered the whole member list - every
-  // creator, in Worldwide - and parsed two dates per member, for every message an admin can see, on every commit of
-  // the page. That was most of what was left of the room-switch lag once the rows stopped redrawing. Now the readers
-  // are sorted newest watermark first once and a message's readers are the prefix at or past it (the row's memo
-  // compares the result by who is in it).
+  // Readers of a message: everyone whose watermark is at or past it, minus me and the sender, from the room's roster.
+  // Worked out once per change (readers sorted by watermark; a message's readers are a prefix), not per row per commit.
   const seenBy = useMemo(() => {
     const ranked = []
     for (const mem of members) {
@@ -957,17 +783,8 @@ export default function NetworkChat() {
     else if (top > 40 && dy > 2) hideChrome()
   }
 
-  // DELETE, WHICH THE ROOMS SIMPLY DID NOT HAVE.
-  //
-  // Your own at any time, anybody's if you are an admin - the RPC (migration
-  // 147) decides, not this. A soft delete, so the reactions, the replies
-  // pointing at it and any report attached to it survive for a moderator to
-  // read; `deleted = false` is already in this page's read filter, so it
-  // disappears everywhere on the next load and immediately here.
-  //
-  // The row is removed from state BEFORE the round trip and put back if the
-  // call fails. A delete that appears to do nothing for two seconds gets
-  // pressed again.
+  // Delete: your own any time, anybody's for admins (the RPC decides, migration 147). Soft, so reactions, replies and
+  // reports survive. Removed from state before the call and put back if it fails.
   async function removeMessage(m) {
     if (!await confirm(
       m.sender_id === user?.id
@@ -1029,26 +846,8 @@ export default function NetworkChat() {
     setReplyTo(null)
   }
 
-  // PHOTOS AND VIDEO, IN EVERY ROOM.
-  //
-  // The market rooms had no attach control at all - the only place on the
-  // platform you could send a picture was the legacy UK chat, which made the
-  // rooms feel like a downgrade for everybody who moved into one. It reuses
-  // `uploadChatImage` / `uploadChatVideo`, so the compression rules are the
-  // same ones the live chat has used all along: images are re-encoded to
-  // 1280px at quality 0.82 before they leave the device, and video is capped
-  // rather than transcoded (there is no reliable in-browser transcoder, so a
-  // clear limit beats a silent 200MB upload).
-  // WHATEVER IS IN THE BOX GOES WITH IT.
-  //
-  // THE BUG THIS FIXES. This posted `{ image_url }` and nothing else, so
-  // anything you had typed was left sitting in the composer and then thrown
-  // away by the next draft write - a photo with a caption arrived in the room
-  // as a bare photo. Nobody noticed for a while because it looks like you
-  // simply forgot to press send. It surfaced from the other end: reporting one
-  // of these showed the picture with no words, because there genuinely were
-  // none on the row. The legacy chat has always sent the caption; the market
-  // rooms were the odd one out.
+  // Photos and video in every room, through `uploadChatImage` / `uploadChatVideo` (images re-encoded to 1280px at
+  // 0.82; video capped, not transcoded). Whatever is typed in the box is sent with the photo as its caption.
   async function attach(file) {
     if (!file || !canPost || sending) return
     setAttachError('')
@@ -1063,13 +862,8 @@ export default function NetworkChat() {
       const { url, w, h } = isVideo
         ? await uploadChatVideo(file, user.id)
         : await uploadChatImage(file, user.id)
-      // Only once the bytes are somewhere permanent. A File cannot be queued -
-      // it will not survive localStorage or a reload - so the upload is the one
-      // part of a send that still needs the network up front.
-      //
-      // `media_w`/`media_h` travel WITH the message (migration 163). They are
-      // what lets a thread reserve the right box before a photo decodes, which
-      // is the whole fix for a chat that jumps while it opens.
+      // Queued only once the file is uploaded (a File cannot be kept in localStorage). `media_w`/`media_h` travel with the
+      // message so the thread reserves the picture's box (migration 163).
       postMessage({
         body: caption,
         ...(isVideo ? { video_url: url } : { image_url: url }),
@@ -1167,13 +961,8 @@ export default function NetworkChat() {
           a search field squeezed in beside four room names is the "very cramped" bar this strip already had removed
           once. It writes the same `search` state the desktop bar and the header field do, so there is one filter and
           three ways to reach it. */}
-      {/* THE PHONE'S ROOM HEADER. The team: on mobile the rooms are "hard to navigate, especially if in multiple
-          rooms... research how other popular chats work and rebuild the mobile version." The sideways strip of one
-          market's tabs is gone: it only ever reached the rooms of the place you were already in, and on a 375px screen
-          half of those were off the end of it. Now it is the header every chat app converged on: back to your rooms, the
-          room's name with where it is (tap it and every room you are in opens in a sheet, the ones with something new
-          first), and search. Nothing here brings the app header back - that still only happens on the way out of the
-          room. */}
+      {/* The phone's room header: back to your rooms, the room name and market (tap it for a sheet of every room you are
+         in, unread first), and search. The app header comes back only when you leave the room. */}
       {/* Above the mover (relative z-10, opaque): the thread slides under it as the keyboard comes and goes. */}
       <div className="relative z-10 flex shrink-0 items-center gap-1 border-b border-gray-100 bg-white px-1 py-1 lg:hidden">
         <Link
@@ -1238,15 +1027,7 @@ export default function NetworkChat() {
         activeKey={active?.key}
       />
 
-      {/* The hint bar doubles as the room's identity on mobile, where the page
-          heading is scrolled away.
-
-          THE BAR HAS TO BE TALL ENOUGH FOR THE CONTROL IN IT. It was `py-1` at
-          11px, which is a strip about eighteen pixels high, and the search field
-          was then squeezed into that - the "very, very cramped" report. The DM
-          thread header gives its search real height and reads properly, so this
-          matches it: enough room for a 36px field with air round it, and the
-          hint text steps up to the same size. */}
+      {/* The hint bar is the room's identity on mobile, tall enough for a 36px search field. */}
       {/* DESKTOP ONLY. On a phone this bar was ~40px of permanent chrome saying the room's name - which the highlighted
           tab directly above it already says - with a search field in it. Search moved into the header's own search
           button, which points at whichever chat is open (see lib/chatSearch). */}
@@ -1282,18 +1063,8 @@ export default function NetworkChat() {
         </div>
       )}
 
-      {/* THE THREAD NEVER SHOWS A BLANK ROOM.
-
-          `settled` hides the scroller with `opacity-0` while lib/chatScroll
-          pins it, which is right - the rows have to be LAID OUT for there to be
-          a scroll height to pin to, so they cannot be unmounted - but it left
-          a white rectangle where the conversation was, and then the whole
-          thread appeared at once. What that reads as is a flash.
-
-          A placeholder over the top covers the gap, so the sequence is
-          skeleton -> conversation rather than skeleton -> nothing -> flash. It
-          is bottom-aligned, because a chat fills upwards from the composer and
-          a placeholder that starts at the top is a different screen. */}
+      {/* A placeholder covers the room while it is pinned (the rows must stay laid out to be measured). Bottom-aligned,
+         because a chat fills upwards. */}
       <NetworkChatThread
         actionsFor={actionsFor}
         byId={byId}
@@ -1418,25 +1189,9 @@ export default function NetworkChat() {
               switcher on this page: a strip of other markets above a
               conversation makes the room feel like a tab in a directory rather
               than somewhere you are. Leaving is the back link, one target. */}
-          {/* ONE LIST, AND IT DOES NOT MOVE.
-              Every place you belong to, grouped by market, so a creator in
-              Worldwide and Spain reaches the Spanish General without going back
-              to Spain first. It is still not a market switcher: these are rooms
-              you are already in, not places to browse.
-
-              IT USED TO BE TWO CARDS - where you ARE pinned at the top, and
-              everywhere else beneath - and that made the column reshuffle every
-              time you opened a room: press General in Portugal and Portugal
-              leapt to the top while the place you had just left dropped down
-              into the list. A sidebar whose order is a function of where you
-              last clicked cannot be learned. Now the order is only ever the
-              reader's, and opening a room moves the highlight, nothing else. */}
-          {/* `focus:outline-none` because Chrome makes any element with
-              `overflow-y: auto` keyboard focusable and paints its own grey
-              focus ring round the whole region the moment you click inside it -
-              which on a column of white cards reads as a box drawn round the
-              sidebar. The region stays wheel and keyboard scrollable; only the
-              ring goes. */}
+          {/* One list of every place you belong to, grouped by market, in your own order. Opening a room moves the highlight,
+             nothing else. Not a market switcher: only rooms you are already in. */}
+          {/* `focus:outline-none`: Chrome makes scrollable regions focusable and draws a grey ring round them on click. */}
           <NetworkChatRoomNav
             active={active}
             community={community}
@@ -1453,15 +1208,7 @@ export default function NetworkChat() {
         </div>
       </div>
 
-      {/* Poll / game / resource, for admins, in this room like any other.
-
-          GUARDED ON THERE BEING A ROOM, which it was not - and `active` is null
-          on the first paint of every visit, because it is derived from a
-          channel list that is fetched. `scopedKey(community, active.key)` was
-          evaluated unconditionally on the way into this element, so the whole
-          page threw before it could render anything: not a dead link, a dead
-          route. It stayed dead for any community whose channel list came back
-          empty. */}
+      {/* Poll / game / resource for admins. Guarded on there being a room (`active` is null on first paint). */}
       {active && community && (
       <ChatAdminTools
         // A market room schedules on the MARKET's clock: 09:00 in the Spanish

@@ -13,23 +13,9 @@ import Icon from '../Icon'
 import PhotoLightbox from '../PhotoLightbox'
 import { useT } from '../../lib/i18n'
 
-// Every flight you have logged, drawn at once.
-//
-// THE MAP IS THE POINT OF A FLIGHT LOG. A table of two hundred rows is a
-// spreadsheet; the same two hundred rows as arcs across a world map is the
-// thing people screenshot. So this is the centre of the page and everything
-// else is a number beside it.
-//
-// WHY THE ARCS ARE DRAWN BY HAND RATHER THAN AS GeoJSON LINES. A great circle
-// projected onto Equal Earth is a genuinely curved path, and drawing it
-// properly means sampling it - a hundred points per route, thousands of path
-// commands for a well-travelled log, re-tessellated on every zoom. A quadratic
-// bezier through a perpendicular offset is not the geodesic, but at this scale
-// it reads as one, it is three numbers per route, and it is what makes a
-// hundred flights render in a frame. The same trade CreatorMap makes.
-//
-// The frame and the projection MUST match the ComposableMap props below or the
-// arcs land somewhere other than the countries they belong to.
+// Every flight you have logged, drawn at once as arcs on a world map.
+// Arcs are quadratic beziers through a perpendicular offset (not sampled great circles): three numbers per route,
+// so a hundred flights render in a frame. The frame and projection MUST match the ComposableMap props below.
 const WIDTH = 880
 const HEIGHT = 480
 const projection = geoEqualEarth()
@@ -93,29 +79,9 @@ function arcFor(a, b) {
   return { d: `M${ax} ${ay} Q ${cx} ${cy} ${bx} ${by}`, ax, ay, bx, by, cx, cy, chord, len }
 }
 
-// HOW FAR A POINT IS FROM AN ARC, SO OVERLAPPING ROUTES CAN BE TOLD APART.
-//
-// THE BUG: "there's a flight from Stockholm to London Gatwick that I seem to be
-// unable to click on... sometimes because they're overlapping, it's registering
-// another one."
-//
-// Every route carries a 14px invisible stroke so a two-pixel line can be
-// pressed with a thumb, and SVG has no z-index - the LAST path painted takes
-// the press. Two routes that run near each other (Stockholm to Gatwick and
-// Copenhagen to Gatwick are within a few pixels of each other for most of their
-// length at world zoom) therefore do not share their overlap: whichever happens
-// to come later in the array wins all of it, and the other one is unpressable
-// no matter where you aim. Widening or narrowing the stroke cannot fix that,
-// and neither can re-ordering - re-ordering just chooses a different loser.
-//
-// So the stroke stays the thing that RECEIVES the press, and which route the
-// press MEANS is decided here, geometrically: sample every arc and take the
-// nearest one to the pointer. The arcs are quadratic beziers whose three
-// control points `arcFor` already returns, so this is arithmetic on numbers we
-// hold, with no DOM measurement and no path length walking.
-//
-// 24 samples is about a quarter of a pixel of resolution on a typical arc, and
-// a few hundred routes times 24 is a few thousand multiplications on a click.
+// Distance from a point to an arc, so the nearest route wins a press. Every route has a 14px invisible stroke for
+// thumbs, and SVG has no z-index, so overlapping strokes would always give the press to the last one painted.
+// 24 samples per arc (quadratic bezier control points from `arcFor`), no DOM measurement.
 const ARC_SAMPLES = 24
 function arcDistanceSq(x, y, r) {
   let best = Infinity
@@ -140,45 +106,12 @@ const fmtKm = (n) => Math.round(n).toLocaleString('en-GB')
 // it is there.
 const PLANE_D = 'M0 -11 C1.1 -11 1.8 -9 1.8 -6.2 L1.8 -4.4 L10 1 L10 3.1 L1.8 -0.2 L1.8 5 L4.4 7.6 L4.4 9.2 L0 7.7 L-4.4 9.2 L-4.4 7.6 L-1.8 5 L-1.8 -0.2 L-10 3.1 L-10 1 L-1.8 -4.4 L-1.8 -6.2 C-1.8 -9 -1.1 -11 0 -11 Z'
 
-// EVERY ROUTE CARRIES A PLANE, ALL THE TIME.
-//
-// It used to be one aeroplane on the SELECTED route only, moved by a
-// requestAnimationFrame that set React state sixty times a second. Two things
-// were wrong with that and this fixes both:
-//
-//   * IT ONLY MOVED WHEN YOU CLICKED. The team: "with the line, [I want] a
-//     constant animated airplane animation, not just when you click it." A map
-//     of flights whose aircraft are parked is a diagram.
-//   * SETTING STATE EVERY FRAME RE-RENDERED THE WHOLE MAP every frame -
-//     240 country paths, every arc, every pin - to move one aeroplane twelve
-//     pixels. `animateMotion` is the browser doing this on its own timeline
-//     with no React involved at all, which is why it can now be running on ten
-//     routes at once and cost less than one did.
-//
-// `dur` comes from the chord so every plane flies at the same speed rather than
-// every route taking the same time regardless of length - the rule CreatorMap
-// already uses. The nose follows the path (`rotate="auto"`).
+// A plane on every route, all the time, with SVG `animateMotion` (the browser's own timeline, no React re-renders).
+// `dur` comes from the chord so every plane flies at the same speed. The nose follows the path.
 const PLANE_SPEED = 26 // projection units per second
 
-// HOW BIG A MARKER IS AT A GIVEN ZOOM.
-//
-// Everything on this map was `base / z` with a floor: `Math.max(1.4, 3.4 / z)`. Dividing by z holds a marker at a
-// CONSTANT APPARENT SIZE, which sounds right and is not what the zoom is for here.
-//
-// They are describing the real failure. BFS to DUB is about six projection units long; two 3.4-unit dots sit on top of
-// the whole route, so the arc between them is invisible - and zooming in did not help, because the dots grew with it.
-// Worse, the `Math.max` floor is in MAP units, so past z ~2.4 they stopped shrinking at all and just got bigger and
-// bigger on screen.
-//
-// Dividing by `z^1.15` makes the apparent size fall gently as you go in: a
-// weight-4 pin is 3.4px across the whole world, about 2.8px at z=4, and holds
-// there. Enough for the short hop to open up underneath it, never so small it
-// disappears. The floor is now small enough to be a genuine last resort.
-// AND THE AEROPLANE STARTS SMALLER THAN THE PINS DO.
-//
-// At z=1 a 0.85 marker draws a glyph 18-19 units across the sprite's own box, which on a world map is about the width of
-// Ireland. 0.62 is the same aeroplane at roughly three quarters the size: still unmistakably a plane on a long-haul arc,
-// no longer a landmark.
+// Marker size at a given zoom: `base / z^1.15`, so markers shrink gently as you zoom in and short hops open up
+// underneath them. The aeroplane starts smaller than the pins (0.62).
 const PLANE_BASE = 0.62
 const MARKER_FALLOFF = 1.15
 const scaleAt = (base, z, min) => Math.max(min, base / Math.pow(z, MARKER_FALLOFF))
@@ -210,27 +143,8 @@ function ArcPlane({ path, len, zoom = 1, size, faint = false, delay = 0 }) {
   )
 }
 
-// THE LAND, MEMOISED, for the same reason CreatorMap's is: `<Geographies>`
-// takes a render prop, so 240 country paths were rebuilt on every render of
-// this component - and with an aeroplane on a rAF that was sixty times a
-// second. Nothing about the land depends on the zoom or the selection.
-//
-// AND THE COUNTRIES YOU HAVE BEEN TO ARE COLOURED IN.
-//
-// The map already knew this and was not saying it. Every airport in the log
-// carries an ISO-2 country code, so the set of countries you have landed in is
-// free - and it is the single most satisfying thing a flight log can draw,
-// because it is the picture people actually want to screenshot. The arcs say
-// where you went; the fill says how much of the world that adds up to.
-//
-// JOINING THE TWO DATASETS. The atlas gives a country NAME and nothing else;
-// the airports table gives ISO-2. `countryKey` is the one alias table in this
-// codebase that turns either into the same key, which is why it exists (see
-// lib/countryFacts) and why nothing here tries to match on names.
-//
-// A VISITED COUNTRY IS ALSO A TARGET. Unvisited land is inert - clicking the
-// Pacific or a country you have never landed in should do nothing rather than
-// open an empty card - so only the filled ones take a pointer.
+// The land, memoised (<Geographies> takes a render prop). Countries you have landed in are coloured, joined through
+// `countryKey` (atlas names and ISO-2 codes to one key; lib/countryFacts). Only visited countries take a press.
 const Countries = memo(function Countries({ features, land, separator, visited, fill, fillHover, onPick }) {
   return (
     <Geographies geography={features || EMPTY_GEO}>
@@ -259,47 +173,11 @@ const Countries = memo(function Countries({ features, land, separator, visited, 
   )
 })
 
-// EVERY AIRPORT IN THE WORLD, UNDERNEATH EVERYTHING ELSE.
-//
-// The rules for how many and how big are in lib/worldAirports and the argument
-// for them is there too. What is here is the drawing, plus the two things that
-// make eight thousand of anything survive contact with React, plus the hit
-// testing - which is its own problem and the reason this is not just circles.
-//
-// PROJECT ONCE, NOT PER RENDER. The projection is module-level and fixed - the
-// zoom and pan are a transform on the group, not a new projection - so every
-// airport's position is computed on the frame the data lands and never again.
-//
-// CULL TO THE VIEWPORT. Tier alone is not enough: zoomed into Norway at z=12
-// the tier filter still admits every tier-3 field on Earth, and 5,000 dots
-// drawn 40 screens away cost exactly what 5,000 visible ones do.
-//
-// AND THEY ARE CLICKABLE NOW, WHICH NEEDED A SECOND CIRCLE PER DOT.
-//
-// They were `pointer-events: none` scenery. The difficulty is that the visible dot is measured at 1.5 to 2.4 SCREEN
-// PIXELS - that is the whole point of the sizing work - and a two-pixel tap target does not exist on a phone. So each
-// shown airport also gets an invisible circle at a fixed ~9px of screen, which is what actually receives the press.
-//
-// The hit circles are a SEPARATE GROUP drawn after the visible ones rather than
-// a bigger stroke on each, because they have to overlap each other freely and
-// must never paint. Their radius divides by the zoom so it stays a constant
-// finger-sized target at every magnification - the opposite rule to the dots,
-// and correct for the opposite reason.
-//
-// AND THE HIT TARGETS ARE DRAWN IN A SEPARATE PASS, ABOVE THE ROUTES.
-//
-// THE BUG: "if I click on an airport dot near a flight trail, it clicks on the
-// flight trail instead." SVG has no z-index - the last thing painted is the
-// thing on top and the thing that gets the press - and this whole component was
-// rendered BEFORE the arcs. Each arc carries an invisible 14px stroke so a
-// two-pixel line can be tapped with a thumb, and that fat stroke was therefore
-// lying across every airport dot within seven pixels of a route. On a map whose
-// dots ARE the ends of those routes, that is most of them.
-//
-// The two layers want opposite orders and cannot both be satisfied by moving
-// the component: the visible dots belong UNDER the routes (they are scenery you
-// read through), and the hit circles belong OVER them. So `layer` renders one or
-// the other and FlightMap draws it twice, once on each side of the arcs.
+// Every airport in the world, under everything else (rules for how many and how big: lib/worldAirports).
+// Projected once when the data lands (zoom and pan are a transform), and culled to the viewport.
+// Each shown airport also gets an invisible ~9px hit circle (radius divided by zoom, a constant finger-size target).
+// The layer renders twice: visible dots UNDER the routes, hit circles OVER them (`layer` picks which), so a press
+// near a route reaches the airport.
 function WorldAirports({ placed, zoom, center, onPick, selected, layer = 'dots' }) {
   const shown = useMemo(() => {
     if (!placed.length) return []
@@ -353,15 +231,8 @@ function WorldAirports({ placed, zoom, center, onPick, selected, layer = 'dots' 
             cy={a.y}
             r={a.iata === selected ? dotRadius(a.tier, zoom) * 2.6 : dotRadius(a.tier, zoom)}
             fill={a.iata === selected ? BRAND : BRAND_LIGHT}
-            // Light on the land, and it has to be light: this is a layer you
-            // read THROUGH to the routes above it. A tier-3 airstrip is fainter
-            // again, which does the same job as the size difference and survives
-            // at a radius where a size difference is under a pixel.
-            //
-            // TIMES THE TIER'S RAMP, which is what stops a whole tier arriving
-            // on one frame when the zoom crosses its threshold. See tierOpacity
-            // in lib/worldAirports. The one you have SELECTED is exempt: it is
-            // an answer to a press, not scenery, and it must not be half there.
+            // Light on the land (a layer you read through); tier-3 airstrips fainter; multiplied by the tier ramp
+            // (tierOpacity) so a tier does not appear on one frame. The selected airport is exempt.
             opacity={a.iata === selected
               ? 1
               : (a.tier === 0 ? 0.62 : a.tier === 3 ? 0.3 : 0.44) * tierOpacity(a.tier, zoom)}
@@ -377,32 +248,11 @@ function FlightMap({ routes = [], airports = [], routeExtra = null }) {
   const dark = useIsDark()
   const [features, setFeatures] = useState(null)
   const [position, setPosition] = useState({ coordinates: [12, 8], zoom: 1 })
-  // THE COUNTER-SCALE READS THE LIVE ZOOM, NOT THE SETTLED ONE.
-  //
-  // THE BUG THIS FIXES. Everything drawn on this map is divided by the zoom to hold it at a constant size on screen -
-  // the aircraft, the pins, the route strokes, the city labels - and the divisor came from `position`, which was only
-  // ever written by `onMoveEnd`. So for the WHOLE of a pinch or a wheel gesture the group was scaling up and nothing on
-  // it was compensating: at the end of a zoom from 1 to 6 the aeroplanes were briefly drawn six times too big, and then
-  // snapped back the instant the gesture finished.
-  //
-  // `onMove` fires inside react-simple-maps' own d3 handler, in the same
-  // synchronous event as the setState that actually scales the group, so React
-  // 18 batches the two into one render and the map and its contents change size
-  // on the same painted frame. Deferring this into a rAF would put it in a
-  // later batch and reintroduce the same bug one frame wide - which is exactly
-  // what had to be undone on CreatorMap.
+  // The counter-scale reads the LIVE zoom, set in onMove inside the same d3 event as the group's own scale, so the map
+  // and its markers change size on the same frame (deferring to rAF made planes briefly oversized).
   const [liveZoom, setLiveZoom] = useState(1)
-  // AND THE LIVE CENTRE, FOR THE SAME REASON AND A DIFFERENT SYMPTOM.
-  //
-  // THE BUG: "the airport dots temporarily fade away and then reappear, which
-  // looks odd." The world-airport layer culls to the viewport, and the window
-  // it culls against was computed from the LIVE zoom and the SETTLED centre.
-  // A wheel or pinch zoom in react-simple-maps is anchored on the pointer, so
-  // the centre moves throughout the gesture: half a frame into a zoom the
-  // window had already shrunk around a point the map had left, and every dot
-  // outside it was dropped - then `onMoveEnd` wrote the real centre and they
-  // all came back. Both halves of the window have to come from the same
-  // moment, so the centre is tracked live too.
+  // The live centre too: the airport cull window must use the zoom and the centre from the same moment, or dots drop
+  // out mid-zoom.
   const [liveCenter, setLiveCenter] = useState([12, 8])
   const z = liveZoom
   const handleMove = useCallback((pos) => {
@@ -461,21 +311,9 @@ function FlightMap({ routes = [], airports = [], routeExtra = null }) {
     [airports],
   )
 
-  // WHAT YOU FLEW IN AND OUT OF, IN ONE COUNTRY.
-  //
-  // The route card answers "when did I fly this line". This answers the other
-  // question the map now invites by colouring a country in: what does this
-  // place amount to in my log. Airports, busiest first, with the number of
-  // flights through each - which is the same shape of answer, so the two cards
-  // can be the same object.
-  // THE WORLD LIST LIVES HERE, NOT IN THE LAYER, because three things need it
-  // now: the dots, the card that opens when you press one, and the country card,
-  // which has to be able to say how many airports are in a country rather than
-  // how many of them you personally have used.
-  // EVERY AIRPORT IN THE WORLD WAITS FOR THE MAP. The team: the flight-log maps are "a bit laggy at the moment and take
-  // a long time to load in." Eight thousand airports were fetched, projected and laid out at the same moment as the land
-  // and your own routes, so the map you came for arrived behind the scenery. They now follow once your routes have drawn
-  // in, when the browser is idle.
+  // What you flew in and out of, in one country: airports busiest first with flights through each.
+  // The world airport list lives here (dots, airport card and country card all need it) and loads once your routes
+  // have drawn, when the browser is idle.
   const [world, setWorld] = useState([])
   useEffect(() => {
     if (!arrived) return undefined
@@ -530,14 +368,7 @@ function FlightMap({ routes = [], airports = [], routeExtra = null }) {
     setCountry(null)
     setPickedAirport((cur) => (cur === iata ? null : iata))
   }, [])
-  // "1 AIRPORT HERE" WAS TRUE AND READ AS A LIE.
-  //
-  // This counted the airports in YOUR LOG for the country you pressed, and drew "1 airport · 4 flights through it". Of
-  // course it does - they have flown through one. But the map now draws every airport in the world, so the sentence is
-  // sitting next to a dozen visible dots in that country and the only available reading is that the map thinks Ireland
-  // has one airport.
-  //
-  // So the card now says both numbers, and says which is which.
+  // The country card shows both numbers: airports you have used, and airports in the country.
   const countryDetail = useMemo(() => {
     if (!country) return null
     const here = airports
@@ -587,19 +418,8 @@ function FlightMap({ routes = [], airports = [], routeExtra = null }) {
     setSelected((cur) => (cur === key ? null : key))
   }, [])
 
-  // WHICHEVER ARC WAS PRESSED, THE ONE YOU MEANT IS THE NEAREST ONE.
-  //
-  // See `arcDistanceSq`. The press lands on some route's fat transparent
-  // stroke - paint order decides which, and paint order is not a statement
-  // about intent - so the pointer is converted into the arcs' own coordinate
-  // space and every arc is measured against it. `getScreenCTM` on the pressed
-  // path gives exactly that space: a <path> carries no transform of its own, so
-  // its screen CTM is the whole chain of zoom and pan above it, which is what
-  // has to be undone.
-  //
-  // The route that was pressed is the fallback, so if any of this is
-  // unavailable (an old browser, a detached node) the map behaves exactly as it
-  // did before rather than stopping working.
+  // The route you meant is the arc nearest the pointer (see `arcDistanceSq`), in the arcs' own coordinates via the
+  // pressed path's getScreenCTM. Falls back to the pressed route if anything is unavailable.
   const pickRouteAt = useCallback((e, pressedKey) => {
     let key = pressedKey
     try {
@@ -622,18 +442,7 @@ function FlightMap({ routes = [], airports = [], routeExtra = null }) {
     pickRoute(key)
   }, [arcs, pickRoute])
 
-  // WHICH ROUTES CARRY TRAFFIC.
-  //
-  // All of them would be a swarm on a log with sixty routes in it, and a swarm
-  // is not "alive", it is busy. The ten longest get an aeroplane, which is the
-  // same rule CreatorMap uses for its threads and it picks the right ones for
-  // the same reason: a long arc has room for a plane to be seen travelling
-  // along it, and a forty-pixel hop does not.
-  //
-  // The staggered `begin` matters more than it looks. Ten aircraft that all
-  // start at t=0 leave every airport at the same instant and arrive together,
-  // which reads as a mechanism; offset, they read as traffic. The offset is
-  // derived from the route's own index so it is stable across renders.
+  // Planes on the ten longest routes only, with a staggered `begin` (from the route index, stable across renders).
   const flying = useMemo(
     () => arcs.filter((r) => r.d).sort((a, b) => b.chord - a.chord).slice(0, 10),
     [arcs],
@@ -867,15 +676,8 @@ function FlightMap({ routes = [], airports = [], routeExtra = null }) {
                 <title>{`${a.iata} · ${a.city} · ${a.weight} ${a.weight === 1 ? 'flight' : 'flights'}`}</title>
               </circle>
 
-              {/* THE NAME, WHEN THERE IS ROOM FOR IT. Both halves of that are here - a label appears once the map is
-                  zoomed past the point where names would collide, and the two ends of an open route are labelled at any
-                  zoom, because you asked for that one specifically.
-
-                  The text COUNTER-SCALES. Everything inside a ZoomableGroup is
-                  scaled by the zoom, so a 6px label at 20x is a 120px word
-                  across half a continent. Dividing by the zoom holds it at a
-                  constant size on screen, which is the only size a label can
-                  usefully be. */}
+              {/* Airport names appear once zoomed in far enough not to collide, and always at the two ends of an open route.
+                 The text is counter-scaled by the zoom to stay a constant size on screen. */}
               {(showLabels || on) && (
                 <g transform={`translate(${a.x} ${a.y - r - 2}) scale(${1 / z})`} style={{ pointerEvents: 'none' }}>
                   <text
@@ -902,27 +704,11 @@ function FlightMap({ routes = [], airports = [], routeExtra = null }) {
     </ComposableMap>
   )
 
-  // WHAT A ROUTE ACTUALLY WAS.
-  //
-  // A route on this map is one line per PAIR of airports, so it can stand for eight flights - the card names all of
-  // them, newest first, rather than picking one and calling it the answer. A BIGGER CARD. It was `max-w-sm` with 11px
-  // type and a 44-unit scroller, which on a route flown eight times showed two and a half rows and then a scrollbar - a
-  // card small enough that reading it was work. `max-w-md`, a size up on every line and room for four rows before it
-  // scrolls; still a popover, but one you can read at arm's length. A route's rows, with anything that is not a real
-  // flight object dropped. Belt and braces on top of the FlightCommunity fix: a caller that hands this map a sparse
-  // array should get a shorter list, never a crash inside a popover.
+  // A route is one line per pair of airports; the card lists every flight on it, newest first (max-w-md, room for four
+  // rows). Anything that is not a real flight object is dropped.
   const activeRows = (active?.flights || []).filter((f) => f && f.id)
   const activeCount = active ? (active.count ?? active.flights?.length ?? 0) : 0
-  // ONE ENTRY PER TRIP, NOT ONE PER LEG.
-  //
-  // THE BUG: "it's showing up like two separate trips rather than the joint
-  // trip... one without a photo and then one with a photo."
-  // A return is its own `flights` row, and both legs of a there-and-back land
-  // on the same pair, so this card listed the trip twice - once as the outbound
-  // (which carries the photograph and the note) and once as the leg home
-  // (which carries neither, and therefore looked broken). The log's own list
-  // solved this months ago with `tripsFromFlights`; the map was the one surface
-  // still drawing raw rows. Same function, so the two can never disagree again.
+  // One entry per trip, not per leg (`tripsFromFlights`, the same function the log's list uses).
   const activeTrips = useMemo(() => tripsFromFlights(activeRows), [activeRows])
 
   const card = active && (

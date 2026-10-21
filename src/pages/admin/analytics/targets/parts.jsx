@@ -112,54 +112,6 @@ export function Card({ className, delay = 0, children, as: Tag = 'section' }) {
   )
 }
 
-// ---- WHAT THE WORDS MEAN ------------------------------------------------------------------------------------------
-// Ethan: "I don't get what EPM is". Every term on the page that is not plain English opens a short explanation where it
-// is used, instead of a glossary nobody scrolls to.
-export const TERMS = {
-  epm: { title: 'EPM (earnings per 1,000 views)', body: 'What every 1,000 views are worth to Tryp.com. Earnings = views ÷ 1,000 × EPM. Set in the plan (0.90 € by default) and changeable per month.' },
-  cpm: { title: 'Target CPM (cost per 1,000 views)', body: 'What we aim to pay for every 1,000 views. Planned costs = view target ÷ 1,000 × target CPM. Lower is better.' },
-  actualCpm: { title: 'Actual CPM', body: 'What 1,000 views really cost: actual costs ÷ views achieved × 1,000. Green when it is under the target CPM.' },
-  margin: { title: 'Margin', body: 'Earnings minus costs: what Tryp.com keeps.' },
-  pace: { title: 'On pace for', body: 'Where the month lands if views keep coming in at the rate they have so far: views so far ÷ the share of the month gone.' },
-  target: { title: 'View target', body: 'From the growth plan: one anchor month (for example January = 17M) and a monthly growth (7%). Every other month follows on its own, forwards and backwards. A month can also be set by hand.' },
-  achieved: { title: 'Views achieved', body: 'Views GAINED inside the month on every entry, read from the platform (the same count as Weekly views), plus challenges that ran off the platform, spread over the days they ran. VIP months before October come from the VIP sheet.' },
-  costs: { title: 'Actual costs', body: 'Counted automatically: every challenge prize pot (or what was paid, if more) and its vouchers, spread over the days it ran; other rewards (milestones, weekly prizes); VIP and official creator pay; plus any other costs added to the plan.' },
-  other: { title: 'Other costs', body: 'Spend the platform cannot see, such as staff, ads or tools. Optional, per month.' },
-}
-
-/** A term with its explanation one tap away. */
-export function Term({ k, children, className, light = false }) {
-  const t = TERMS[k]
-  const anchor = useRef(null)
-  const inner = useRef(null)
-  const [open, setOpen] = useState(false)
-  useEffect(() => {
-    if (!open) return undefined
-    const close = (e) => { if (!anchor.current?.contains(e.target) && !inner.current?.contains(e.target)) setOpen(false) }
-    const esc = (e) => { if (e.key === 'Escape') setOpen(false) }
-    document.addEventListener('pointerdown', close)
-    document.addEventListener('keydown', esc)
-    return () => { document.removeEventListener('pointerdown', close); document.removeEventListener('keydown', esc) }
-  }, [open])
-  if (!t) return children
-  return (
-    <>
-      <button ref={anchor} type="button" onClick={(e) => { e.stopPropagation(); setOpen((o) => !o) }} aria-expanded={open}
-        className={cx('group/term inline-flex items-center gap-1 text-left underline decoration-dotted decoration-1 underline-offset-[3px] transition-colors',
-          light ? 'decoration-white/50 hoverable:hover:text-white' : 'decoration-gray-300 hoverable:hover:text-brand hoverable:hover:decoration-brand', className)}>
-        {children ?? t.title}
-        <Icon name="info" className={cx('h-3.5 w-3.5 shrink-0 opacity-60 transition-opacity group-hover/term:opacity-100', light ? 'text-white' : 'text-brand')} />
-      </button>
-      <Floating anchor={anchor} open={open} innerRef={inner} estimate={160}>
-        <div role="dialog" className="w-72 animate-pop-in rounded-2xl border border-gray-100 bg-white p-4 text-left shadow-lift">
-          <p className="text-sm font-bold text-ink">{t.title}</p>
-          <p className="mt-1 text-[13px] leading-relaxed text-smoke">{t.body}</p>
-        </div>
-      </Floating>
-    </>
-  )
-}
-
 // ---- WHICH MONTHS ---------------------------------------------------------------------------------------------------
 // A real picker: a year of months, click the first and then the last (or the same one twice for a single month), plus
 // a few plain-English shortcuts. Replaces "Whole plan / Last 3, next 3 / So far", which the team found unclear.

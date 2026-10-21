@@ -14,78 +14,15 @@ import { profilesApi } from '../api/profiles'
 
 // THE TRAVEL PHOTO BOARD: A PACKED COLLAGE YOU REARRANGE.
 //
-// FOUR ATTEMPTS. WHAT EACH ONE GOT WRONG, SO THE NEXT PERSON DOES NOT REPEAT IT.
+// One layout, always: `packBoard` is a pure function of (order, sizes, aspects) run over every photo on every
+// render. So nothing overlaps (a packer cannot produce an overlap), nothing jitters (a photo only moves when the
+// order or a size changes, and then it transitions), and a fresh board is the same layout as "Tidy them up".
+// One gesture per job: DRAG MOVES (a drag is a reorder; the rest re-flow live), the BUTTON SIZES.
 //
-//  1. A 12-column grid with free 2-D placement. Every `creator_photos` row in
-//     production had `pos_x = null`: nobody ever completed an arrangement.
-//     Unbounded `pos_y` let the board grow taller than the screen, and twelve
-//     columns at 375px is a 31px cell, so it was switched off on phones.
-//  2. Masonry with drag-to-REORDER and a "narrower" button. It worked.
-//     wanted to resize by dragging, not by pressing a button.
-//  3. Free placement again, snapped to a twelfth, overlap allowed, four corner
-//     grips. This is the one the team is reporting on now, and the report names
-//     all three faults exactly:
-//       "I don't like the current shuffliness when moving them around, and I
-//        don't like that you're able to overlap photos. Whenever you overlap
-//        photos, the other ones are suddenly moving... I tried to move one of
-//        the landscape ones up to the middle and the vertical one down, and it
-//        caused the other ones to all rejumble."
-//
-// THE REJUMBLE WAS NOT A BUG IN THE DRAG. It was structural, and it is worth
-// writing down because it is invisible from the outside: the board drew
-// ARRANGED photos from their stored coordinates and UNARRANGED ones from a
-// masonry packer run over *only the unarranged ones*. So the moment you moved
-// your first photo it left that set, the packer re-ran over a different list,
-// and every photo you had not touched jumped somewhere else. Every drag
-// rearranged the whole board. No amount of smoothing the pointer maths could
-// have fixed that.
-//
-// SO THE BOARD IS ONE LAYOUT NOW, ALWAYS. `packBoard` is a pure function of
-// (order, spans, aspects) run over EVERY photo on every render - there is no
-// placed/unplaced split left to disagree with itself. Which means:
-//
-//   * NOTHING OVERLAPS, by construction rather than by clamping. A masonry
-//     packer cannot produce an overlap; it is not a rule being enforced.
-//   * NOTHING JITTERS. The layout is deterministic, so a photo only moves when
-//     the order or a span actually changes, and then it TRANSITIONS there.
-//   * A DRAG IS A REORDER. You pick a photo up, the rest re-flow live to show
-//     you where it will land, and it snaps into that place when you let go.
-//     The team: "creators can rearrange it, but the photos always snap in place,
-//     so they're not overlapping each other."
-//   * THE UNARRANGED BOARD AND THE ARRANGED ONE ARE THE SAME LAYOUT. "It should
-//     always start, whenever they upload, just as 'tidy them up' - the way it
-//     looks there, in a clean collage format." A fresh board is simply this
-//     packer with every span at 1, which is exactly what "Tidy them up" resets
-//     to. There is no second code path to drift.
-//
-//  4. The packed collage with a corner hit zone for resizing. The packing is
-//     right and stays; the resize was not. An invisible 36px zone in the
-//     bottom-right of a tile, marked only by a hairline that fades in under the
-//     pointer, is a control you have to be told about - and on a phone there is
-//     no pointer to fade it in with, so on the device most of this board is
-//     looked at, resizing was undiscoverable and effectively absent.
-//
-// SO SIZE IS A BUTTON NOW, AND IT IS THE FIFTH DESIGN.
-//
-// One gesture per job: DRAG MOVES, BUTTON SIZES. That is the whole change, and
-// it removes a real ambiguity as well as an invisible control - a press near
-// the corner of a tile used to mean one of two things depending on 36 pixels,
-// and on a touch screen you cannot see which one you are about to get.
-//
-// THE SIZE IS A STORED LEVEL, NOT A DERIVED SPAN. `creator_photos.size` is
-// small | medium | large (migration 162 widened the CHECK, which only had two
-// values and would have silently rejected the third). The span it draws at is
-// `min(level, cols)`, so the same board reads as 1/2/3 of three columns on a
-// desktop and 1/2/2 of two on a phone: a photo you made large is still the
-// widest thing on the board at any width, which is what "large" has to mean.
-// The old span-out-of-pos_w derivation is kept as the FALLBACK for the 285
-// rows in production that predate this, so nobody's board is reset by the
-// change.
-//
-// STILL PER-MILLE, STILL IN THE SAME FOUR COLUMNS. x, y, w and h are written as
-// thousandths of the board's width, so the profile renders the identical
-// arrangement, scaled, at any width - and the read-only path is unchanged.
-// `smallint` holds 0..32767, which is plenty.
+// The size is a stored level, `creator_photos.size` = small | medium | large (migration 162), drawn at
+// `min(level, cols)` so large is the widest at any width. Rows older than the stored level fall back to a span
+// derived from pos_w. Positions are written as thousandths of the board's width (x, y, w, h), so the profile renders
+// the same arrangement at any width.
 
 const MILLE = 1000
 
@@ -93,13 +30,8 @@ const MILLE = 1000
 // by the packer and by nothing else.
 const GAP = 0.02
 
-// BELOW THIS, A STORED POSITION IS NOT A POSITION.
-//
-// These four columns used to hold 12-COLUMN GRID CELLS - `pos_w = 4` meant four
-// columns wide - and they hold per-mille fractions now. Both are smallint, so
-// nothing complained, and the board read a leftover `4` as four thousandths of
-// the board. Migration 150 cleared those rows; this is the guard that means a
-// straggler degrades to a default span instead of vanishing.
+// Below this a stored position is a leftover 12-column cell, not a per-mille fraction (migration 150 cleared them);
+// treat it as a default span.
 export const MIN_PLACED_MILLE = 40
 
 /** Has this row been arranged with coordinates this board can actually read? */
@@ -113,20 +45,8 @@ export function isPlaced(p) {
 const toFrac = (n, fallback = null) => (Number.isFinite(Number(n)) && n !== null ? Number(n) / MILLE : fallback)
 const toMille = (f) => Math.round(f * MILLE)
 
-// HOW MANY COLUMNS THE BOARD RUNS AT, AND WHY THEY GOT FINER.
-//
-// That is three sizes still - every one of them a notch smaller, with a genuinely new smallest. You cannot express that
-// on a three-column grid: the old small was already one whole column, and there is nothing under it. So the GRID got
-// finer rather than the ladder getting longer - six columns on a desktop, four on a phone - and the three levels sit at
-// 1, 2 and 4 of them. Which lands almost exactly where they asked:
-//
-//   new large  = 4/6 = 0.67 of the board  (the old MEDIUM, 2/3)
-//   new medium = 2/6 = 0.33               (the old SMALL, 1/3)
-//   new small  = 1/6 = 0.17               (new, and half the old smallest)
-//
-// On a phone the same levels clamp to 1, 2 and 4 of four columns, so "large" is
-// still the widest thing on the board at any width - which is what large has to
-// mean, and the whole reason the LEVEL is stored rather than a column count.
+// Six columns on desktop, four on phones; the three levels sit at 1, 2 and 4 of them (large is two thirds of a
+// desktop board, still the widest on a phone).
 export function colsFor(width) {
   if (!width) return 6
   return width < 520 ? 4 : 6
@@ -156,13 +76,7 @@ export function sizeOf(p, variant = 'desktop') {
   return p?.[SIZE_KEY[variant]] || p?.size || 'small'
 }
 
-// THE THREE SIZES, AND WHAT EACH ONE IS WORTH IN COLUMNS.
-//
-// A level, not a column count, because the board runs at two columns on a phone
-// and three above it: storing "2 columns" would mean a photo that fills half a
-// desktop board fills the whole of a phone one and a photo that fills the whole
-// desktop board cannot be distinguished from it. Storing the INTENT and
-// clamping at draw time keeps "large is the biggest" true at every width.
+// The three sizes as levels, not column counts, clamped at draw time.
 export const SIZES = ['small', 'medium', 'large']
 // 1, 2 and 4 of the board's columns. See `colsFor` for why the middle step
 // skips three: it is what makes large two thirds of a desktop board rather than
@@ -193,13 +107,8 @@ export function nextSize(size) {
  * than a compromise.
  */
 export function spanOf(p, cols, variant = 'desktop') {
-  // THE STORED SIZE WINS WHERE THERE IS ONE. Every row has a `size` (the column
-  // defaults to 'small'), so this is the normal path; the width derivation
-  // below only runs for a row whose size is missing or unrecognised.
-  // The RAW stored value, not `sizeOf` - that defaults to 'small', and a row
-  // with no size at all has to fall through to the width derivation below
-  // rather than collapsing to one column. There are 285 such rows in
-  // production, all predating the stored level.
+  // The stored size wins. Read the raw value (not `sizeOf`, which defaults to small) so the ~285 older rows with no
+  // size fall through to the width derivation.
   const level = SIZE_LEVEL[p?.[SIZE_KEY[variant]] ?? p?.size]
   if (level) return Math.max(1, Math.min(cols, level))
   const w = isPlaced(p) ? toFrac(p.pos_w, null) : null
@@ -338,36 +247,13 @@ export default function PhotoBoard({ creatorId, editable = false, alwaysArrangin
   }, [creatorId])
   useEffect(() => { load() }, [load])
 
-  // ADDING OR DELETING A PHOTO UPDATES THE BOARD IMMEDIATELY.
-  //
-  // The uploader (TravelGallery) and the board are siblings that both read `creator_photos`, and neither knew about the
-  // other - so uploading a photo left the board a photo short until the next full page load, and deleting one left a
-  // tile pointing at a row that was gone. A tiny module-level event is the honest fix here: they are peers, not parent
-  // and child, and threading a callback through Edit profile to join them would put this plumbing in a page that has no
-  // interest in it.
+  // Adding or deleting a photo updates the board at once: a tiny module-level event between the uploader and the board
+  // (siblings that both read creator_photos).
   useEffect(() => onPhotosChanged((id) => { if (id === creatorId) load() }), [creatorId, load])
 
-  // MEASURING THE BOARD, AND WHY ONE MEASUREMENT IS NOT ENOUGH.
-  //
-  // Every tile is positioned in FRACTIONS of the board's width, so a width of
-  // zero draws eight 0x0 tiles - the board is there, the rows are loaded, and
-  // the screen is blank. It has to be right, and it has to become right on its
-  // own from any starting point.
-  //
-  // The single mount-time measurement it replaces was measuring the wrong thing
-  // more often than it looks: EditProfile mounts ALL FOUR of its panels and
-  // hides three of them with `hidden` (deliberately - see the note there about
-  // unmounted fields posting stale values), so a board reached by pressing the
-  // Photos tab has already run its effect at clientWidth 0. It recovered
-  // because the ResizeObserver fires when an element stops being
-  // `display: none`, which makes the whole thing depend on one browser
-  // behaviour with no fallback - and there are environments where RO does not
-  // deliver at all.
-  //
-  // So: the observer for live resizes, a window listener as a backstop, and a
-  // LAYOUT EFFECT ON EVERY RENDER that reconciles the two. The layout effect
-  // only calls setState when the number actually differs, so it converges in
-  // one extra render and never loops.
+  // Measuring the board: tiles are fractions of its width, so a width of zero draws nothing. A ResizeObserver for
+  // resizes, a window listener as a backstop, and a layout effect on every render that only sets state when the width
+  // differs (EditProfile mounts this board hidden, at width 0).
   const measure = useCallback(() => {
     const el = boardRef.current
     if (el) setWidth((cur) => (el.clientWidth && el.clientWidth !== cur ? el.clientWidth : cur))
@@ -410,18 +296,7 @@ export default function PhotoBoard({ creatorId, editable = false, alwaysArrangin
     return () => { alive = false }
   }, [photos, aspects, editable])
 
-  // A FILE CAN GO MISSING AFTER ITS ASPECT WAS MEASURED, and that is the
-  // common case rather than the rare one.
-  //
-  // THE BUG THIS FIXES. The probe above is the only thing that ever set `broken`, and it only runs for a photo whose
-  // aspect is still UNKNOWN. Every one of one creator's ten photos had been measured back when the files existed, so
-  // none of them was ever probed again, `broken` stayed empty, and the board rendered ten <img> tags at dead URLs - ten
-  // grey boxes with the browser's broken-image glyph and the word "Travel photo". It looks the same at every width; the
-  // files are gone from storage and nothing had noticed.
-  //
-  // The rendered tile reports its own failure now, which catches every case the
-  // probe cannot: a file deleted after upload, a bucket permission change, a
-  // URL that was rewritten. Costs nothing until something actually fails.
+  // A tile reports its own image failure, which catches files deleted after their aspect was measured.
   const markBroken = useCallback((id) => {
     setBroken((cur) => (cur[id] ? cur : { ...cur, [id]: true }))
   }, [])
@@ -452,16 +327,8 @@ export default function PhotoBoard({ creatorId, editable = false, alwaysArrangin
       || String(a.id).localeCompare(String(b.id)))
   }, [photos, broken, editable, variant])
 
-  // ONE LAYOUT, OVER EVERY PHOTO, EVERY RENDER.
-  //
-  // The placed/unplaced split that used to live here is the rejumble - see the
-  // note at the top of this file. There is no split any more: a photo that has
-  // never been arranged is a photo with a span of 1, in its upload position, in
-  // the same packer as everything else.
-  //
-  // While a drag is in flight the list is the PREVIEW list (the dragged photo
-  // moved to where it would land, or resized), so the other tiles show you the
-  // result before you commit to it.
+  // One layout over every photo, every render. During a drag the list is the preview (the dragged photo moved to where
+  // it would land), so the other tiles show the result before you let go.
   const layout = useMemo(() => {
     const items = ordered.map((p) => ({
       aspect: p.aspect || aspects[p.id] || 1,
@@ -491,40 +358,13 @@ export default function PhotoBoard({ creatorId, editable = false, alwaysArrangin
   const bottom = tiles.reduce((m, t) => Math.max(m, t.y + t.h), 0)
   const boardHeight = width ? Math.max(width * 0.4, width * bottom + 8) : 320
 
-  // THE COUNT THE SECTION HEADER USES IS WHAT IS ACTUALLY DRAWABLE.
-  //
-  // It used to be the row count, which is how a creator whose ten files had
-  // gone from storage got a "Travel photos" heading over ten dead tiles. A
-  // visitor sees none of them, so for a visitor this reports zero and the
-  // section says nobody has added any - which is the honest thing to say about
-  // photographs that no longer exist. The owner still sees the rows, marked, so
-  // they can clear them out.
-  // Not before the rows are in: `tiles` is empty while `photos` is still null,
-  // and reporting that zero would flash "no photos yet" on every load.
+  // The count the section header uses is what can actually be drawn (visitors never see missing files). Not reported
+  // until the rows are loaded, so the empty state never flashes.
   useEffect(() => { if (photos !== null) onCount?.(tiles.length) }, [photos, tiles.length, onCount])
 
-  // ------------------------------------------------------------------ drag
-  //
-  // ONE GESTURE. A press on the tile MOVES it, which on a packed board means
-  // REORDERING it: the drag rewrites the preview order and the packer does the
-  // rest. Nothing here positions anything itself, which is why a drag cannot
-  // produce an overlap. Size is a button and writes one column (see the size
-  // cycle below).
+  // Drag: a press moves the tile, which on a packed board is a reorder. The packer positions everything.
 
-  // WRITING THE WHOLE BOARD, NOT ONE TILE.
-  //
-  // A packed layout means moving one photo moves others, so a commit is every
-  // row whose coordinates or order actually changed. Rows that did not change
-  // are not written: a board of thirty photographs should not issue thirty
-  // updates because one moved to the end of a row.
-  //
-  // A REJECTED SAVE HAS TO SAY SO. This used to throw the result away, and that
-  // silence is why the board looked like a usability problem for three
-  // rewrites: a CHECK constraint left over from the 12-column grid rejected
-  // every per-mille write Postgres was ever offered, so a creator dragged a
-  // photo, watched it move, and found it back where it started on the next
-  // load with nothing anywhere saying so. Migration 151 fixed the constraint;
-  // this makes the next such fault visible in seconds rather than in weeks.
+  // A commit writes every row whose coordinates or order changed, and nothing else. A refused save says so.
   const commit = useCallback(async (order) => {
     const items = order.map((p) => ({
       aspect: p.aspect || aspects[p.id] || 1,
@@ -645,23 +485,8 @@ export default function PhotoBoard({ creatorId, editable = false, alwaysArrangin
     }
   }
 
-  // EVERY PHOTO BACK TO THE CLEAN COLLAGE, in one write.
-  //
-  // "Tidy them up" clears the four position columns, which sets every span back to one and drops the whole board through
-  // the packer in upload order - side by side and below, each at its own shape, nothing overlapping. That is the same
-  // layout a brand new board has, which is the point: the team asked that the board "should always start, whenever they
-  // upload, just as tidy them up", and the only way to guarantee that is for the two to be the same code path.
-  //
-  // Optimistic, then written; a failure says so and puts the board back rather
-  // than leaving the screen disagreeing with the table.
-  // ADDING PHOTOS HAPPENS ON THE BOARD.
-  //
-  // It was two cards: a film strip of 104px squares with the add / caption /
-  // delete controls, and the board underneath it with the arrangement. Two
-  // grids of the same ten photographs, and the one you captioned was never the
-  // one you were looking at. The board is the only surface now - it already
-  // knows every row, it already writes to the same table, and it is the thing
-  // the caption and the size are ABOUT.
+  // "Tidy them up" resets the board to the clean collage in one write: optimistic, and put back if the write fails.
+  // Adding photos happens on the board itself (no separate uploader grid).
   const fileRef = useRef(null)
   const [uploading, setUploading] = useState(false)
   const [uploadError, setUploadError] = useState('')
@@ -669,34 +494,8 @@ export default function PhotoBoard({ creatorId, editable = false, alwaysArrangin
   // spin. See addFiles.
   const [progress, setProgress] = useState({ done: 0, total: 0 })
 
-  // ADDING PHOTOS: THREE AT A TIME, AND EACH ONE APPEARS AS IT LANDS.
-  //
-  // Both halves of that were one loop. It was `for (const file of files)` with
-  // an await on every step, so six photographs meant six full round trips end
-  // to end - decode, downscale, re-encode, base64, upload, measure, insert -
-  // and NOTHING was drawn until the last one finished, because `load()` was
-  // called once after the loop. On a phone picking six camera photos that is
-  // the better part of a minute of a button reading "Adding…" over an empty
-  // board, which is indistinguishable from a broken uploader. It is why he
-  // concluded they had not been added: on that evidence, they had not.
-  //
-  // THREE CHANGES, AND THE THIRD IS THE ONE THAT MATTERS MOST.
-  //
-  //  1  A POOL OF THREE. This work is network-bound (the edge function does the
-  //     writing), so running three at once is close to three times faster. Not
-  //     unbounded: ten simultaneous canvas re-encodes on a phone is how you
-  //     stall the main thread and drop the whole UI, and the browser would
-  //     queue the requests anyway.
-  //  2  EACH ONE IS DRAWN THE MOMENT ITS ROW EXISTS. `load()` after every
-  //     insert rather than once at the end, so the board fills in front of you.
-  //     A photo you can see is proof; a spinner is a promise.
-  //  3  THE BUTTON COUNTS. "Adding 2 of 6" is the difference between a slow
-  //     operation and a stuck one, and it is the whole of what made this feel
-  //     broken rather than merely slow.
-  //
-  // FAILURES ARE NAMED AND THEY DO NOT STOP THE BATCH. One unreadable photo out
-  // of six used to leave a bare message with no clue which; every other photo
-  // still goes up, and the message says how many did not and why.
+  // Adding photos: three at a time (network-bound; more would stall canvas re-encodes on a phone), each drawn as soon
+  // as its row exists, and the button counts ("Adding 2 of 6"). A failed photo is named and does not stop the batch.
   const UPLOAD_CONCURRENCY = 3
 
   async function addFiles(e) {
@@ -742,12 +541,7 @@ export default function PhotoBoard({ creatorId, editable = false, alwaysArrangin
         url = await uploadFile('gallery', path, compressed, compressed.type || 'image/jpeg')
       } catch (err) { failures.push(`${file.name || 'A photo'}: ${err.message}`); return }
       const aspect = await imageAspect(compressed)
-      // EVERY PHOTO STARTS SMALL. The column defaults to it; stating it here means a change to the default cannot
-      // silently change what a new upload looks like.
-      // EVERY NEW PHOTO GOES TO THE END OF BOTH BOARDS. Leaving
-      // `sort_order_mobile` null would have put it wherever its desktop order
-      // happens to land in the phone's arrangement, which for a creator who has
-      // arranged their phone board is the middle of it.
+      // A new photo starts small and goes to the end of both boards (desktop and phone order).
       const { error } = await profilesApi.creatorPhotos().insert({
         creator_id: creatorId,
         photo_url: url,
@@ -793,18 +587,8 @@ export default function PhotoBoard({ creatorId, editable = false, alwaysArrangin
     photosChanged(creatorId)
   }
 
-  // TIDYING IT UP HAS TO RESET THE SIZES, OR IT DOES NOTHING VISIBLE.
-  //
-  // It used to clear the four `pos_*` columns only - which was the whole layout
-  // back when the board rendered from stored coordinates, and has been dead
-  // since the packer took over: the drawn span comes from `size` now, so a
-  // board of large photographs was "tidied" into exactly the board of large
-  // photographs it already was. It resets this variant's ladder to small and
-  // renumbers it by UPLOAD ORDER (`created_at`), which is what the button has
-  // always claimed to do and is the same layout a fresh board has.
-  //
-  // IT ONLY TOUCHES THE VARIANT YOU ARE LOOKING AT. Tidying on a phone leaves
-  // the desktop collage exactly where it was (migration 164).
+  // Tidying resets this variant's sizes and renumbers by upload order. It only touches the variant on screen
+  // (desktop or phone, migration 164).
   const [resetting, setResetting] = useState(false)
   async function resetAll() {
     if (resetting) return
@@ -813,16 +597,7 @@ export default function PhotoBoard({ creatorId, editable = false, alwaysArrangin
     const byUpload = [...(photos || [])].sort((a, b) =>
       String(a.created_at || '').localeCompare(String(b.created_at || ''))
       || String(a.id).localeCompare(String(b.id)))
-    // TIDYING PUTS EVERYTHING AT THE MIDDLE SIZE, NOT THE SMALLEST.
-    //
-    // They are right, and the reason is what the button is FOR. "Tidy" means "put this board back into a good default",
-    // and the smallest size is not a default, it is one end of the ladder - a wall of tiny thumbnails is not what
-    // anybody would arrange by hand. `medium` is the size a photograph is actually worth looking at on this board, and
-    // it is still one press from either of the others.
-    //
-    // NOTE the asymmetry with a NEW upload, which stays 'small' on purpose: a
-    // photo arriving should not shove the board about, and a tidy is explicitly
-    // a request to re-lay it out.
+    // Tidying sets every photo to medium (a sensible default); a new upload stays small so it does not shove the board.
     const TIDY_SIZE = 'medium'
     const patch = (i) => (variant === 'mobile'
       ? { sort_order_mobile: i, size_mobile: TIDY_SIZE }
@@ -839,14 +614,8 @@ export default function PhotoBoard({ creatorId, editable = false, alwaysArrangin
     }
   }
 
-  // ONE PRESS, ONE STEP UP THE LADDER, WRAPPING AT THE TOP.
-  //
-  // Optimistic and then written, like every other change on this board: the
-  // tile has to answer the press immediately or the button reads as dead, and
-  // the packer re-flows everything around it in the same frame. The write also
-  // re-commits the whole board, because a wider photo moves its neighbours and
-  // `pos_*` is what the profile renders from - leaving those stale would make
-  // the profile and the editor disagree until the next drag.
+  // One press, one step up the size ladder, wrapping at the top. Optimistic, and it re-commits the whole board so the
+  // profile (which renders from pos_*) matches.
   async function cycleSize(photo) {
     const size = nextSize(sizeOf(photo, variant))
     const before = photos
@@ -864,16 +633,8 @@ export default function PhotoBoard({ creatorId, editable = false, alwaysArrangin
     commitRef.current?.(order)
   }
 
-  // REMOVING A PHOTO ASKS FIRST, AND IT ASKS ON THE BOARD.
-  //
-  // `confirm` here is the app's own dialog from lib/confirm - NOT the browser
-  // global. A missing import silently falls through to `window.confirm`, which
-  // Chrome can suppress permanently, and the button then does nothing for ever
-  // with no error anywhere. That has bitten this codebase before.
-  //
-  // The storage object goes too, or a deleted photo keeps eating the free
-  // tier's gigabyte for ever. RLS only lets somebody delete inside their own
-  // folder, so a failure here is not worth blocking the row delete over.
+  // Removing asks first with the app's own dialog (lib/confirm, never window.confirm). The storage object is deleted
+  // too; a failure there does not block the row delete.
   async function removePhoto(photo) {
     const ok = await confirm(
       'It comes off your board and is deleted from your gallery. This cannot be undone.',
@@ -1024,12 +785,7 @@ export default function PhotoBoard({ creatorId, editable = false, alwaysArrangin
         <CropDialog photo={cropping} onCancel={() => setCropping(null)}
           onSave={(focal, zoom) => saveCrop(cropping, focal, zoom)} />
       )}
-      {/* THE SHARED VIEWER, NOT A PRIVATE ONE. This board drew its own
-          `fixed z-[80]` layer inline in the page, and on a profile - where
-          `Reveal` transforms wrap the sections - that layer was painted UNDER
-          the cards around it: "the preview is hidden behind other cards".
-          PhotoLightbox portals to the body (see the note at its top), and
-          brings pinch-zoom, Save and stepping through the set with it. */}
+      {/* The shared PhotoLightbox (portalled to the body), so the preview is never under other cards. */}
       {lightbox && (() => {
         const i = tiles.findIndex((t) => t.id === lightbox.id)
         const step = (d) => { if (tiles.length > 1) setLightbox(tiles[(i + d + tiles.length) % tiles.length]) }
@@ -1057,15 +813,7 @@ function PhotoTile({ photo, box, width, size = 'small', arranging, editable, dra
     <figure
       data-tile
       style={{
-        // A TILE MOVES ON ITS TRANSFORM, NOT ON `left` AND `top`.
-        //
-        // Animating `left`/`top` is animating LAYOUT: every frame of every
-        // tile's 200ms ease re-runs layout and paint for the whole board, and
-        // with ten tiles re-flowing at once - which is exactly what a reorder
-        // does - the phone drops frames and the result reads as the tiles
-        // jumping rather than sliding. A transform is composited: it never
-        // touches layout, so ten of them move on the GPU at once.
-        // (This is the same lesson the chat room header paid for.)
+        // Tiles move on transform, not left/top, so a reorder is composited instead of relaying out the board.
         position: 'absolute',
         left: 0,
         top: 0,
@@ -1080,32 +828,9 @@ function PhotoTile({ photo, box, width, size = 'small', arranging, editable, dra
       className={cx(
         'group overflow-hidden rounded-xl bg-cloud',
         dragging ? 'shadow-lift ring-2 ring-brand' : 'shadow-card',
-        // THE OTHER TILES GLIDE; THE ONE IN YOUR HAND DOES NOT.
-        //
-        // This is the difference between "shuffliness" and a board that reads as a board. Every tile except the one
-        // being dragged eases to its new packed position over 200ms, so a reorder is something you WATCH happen rather
-        // than a set of photographs that were somewhere else the last time you blinked. The dragged tile has no
-        // transition at all, because a 200ms ease on `left` means the tile lags the finger - which reads as the board
-        // being slow, and is the other half of what the team called jittery.
-        // ONLY THE TRANSFORM MOVES. 240ms on the same spring-ish curve the rest
-        // of the app settles on - long enough to read as a movement, short
-        // enough not to lag a second drag. The held tile has NO transition at
-        // all, because any easing on its transform means the tile trails the
-        // finger.
-        //
-        // WIDTH AND HEIGHT ARE NOT TRANSITIONED. Animating a box's SIZE is
-        // animating LAYOUT - the whole reason the position moved to a transform
-        // (see the style above) - so leaving the size in the list would have
-        // kept the expensive half of exactly what was being removed. A tile
-        // that changes span resizes at once and glides to its new place, which
-        // is the part the eye actually follows.
-        //
-        // (While verifying this, both `width` and `transform` read as stuck at
-        // their start values in a browser pane that was HIDDEN. That is the
-        // pane, not the board: CSS transitions advance on the same clock rAF
-        // does, and this repository has paid for that three times already. A
-        // screenshot forces a paint and everything lands where the packer put
-        // it. Do not "fix" a frozen animation measured in a hidden pane.)
+        // Other tiles glide (240 ms on transform); the tile in your hand has no transition so it never trails the finger.
+        // Width and height are not transitioned (that would animate layout). Note: transitions do not advance in a hidden
+        // browser pane, so do not "fix" a frozen animation measured there.
         dragging
           ? 'transition-none'
           : 'transition-[transform,box-shadow] duration-[240ms] ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none',
@@ -1135,18 +860,8 @@ function PhotoTile({ photo, box, width, size = 'small', arranging, editable, dra
         />
       )}
 
-      {/* THE CAPTION IS TYPED ON THE PHOTO ITSELF.
-
-          It used to be a separate text input under a thumbnail in a separate
-          uploader grid on a separate card, so writing a caption meant looking
-          at a 104px square that was not the tile the caption would appear on.
-          Now the caption IS the caption: same place, same gradient, same two
-          lines, and while you are arranging it is an input sitting exactly
-          where the text will be.
-
-          It is `pointer-events-none` when it is not editable, so it has never
-          been in the way of a drag, and the INPUT stops a pointerdown from
-          starting one - otherwise clicking into it would pick the photo up. */}
+      {/* The caption is typed on the photo itself. Not editable = pointer-events-none; the input stops pointerdown so
+         clicking into it does not start a drag. */}
       {editable && arranging ? (
         <div className="absolute inset-x-0 bottom-0 z-10 bg-gradient-to-t from-black/80 via-black/45 to-transparent px-2 pb-2 pt-8">
           <input
@@ -1184,14 +899,8 @@ function PhotoTile({ photo, box, width, size = 'small', arranging, editable, dra
       )}
 
       {editable && arranging && (
-        // THE TILE'S OWN CONTROLS, ON THE TILE, WHERE THE PHOTO IS.
-        //
-        // Size top right (the team named the corner), remove top left, and both are real buttons rather than hit zones -
-        // the corner-drag resize they replace could not be found on a phone, because nothing hovers there to reveal it.
-        //
-        // `stopPropagation` on pointerDown as well as click: the figure takes a
-        // pointerdown to start a drag, and without this pressing either button
-        // would also pick the photograph up.
+        // The tile's own buttons: size top right, remove top left. stopPropagation on pointerdown so pressing them does not
+        // start a drag.
         <>
           <button
             type="button"
@@ -1235,13 +944,7 @@ function PhotoTile({ photo, box, width, size = 'small', arranging, editable, dra
   )
 }
 
-// ------------------------------------------------------------------- crop
-//
-// THE CROP IS A FOCAL POINT AND A ZOOM, NOT A RECTANGLE (migration 108).
-// `object-cover` crops from the CENTRE, so a face or a horizon gets sliced off;
-// moving where the crop is taken from fixes exactly that, and it costs two
-// numbers, no canvas re-encode and no second copy in storage. It matters more
-// now than it did, because a freely resized tile can be any shape at all.
+// Crop = a focal point and a zoom (migration 108), not a rectangle: two numbers, no re-encode.
 function CropDialog({ photo, onCancel, onSave }) {
   const tr = useT()
   const [focal, setFocal] = useState({ x: photo.focal_x ?? 0.5, y: photo.focal_y ?? 0.5 })

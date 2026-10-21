@@ -14,7 +14,7 @@ import { useCommunity } from '../context/CommunityContext'
 import RecapBanner from '../components/challenge/RecapBanner'
 import OtherMarketChallenges from '../components/challenge/OtherMarketChallenges'
 import { NoLiveChallenge } from '../components/network/LiveChallengeCard'
-import WinnersPodium from '../components/WinnersPodium'
+import PastWinners from '../components/challenge/PastWinners'
 import { loadWinnerGalleries } from '../lib/winners'
 import { useT } from '../lib/i18n'
 import { stripMarkup } from '../lib/richText'
@@ -554,40 +554,7 @@ export default function Challenges() {
                       <h3 className="mt-4 text-xl font-semibold transition-colors group-hover:text-brand">{c.title}</h3>
                       <p className="mt-2 text-sm text-smoke line-clamp-2">{stripMarkup(c.description)}</p>
                       {galleries[c.id] ? (
-                        /* ONE PODIUM, OR ONE PER BOARD. A challenge run as two
-                           leaderboards has two sets of winners, and ranks are
-                           stored per board - so a single podium off the flat
-                           list would show two firsts and a second. See
-                           lib/winners. */
-                        galleries[c.id].boards?.length > 0 ? (
-                          <div className="pointer-events-auto mt-5 space-y-4">
-                            {galleries[c.id].boards.map((b) => (
-                              <div key={b.id ?? 'all'}>
-                                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-brand">{b.name}</p>
-                                <WinnersPodium
-                                  winners={b.winners}
-                                  entries={b.entries}
-                                  totalScore={b.totalScore}
-                                  scoring={c.scoring}
-                                  voucherWinners={[]}
-                                  voucherPrize={c.participation_prize}
-                                />
-                              </div>
-                            ))}
-                          </div>
-                        ) : (
-                        <WinnersPodium
-                          className="pointer-events-auto mt-5"
-                          wide={isGlobal(c)}
-                          boardHref={`/challenges/${c.id}?tab=leaderboard`}
-                          winners={galleries[c.id].winners}
-                          entries={c.submissions?.[0]?.count ?? 0}
-                          totalScore={galleries[c.id].totalScore}
-                          scoring={c.scoring}
-                          voucherWinners={galleries[c.id].voucherWinners}
-                          voucherPrize={c.participation_prize}
-                        />
-                        )
+                        <PastWinners challenge={c} gallery={galleries[c.id]} podium={{ wide: isGlobal(c), boardHref: `/challenges/${c.id}?tab=leaderboard` }} />
                       ) : (
                         <p className="mt-4 text-xs font-medium text-smoke">{c.submissions?.[0]?.count ?? 0} entries · results inside →</p>
                       )}

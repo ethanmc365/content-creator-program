@@ -105,26 +105,10 @@ function parseParticipationPrize(prizes) {
   return null
 }
 
-// One challenge: full brief, prizes, live countdown, the submissions gallery,
-// a "submit your link" flow, and (once results are in) the leaderboard.
-//
-// EMBEDDED MODE
-//
-// A market's Challenges tab used to show a second live card with a second
-// button that took you here, which is a click and a page load to reach the
-// thing you had already asked for twice. Passing `challengeId` and `embedded`
-// renders this exact page inside that tab instead: same brief, same entries,
-// same leaderboard, same submit flow, no duplicate implementation to drift.
-//
-// Everything below behaves identically when the props are absent, which is what
-// keeps the live UK challenge on /challenges/:id untouched.
-// `marketParticipation` is how much of a market has entered, and is NOT the
-// same thing as the `participation` computed below, which is the voucher
-// threshold ("post 3+ videos"). Two very different numbers that both wanted the
-// same word.
-// EIGHT AT A TIME, MOST VIEWED FIRST ON A FINISHED CHALLENGE (19 Oct 2026). Ethan: going from the leaderboard to the
-// entries of the Global Challenge still lagged. Each card is a thumbnail, a player and a points breakdown, so the first
-// page is now eight and the next eight come only when asked for, by a button (no scroll-triggered loading).
+// One challenge: brief, prizes, countdown, entries, the submit flow and the leaderboard.
+// Embedded mode (`challengeId` + `embedded`): a market's Challenges tab renders this same page inside the tab.
+// `marketParticipation` is how much of a market has entered; `participation` below is the voucher threshold.
+// Entries show eight at a time (most viewed first once finished), with a button for more.
 const ENTRY_PAGE = 8
 
 // The brief's right-hand column on a desktop: sticky, scrolls itself, fades at whichever end has more.
@@ -267,19 +251,8 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
   const [success, setSuccess] = useState(null) // { count, platform } once an entry lands
   const deepLinkedRef = useRef(false) // ?submit=/?tab= are consumed once, not on every reload
 
-  // WHO THE CHALLENGE IS OPEN TO.
-  //
-  // The participation bar only ever appeared when a market's Challenges tab
-  // handed one down, so it showed under a challenge opened from inside Spain
-  // and vanished from the SAME challenge opened from /challenges. That reads as
-  // the bar being broken, and it was reported that way. It is not a fact about
-  // where you happened to click; it is a fact about the challenge.
-  //
-  // The denominator is the challenge's own audience: the roster of the
-  // community it belongs to, or every active creator for a challenge that has
-  // no community (the legacy UK contest) or belongs to Worldwide, which
-  // everybody is in. Admins and QA accounts are excluded from both halves, the
-  // same rule every other member count here follows.
+  // Who the challenge is open to: its community's roster, or every active creator for Worldwide or a challenge with no
+  // community. Admins and QA accounts are excluded from both halves.
   const [audience, setAudience] = useState(seed?.audience ?? null)
 
   // ---- MORE THAN ONE LEADERBOARD, AND CLAIMABLE BONUSES -------------------
@@ -450,14 +423,8 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
     setSubmitError(message)
   }
 
-  // ASK THE PLATFORM WHAT THIS IS, A BEAT AFTER THE TYPING STOPS.
-  //
-  // 500ms, and it is a debounce rather than a paste handler on purpose: a link
-  // arrives by paste, by autofill, by typing and by the share sheet, and only
-  // one of those fires `paste`. The dialog closing cancels it, and every result
-  // is checked against the URL that is in the box NOW - a slow lookup for a
-  // link that has since been replaced must not overwrite the fast one that
-  // followed it.
+  // Detect the platform 500 ms after typing stops (links also arrive by autofill and the share sheet, not only paste).
+  // Every result is checked against the URL in the box now, so a slow lookup cannot overwrite a newer one.
   useEffect(() => {
     if (!showSubmit) { setLinkMeta(null); return undefined }
     const raw = videoUrl.trim()
@@ -515,22 +482,8 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
       }
     }
 
-    // THE ENTRY CARRIES THE VIDEO'S REAL ID WHEN WE KNOW IT.
-    //
-    // TikTok mints a NEW vm.tiktok.com code every time Share is pressed, so the
-    // same video submitted twice arrives as two links with nothing in common.
-    // `trg_one_video_one_entry` keys on the URL, so it could not see that, and a
-    // repeat was only caught a day or two later when view-sync resolved the
-    // link - after it had been scoring. Taking those points back is what
-    // Natalia saw as thirty becoming twenty-one, and she had no way to know why.
-    //
-    // The preview that fills the cover and the caption has already followed the
-    // link by then, so the id is sitting in `linkMeta`. Writing it with the row
-    // lets the guard that was always there fire NOW, with a sentence she can act
-    // on, and no points are ever given to a repeat.
-    //
-    // Only when the preview is for the link actually being submitted: a stale
-    // meta from a URL since replaced would stamp the wrong video's id on it.
+    // Store the video's real id with the entry when the preview already knows it, so the one-video-one-entry guard can
+    // refuse a repeat at once (TikTok mints a new short link on every share). Only if the preview is for this exact link.
     const resolvedId = linkMeta && linkMeta.url === url && !linkMeta.loading ? linkMeta.videoId : null
 
     // `select().single()` because the bonus claims below have to point at the
@@ -576,32 +529,11 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
       return fail('', error.message)
     }
 
-    // THE COVER IS STORED THE MOMENT THE ROW EXISTS, NOT THE FIRST TIME
-    // SOMEBODY LOOKS AT IT.
-    //
-    // `VideoThumb` would have resolved it eventually - it asks `thumb-cache`
-    // for any entry that has no cover - but "eventually" means the first person
-    // to open the board waits for it, and the first person to open the board is
-    // usually the creator who just posted. Doing it here costs one call at the
-    // one moment somebody is already waiting, and `src` is the frame the
-    // preview above already found, so the platform is asked once rather than
-    // twice.
-    //
-    // Deliberately not awaited and deliberately not fatal: the entry is IN, and
-    // a missing picture is a card that resolves itself on the next view.
+    // Store the cover as soon as the row exists (the preview already found the frame). Not awaited, not fatal.
     storeThumbnail(url, linkMeta?.thumbnail || undefined)
 
-    // THE CLAIMS ARE WRITTEN AFTER THE ENTRY AND THEY ARE NOT FATAL.
-    //
-    // If this insert fails the video is still entered, which is the thing that
-    // matters and the thing that is hard to redo. A claim that did not land can
-    // be ticked again from the entry card, so the failure is recoverable in
-    // place; losing the entry would not be. The points follow from the claim
-    // through `recalc_challenge_points_internal`, so nothing here awards
-    // anything directly.
-    // SAID OUT LOUD WHEN IT FAILS. From 6 to 7 Oct every claim failed in the database (migration 347) and this one
-    // failed silently: the entry went in, the ticked bonus did not, and nobody was told. Now the creator is, and told
-    // the fix - the entry card can claim it again.
+    // Bonus claims are written after the entry and are not fatal: the entry is what matters, and a claim can be ticked
+    // again from the entry card. A failed claim tells the creator. Points follow through recalc_challenge_points_internal.
     let claimFailed = false
     if (entry && claiming.length > 0) {
       const { error: claimErr } = await submissionsApi.submissionBonusClaims().insert(
@@ -768,15 +700,7 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
   // Ranks are stored per board (migration 154), so a group's rows already read
   // 1, 2, 3 and nothing has to be renumbered here.
 
-  // WHAT *YOU* ARE PLAYING FOR, WHICH IS NOT ALWAYS WHAT THE CHALLENGE SAYS.
-  //
-  // A challenge split into boards can pay each of them differently (migrations
-  // 154, 158, 159), and this page was printing the CHALLENGE's breakdown to
-  // everybody: a creator in a group racing for its own 300 euros read the
-  // brief's prize list and saw the other board's prizes. `prizeForGroup` is the
-  // same fall-through the payout applies in SQL, so what is promised here is
-  // what actually gets awarded - which is the only version of this worth
-  // shipping.
+  // The prizes for the creator's own board on a split challenge (`prizeForGroup`, the same fall-through the payout uses).
   const prizes = Array.isArray(myPrize?.prize_structure) ? myPrize.prize_structure : []
 
   // THE HEADLINE NUMBER ON THE PRIZES CARD, and it is the admin's own figure,
@@ -808,16 +732,8 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
   // Where I stand against that number: my entries, or my points on the board.
   const myPoints = Number(results.find((r) => r.creator_id === user.id)?.final_views) || 0
   const partHave = participation?.basis === 'points' ? myPoints : myEntries.length
-  // COUNTED ON MY OWN BOARD, not across the challenge. The sentence this feeds
-  // is "post 3+ videos to earn X - 4 earned so far", and X is my board's
-  // reward: totalling the other board's creators into it would be counting
-  // people who are earning something else.
-  // And the same answer for whichever board is being LOOKED at, which is only
-  // different from mine while somebody is reading another group's tab.
-  // The prize breakdown for the board being LOOKED at, which on a split
-  // challenge is that group's own and not the challenge's. This is what lays
-  // the leaderboard out (every paid place is a row, taken or open), so getting
-  // it wrong would show one group the other group's money.
+  // Counted on my own board, and the same for whichever board is being looked at. The prize breakdown for that board
+  // lays out the leaderboard rows (paid places, taken or open).
   const boardPrizes = shownPrize
     ? (Array.isArray(shownPrize.prize_structure) ? shownPrize.prize_structure : [])
     : prizes
@@ -877,16 +793,7 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
   const openBonusRules = bonusRules.filter((r) => ruleOpenAt(r, nowMs))
   const claimableFor = (s) => bonusRules.filter((r) => !claimsBySubmission.get(s.id)?.has(r.id) && ruleOpenAt(r, s.submitted_at))
 
-  // THE LEADERBOARD TAB IS ALWAYS THERE.
-  //
-  // It used to appear only once a result row existed, so the board a creator
-  // most wants to see - the empty one, on day one, with every prize still up
-  // for grabs - was the one board the page refused to draw. The component fills
-  // itself from the prize structure now (see ChallengeLeaderboard), so there is
-  // always something to show.
-  //
-  // THE LEADERBOARD COMES BEFORE THE ENTRIES. The board is the question people open a challenge to answer; the gallery
-  // is browsing.
+  // The leaderboard tab is always there (it fills itself from the prize structure) and comes before the entries.
   const TABS = [
     { key: 'brief', label: tr('The brief'), icon: 'book' },
     { key: 'leaderboard', label: tr('Leaderboard'), icon: 'trophy' },
@@ -960,22 +867,8 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
                 "Manage challenges" list, which meant the page showing you a challenge could not change its state and the
                 page that could change it did not show you the challenge. The team asked for that page to go; these are
                 the controls that were worth keeping, on the page they are about. */}
-            {/* THREE FLAT BUTTONS BECAME A RANK.
-
-                RESULTS IS THE JOB, so it is the only solid button.
-
-                AND IT NO LONGER SAYS "INTERIM". they are right, and the reason is worth keeping: EVERY live challenge is
-                interim. Results rows exist from the first logged view, so the chip read "interim" on every unfinished
-                challenge in the product - a label that is true of everything tells you nothing, and it was sitting
-                inside the one button a country manager presses every day. FINAL is the state worth a word, because it is
-                the one that has stopped changing, so that is the only one that gets one.
-
-                CLOSING A CHALLENGE IS NOT A TOOLBAR ACTION. It ends the thing
-                and it cannot be undone from here, so it sits behind the "..."
-                with Publish and Archive - one press away, not one slip away -
-                and it is on the RESULTS PAGE as a proper control, which is
-                where a manager already is when they decide entries are over.
-                See AdminResults' lifecycle card. */}
+            {/* Admin actions: Results is the only solid button. No "interim" label (every live challenge is interim; only FINAL
+               is marked). Closing a challenge sits behind "..." and on the results page, not in the toolbar. */}
             {isAdmin && (
               <>
                 {/* A PUSH ABOUT THIS CHALLENGE, FROM THIS CHALLENGE. The platform could already notify a whole market,
@@ -1048,22 +941,8 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
         </div>
       )}
 
-      {/* THE DEADLINE CARD, WHICH IS THE ONE THING ON THIS PAGE THAT MOVES.
-
-          THE EMOJI IS GONE. It was a clapperboard, which renders as Apple's own
-          artwork on an iPhone - a piece of somebody else's icon set inside our
-          only orange button. The house rule already says line icons, never
-          emoji, in chrome; this button now says what it does and nothing else.
-
-          IT IS ORANGE, NOT BLACK. It was solid ink for a week - the only dark block on a white page, which certainly
-          stood out, and which So it is the LiveChallengeCard's own gradient, its own blooms and its own white-on-brand
-          button. The card a creator meets on /challenges and the card they meet inside the brief are now the same object
-          seen twice, which is what makes the second one recognisable.
-
-          THE ANIMATION IS ONE PASS OF LIGHT (`challenge-sheen`, index.css - the
-          live challenge card already carries it) plus a slow breathing glow
-          behind the button. Both are decoration on a static layout, so
-          `prefers-reduced-motion` can drop them and nothing moves position. */}
+      {/* The deadline card: the live challenge card's gradient and white button, so the two are recognisably the same.
+         The sheen and glow are decoration, dropped under prefers-reduced-motion. */}
       {isLive && (
         <div className={cx(
           'challenge-card relative mb-10 overflow-hidden rounded-card p-6 text-white shadow-lift sm:p-8',
@@ -1244,35 +1123,14 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
       </div>
 
       {/* ---------- Tab: brief ---------- */}
-      {/* TWO RUNNING ORDERS OVER NAMED SECTIONS, chosen with `useIsMobile()`.
-
-          On a desktop the page is two columns and the prizes are already at eye
-          level in the rail. Collapsed to one column that rail simply falls to
-          the BOTTOM, so the one fact that decides whether somebody enters
-          arrived after everything else - and moving it up with `order-first`
-          brings the platforms card up with it, because they are one wrapper.
-
-          Not `hidden`: a hidden twin still MOUNTS, and ScoringPanel fetches
-          (this is the same trap the profile's photo board paid for). One
-          instance of each section, arranged twice. */}
+      {/* Two running orders over named sections, chosen with `useIsMobile()` (on a phone the prizes move up). Not `hidden`:
+         a hidden twin still mounts and ScoringPanel fetches. */}
 
       {tab === 'brief' && (() => {
         const briefCard = (
           <>
-          {/* THE BRIEF IS RENDERED, NOT PRINTED.
-              It was `whitespace-pre-line` over the raw column, which is what
-              a brief looked like before there was an editor - and the admin
-              form has had a full WYSIWYG for months. So every heading a
-              writer set arrived here as a line beginning with hashes, every
-              bold run as asterisks, and every bullet as a hyphen. The one
-              thing the toolbar promises is that the brief looks the way it
-              looked while you were writing it.
-              `mdToHtml` is the same function the editor seeds itself with -
-              so this is literally the editor's own output - and it escapes
-              its input before it builds any tag (see the note in
-              lib/richEditor; the attacker there is a creator and the victim
-              is the team). `rt-editor` is the stylesheet those tags are
-              already written for. */}
+          {/* The brief is rendered from markdown with `mdToHtml` (the editor's own function, which escapes its input first)
+             and styled by `rt-editor`. */}
           {/* BIGGER THAN ANY HEADING INSIDE IT, IN INK, AND FOLDED. And it opens on its first paragraph with Read all,
               so the points table below is not a long scroll away. */}
           <section className="card">
@@ -1291,15 +1149,7 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
         )
         const scoringCard = (
           <>
-          {/* How it is decided, which until now was stored on the row and
-              shown nowhere. Somebody posting eight short videos into a
-              best-video challenge is wasting their month.
-
-              Legacy 'prize' challenges are deliberately excluded. The live UK
-              challenge is one, and adding a provisional leaderboard to a
-              contest people are already halfway through is a product change
-              nobody asked for. New challenges pick one of the three modes and
-              get the panel. */}
+          {/* How it is decided (the scoring panel). Legacy 'prize' challenges are excluded. */}
           {challenge.scoring && challenge.scoring !== 'prize' && (
             <ScoringPanel challenge={challenge} rules={pointRules} />
           )}
@@ -1441,25 +1291,8 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
         )
         const prizesCard = (
           <>
-          {/* THE PRIZES ARE THE POINT OF THE PAGE - BUT THEY ARE STILL A
-              CARD ON THIS PAGE.
-
-              So: the same white `card` surface, border and shadow as the
-              brief, the rules and the platforms card beside it, with the
-              brand carried by the heading rule and the place chips instead of
-              by a gradient banner and a wash. THE ROWS ARE ALL ONE ROW: a
-              chip in that place's own podium tone, the ordinal, and the prize
-              right-aligned at one size. First place used to be a separate
-              block with the money at heading size, which made a five-place
-              breakdown read as one prize and four footnotes - and put the
-              money on two different axes on one card.
-
-              THE PARTICIPATION PRIZE IS STILL ITS OWN BLOCK, because "post 3
-              videos and everybody gets a voucher" is the offer that reaches
-              the creators who will never come first, which is most of them.
-              Its ticket is a BARE ICON now - it was a glyph on a white disc
-              with a shadow, which on a white card is a circle drawn around
-              nothing. */}
+          {/* The prizes card: same white card as the rest, every place one row (podium-tone chip, ordinal, prize).
+             The participation prize has its own block: it is the offer that reaches most creators. */}
           {allGroupsView ? (
             <div className="space-y-5">
               {groups.map((g, i) => {

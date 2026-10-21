@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { challengeEconomics, blendEconomics, cpmBand, convert, groupBy, rewardsTotal, filterChallenges, runningChallenges } from './programme'
+import { challengeEconomics, blendEconomics, cpmBand, convert, rewardsTotal, filterChallenges, runningChallenges } from './programme'
 
 // A challenge row shaped like admin_challenge_metrics() returns.
 const row = (over = {}) => ({
@@ -102,27 +102,6 @@ describe('convert', () => {
     expect(convert(null, 'GBP', 'EUR', rates)).toBeNull()
   })
 })
-
-describe('groupBy', () => {
-  it('groups and blends, heaviest spend first', () => {
-    const rows = [
-      challengeEconomics(row({ id: 'a', market: 'UK', prize_amount: 50 })),
-      challengeEconomics(row({ id: 'b', market: 'ES', prize_amount: 500 })),
-      challengeEconomics(row({ id: 'c', market: 'UK', prize_amount: 60 })),
-    ]
-    const groups = groupBy(rows, (r) => r.market)
-    expect(groups[0].key).toBe('ES')
-    expect(groups[1].key).toBe('UK')
-    expect(groups[1].rows).toHaveLength(2)
-    expect(groups[1].blended.spend).toBe(110)
-  })
-
-  it('buckets missing values rather than dropping them', () => {
-    const groups = groupBy([challengeEconomics(row({ market: null }))], (r) => r.market)
-    expect(groups[0].key).toBe('Unspecified')
-  })
-})
-
 
 // CASH AND VOUCHERS ARE NOT THE SAME MONEY.
 //
