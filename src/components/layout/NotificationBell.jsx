@@ -55,8 +55,8 @@ function NotificationRow({ n, leaving, onOpen, onDismiss, i }) {
       <button
         onClick={() => onOpen(n)}
         className={cx(
-          'flex min-w-0 flex-1 items-start gap-3 rounded-xl py-2.5 pl-6 pr-9 text-left transition-colors duration-150',
-          n.read ? 'hover:bg-cloud' : 'bg-brand-tint/30 hover:bg-brand-tint/50',
+          'flex min-w-0 flex-1 items-start gap-3 rounded-xl py-3 pl-5 pr-9 text-left transition-colors duration-150',
+          n.read ? 'hover:bg-cloud' : 'bg-brand-tint/40 hover:bg-brand-tint/70',
         )}
       >
         <span className="mt-0.5"><NotificationLead n={n} size='sm' /></span>
@@ -83,18 +83,9 @@ function NotificationRow({ n, leaving, onOpen, onDismiss, i }) {
           On touch, where there is no hover, the cross is simply always there -
           `group-hover` never latches, so a phone gets the affordance and a
           desktop gets the clean list. */}
+      {/* UNREAD = A SHORT BRAND BAR ON THE LEFT EDGE: it reads as "new" at a glance down the list and never touches the cross. */}
       {!n.read && (
-        <span
-          /* THE UNREAD DOT IS ON THE LEFT, AWAY FROM THE DISMISS BUTTON.
-             It was at right-3 top-4 and the X occupies right-1.5 top-2 in a
-             28px box, so the dot sat inside the button - "the live dot and
-             the X overlap". They were also two different meanings stacked in
-             one corner: one says this is new, the other throws it away.
-             Unread belongs at the start of the row, which is where every
-             other list in the app puts it. */
-          className="pointer-events-none absolute left-1.5 top-1/2 h-2 w-2 -translate-y-1/2 rounded-full bg-brand transition-opacity duration-150 group-hover/row:opacity-0"
-          aria-label={tr("Unread")}
-        />
+        <span aria-label={tr('Unread')} className="pointer-events-none absolute bottom-3 left-1.5 top-3 w-[3px] rounded-full bg-gradient-to-b from-brand-light to-brand" />
       )}
       <button
         onClick={(e) => { e.stopPropagation(); onDismiss(n.id) }}
@@ -198,14 +189,14 @@ export default function NotificationBell() {
         aria-expanded={open}
         className={cx(
           'relative rounded-full p-2.5 transition-all duration-200 hover:bg-cloud active:scale-95',
-          open ? 'bg-cloud text-ink' : 'text-smoke hover:text-ink',
+          open ? 'bg-cloud text-ink' : unread > 0 ? 'text-brand hover:bg-brand-tint' : 'text-smoke hover:text-ink',
         )}
         aria-label={`Notifications${unread ? ` (${unread} unread)` : ''}`}
       >
         <svg
           className={cx('h-5 w-5', ringing && 'notif-ring')}
           style={{ transformOrigin: '50% 15%' }}
-          fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"
+          fill={unread > 0 ? 'currentColor' : 'none'} fillOpacity={unread > 0 ? 0.12 : 0} stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"
         >
           <path strokeLinecap="round" strokeLinejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0" />
         </svg>
@@ -229,6 +220,7 @@ export default function NotificationBell() {
           side and nothing on the other, and the notification text - a sentence with a name and a room in it - wrapped to
           four lines inside it. It keeps its anchored width from `sm` up, where it is a dropdown under a bell rather than
           the whole screen. */}
+      {open && <div aria-hidden className="notif-backdrop fixed inset-0 z-40 bg-ink/25 sm:hidden" onMouseDown={() => setOpen(false)} />}
       {open && (
         // ON A PHONE IT IS PINNED TO THE VIEWPORT, NOT HUNG OFF THE BELL.
         //
@@ -249,12 +241,13 @@ export default function NotificationBell() {
         <div
           style={{ '--bell-top': `${sheetTop}px` }}
           className={cx(
-            'z-40 overflow-hidden rounded-card border border-gray-100 bg-white shadow-lift animate-menu-in',
+            'z-50 flex max-h-[calc(100dvh-var(--bell-top)-5.5rem)] flex-col overflow-hidden rounded-card border border-gray-100 bg-white shadow-lift animate-menu-in sm:max-h-none',
             'fixed inset-x-3 top-[var(--bell-top)] origin-top',
             'sm:absolute sm:inset-x-auto sm:right-0 sm:top-auto sm:mt-2 sm:w-[23rem] sm:origin-top-right',
           )}>
           <div className="flex items-center justify-between gap-2 px-4 pb-2.5 pt-3.5">
-            <p className="text-sm font-semibold">
+            <p className="flex items-center gap-2 text-[15px] font-bold">
+              <Icon name="bell" className="h-5 w-5 shrink-0 text-brand" />
               Notifications
               {unread > 0 && <span className="ml-1.5 text-xs font-medium text-brand">{unread} new</span>}
             </p>
@@ -291,15 +284,15 @@ export default function NotificationBell() {
             </div>
           )}
 
-          <div className="max-h-[26rem] overflow-y-auto overscroll-contain px-2 pb-1">
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-2 pb-1 sm:max-h-[26rem]">
             {loading ? (
               <div className="space-y-2 p-2">
                 {[0, 1, 2].map((i) => <div key={i} className="h-14 animate-pulse rounded-xl bg-cloud" />)}
               </div>
             ) : rows.length === 0 ? (
               <div className="flex flex-col items-center gap-2 px-4 py-10 text-center">
-                <span className="flex h-11 w-11 items-center justify-center rounded-2xl text-brand">
-                  <Icon name="check" className="h-5 w-5" />
+                <span className="notif-badge flex h-11 w-11 items-center justify-center text-brand">
+                  <Icon name="check" className="h-8 w-8" />
                 </span>
                 <p className="text-sm font-medium text-ink">
                   {filter === 'all' ? "You're all caught up." : 'Nothing here.'}
@@ -329,7 +322,7 @@ export default function NotificationBell() {
             )}
           </div>
 
-          <div className="flex items-center justify-between gap-2 border-t border-gray-100 px-3 py-2">
+          <div className="flex shrink-0 items-center justify-between gap-2 border-t border-gray-100 bg-white px-3 py-2">
             <Link to="/notifications" onClick={() => setOpen(false)} className="rounded-lg px-2 py-1.5 text-sm font-medium text-brand transition-colors hover:bg-cloud">
               {tr("View all")}
             </Link>

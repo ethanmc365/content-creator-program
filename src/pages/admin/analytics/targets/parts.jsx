@@ -163,7 +163,7 @@ export function Term({ k, children, className, light = false }) {
 // ---- WHICH MONTHS ---------------------------------------------------------------------------------------------------
 // A real picker: a year of months, click the first and then the last (or the same one twice for a single month), plus
 // a few plain-English shortcuts. Replaces "Whole plan / Last 3, next 3 / So far", which the team found unclear.
-export function MonthRangePicker({ from, to, nowKey, planFrom, planTo, onChange }) {
+export function MonthRangePicker({ from, to, nowKey, onChange }) {
   const anchor = useRef(null)
   const inner = useRef(null)
   const [open, setOpen] = useState(false)
@@ -179,7 +179,8 @@ export function MonthRangePicker({ from, to, nowKey, planFrom, planTo, onChange 
     return () => { document.removeEventListener('pointerdown', close); document.removeEventListener('keydown', esc) }
   }, [open])
   const pick = (k) => {
-    if (!first) { setFirst(k); return }
+    // One click is a month by itself and applies at once; a second click stretches it into a range.
+    if (!first) { setFirst(k); onChange(k, k); return }
     const [a, b] = first <= k ? [first, k] : [k, first]
     setFirst(null)
     setOpen(false)
@@ -189,8 +190,6 @@ export function MonthRangePicker({ from, to, nowKey, planFrom, planTo, onChange 
     { label: 'This month', range: [nowKey, nowKey] },
     { label: 'Last 3 months', range: [addMonths(nowKey, -2), nowKey] },
     { label: 'Next 3 months', range: [addMonths(nowKey, 1), addMonths(nowKey, 3)] },
-    { label: 'Since we started', range: [planFrom, nowKey] },
-    { label: 'Full plan', range: [planFrom, planTo] },
   ]
   const lo = first ? (hover && hover < first ? hover : first) : from
   const hi = first ? (hover && hover > first ? hover : first) : to
@@ -237,7 +236,7 @@ export function MonthRangePicker({ from, to, nowKey, planFrom, planTo, onChange 
                 )
               })}
             </div>
-            <p className="mt-2 text-[13px] text-smoke">{first ? 'Now pick the last month.' : 'Pick the first month, then the last.'}</p>
+            <p className="mt-2 text-[13px] text-smoke">{first ? 'Showing one month. Pick another to make a range.' : 'Pick a month, or two for a range.'}</p>
           </div>
         </div>
       </Floating>

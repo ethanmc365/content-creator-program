@@ -55,7 +55,8 @@ describe('the growth plan', () => {
     const p = planOf(plans, 'community')
     for (const [k, v] of Object.entries(PLAN)) expect(planTarget(p, k)).toBe(v)
     expect(planTarget(p, '2027-02')).toBe(18200000)
-    expect(planTarget(p, '2026-08')).toBeNull() // before the plan starts
+    expect(planTarget(p, '2026-01')).toBeGreaterThan(0) // the plan reaches back to January 2026
+    expect(planTarget(p, '2025-12')).toBeNull()
   })
   it('moving the anchor moves every month (October to 10M -> November 10.7M)', () => {
     const p = { ...planOf(plans, 'community'), anchor: '2026-10', anchorViews: 10000000 }
@@ -200,7 +201,7 @@ describe('plan to date', () => {
   it('holds only months with a target against it', () => {
     const rows = buildMonths({ segment: 'vip', months, plans: [...plans.filter((p) => p.segment !== 'vip'), { ...plans[1], start_month: 10 }], targets, actuals, now: NOW })
     const s = summarise(rows)
-    expect(rows[0].target).toBeNull() // September: no VIP plan yet
-    expect(s.pctToDate).toBeCloseTo(7711354 / (12000000 * (19.5 / 31)))
+    expect(rows[0].target).toBe(11200000) // September now has a target too (the plan reaches back to Jan 2026)
+    expect(s.pctToDate).toBeCloseTo(s.achieved / s.targetToDate)
   })
 })

@@ -137,9 +137,11 @@ export function niceViews(v) {
   const step = v >= 1_000_000 ? 100_000 : v >= 100_000 ? 10_000 : 1_000
   return Math.round(v / step) * step
 }
+/** The earliest month the plan reaches back to (Ethan, 21 Oct 2026): January 2026, whatever the plan's own start. */
+export const PLAN_FLOOR = '2026-01'
 /** The plan's target for a month: the anchor grown (or shrunk) by the growth, rounded to a clean figure. */
 export function planTarget(plan, key) {
-  if (!plan || !key || key < plan.start) return null
+  if (!plan || !key || key < PLAN_FLOOR) return null
   if (key === plan.anchor) return plan.anchorViews
   return niceViews(plan.anchorViews * (1 + plan.growth) ** monthsBetween(plan.anchor, key))
 }
