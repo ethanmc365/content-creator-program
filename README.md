@@ -14,7 +14,7 @@ Live: https://trypcreators.vercel.app (a PWA; most creators use it installed on 
 | Frontend | React 18 + Vite 8 (rolldown) + Tailwind 3, a single-page app | `src/` |
 | Data access | One module per feature owns every table and database function name | `src/api/` |
 | Hosting | Vercel, deploys `main` automatically; security headers + CSP in `vercel.json` | `vercel.json` |
-| Database | Supabase Postgres 17: row level security, ~550 SQL functions, triggers, 30 pg_cron jobs | `supabase/schema/` (current), `supabase/migrations/` (history) |
+| Database | Supabase Postgres 17: row level security, ~590 SQL functions, triggers, 31 pg_cron jobs | `supabase/schema/` (current), `supabase/migrations/` (history) |
 | Server code | 12 Supabase Edge Functions (Deno) | `supabase/functions/` |
 | Auth | Supabase Auth (email + password, Turnstile captcha via `auth-gate`) | |
 | Files | Supabase Storage, 7 buckets (6 public, `dm-media` private) | |
@@ -26,6 +26,7 @@ There is no separate backend server: the browser talks to Supabase directly, and
 `SECURITY DEFINER` SQL function or an edge function using the service role.
 
 Read next: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) (how it fits together and the rules it relies on),
+[docs/HANDOVER_CHECKLIST.md](docs/HANDOVER_CHECKLIST.md) (the move on one page: access, decisions, timeline),
 [docs/MOVING_TO_TRYP_INFRASTRUCTURE.md](docs/MOVING_TO_TRYP_INFRASTRUCTURE.md) (the move runbook),
 [docs/AUTOMATIC_VIEWS.md](docs/AUTOMATIC_VIEWS.md) and [docs/SCRAPER_OPTIONS.md](docs/SCRAPER_OPTIONS.md) (view counts),
 [docs/AUDIT_2026-10-13.html](docs/AUDIT_2026-10-13.html) (the audit, with every finding's status as of 14 Oct).
@@ -59,7 +60,7 @@ Read next: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) (how it fits together an
 
 ```bash
 npm run lint      # eslint; unused variables are errors
-npm test          # vitest, ~1,350 tests, jsdom (also runs the edge-function tests)
+npm test          # vitest, ~1,450 tests, jsdom (also runs the edge-function tests)
 npm run build     # production bundle into dist/
 ```
 

@@ -1,6 +1,6 @@
 # Architecture
 
-A map for a developer joining the project. Current as of 14 Oct 2026. The
+A map for a developer joining the project. Current as of 21 Oct 2026. The
 README covers setup and deploys; this covers how the pieces fit and the rules
 the code depends on.
 
@@ -12,9 +12,9 @@ the code depends on.
    v
  Supabase project
    Postgres 17 ── row level security on every public table
-     ├─ ~140 tables in `public`
-     ├─ ~540 SQL / PL/pgSQL functions (most SECURITY DEFINER) = the business logic
-     ├─ ~200 triggers (scoring, notifications, invoices, audit, fences)
+     ├─ ~150 tables in `public`
+     ├─ ~590 SQL / PL/pgSQL functions (most SECURITY DEFINER) = the business logic
+     ├─ ~215 triggers (scoring, notifications, invoices, audit, fences)
      ├─ pg_cron jobs (reminders, view sync, VIP month close, health)
      └─ pg_net: database -> edge functions over HTTP
    Edge Functions (Deno, supabase/functions/*)
