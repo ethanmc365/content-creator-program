@@ -9,7 +9,7 @@ import { pickWhoToMeet } from '../lib/whoToMeet'
 import { cx } from '../lib/utils'
 import { useT } from '../lib/i18n'
 import SectionTitle from './network/SectionTitle'
-import { testFlags } from '../lib/testData'
+import { loadRoster } from '../lib/roster'
 import { flagEmoji } from '../lib/countries'
 import { profilesApi } from '../api/profiles'
 import { flightsApi } from '../api/flights'
@@ -77,10 +77,8 @@ export default function WhoToMeet({ className }) {
     async function load() {
       const today = format(new Date(), 'yyyy-MM-dd')
       const [{ data: people }, { data: trips }, { data: rels }] = await Promise.all([
-        profilesApi.profiles()
-          .select('id, name, photo_url, bio, city, country, country_code, city_lng, languages, countries_visited, instagram_url, tiktok_url, youtube_url, facebook_url')
-          .eq('status', 'active').in('is_test', testFlags()).eq('is_admin', false)
-          .is('deletion_requested_at', null),
+        // The home page's shared roster (lib/roster), creators only.
+        loadRoster().then((r) => ({ data: r.data ? r.data.filter((p) => !p.is_admin) : null })),
         // Everything upcoming, for everybody. The overlap test needs both sides,
         // and the whole table of future trips is a few dozen rows.
         flightsApi.collabPosts()

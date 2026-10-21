@@ -40,6 +40,7 @@ import Reveal from '../components/network/Reveal'
 import GlowRing from '../components/network/GlowRing'
 import { useT, usePlural } from '../lib/i18n'
 import { testFlags } from '../lib/testData'
+import { loadRoster } from '../lib/roster'
 import { useCachedPage, writePageCache } from '../lib/pageCache'
 import { challengesApi } from '../api/challenges'
 import { moneyApi } from '../api/money'
@@ -344,14 +345,10 @@ export default function GlobalHome() {
         // same rows for its card grid and filters and two components loading
         // the roster twice on one page is how a fast page becomes a slow one.
         // Here there is no grid, so this is the only reader.
-        profilesApi.profiles()
-          // countries_visited is what lets a tap on a country answer "who here
-          // has been", so it travels with the map's own roster.
-          // last_seen_at and bio are what let a city's pin show the creator most
-          // worth seeing rather than whichever row came back first (see
-          // `byPinPriority` in CreatorMap).
-          .select('id, name, photo_url, bio, city, country, country_code, city_lat, city_lng, show_on_map, countries_visited, last_seen_at')
-          .eq('status', 'active').in('is_test', testFlags()).is('deletion_requested_at', null),
+        // countries_visited is what lets a tap on a country answer "who here has been"; last_seen_at and bio let a
+        // city's pin show the creator most worth seeing (`byPinPriority` in CreatorMap). The shared roster carries all
+        // three, and the cards below the map read the same copy (lib/roster).
+        loadRoster(),
         flightsApi.collabPosts().select('creator_id, city, country, city_lat, city_lng, start_date, end_date')
           .gte('end_date', today).order('start_date'),
       ])

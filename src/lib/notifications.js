@@ -175,15 +175,19 @@ function setLeaving(next) {
 /** Forget everything. Called on sign-out so the next person sees their own. */
 export function resetNotifications() {
   rows = null
+  hold = 0
   leavingIds = new Set()
   publish()
 }
 
 // HOW MANY ROWS THE STORE HOLDS. One store, two surfaces, two appetites: the
-// bell shows 30 and the page shows 150. Holding the larger of the two and
-// letting the bell slice is the only version of this that does not have the
-// page's extra rows disappear the moment the bell reloads.
-const HOLD = 150
+// bell shows 30 and the page shows 150. The store holds the larger of what has
+// been ASKED FOR so far, so the page's extra rows never disappear when the bell
+// reloads - but an app open that only has the bell fetches 50 rows, not 150
+// (21 Oct: 46 kB on every open and every return to the app, on weak wifi too).
+// 50 so the unread badge stays right for anyone with up to 50 unread.
+const BELL_HOLD = 50
+let hold = 0
 
 /**
  * Everything the bell and the notifications page both need.
@@ -204,10 +208,12 @@ export function useNotifications({ userId, pathname, pushPrefs, limit = 40, live
   const pathRef = useRef(pathname)
   useEffect(() => { pathRef.current = pathname }, [pathname])
 
+  const want = Math.max(limit, BELL_HOLD)
   const load = useCallback(async () => {
-    const { data } = await notifications.listMine(HOLD)
+    hold = Math.max(hold, want)
+    const { data } = await notifications.listMine(hold)
     setRows(data ?? [])
-  }, [])
+  }, [want])
 
   useEffect(() => {
     if (!userId) return undefined
@@ -324,11 +330,11 @@ function openFeed(userId, prefsRef, pathRef) {
           // If it is for the page they are already looking at, mark it read on
           // the spot instead of badging - they are seeing the content now.
           if (linkPathname(n.link) === pathRef.current && document.visibilityState === 'visible') {
-            setRows((prev) => [{ ...n, read: true }, ...(prev || [])].slice(0, HOLD))
+            setRows((prev) => [{ ...n, read: true }, ...(prev || [])].slice(0, Math.max(hold, BELL_HOLD)))
             notifications.markRead(n.id).then(() => {})
             return
           }
-          setRows((prev) => [n, ...(prev || [])].slice(0, HOLD))
+          setRows((prev) => [n, ...(prev || [])].slice(0, Math.max(hold, BELL_HOLD)))
           // Pop an OS notification when the app is not in the foreground, unless
           // the creator has turned push off for this category.
           const pushOn = prefsRef.current?.[n.type] !== false

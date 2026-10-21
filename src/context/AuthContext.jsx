@@ -5,6 +5,7 @@ import { adoptTestDataVisibility } from '../lib/testData'
 import { clearPageCache } from '../lib/pageCache'
 import { resetNotifications } from '../lib/notifications'
 import { clearScopeCache } from '../lib/scope'
+import { clearRoster } from '../lib/roster'
 import { clearVipAccess, clearVipCache } from '../lib/vip'
 import { identifyForMonitoring } from '../lib/monitoring'
 import { profilesApi } from '../api/profiles'
@@ -101,8 +102,26 @@ function writeCachedProfile(p) {
   } catch { /* private mode or full */ }
 }
 
+// SAME CONTENT, SAME OBJECT. Supabase announces the session again on every token refresh and every time the app comes
+// back to the foreground (SIGNED_IN on visibilitychange), and the profile is fetched again each time. Handing React a
+// new object whose content has not changed re-ran every effect keyed on `user` or `profile` across the app: on 21 Oct
+// switching back to the app re-downloaded 17 requests / 238 kB (the 158 kB who-to-meet roster among them), which is
+// the freeze people feel on a weak connection. The comparison is a JSON string of a ~2 kB row, so it costs nothing.
+export function sameJson(a, b) {
+  if (a === b) return true
+  if (!a || !b) return false
+  try { return JSON.stringify(a) === JSON.stringify(b) } catch { return false }
+}
+
 export function AuthProvider({ children }) {
-  const [session, setSession] = useState(null)
+  const [session, setSessionState] = useState(null)
+  // The user outlives a token refresh: only a real change of account details gives consumers a new object.
+  const [user, setUser] = useState(null)
+  // A refreshed token is a new session (callers read access_token), but an identical one is not.
+  const setSession = useCallback((next) => {
+    setSessionState((prev) => (prev && next && prev.access_token === next.access_token && sameJson(prev.user, next.user) ? prev : next))
+    setUser((prev) => (sameJson(prev, next?.user ?? null) ? prev : (next?.user ?? null)))
+  }, [])
   const [profile, setProfileState] = useState(null)
   // EVERY WAY THE PROFILE CHANGES GOES THROUGH HERE, so that "may this viewer
   // see the demo people" is updated in the same breath as the profile itself
@@ -117,7 +136,8 @@ export function AuthProvider({ children }) {
     // fact. Just the profile id - see lib/monitoring, which strips the email,
     // the name and the IP.
     identifyForMonitoring(p?.id || null)
-    setProfileState(p)
+    // `last_seen_at` is bumped by the app itself every minute (touch_last_seen), so it alone never counts as a change.
+    setProfileState((prev) => (prev && p && sameJson({ ...prev, last_seen_at: null }, { ...p, last_seen_at: null }) ? prev : p))
     writeCachedProfile(p)
   }, [])
   const [loading, setLoading] = useState(true) // true until the first session check resolves
@@ -219,6 +239,7 @@ export function AuthProvider({ children }) {
     // The admin's pages must not be handed to the creator being previewed. See
     // lib/pageCache - the caches are keyed by page, not by account.
     clearPageCache()
+    clearRoster()
     clearScopeCache()
     // THE VIP ANSWERS ARE ACCOUNTS' TOO. and, on the way out, the VIP tools door stayed missing. The VIP overview and
     // the "has VIP tools" answer are module caches kept for the session; the previous account's survived the swap.
@@ -268,6 +289,7 @@ export function AuthProvider({ children }) {
     try { localStorage.removeItem(ADMIN_STASH_KEY) } catch { /* ignore */ }
     // And the creator's pages go with the creator. See lib/pageCache.
     clearPageCache()
+    clearRoster()
     clearScopeCache()
     clearVipCache()
     clearVipAccess()
@@ -304,6 +326,7 @@ export function AuthProvider({ children }) {
   // Re-fetch the profile after edits (photo change, onboarding, etc.).
   const refreshProfile = useCallback(async () => {
     if (!session?.user) return
+    clearRoster() // the edit may change how this person appears on the home page's cards
     const { data } = await fetchProfile(session.user.id)
     setProfile(data ?? null)
     setProfileLoaded(true)
@@ -517,13 +540,12 @@ export function AuthProvider({ children }) {
       clearTimeout(safety)
       subscription.unsubscribe()
     }
-  }, [fetchProfile, reconcileImpersonation, setProfile])
+  }, [fetchProfile, reconcileImpersonation, setProfile, setSession])
 
   const realIsAdmin = profile?.is_admin === true
-
   const value = {
     session,
-    user: session?.user ?? null,
+    user,
     profile,
     // isAdmin gates all admin UI + the /admin route guard. During a creator
     // preview the logged-in profile IS the sandbox creator (is_admin=false), so
@@ -676,6 +698,8 @@ export function AuthProvider({ children }) {
       // thing they do (paint the tab you just left) and fatal the moment the
       // account changes underneath them. See lib/pageCache.
       clearPageCache()
+      clearRoster()
+    clearRoster()
       clearScopeCache()
       // And the notification store, for the same reason and with the same
       // failure mode: it is module state now (lib/notifications), so without
@@ -693,6 +717,8 @@ export function AuthProvider({ children }) {
       try { localStorage.removeItem(ADMIN_STASH_KEY) } catch { /* ignore */ }
       setImpersonating(false)
       clearPageCache()
+      clearRoster()
+    clearRoster()
       clearScopeCache()
       return supabase.auth.signOut({ scope: 'global' })
     },

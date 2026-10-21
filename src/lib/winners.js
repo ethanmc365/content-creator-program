@@ -1,5 +1,7 @@
 import { challengesApi } from '../api/challenges'
 import { submissionsApi } from '../api/submissions'
+import { profilesApi } from '../api/profiles'
+import { fetchIn } from './fetchAll'
 
 /**
  * THE WINNERS PODIUM'S DATA, IN ONE PLACE.
@@ -39,7 +41,10 @@ export async function loadWinnerGalleries(challenges) {
       .in('challenge_id', publishedIds)
       .order('final_views', { ascending: false }),
     submissionsApi.submissions()
-      .select('challenge_id, creator_id, video_url, platform, logged_views, profiles:creator_id(id, name, photo_url)')
+      // NO PROFILE ON EVERY ENTRY. Embedding the creator's name and photo in each of ~1,500 finished entries was 333 kB
+      // of the challenges page (21 Oct 2026), the same faces hundreds of times. The faces the vouchers row needs are
+      // read once, below, for just those people.
+      .select('challenge_id, creator_id, video_url, platform, logged_views')
       .in('challenge_id', publishedIds),
     challengesApi.challengeGroups()
       .select('id, challenge_id, name, position, winners_count')
@@ -93,7 +98,20 @@ export async function loadWinnerGalleries(challenges) {
     subCount.set(k, (subCount.get(k) || 0) + 1)
     liveViews.set(k, (liveViews.get(k) || 0) + (Number(s.logged_views) || 0))
     totalViews.set(s.challenge_id, (totalViews.get(s.challenge_id) || 0) + (Number(s.logged_views) || 0))
-    if (s.profiles) person.set(s.creator_id, s.profiles)
+  }
+  for (const r of results ?? []) if (r.profiles) person.set(r.creator_id, r.profiles)
+  // Voucher winners who never reached the results table (an entry count bar): their faces, one small read.
+  const countBar = new Map(challenges
+    .filter((c) => publishedIds.includes(c.id) && !standingsFor.has(c.id) && c.participation_threshold
+      && !(c.participation_basis === 'points' && c.scoring === 'points'))
+    .map((c) => [c.id, c.participation_threshold]))
+  const faceless = [...new Set([...subCount.entries()]
+    .filter(([k, n]) => { const bar = countBar.get(k.split(':')[0]); return bar && n >= bar })
+    .map(([k]) => k.split(':')[1]))].filter((id) => !person.has(id))
+  if (faceless.length) {
+    const { data: faces } = await fetchIn(
+      (ids) => profilesApi.profiles().select('id, name, photo_url').in('id', ids), faceless)
+    for (const f of faces ?? []) person.set(f.id, f)
   }
 
   const byChallenge = {}

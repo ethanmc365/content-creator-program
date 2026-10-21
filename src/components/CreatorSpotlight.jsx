@@ -7,7 +7,7 @@ import WorldMap from './WorldMap'
 import Icon from './Icon'
 import { Avatar } from './ui'
 import { useT } from '../lib/i18n'
-import { testFlags } from '../lib/testData'
+import { loadRoster } from '../lib/roster'
 import { useIsMobile } from '../lib/useKeyboardInset'
 import { profilesApi } from '../api/profiles'
 
@@ -54,27 +54,28 @@ export default function CreatorSpotlight() {
   useEffect(() => {
     let alive = true
     ;(async () => {
-      const { data: pool } = await profilesApi
-        .profiles()
-        .select('id, name, photo_url, bio, about, city, country, countries_visited')
-        .eq('status', 'active').eq('is_admin', false).in('is_test', testFlags())
-        .is('deletion_requested_at', null)
-        // ONLY SOMEBODY WHO HAS BEEN AROUND LATELY. The spotlight is "a creator to go and say hello to"; featuring one
-        // who has not opened the app in months is a connection request into the void. Last seen within 30 days.
-        .gte('last_seen_at', new Date(Date.now() - 30 * 86400000).toISOString())
-        .order('created_at', { ascending: true })
+      // The home page's shared roster (lib/roster), so the spotlight costs no whole-table read of its own.
+      const { data: roster } = await loadRoster()
       if (!alive) return
-      const list = pool ?? []
+      // ONLY SOMEBODY WHO HAS BEEN AROUND LATELY. The spotlight is "a creator to go and say hello to"; featuring one
+      // who has not opened the app in months is a connection request into the void. Last seen within 30 days. Oldest
+      // member first, as the rotation has always counted.
+      const since = Date.now() - 30 * 86400000
+      const list = (roster ?? [])
+        .filter((p) => !p.is_admin && p.last_seen_at && Date.parse(p.last_seen_at) >= since)
+        .sort((a, b) => (a.created_at < b.created_at ? -1 : a.created_at > b.created_at ? 1 : 0))
       if (list.length === 0) { setLoaded(true); return }
       // Deterministic daily rotation: same creator for everyone on a given
       // (UTC) day, every creator featured once per cycle before any repeat.
       const pick = pickForDay(list)
       if (!pick) { setLoaded(true); return }
-      setCreator(pick)
-      const { data: pics } = await profilesApi
-        .creatorPhotos().select('id, photo_url, caption')
-        .eq('creator_id', pick.id).order('sort_order').limit(4)
+      // The long "about" text is not in the roster: one row, for the one person shown.
+      const [{ data: more }, { data: pics }] = await Promise.all([
+        profilesApi.profiles().select('about').eq('id', pick.id).maybeSingle(),
+        profilesApi.creatorPhotos().select('id, photo_url, caption').eq('creator_id', pick.id).order('sort_order').limit(4),
+      ])
       if (!alive) return
+      setCreator({ ...pick, about: more?.about ?? null })
       setPhotos(pics ?? [])
       // My connection status with today's featured creator (skip if it's me).
       if (user?.id && pick.id !== user.id) {

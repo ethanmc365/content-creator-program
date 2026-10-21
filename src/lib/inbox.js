@@ -1,7 +1,7 @@
 import { otherParticipant } from './utils'
 import { loadGroupMembers, loadMyInvites } from './groups'
 import { loadRelationships } from './connections'
-import { testFlags } from './testData'
+import { loadRoster } from './roster'
 import { profilesApi } from '../api/profiles'
 import { chatApi } from '../api/chat'
 
@@ -82,14 +82,16 @@ export async function fetchInbox(userId, justCreated) {
 // first.
 export const DM_PEOPLE_CACHE_KEY = 'dm-people'
 
+const desc = (a, b) => (a > b ? -1 : a < b ? 1 : 0)
+export function byRecentlySeen(a, b) {
+  if (!a.last_seen_at !== !b.last_seen_at) return a.last_seen_at ? -1 : 1
+  return desc(a.last_seen_at || '', b.last_seen_at || '') || desc(a.created_at || '', b.created_at || '')
+}
+
 export async function fetchDmPeople(userId) {
   const [{ data: profiles }, rels] = await Promise.all([
-    profilesApi
-      .profiles()
-      .select('id, name, photo_url, bio, is_admin, city, country, created_at, last_seen_at')
-      .eq('status', 'active').in('is_test', testFlags()).is('deletion_requested_at', null)
-      .order('last_seen_at', { ascending: false, nullsFirst: false })
-      .order('created_at', { ascending: false }),
+    // The shared roster (lib/roster), newest activity first, then newest member.
+    loadRoster().then((r) => ({ data: r.data ? [...r.data].sort(byRecentlySeen) : null })),
     loadRelationships(userId),
   ])
   return {
