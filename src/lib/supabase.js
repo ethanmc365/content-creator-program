@@ -2,6 +2,7 @@ import { createClient } from '@supabase/supabase-js'
 import { resilientFetch } from './netQuality'
 import { shareReads } from './sharedReads'
 import { watchLoads } from './loadTrouble'
+import { SESSION_STORAGE_KEY, attachClient, carrySession } from './sessionCarry'
 
 // Single shared Supabase client for the whole app.
 // The two values below come from your Supabase project's API settings - // see README → "Environment variables".
@@ -25,8 +26,9 @@ export const supabase = createClient(
       // Keep people signed in until they explicitly log out. The session is
       // saved to localStorage and the access token is silently refreshed in the
       // background, so a returning visitor (even days later) stays logged in.
-      // NOTE: storageKey is intentionally left at the default so existing
-      // sessions survive this change (changing it would log everyone out).
+      // Pinned to today's default so the login is still found after a move to a
+      // new server address (see lib/sessionCarry). Never change it.
+      storageKey: SESSION_STORAGE_KEY,
       persistSession: true,
       autoRefreshToken: true,
       detectSessionInUrl: true,
@@ -35,6 +37,8 @@ export const supabase = createClient(
     // Reads time out and retry once on a weak connection, and their timing is
     // what decides whether the app is on a slow one. See lib/netQuality.
     // Identical reads asked at the same moment go out once. See lib/sharedReads.
-    global: { fetch: watchLoads(shareReads(resilientFetch)) },
+    // A request refused for an old or expired login refreshes it once and is sent again. See lib/sessionCarry.
+    global: { fetch: carrySession(watchLoads(shareReads(resilientFetch))) },
   }
 )
+attachClient(supabase)
