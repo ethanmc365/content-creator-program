@@ -180,10 +180,12 @@ export default function VouchersPanel({ rewards, loading, onChanged, onHandOver 
       <CodeModal
         ticket={editing}
         onClose={() => setEditing(null)}
-        onSave={async (code) => {
-          const ok = await run(editing.id, () => moneyApi.adminSetVoucherCode({
-            p_reward: editing.id, p_code: code, p_via: null,
-          }))
+        onSave={async (code, amount) => {
+          const ok = await run(editing.id, async () => {
+            const r = await moneyApi.adminSetVoucherCode({ p_reward: editing.id, p_code: code, p_via: null })
+            if (r.error || amount == null) return r
+            return moneyApi.rewards().update({ amount }).eq('id', editing.id)
+          })
           if (ok) setEditing(null)
         }}
       />
@@ -320,9 +322,14 @@ function CodeModal({ ticket, onClose, onSave }) {
 
 function CodeForm({ ticket, onSave }) {
   const [code, setCode] = useState(ticket.voucher_code || '')
+  const [amount, setAmount] = useState(String(Number(ticket.amount)))
   const [saving, setSaving] = useState(false)
+  // A combined voucher is several rewards behind one code; its parts keep the amounts their challenges paid.
+  const canEditAmount = !ticket.parts
+  const newAmount = Number(amount)
+  const amountOk = !canEditAmount || (Number.isFinite(newAmount) && newAmount > 0)
   return (
-    <form onSubmit={async (e) => { e.preventDefault(); setSaving(true); await onSave(code); setSaving(false) }} className="space-y-5">
+    <form onSubmit={async (e) => { e.preventDefault(); setSaving(true); await onSave(code, canEditAmount && newAmount !== Number(ticket.amount) ? newAmount : null); setSaving(false) }} className="space-y-5">
       <p className="text-sm text-smoke">
         A {formatMoney(ticket.amount, ticket.currency)} voucher for <span className="font-semibold text-ink">{ticket.profiles?.name}</span>.
         {ticket.parts && ' It is a combined voucher, so the new code replaces the code on every part of it.'}
@@ -335,13 +342,19 @@ function CodeForm({ ticket, onSave }) {
           autoComplete="off" autoCapitalize="characters" spellCheck={false}
         />
       </div>
+      {canEditAmount && (
+        <div>
+          <label htmlFor="vc-amount" className="label">Value <span className="font-normal text-smoke">({ticket.currency || 'EUR'}, what the voucher is worth)</span></label>
+          <input id="vc-amount" type="number" inputMode="decimal" min="0" step="0.01" className="input" value={amount} onChange={(e) => setAmount(e.target.value)} />
+        </div>
+      )}
       {code.trim() && (
         <div>
           <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-widest text-smoke">What they will see</p>
-          <VoucherTicket reward={{ ...ticket, voucher_code: code.trim(), used_at: null }} />
+          <VoucherTicket reward={{ ...ticket, amount: amountOk ? newAmount : ticket.amount, voucher_code: code.trim(), used_at: null }} />
         </div>
       )}
-      <button type="submit" disabled={saving || !code.trim()} className="btn-primary w-full disabled:opacity-60">
+      <button type="submit" disabled={saving || !code.trim() || !amountOk} className="btn-primary w-full disabled:opacity-60">
         {saving ? <Spinner /> : 'Save'}
       </button>
     </form>
