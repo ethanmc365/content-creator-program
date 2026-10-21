@@ -1,87 +1,70 @@
-# Reading view counts: today, and the official routes
+# Reading view counts: today, and creators connecting their accounts
 
-Written 14 Oct 2026 for the move to Tryp.com infrastructure (audit finding H8). **Nothing here has been changed in
-how Facebook or Instagram are read: that needs a decision from Tryp.** This document lays out the options.
+Current as of 21 Oct 2026. How the reader works in detail: [AUTOMATIC_VIEWS.md](AUTOMATIC_VIEWS.md).
+
+**Decision (21 Oct 2026): keep the current reader for now.** The next step, when Tryp is ready, is to let creators
+connect their TikTok and Instagram accounts, the way other creator (UGC) platforms do.
 
 ## How it works today
 
-The edge function `view-sync` reads the public view count off the link a creator submitted, for challenge entries
-and VIP videos. Details: [AUTOMATIC_VIEWS.md](AUTOMATIC_VIEWS.md).
+The edge function `view-sync` reads the public numbers off the link a creator submitted, every hour, for challenge
+entries and VIP videos. Code: `supabase/functions/view-sync/` (`index.ts` runs the sweep; `tiktok.ts`, `youtube.ts`,
+`instagram.ts`, `facebookRead.ts` read one platform each).
 
-| Platform | How it is read today | Account or cookie used | Terms of service |
+| Platform | How | Account needed | Platform terms |
 | --- | --- | --- | --- |
-| YouTube | Official YouTube Data API v3 (`videos.list`, API key) | None | Allowed |
-| TikTok | Logged-out embed / video page, play count in the page data | None | Automated collection not permitted |
-| Instagram | Logged-out reels tab and public GraphQL query | None | Automated collection not permitted |
-| Facebook | Logged-out reel/watch pages fetched with Google/Bing crawler user agents; blocked reads retried from other Supabase regions | None | Not permitted, and presents itself as a search engine |
+| YouTube | Official YouTube Data API (API key) | None | Allowed |
+| TikTok | Public embed page | None | Automated reading not allowed |
+| Instagram | Creator's public reels tab | None | Automated reading not allowed |
+| Facebook | Public reel page, read as a search crawler; other regions tried when one is blocked | None | Not allowed |
 
-What protects us today: it only reads links creators submitted for a paid programme, only the public count, date and
-thumbnail, at a polite rate, with no login. Since 14 Oct every redirect hop is checked against the platform's own hosts.
+Any platform can block this on any day. The results page explains every failure code and the team can type views in.
 
-What it cannot promise: any platform can block it on any day (Facebook already walls some server addresses; that is
-why reads hop regions). The "Platform refused" code on the results page is that happening.
+**On Tryp's own servers:** the reader retries blocked Instagram, Facebook and TikTok reads from other Supabase Cloud
+regions. That only exists on Supabase Cloud. On a self-hosted server every read comes from one address, so test
+Instagram and Facebook from that server during the practice run. If they are refused, keep `view-sync` running on a
+small Supabase Cloud project that writes to the Tryp database, or turn those two platforms over to typed views.
 
-## The official routes
+## Creators connect their accounts (recommended next step)
 
-All three need the **creator to connect their own account once** (OAuth). After that the count is exact, comes with
-the creator's permission, and no page is scraped.
+Each creator taps "Connect TikTok" / "Connect Instagram" once (in onboarding or Settings) and approves. From then on
+the numbers come from the platform with the creator's permission: exact, never blocked, and allowed by the terms.
 
-### Instagram: Instagram API with Instagram Login (recommended for Instagram)
+### What we read today, and what connecting gives
 
-- **What the creator does:** taps "Connect Instagram" in Settings and approves. Their account must be a
-  **Professional account (Creator or Business)**; switching is free and takes a minute in the Instagram app. No
-  Facebook Page needed with this login type.
-- **What we read:** `GET /{media-id}/insights?metric=views` for each of their reels and posts. `views` is the total
-  times the media was played (organic only). Data can lag up to 48 hours. The old `plays` metric is deprecated.
-- **Permissions / review:** `instagram_business_basic` and `instagram_business_manage_insights`, which need Meta App
-  Review (a screencast of the flow, a privacy policy URL, business verification of Tryp.com ApS).
-- **Limits:** about 200 calls per user per hour; plenty for a few videos a day per creator.
-- **Effort:** Meta app + review 2-4 weeks elapsed; build about 4-6 days (connect flow, token storage in
-  `creator_private`-style table, refresh, a reader branch in `view-sync`, disconnect).
-- **Gap:** a creator who will not switch to a Professional account, or does not connect, falls back to typed views.
+| Data | Today (public pages) | TikTok, connected | Instagram, connected |
+| --- | --- | --- | --- |
+| Views | Yes (Facebook rounded) | Yes, exact | Yes, exact (organic; can lag up to 48 h) |
+| Thumbnail / cover | Yes | Yes | Yes |
+| Posted date | Yes | Yes | Yes |
+| Caption | Yes | Yes | Yes |
+| Likes, comments, shares | No | Yes | Yes (plus saves) |
+| Reach (unique accounts) | No | No | Yes |
+| Followers | No | Yes | Yes |
+| Audience by country, age, gender | No | No | Yes, for accounts with 100+ followers |
+| Words written on the video (TikTok text stickers) | Yes, from the embed page | No | No |
+| Works for any public account | Yes | Yes | **Professional (Creator/Business) accounts only**; switching is free |
 
-### Facebook: Graph API, Page videos only
+So connecting gives everything we have today plus engagement, reach, followers and audience data, which would also
+feed the creator's portfolio and media kit. The one thing it does not give is the text written on a TikTok video:
+keep reading the embed page for that (one light read when the entry is added).
 
-- **What the creator does:** connects Facebook and picks the Page they post from.
-- **What we read:** `GET /{video-id}/video_insights` metric `total_video_views` (plays of 3 seconds or more).
-- **Permissions / review:** `pages_read_engagement` and `read_insights` with a Page access token from someone who can
-  analyse the Page; Meta App Review and business verification as above (one Meta app covers both).
-- **Hard limit:** **videos posted on a personal profile cannot be read at all** through the API (insights exist only
-  for Pages). Many creators post reels from personal profiles today; those would need typed views.
-- **Effort:** about 3-4 days on top of the Instagram work (same app, same token storage).
+Facebook can be connected too, but only for videos posted from a **Page**; personal-profile videos cannot be read
+by any official route, so those stay on typed views. YouTube needs nothing: it already uses the official API.
 
-### TikTok: Display API
+### What it takes
 
-- **What the creator does:** taps "Connect TikTok" and approves.
-- **What we read:** `POST /v2/video/list/` (or `video/query` with the video ids) with `fields=view_count,...`.
-- **Permissions / review:** Login Kit plus the `user.info.basic` and `video.list` scopes; the TikTok app must pass
-  TikTok's app review before production use. Access tokens last 24 hours and refresh tokens a year, so the reader
-  refreshes on use.
-- **Effort:** app review 1-3 weeks elapsed; build about 3-4 days.
+| | Instagram | TikTok |
+| --- | --- | --- |
+| Developer app | Meta app, "Instagram API with Instagram Login" | TikTok for Developers app, Login Kit + Display API |
+| Permissions | `instagram_business_basic`, `instagram_business_manage_insights` | `user.info.basic`, `user.info.stats`, `video.list` |
+| Review | Meta App Review + business verification of Tryp.com ApS (screencast, privacy policy URL) | TikTok app review |
+| Waiting time | 2 to 4 weeks | 1 to 3 weeks |
+| Build | About a week: connect button, token storage, token refresh, a connected-account reader in `view-sync`, disconnect | About a week, same parts |
 
-### YouTube: already official
+Both reviews can run at the same time as the build. Until a creator connects, the current reader stays as the
+fallback; a setting in `app_settings.view_sync` can switch the public reader off per platform once most creators
+have connected.
 
-Nothing to change. Quota is 10,000 units a day; `videos.list` costs one unit per call for up to 50 videos, so the
-current volume uses well under 1%.
-
-## Recommendation
-
-1. **Decide now:** stop presenting the reader as a Google or Bing crawler for Facebook (the `FB_CRAWLER_UAS` list in `view-sync/facebook.ts`).
-   Facebook reads will fail more often; the results page already tells the team to type those in.
-2. **Then:** build the connect flows, Instagram first (most entries), TikTok second, Facebook Pages third. Keep the
-   current public reader only as a fallback for creators who have not connected, or turn it off per platform once
-   most creators are connected (a setting in `app_settings.view_sync`).
-3. **Budget:** roughly 3 weeks of engineering plus 2-4 weeks waiting on Meta and TikTok reviews, run in parallel.
-
-## Error codes the team sees
-
-Every code the reader stores is explained on the results page with what happened and what to do
-(`src/lib/viewSync.js`, `SYNC_ERRORS`). A test fails if the edge function ever emits a code without an explanation.
-
-Sources: [Instagram media insights](https://developers.facebook.com/docs/instagram-platform/reference/instagram-media/insights/),
-[Instagram API with Instagram Login insights](https://developers.facebook.com/blog/post/2025/03/24/user-and-media-insights-on-instagram-api-with-instagram-login/),
-[Instagram changelog](https://developers.facebook.com/docs/instagram-platform/changelog),
-[Facebook video insights](https://developers.facebook.com/docs/graph-api/reference/video/video_insights/),
-[Facebook insights permissions](https://developers.facebook.com/docs/graph-api/reference/page/insights/),
-[TikTok Display API get started](https://developers.tiktok.com/docs/en/display-api-get-started),
-[TikTok video list](https://developers.tiktok.com/docs/en/tiktok-api-v1-video-list).
+To start, Tryp needs to: create the Meta and TikTok developer apps under a Tryp business account, complete Meta
+business verification, and publish a privacy policy page that covers the data read.

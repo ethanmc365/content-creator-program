@@ -21,7 +21,7 @@ the code depends on.
      auth-gate, calendar-feed, geocode, impersonate, media-cleanup,
      notify-dispatch (web push), push-track, send-invoice, thumb-cache,
      translate-text, upload, view-sync (reads TikTok / Instagram / YouTube /
-     Facebook view counts)
+     Facebook view counts: index.ts runs the sweep, one file per platform)
  Vercel: static hosting of dist/ + headers/CSP (vercel.json)
 ```
 
@@ -80,9 +80,15 @@ the page.
 
 ## 3. Talking to Supabase
 
-- One client: `src/lib/supabase.js`. Its fetch is wrapped twice:
-  `lib/netQuality` (timeouts + one retry on weak connections) and
-  `lib/sharedReads` (identical GETs in flight at the same moment go out once).
+- One client: `src/lib/supabase.js`. Its fetch is wrapped three times:
+  `lib/netQuality` (timeouts + one retry on weak connections),
+  `lib/sharedReads` (identical GETs in flight at the same moment go out once) and
+  `lib/sessionCarry` (a request refused for an old or expired login refreshes it once and is resent, so a move to
+  new servers does not sign anybody out; the saved-login key is pinned and must never change).
+- The list of creators is read once and shared by every card that needs it (`lib/roster`). Read from it rather
+  than adding another whole-table read of `profiles`.
+- `AuthContext` keeps the same `session`, `user` and `profile` objects when their content has not changed, so
+  effects keyed on them do not re-run on every token refresh or return to the app.
 - **supabase-js does not throw on a failed write.** Always destructure `error`,
   or wrap a write a person acts on in `saved()` from `lib/confirm` (shows "That
   did not save" and returns false).
