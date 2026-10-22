@@ -11,6 +11,7 @@ import { useViewAs, ViewingAsBanner } from '../components/ViewingAs'
 import { useT } from '../lib/i18n'
 import CertificateWall from '../components/certificate/CertificateWall'
 import VoucherTicket from '../components/VoucherTicket'
+import { useVoucherOffers, VoucherOfferCards } from '../components/VoucherChoice'
 import { notice } from '../lib/confirm'
 import { useAuth } from '../context/AuthContext'
 import { money, useOptionalRpc, useKindT } from '../lib/vip'
@@ -30,6 +31,8 @@ export default function Rewards() {
   const [loading, setLoading] = useState(true)
   const [ticking, setTicking] = useState(null)
   const [showSpent, setShowSpent] = useState(false)
+  const [refresh, setRefresh] = useState(0)
+  const { offers, reload: reloadOffers } = useVoucherOffers(!viewing)
   // THE CERTIFICATE IS GONE FOR NOW.
   //
   // A share-a-certificate button on every reward row, on a page a creator opens
@@ -52,7 +55,7 @@ export default function Rewards() {
         setRewards(data ?? [])
         setLoading(false)
       })
-  }, [whose])
+  }, [whose, refresh])
 
   // THE VOUCHERS, AS TICKETS. The code used to travel by DM after "distributed"; it is on the reward row now and the
   // creator ticks it off themselves once spent (set_reward_used, migration 255).
@@ -147,6 +150,8 @@ export default function Rewards() {
               )}
             </section>
           </Reveal>
+
+          {!viewing && <VoucherOfferCards offers={offers} reload={reloadOffers} onChanged={() => setRefresh((n) => n + 1)} />}
 
           {tickets.length > 0 && (
             <section className="mb-10">

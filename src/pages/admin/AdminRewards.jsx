@@ -18,6 +18,8 @@ import { rewardsTotal } from '../../lib/programme'
 import { groupRewards } from '../../lib/rewardsGrouping'
 import VoucherTicket from '../../components/VoucherTicket'
 import VouchersPanel from './VouchersPanel'
+import VoucherBonusCard from '../../components/admin/VoucherBonusCard'
+import { bonusFor, useVoucherBonus } from '../../lib/voucherBonus'
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { CHART, FILL, axisTick, axisTickSmall, tooltipStyle } from '../../components/charts/chartTheme'
 import { moneyApi } from '../../api/money'
@@ -117,7 +119,7 @@ function ReferralSection({ loading, rewards, owed, paid, pendingCount, busyId, o
 
 // ONE REWARD ROW. Extracted so a challenge's section and the (former) flat
 // list draw it identically - the row itself did not change, only what wraps it.
-function RewardRow({ r, invoiceOf, viewer, busyId, onInvoice, onDistribute }) {
+function RewardRow({ r, invoiceOf, viewer, busyId, onInvoice, onDistribute, onConvert }) {
   return (
     <div
       {...(invoiceOf.has(r.id)
@@ -178,6 +180,16 @@ function RewardRow({ r, invoiceOf, viewer, busyId, onInvoice, onDistribute }) {
           button reading "On invoice Tryp.com 003" that navigated to a
           different tab and left you to find the row again. A payout row
           IS an invoice - clicking it shows you the invoice. */}
+      {/* A CASH PRIZE CAN BECOME A VOUCHER (migration 453): the creator chose one, or the team decides. Replaces this row. */}
+      {r.reward_type === 'cash' && r.status === 'pending' && r.challenge_id && onConvert && (
+        <button
+          type="button"
+          onClick={(e) => { e.stopPropagation(); onConvert(r) }}
+          className="btn-secondary !py-2 text-xs"
+        >
+          Convert to voucher
+        </button>
+      )}
       {invoiceOf.has(r.id) ? (
         <span className="text-xs font-medium text-brand">
           {invoiceRef(invoiceOf.get(r.id).number)} →
@@ -605,6 +617,26 @@ export default function AdminRewards() {
 
   useEffect(() => { load() }, [load])
 
+  // CONVERT A CASH PRIZE TO A VOUCHER. The value starts at cash + the bonus tier and can be set to anything.
+  const [bonusSettings] = useVoucherBonus()
+  const [converting, setConverting] = useState(null)
+  const [convertAmount, setConvertAmount] = useState('')
+  function openConvert(reward) {
+    setConverting(reward)
+    setConvertAmount(String(Number(reward.amount) + bonusFor(bonusSettings, reward.amount)))
+  }
+  async function confirmConvert(e) {
+    e.preventDefault()
+    const amount = Number(convertAmount)
+    if (!(amount > 0)) { notice('Enter the value of the voucher.'); return }
+    setBusyId(converting.id)
+    const { error } = await moneyApi.adminConvertRewardToVoucher({ p_reward: converting.id, p_amount: amount })
+    setBusyId(null)
+    if (error) { notice(`Could not convert: ${error.message}`); return }
+    setConverting(null)
+    load()
+  }
+
   // Open the "mark distributed" modal, pre-filling any existing note.
   // Also opened on a voucher that is ALREADY distributed, to add or change its
   // code (the historical ones went out by DM) - then only the code is written.
@@ -875,7 +907,7 @@ export default function AdminRewards() {
           rows={cashOutstanding}
           loading={loading}
           openInvoices={invoiceStages.filter((i) => ['approved', 'sent'].includes(i.stage) && ![...invoiceOf.values()].some((x) => x.id === i.id)).length}
-          invoiceOf={invoiceOf} viewer={viewer} busyId={busyId} onInvoice={invoiceReward} onDistribute={openDistribute}
+          invoiceOf={invoiceOf} viewer={viewer} busyId={busyId} onInvoice={invoiceReward} onDistribute={openDistribute} onConvert={openConvert}
         />
         <h2 className="mb-3 mt-2 text-lg font-semibold">Invoices</h2>
         <InvoiceQueue key={queueKey} onEdit={editInvoice} inMarket={inMarket} onChanged={load} />
@@ -901,6 +933,7 @@ export default function AdminRewards() {
                 busyId={busyId}
                 onInvoice={invoiceReward}
                 onDistribute={openDistribute}
+                onConvert={openConvert}
               />
             ))}
           </div>
@@ -919,6 +952,7 @@ export default function AdminRewards() {
           busyId={busyId}
           onPay={openDistribute}
         />
+        <VoucherBonusCard />
         <VouchersPanel
           rewards={rewards}
           loading={loading}
@@ -1070,6 +1104,30 @@ export default function AdminRewards() {
             {adding ? <Spinner /> : 'Add reward'}
           </button>
         </form>
+      </Modal>
+
+      {/* ---------- Convert to voucher modal ---------- */}
+      <Modal open={!!converting} onClose={() => setConverting(null)} title="Convert to a voucher">
+        {converting && (
+          <form onSubmit={confirmConvert} className="space-y-4">
+            <p className="text-sm text-smoke">
+              <strong className="text-ink">{converting.profiles?.name || 'This creator'}</strong> has an unpaid cash prize of{' '}
+              <strong className="text-ink">{formatMoney(converting.amount, converting.currency)}</strong>
+              {converting.payment_notes ? ` (${converting.payment_notes})` : ''}. It is replaced by a voucher that appears under
+              <em> Vouchers → Needs a code</em>; any invoice drafted for the cash is removed. The creator is told.
+            </p>
+            <div>
+              <label htmlFor="conv-amount" className="label">Voucher value ({converting.currency})</label>
+              <input id="conv-amount" type="number" min="1" step="0.01" inputMode="decimal" className="input" value={convertAmount} onChange={(e) => setConvertAmount(e.target.value)} autoFocus />
+              <p className="mt-1.5 text-xs text-smoke">
+                Standard offer: cash + {formatMoney(bonusFor(bonusSettings, converting.amount), converting.currency)} bonus = {formatMoney(Number(converting.amount) + bonusFor(bonusSettings, converting.amount), converting.currency)}. Change it for anything else, for example to add this to a voucher you already issued by hand.
+              </p>
+            </div>
+            <button type="submit" disabled={busyId === converting.id} className="btn-primary w-full">
+              {busyId === converting.id ? <Spinner /> : 'Convert to voucher'}
+            </button>
+          </form>
+        )}
       </Modal>
 
       {/* ---------- Mark distributed modal ---------- */}

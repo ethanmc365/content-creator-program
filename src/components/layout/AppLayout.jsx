@@ -23,6 +23,7 @@ import SurveyHost from '../SurveyHost'
 import GlobalChallengePrompt from '../GlobalChallengePrompt'
 import BoostPrompt from '../BoostPrompt'
 import VoucherDayPrompt from '../VoucherDayPrompt'
+import VoucherChoicePrompt from '../VoucherChoice'
 import AgreementGate from '../agreements/AgreementGate'
 import { useChatSearchTarget } from '../../lib/chatSearch'
 import { useChatChromeHidden, chatChromeFlipInstant } from '../../lib/chatChrome'
@@ -472,6 +473,8 @@ export default function AppLayout() {
       <AgreementGate />
       <BoostPrompt />
       <VoucherDayPrompt />
+      {/* A cash prize that can be swapped for a slightly bigger voucher (migration 453). */}
+      <VoucherChoicePrompt />
       <JoinMarketHost />
       <GlobalChallengePrompt />
       {/* Surveys from the team (migration 291), last in the same queue. */}
